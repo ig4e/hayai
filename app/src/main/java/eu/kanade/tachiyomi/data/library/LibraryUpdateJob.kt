@@ -338,7 +338,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
      * @return an observable delivering the progress of each update.
      */
     private suspend fun updateChapterList() {
-        val semaphore = Semaphore(5)
+        val semaphore = Semaphore(10)
         val progressCount = AtomicInteger(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
         val newUpdates = CopyOnWriteArrayList<Pair<Manga, Array<Chapter>>>()
@@ -524,7 +524,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     }
 
     private suspend fun updateCovers() {
-        val semaphore = Semaphore(5)
+        val semaphore = Semaphore(10)
         val progressCount = AtomicInteger(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
 
@@ -813,7 +813,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             // Check if the LibraryUpdateJob is already running
             if (wm.isRunning(TAG)) {
                 // Already running either as a scheduled or manual job
-                return false
+                //return false
             }
 
             val inputData = workDataOf(

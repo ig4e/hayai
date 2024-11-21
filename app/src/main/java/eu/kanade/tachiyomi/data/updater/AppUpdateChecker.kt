@@ -19,33 +19,9 @@ class AppUpdateChecker {
         //     return GetApplicationRelease.Result.OsTooOld
         // }
 
-        return withIOContext {
-            val result = getApplicationRelease.await(
-                GetApplicationRelease.Arguments(
-                    // SY -->
-                    isPreviewBuildType,
-                    // SY <--
-                    context.isInstalledFromFDroid(),
-                    BuildConfig.COMMIT_COUNT.toInt(),
-                    BuildConfig.VERSION_NAME,
-                    GITHUB_REPO,
-                    // SY -->
-                    syDebugVersion,
-                    // SY <--
-                    forceCheck,
-                ),
-            )
+        return GetApplicationRelease.Result.NoNewUpdate
 
-            when (result) {
-                is GetApplicationRelease.Result.NewUpdate -> AppUpdateNotifier(context).promptUpdate(result.release)
-                is GetApplicationRelease.Result.ThirdPartyInstallation -> AppUpdateNotifier(
-                    context,
-                ).promptFdroidUpdate()
-                else -> {}
-            }
 
-            result
-        }
     }
 }
 

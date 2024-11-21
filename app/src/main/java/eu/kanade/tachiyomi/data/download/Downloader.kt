@@ -207,10 +207,9 @@ class Downloader(
                         // Ignore completed downloads, leave them in the queue
                         .filter { it.status.value <= Download.State.DOWNLOADING.value }
                         .groupBy { it.source }
+                        .flatMap { (_, downloads) -> downloads.take(10) }
                         .toList()
-                        // Concurrently download from 5 different sources
-                        .take(5)
-                        .map { (_, downloads) -> downloads.first() }
+
                     emit(activeDownloads)
 
                     if (activeDownloads.isEmpty()) break
@@ -251,14 +250,22 @@ class Downloader(
             if (download.status == Download.State.DOWNLOADED) {
                 removeFromQueue(download)
             }
+
+            // Check if all downloads are finished
             if (areAllDownloadsFinished()) {
-                stop()
+                stop() // Optionally signal to stop the downloading process
             }
         } catch (e: Throwable) {
-            if (e is CancellationException) throw e
-            logcat(LogPriority.ERROR, e)
-            notifier.onError(e.message)
-            stop()
+            if (e is CancellationException) {
+                throw e // Re-throw to allow proper coroutine cancellation
+            }
+            logcat(LogPriority.ERROR, e) // Log the error
+            notifier.onError(e.message) // Notify the user of the error
+
+            // Optional: Handle individual download retries if needed
+            // retryDownload(download)
+
+            stop() // Optionally stop all downloads in case of failure
         }
     }
 
@@ -375,7 +382,7 @@ class Downloader(
             // Start downloading images, consider we can have downloaded images already
             // Concurrently do 2 pages at a time
             pageList.asFlow()
-                .flatMapMerge(concurrency = 2) { page ->
+                .flatMapMerge(concurrency = 10) { page ->
                     flow {
                         // Fetch image URL if necessary
                         if (page.imageUrl.isNullOrEmpty()) {
