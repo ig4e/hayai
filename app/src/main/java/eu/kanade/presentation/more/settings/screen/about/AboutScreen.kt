@@ -61,6 +61,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 object AboutScreen : Screen() {
+    private fun readResolve(): Any = AboutScreen
 
     @Composable
     override fun Content() {

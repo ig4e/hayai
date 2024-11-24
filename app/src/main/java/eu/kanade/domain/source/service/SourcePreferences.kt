@@ -85,6 +85,7 @@ class SourcePreferences(
         NONE,
         BANDWIDTH_HERO,
         WSRV_NL,
+        HAYAI,
     }
     // SY <--
 }

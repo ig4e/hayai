@@ -150,7 +150,9 @@
     <string name="data_saver_color_bw">Convert to Black And White</string>
     <string name="bandwidth_hero">Bandwidth Hero (requires a Bandwidth Hero Proxy server)</string>
     <string name="wsrv">wsrv.nl</string>
-    <string name="bandwidth_data_saver_server">Bandwidth Hero Proxy Server</string>
+    <string name="hayai_proxy_saver">Hayai (requires a Hayai Proxy server)</string>
+    <string name="hayai_proxy_saver_server">Hayai Proxy Server</string>
+    <string name="bandwidth_data_saver_server">Proxy Server URL (Hayai/Bandwidth Hero)</string>
     <string name="data_saver_server_summary">Put Bandwidth Hero Proxy server url here</string>
     <string name="clear_db_exclude_read">Keep entries with read chapters</string>
 

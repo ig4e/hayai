@@ -602,13 +602,14 @@ object SettingsAdvancedScreen : SearchableSettings {
                         DataSaver.NONE to stringResource(MR.strings.disabled),
                         DataSaver.BANDWIDTH_HERO to stringResource(SYMR.strings.bandwidth_hero),
                         DataSaver.WSRV_NL to stringResource(SYMR.strings.wsrv),
+                        DataSaver.HAYAI to stringResource(SYMR.strings.hayai_proxy_saver)
                     ),
                 ),
                 Preference.PreferenceItem.EditTextPreference(
                     pref = sourcePreferences.dataSaverServer(),
                     title = stringResource(SYMR.strings.bandwidth_data_saver_server),
                     subtitle = stringResource(SYMR.strings.data_saver_server_summary),
-                    enabled = dataSaver == DataSaver.BANDWIDTH_HERO,
+                    enabled = dataSaver == DataSaver.BANDWIDTH_HERO || dataSaver === DataSaver.HAYAI,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     pref = sourcePreferences.dataSaverDownloader(),
