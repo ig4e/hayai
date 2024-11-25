@@ -284,7 +284,6 @@
         <!-- EH -->
         <activity
             android:name="exh.ui.intercept.InterceptActivity"
-            android:label="@string/app_name"
             android:theme="@style/Theme.Tachiyomi"
             android:exported="true">
             <!-- E-Hentai -->

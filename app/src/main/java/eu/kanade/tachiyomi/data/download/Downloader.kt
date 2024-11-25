@@ -207,7 +207,7 @@ class Downloader(
                         // Ignore completed downloads, leave them in the queue
                         .filter { it.status.value <= Download.State.DOWNLOADING.value }
                         .groupBy { it.source }
-                        .flatMap { (_, downloads) -> downloads.take(10) }
+                        .flatMap { (_, downloads) -> downloads.take(5) }
                         .toList()
 
                     emit(activeDownloads)
@@ -380,9 +380,9 @@ class Downloader(
             download.status = Download.State.DOWNLOADING
 
             // Start downloading images, consider we can have downloaded images already
-            // Concurrently do 2 pages at a time
+            // Concurrently do 5 pages at a time
             pageList.asFlow()
-                .flatMapMerge(concurrency = 10) { page ->
+                .flatMapMerge(concurrency = 5) { page ->
                     flow {
                         // Fetch image URL if necessary
                         if (page.imageUrl.isNullOrEmpty()) {
