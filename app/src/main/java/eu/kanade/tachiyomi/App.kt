@@ -92,6 +92,8 @@ import uy.kohesive.injekt.injectLazy
 import java.security.Security
 import java.text.SimpleDateFormat
 import java.util.Locale
+import mihon.domain.extensionrepo.interactor.CreateExtensionRepo
+import kotlinx.coroutines.launch
 
 class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory {
 
@@ -204,6 +206,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         }
 
         initializeMigrator()
+
+        // SY -->
+        setupExtensionRepo()
+        // SY <--
     }
 
     private fun initializeMigrator() {
@@ -390,6 +396,20 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             }
         }
     }
+
+    // SY -->
+    private fun setupExtensionRepo() {
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            try {
+                val createExtensionRepo = Injekt.get<CreateExtensionRepo>()
+                val keiyoushiRepoUrl = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json"
+                createExtensionRepo.await(keiyoushiRepoUrl)
+            } catch (e: Exception) {
+                // Silently fail if repo already exists or there's another issue
+            }
+        }
+    }
+    // SY <--
 }
 
 private const val ACTION_DISABLE_INCOGNITO_MODE = "tachi.action.DISABLE_INCOGNITO_MODE"

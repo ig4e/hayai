@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Colors for Zinc theme
+  ~ Based on Tailwind CSS Zinc color palette
+  ~ https://tailwindcss.com/docs/customizing-colors
+-->
+<resources>
+    <color name="zinc_primary">#52525b</color>
+    <color name="zinc_onPrimary">#ffffff</color>
+    <color name="zinc_primaryContainer">#71717a</color>
+    <color name="zinc_onPrimaryContainer">#ffffff</color>
+    <color name="zinc_inversePrimary">#a1a1aa</color>
+    <color name="zinc_secondary">#52525b</color>
+    <color name="zinc_onSecondary">#ffffff</color>
+    <color name="zinc_secondaryContainer">#d4d4d8</color>
+    <color name="zinc_onSecondaryContainer">#27272a</color>
+    <color name="zinc_tertiary">#71717a</color>
+    <color name="zinc_onTertiary">#ffffff</color>
+    <color name="zinc_tertiaryContainer">#e4e4e7</color>
+    <color name="zinc_onTertiaryContainer">#27272a</color>
+    <color name="zinc_error">#ba1a1a</color>
+    <color name="zinc_onError">#ffffff</color>
+    <color name="zinc_errorContainer">#ffdad6</color>
+    <color name="zinc_onErrorContainer">#410002</color>
+    <color name="zinc_background">#fafafa</color>
+    <color name="zinc_onBackground">#18181b</color>
+    <color name="zinc_surface">#f4f4f5</color>
+    <color name="zinc_onSurface">#18181b</color>
+    <color name="zinc_surfaceVariant">#e4e4e7</color>
+    <color name="zinc_onSurfaceVariant">#3f3f46</color>
+    <color name="zinc_outline">#71717a</color>
+    <color name="zinc_outlineVariant">#a1a1aa</color>
+    <color name="zinc_scrim">#000000</color>
+    <color name="zinc_inverseSurface">#27272a</color>
+    <color name="zinc_inverseOnSurface">#f4f4f5</color>
+    <color name="zinc_surfaceTint">#52525b</color>
+    <color name="zinc_surfaceDim">#e4e4e7</color>
+    <color name="zinc_surfaceBright">#f4f4f5</color>
+    <color name="zinc_surfaceContainerLowest">#ffffff</color>
+    <color name="zinc_surfaceContainerLow">#f4f4f5</color>
+    <color name="zinc_surfaceContainer">#e4e4e7</color>
+    <color name="zinc_surfaceContainerHigh">#d4d4d8</color>
+    <color name="zinc_surfaceContainerHighest">#a1a1aa</color>
+</resources>

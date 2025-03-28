@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Colors for Emerald theme (Dark)
+  ~ Based on Tailwind CSS Emerald color palette
+  ~ https://tailwindcss.com/docs/customizing-colors
+-->
+<resources>
+    <color name="emerald_primary">#34d399</color>
+    <color name="emerald_onPrimary">#064e3b</color>
+    <color name="emerald_primaryContainer">#047857</color>
+    <color name="emerald_onPrimaryContainer">#d1fae5</color>
+    <color name="emerald_inversePrimary">#059669</color>
+    <color name="emerald_secondary">#6ee7b7</color>
+    <color name="emerald_onSecondary">#065f46</color>
+    <color name="emerald_secondaryContainer">#047857</color>
+    <color name="emerald_onSecondaryContainer">#a7f3d0</color>
+    <color name="emerald_tertiary">#a7f3d0</color>
+    <color name="emerald_onTertiary">#022c22</color>
+    <color name="emerald_tertiaryContainer">#064e3b</color>
+    <color name="emerald_onTertiaryContainer">#d1fae5</color>
+    <color name="emerald_error">#ffb4ab</color>
+    <color name="emerald_onError">#690005</color>
+    <color name="emerald_errorContainer">#93000a</color>
+    <color name="emerald_onErrorContainer">#ffdad6</color>
+    <color name="emerald_background">#18181b</color>
+    <color name="emerald_onBackground">#f4f4f5</color>
+    <color name="emerald_surface">#27272a</color>
+    <color name="emerald_onSurface">#f4f4f5</color>
+    <color name="emerald_surfaceVariant">#3f3f46</color>
+    <color name="emerald_onSurfaceVariant">#d4d4d8</color>
+    <color name="emerald_outline">#a1a1aa</color>
+    <color name="emerald_outlineVariant">#52525b</color>
+    <color name="emerald_scrim">#000000</color>
+    <color name="emerald_inverseSurface">#f4f4f5</color>
+    <color name="emerald_inverseOnSurface">#27272a</color>
+    <color name="emerald_surfaceTint">#34d399</color>
+    <color name="emerald_surfaceDim">#18181b</color>
+    <color name="emerald_surfaceBright">#3f3f46</color>
+    <color name="emerald_surfaceContainerLowest">#09090b</color>
+    <color name="emerald_surfaceContainerLow">#18181b</color>
+    <color name="emerald_surfaceContainer">#27272a</color>
+    <color name="emerald_surfaceContainerHigh">#3f3f46</color>
+    <color name="emerald_surfaceContainerHighest">#52525b</color>
+</resources>

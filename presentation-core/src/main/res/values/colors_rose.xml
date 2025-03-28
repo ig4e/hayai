@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Colors for Rose theme
+  ~ Based on Tailwind CSS Rose color palette
+  ~ https://tailwindcss.com/docs/customizing-colors
+-->
+<resources>
+    <color name="rose_primary">#e11d48</color>
+    <color name="rose_onPrimary">#ffffff</color>
+    <color name="rose_primaryContainer">#f43f5e</color>
+    <color name="rose_onPrimaryContainer">#ffffff</color>
+    <color name="rose_inversePrimary">#fb7185</color>
+    <color name="rose_secondary">#be123c</color>
+    <color name="rose_onSecondary">#ffffff</color>
+    <color name="rose_secondaryContainer">#fecdd3</color>
+    <color name="rose_onSecondaryContainer">#881337</color>
+    <color name="rose_tertiary">#9f1239</color>
+    <color name="rose_onTertiary">#ffffff</color>
+    <color name="rose_tertiaryContainer">#ffe4e6</color>
+    <color name="rose_onTertiaryContainer">#881337</color>
+    <color name="rose_error">#ba1a1a</color>
+    <color name="rose_onError">#ffffff</color>
+    <color name="rose_errorContainer">#ffdad6</color>
+    <color name="rose_onErrorContainer">#410002</color>
+    <color name="rose_background">#fafafa</color>
+    <color name="rose_onBackground">#18181b</color>
+    <color name="rose_surface">#f4f4f5</color>
+    <color name="rose_onSurface">#18181b</color>
+    <color name="rose_surfaceVariant">#e4e4e7</color>
+    <color name="rose_onSurfaceVariant">#3f3f46</color>
+    <color name="rose_outline">#71717a</color>
+    <color name="rose_outlineVariant">#a1a1aa</color>
+    <color name="rose_scrim">#000000</color>
+    <color name="rose_inverseSurface">#27272a</color>
+    <color name="rose_inverseOnSurface">#f4f4f5</color>
+    <color name="rose_surfaceTint">#e11d48</color>
+    <color name="rose_surfaceDim">#e4e4e7</color>
+    <color name="rose_surfaceBright">#f4f4f5</color>
+    <color name="rose_surfaceContainerLowest">#ffffff</color>
+    <color name="rose_surfaceContainerLow">#f4f4f5</color>
+    <color name="rose_surfaceContainer">#e4e4e7</color>
+    <color name="rose_surfaceContainerHigh">#d4d4d8</color>
+    <color name="rose_surfaceContainerHighest">#a1a1aa</color>
+</resources>

@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.data.download
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.app.ActivityManager
 import com.hippo.unifile.UniFile
 import eu.kanade.domain.chapter.model.toSChapter
 import eu.kanade.domain.manga.model.getComicInfo
@@ -67,6 +70,8 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
 import java.util.Locale
+import kotlin.math.min
+import java.net.URL
 
 /**
  * This class is the one in charge of downloading chapters.
@@ -203,14 +208,23 @@ class Downloader(
         downloaderJob = scope.launch {
             val activeDownloadsFlow = queueState.transformLatest { queue ->
                 while (true) {
+                    // Get max chapters per source based on device capability
+                    val maxChaptersPerSource = calculateOptimalChapterConcurrency()
+                    val maxSources = calculateOptimalSourceConcurrency()
+
+                    // Group by source and take multiple chapters from each source
                     val activeDownloads = queue.asSequence()
                         // Ignore completed downloads, leave them in the queue
                         .filter { it.status.value <= Download.State.DOWNLOADING.value }
                         .groupBy { it.source }
                         .toList()
-                        // Concurrently download from 5 different sources
-                        .take(5)
-                        .map { (_, downloads) -> downloads.first() }
+                        // Limited number of sources
+                        .take(maxSources)
+                        .flatMap { (_, downloads) ->
+                            // Take multiple chapters per source
+                            downloads.take(maxChaptersPerSource)
+                        }
+
                     emit(activeDownloads)
 
                     if (activeDownloads.isEmpty()) break
@@ -372,29 +386,101 @@ class Downloader(
 
             download.status = Download.State.DOWNLOADING
 
-            // Start downloading images, consider we can have downloaded images already
-            // Concurrently do 2 pages at a time
-            pageList.asFlow()
-                .flatMapMerge(concurrency = 2) { page ->
-                    flow {
-                        // Fetch image URL if necessary
-                        if (page.imageUrl.isNullOrEmpty()) {
-                            page.status = Page.State.LOAD_PAGE
-                            try {
-                                page.imageUrl = download.source.getImageUrl(page)
-                            } catch (e: Throwable) {
-                                page.status = Page.State.ERROR
-                            }
-                        }
+            // Calculate optimal concurrency based on network, chapter size, and user preference
+            val userConcurrencyPref = downloadPreferences.numberOfPageDownloaders().get()
 
-                        withIOContext { getOrDownloadImage(page, download, tmpDir, dataSaver) }
-                        emit(page)
-                    }.flowOn(Dispatchers.IO)
-                }
-                .collect {
-                    // Do when page is downloaded.
-                    notifier.onProgressChange(download)
-                }
+            // Always use user-specified value (disable dynamic calculation)
+            val concurrency = if (userConcurrencyPref > 0) {
+                // Use user-specified value
+                val userValue = userConcurrencyPref
+                logcat(LogPriority.INFO) { "Using user-defined concurrency of $userValue concurrent page downloads" }
+                userValue
+            } else {
+                // Default to 4 if the user chose 0 (previous "automatic" option)
+                logcat(LogPriority.INFO) { "Using default concurrency of 4 concurrent page downloads" }
+                4
+            }
+
+            // Group pages by domain for more efficient downloading
+            val groupedPages = if (downloadPreferences.useDynamicConcurrency().get() && pageList.size > 20) {
+                // Process pages to group them by server if we have URLs
+                groupPagesByDomain(pageList, download.source)
+            } else {
+                // Skip grouping for small chapters or if dynamic concurrency is disabled
+                null
+            }
+
+            if (groupedPages != null) {
+                logcat(LogPriority.INFO) { "Using domain batching for ${groupedPages.size} server domains" }
+
+                // Process each domain group with its own concurrency
+                groupedPages.entries.asFlow()
+                    .flatMapMerge(concurrency = concurrency.coerceAtMost(4)) { entry ->
+                        // Extract domain and pages from map entry
+                        val domainPages = entry.value
+
+                        // Calculate appropriate concurrency for this domain
+                        val domainConcurrency = min(
+                            concurrency,
+                            when {
+                                domainPages.size > 100 -> 6  // Larger batches
+                                domainPages.size > 50 -> 4   // Medium batches
+                                else -> 3                    // Small batches
+                            }
+                        )
+
+                        flow {
+                            val pages = domainPages.toList()
+                            pages.asFlow()
+                                .flatMapMerge(concurrency = domainConcurrency) { page ->
+                                    flow {
+                                        // Fetch image URL if necessary
+                                        if (page.imageUrl.isNullOrEmpty()) {
+                                            page.status = Page.State.LOAD_PAGE
+                                            try {
+                                                page.imageUrl = download.source.getImageUrl(page)
+                                            } catch (e: Throwable) {
+                                                page.status = Page.State.ERROR
+                                            }
+                                        }
+
+                                        withIOContext { getOrDownloadImage(page, download, tmpDir, dataSaver) }
+                                        emit(page)
+                                    }.flowOn(Dispatchers.IO)
+                                }
+                                .collect {
+                                    emit(it)
+                                }
+                        }
+                    }
+                    .collect {
+                        // Do when page is downloaded.
+                        notifier.onProgressChange(download)
+                    }
+            } else {
+                // Fall back to standard processing without domain grouping
+                pageList.asFlow()
+                    .flatMapMerge(concurrency = concurrency) { page ->
+                        flow {
+                            // Fetch image URL if necessary
+                            if (page.imageUrl.isNullOrEmpty()) {
+                                page.status = Page.State.LOAD_PAGE
+                                try {
+                                    page.imageUrl = download.source.getImageUrl(page)
+                                } catch (e: Throwable) {
+                                    page.status = Page.State.ERROR
+                                }
+                            }
+
+                            withIOContext { getOrDownloadImage(page, download, tmpDir, dataSaver) }
+                            emit(page)
+                        }.flowOn(Dispatchers.IO)
+                    }
+                    .collect {
+                        // Do when page is downloaded.
+                        notifier.onProgressChange(download)
+                    }
+            }
 
             // Do after download completes
 
@@ -450,10 +536,14 @@ class Downloader(
         // Delete temp file if it exists
         tmpFile?.delete()
 
-        // Try to find the image file
-        val imageFile = tmpDir.listFiles()?.firstOrNull {
-            it.name!!.startsWith("$filename.") || it.name!!.startsWith("${filename}__001")
-        }
+        // Try to find the image file - faster check with more specific patterns
+        val imageFile = tmpDir.findFile("$filename.jpg")
+            ?: tmpDir.findFile("$filename.png")
+            ?: tmpDir.findFile("$filename.webp")
+            ?: tmpDir.findFile("${filename}__001.jpg")
+            ?: tmpDir.listFiles()?.firstOrNull {
+                it.name!!.startsWith("$filename.") || it.name!!.startsWith("${filename}__001")
+            }
 
         try {
             // If the image is already downloaded, do nothing. Otherwise download from network
@@ -741,6 +831,75 @@ class Downloader(
 
         if (wasRunning) {
             start()
+        }
+    }
+
+    private fun calculateOptimalSourceConcurrency(): Int {
+        // Get user preference value
+        val userPreferenceConcurrency = downloadPreferences.numberOfConcurrentSources().get().toInt()
+
+        // Use the user preference value directly
+        val concurrency = userPreferenceConcurrency
+
+        logcat(LogPriority.INFO) { "Using $concurrency concurrent sources for downloading" }
+        return concurrency
+    }
+
+    private fun calculateOptimalChapterConcurrency(): Int {
+        // Get user preference for download speed
+        val userPreferenceConcurrency = downloadPreferences.numberOfDownloaders().get().toInt()
+
+        // Always respect the user's setting
+        logcat(LogPriority.INFO) { "Using user-defined concurrency of $userPreferenceConcurrency concurrent chapters per source" }
+        return userPreferenceConcurrency
+    }
+
+    /**
+     * Groups pages by their server domain to optimize downloading
+     * Pages with missing URLs will be processed first
+     */
+    private fun groupPagesByDomain(pages: List<Page>, source: HttpSource): Map<String, List<Page>>? {
+        try {
+            // First check if we have enough pages with URLs to make batching worthwhile
+            val pagesWithUrl = pages.filter { !it.imageUrl.isNullOrEmpty() }
+            if (pagesWithUrl.size < pages.size * 0.5) {
+                // Not enough pages have URLs, skip batching
+                return null
+            }
+
+            // Group pages by domain
+            val result = mutableMapOf<String, MutableList<Page>>()
+
+            // Process pages with URLs
+            for (page in pagesWithUrl) {
+                val domain = try {
+                    val url = page.imageUrl!!
+                    URL(url).host
+                } catch (e: Exception) {
+                    "unknown"
+                }
+
+                if (!result.containsKey(domain)) {
+                    result[domain] = mutableListOf()
+                }
+                result[domain]!!.add(page)
+            }
+
+            // Add pages without URLs to the first domain group
+            val pagesWithoutUrl = pages.filter { it.imageUrl.isNullOrEmpty() }
+            if (pagesWithoutUrl.isNotEmpty()) {
+                val firstDomain = result.keys.firstOrNull() ?: "unknown"
+                if (!result.containsKey(firstDomain)) {
+                    result[firstDomain] = mutableListOf()
+                }
+                result[firstDomain]!!.addAll(pagesWithoutUrl)
+            }
+
+            return if (result.isEmpty()) null else result
+        } catch (e: Exception) {
+            // If anything goes wrong, skip domain grouping
+            logcat(LogPriority.ERROR, e) { "Error grouping pages by domain" }
+            return null
         }
     }
 

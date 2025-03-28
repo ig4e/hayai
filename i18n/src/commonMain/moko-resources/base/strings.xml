@@ -35,6 +35,7 @@
     <string name="label_migration">Migrate</string>
     <string name="label_extensions">Extensions</string>
     <string name="label_extension_info">Extension info</string>
+    <string name="label_download">Download</string>
     <string name="label_help">Help</string>
     <string name="label_default">Default</string>
     <string name="label_warning">Warning</string>
@@ -227,17 +228,10 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_monet">Dynamic</string>
-    <string name="theme_greenapple">Green Apple</string>
-    <string name="theme_lavender">Lavender</string>
-    <string name="theme_midnightdusk">Midnight Dusk</string>
-    <string name="theme_monochrome">Monochrome</string>
-    <string name="theme_nord">Nord</string>
-    <string name="theme_strawberrydaiquiri">Strawberry Daiquiri</string>
-    <string name="theme_tako">Tako</string>
-    <string name="theme_tealturquoise">Teal &amp; Turquoise</string>
-    <string name="theme_yinyang">Yin &amp; Yang</string>
-    <string name="theme_yotsuba">Yotsuba</string>
-    <string name="theme_tidalwave">Tidal Wave</string>
+    <string name="theme_zinc">Zinc</string>
+    <string name="theme_emerald">Emerald</string>
+    <string name="theme_rose">Rose</string>
+    <string name="theme_violet">Violet</string>
     <string name="pref_dark_theme_pure_black">Pure black dark mode</string>
     <string name="pref_relative_format">Relative timestamps</string>
     <!-- "Today" instead of "2023-12-31" -->
@@ -513,6 +507,17 @@
     <string name="save_chapter_as_cbz">Save as CBZ archive</string>
     <string name="split_tall_images">Split tall images</string>
     <string name="split_tall_images_summary">Improves reader performance</string>
+    <string name="cleanup_completed">Cleanup completed: %d folders deleted</string>
+    <string name="pref_download_threads">Chapters per source</string>
+    <string name="concurrent_downloads_per_source">Maximum number of chapters to download simultaneously from one source</string>
+    <string name="pref_download_threads_per_source">Pages per chapter</string>
+    <string name="concurrent_page_downloads_per_source">Maximum number of pages to download simultaneously within one chapter</string>
+    <string name="affects_chapter_download_speed">Controls how many chapters download simultaneously</string>
+    <string name="affects_page_download_speed">Controls how many pages download simultaneously within each chapter</string>
+    <string name="pref_concurrent_sources">Sources at once</string>
+    <string name="concurrent_sources_summary">Maximum number of sources to download from simultaneously</string>
+    <string name="download_settings_info">Download settings information</string>
+    <string name="download_settings_info_summary">Higher values may speed up downloads but can cause timeouts or connection issues on slower networks or devices</string>
 
     <!-- Tracking section -->
     <string name="tracking_guide">Tracking guide</string>

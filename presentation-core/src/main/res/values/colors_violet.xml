@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Colors for Violet theme
+  ~ Based on Tailwind CSS Violet color palette
+  ~ https://tailwindcss.com/docs/customizing-colors
+-->
+<resources>
+    <color name="violet_primary">#7c3aed</color>
+    <color name="violet_onPrimary">#ffffff</color>
+    <color name="violet_primaryContainer">#8b5cf6</color>
+    <color name="violet_onPrimaryContainer">#ffffff</color>
+    <color name="violet_inversePrimary">#a78bfa</color>
+    <color name="violet_secondary">#6d28d9</color>
+    <color name="violet_onSecondary">#ffffff</color>
+    <color name="violet_secondaryContainer">#ddd6fe</color>
+    <color name="violet_onSecondaryContainer">#4c1d95</color>
+    <color name="violet_tertiary">#5b21b6</color>
+    <color name="violet_onTertiary">#ffffff</color>
+    <color name="violet_tertiaryContainer">#ede9fe</color>
+    <color name="violet_onTertiaryContainer">#4c1d95</color>
+    <color name="violet_error">#ba1a1a</color>
+    <color name="violet_onError">#ffffff</color>
+    <color name="violet_errorContainer">#ffdad6</color>
+    <color name="violet_onErrorContainer">#410002</color>
+    <color name="violet_background">#fafafa</color>
+    <color name="violet_onBackground">#18181b</color>
+    <color name="violet_surface">#f4f4f5</color>
+    <color name="violet_onSurface">#18181b</color>
+    <color name="violet_surfaceVariant">#e4e4e7</color>
+    <color name="violet_onSurfaceVariant">#3f3f46</color>
+    <color name="violet_outline">#71717a</color>
+    <color name="violet_outlineVariant">#a1a1aa</color>
+    <color name="violet_scrim">#000000</color>
+    <color name="violet_inverseSurface">#27272a</color>
+    <color name="violet_inverseOnSurface">#f4f4f5</color>
+    <color name="violet_surfaceTint">#7c3aed</color>
+    <color name="violet_surfaceDim">#e4e4e7</color>
+    <color name="violet_surfaceBright">#f4f4f5</color>
+    <color name="violet_surfaceContainerLowest">#ffffff</color>
+    <color name="violet_surfaceContainerLow">#f4f4f5</color>
+    <color name="violet_surfaceContainer">#e4e4e7</color>
+    <color name="violet_surfaceContainerHigh">#d4d4d8</color>
+    <color name="violet_surfaceContainerHighest">#a1a1aa</color>
+</resources>
