@@ -18,11 +18,14 @@ import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderItem
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import tachiyomi.core.common.util.system.logcat
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import kotlin.math.min
 
@@ -235,13 +238,13 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
     }
 
     /**
-     * Called when a [ReaderPage] is marked as active. It notifies the
+     * Called from the RecyclerView listener when a [page] is marked as active. It notifies the
      * activity of the change and requests the preload of the next chapter if this is the last page.
      */
     private fun onReaderPageSelected(page: ReaderPage, allowPreload: Boolean, forward: Boolean, hasExtraPage: Boolean) {
         val pages = page.chapter.pages ?: return
-        logcat { "onReaderPageSelected: ${page.number}/${pages.size}" }
-        activity.onPageSelected(page, hasExtraPage)
+        logcat { "onPageSelected: ${page.number}/${pages.size}" }
+        activity.onPageSelected(page)
 
         // Notify holder of page change
         getPageHolder(page)?.onPageSelected(forward)
@@ -251,11 +254,25 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
             return
         }
 
-        // Preload next chapter once we're within the last 5 pages of the current chapter
-        val inPreloadRange = pages.size - page.number < 5
-        if (inPreloadRange && allowPreload && page.chapter == adapter.currentChapter) {
-            logcat { "Request preload next chapter because we're at page ${page.number} of ${pages.size}" }
-            adapter.nextTransition?.to?.let(activity::requestPreloadChapter)
+        // Get the preferences
+        val readerPrefs = Injekt.get<ReaderPreferences>()
+        val shouldForcePreload = readerPrefs.forcePreload().get()
+
+        // Force preload the next chapter if enabled
+        if (shouldForcePreload) {
+            val nextItem = adapter.nextTransition?.to
+            if (nextItem != null) {
+                logcat { "Force preloading next chapter due to user setting" }
+                activity.requestPreloadChapter(nextItem)
+            }
+        } else {
+            // Standard preloading behavior
+            // Preload next chapter once we're within the last 5 pages of the current chapter
+            val inPreloadRange = pages.size - page.number < 5
+            if (inPreloadRange && allowPreload && page.chapter == adapter.currentChapter) {
+                logcat { "Request preload next chapter because we're at page ${page.number} of ${pages.size}" }
+                adapter.nextTransition?.to?.let(activity::requestPreloadChapter)
+            }
         }
     }
 

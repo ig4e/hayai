@@ -79,6 +79,7 @@ fun MangaCompactGridItem(
     coverAlpha: Float = 1f,
     coverBadgeStart: @Composable (RowScope.() -> Unit)? = null,
     coverBadgeEnd: @Composable (RowScope.() -> Unit)? = null,
+    coverBadgeBottom: @Composable (RowScope.() -> Unit)? = null,
 ) {
     GridItemSelectable(
         isSelected = isSelected,
@@ -96,6 +97,7 @@ fun MangaCompactGridItem(
             },
             badgesStart = coverBadgeStart,
             badgesEnd = coverBadgeEnd,
+            badgesBottomStart = coverBadgeBottom,
             content = {
                 if (title != null) {
                     CoverTextOverlay(
@@ -184,6 +186,7 @@ fun MangaComfortableGridItem(
     coverAlpha: Float = 1f,
     coverBadgeStart: (@Composable RowScope.() -> Unit)? = null,
     coverBadgeEnd: (@Composable RowScope.() -> Unit)? = null,
+    coverBadgeBottom: (@Composable RowScope.() -> Unit)? = null,
     onClickContinueReading: (() -> Unit)? = null,
 ) {
     GridItemSelectable(
@@ -203,6 +206,7 @@ fun MangaComfortableGridItem(
                 },
                 badgesStart = coverBadgeStart,
                 badgesEnd = coverBadgeEnd,
+                badgesBottomStart = coverBadgeBottom,
                 content = {
                     if (onClickContinueReading != null) {
                         ContinueReadingButton(
@@ -236,6 +240,8 @@ private fun MangaGridCover(
     cover: @Composable BoxScope.() -> Unit = {},
     badgesStart: (@Composable RowScope.() -> Unit)? = null,
     badgesEnd: (@Composable RowScope.() -> Unit)? = null,
+    badgesBottomStart: (@Composable RowScope.() -> Unit)? = null,
+    badgesBottomEnd: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable (BoxScope.() -> Unit)? = null,
 ) {
     Box(
@@ -260,6 +266,24 @@ private fun MangaGridCover(
                     .padding(4.dp)
                     .align(Alignment.TopEnd),
                 content = badgesEnd,
+            )
+        }
+
+        if (badgesBottomStart != null) {
+            BadgeGroup(
+                modifier = Modifier
+                    .padding(4.dp)
+                    .align(Alignment.BottomStart),
+                content = badgesBottomStart,
+            )
+        }
+
+        if (badgesBottomEnd != null) {
+            BadgeGroup(
+                modifier = Modifier
+                    .padding(4.dp)
+                    .align(Alignment.BottomEnd),
+                content = badgesBottomEnd,
             )
         }
     }

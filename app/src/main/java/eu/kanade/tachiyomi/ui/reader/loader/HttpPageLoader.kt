@@ -50,8 +50,6 @@ internal class HttpPageLoader(
      */
     private val queue = PriorityBlockingQueue<PriorityPage>()
 
-    private val preloadSize = /* SY --> */ readerPreferences.preloadSize().get() // SY <--
-
     // SY -->
     private val dataSaver = DataSaver(source, sourcePreferences)
     // SY <--
@@ -125,7 +123,18 @@ internal class HttpPageLoader(
         if (page.status == Page.State.QUEUE) {
             queuedPages += PriorityPage(page, 1).also { queue.offer(it) }
         }
-        queuedPages += preloadNextPages(page, preloadSize)
+
+        // Apply preloading based on settings
+        val shouldForcePreload = readerPreferences.forcePreload().get()
+        val preloadAmount = readerPreferences.preloadSize().get()
+
+        if (shouldForcePreload) {
+            // Always preload next pages regardless of position
+            queuedPages += forcePreloadPages(page, preloadAmount)
+        } else {
+            // Only preload pages when current page is loaded
+            queuedPages += preloadNextPages(page, preloadAmount)
+        }
 
         suspendCancellableCoroutine<Nothing> { continuation ->
             continuation.invokeOnCancellation {
@@ -196,6 +205,31 @@ internal class HttpPageLoader(
             .mapNotNull {
                 if (it.status == Page.State.QUEUE) {
                     PriorityPage(it, 0).apply { queue.offer(this) }
+                } else {
+                    null
+                }
+            }
+    }
+
+    /**
+     * Aggressively preload pages when force preload is enabled.
+     * This will preload all remaining pages in the chapter.
+     */
+    private fun forcePreloadPages(currentPage: ReaderPage, amount: Int): List<PriorityPage> {
+        val pageIndex = currentPage.index
+        val pages = currentPage.chapter.pages ?: return emptyList()
+        if (pageIndex == pages.lastIndex) return emptyList()
+
+        // Calculate how many pages we should preload ahead
+        val endIndex = min(pageIndex + 1 + amount, pages.size)
+
+        return pages
+            .subList(pageIndex + 1, endIndex)
+            .mapNotNull {
+                if (it.status == Page.State.QUEUE) {
+                    // Use higher priority (0) for first few pages for immediate reading experience
+                    val priority = if (it.index < pageIndex + 3) 0 else 1
+                    PriorityPage(it, priority).apply { queue.offer(this) }
                 } else {
                     null
                 }

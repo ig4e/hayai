@@ -3,9 +3,14 @@ package eu.kanade.presentation.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.theme.colorscheme.BaseColorScheme
@@ -15,6 +20,8 @@ import eu.kanade.presentation.theme.colorscheme.RoseColorScheme
 import eu.kanade.presentation.theme.colorscheme.TachiyomiColorScheme
 import eu.kanade.presentation.theme.colorscheme.VioletColorScheme
 import eu.kanade.presentation.theme.colorscheme.ZincColorScheme
+import eu.kanade.presentation.theme.shape.TachiyomiShapes
+import tachiyomi.presentation.core.theme.createOutfitTypography
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -47,6 +54,8 @@ private fun BaseTachiyomiTheme(
 ) {
     MaterialTheme(
         colorScheme = getThemeColorScheme(appTheme, isAmoled),
+        shapes = TachiyomiShapes,
+        typography = createOutfitTypography(),
         content = content,
     )
 }

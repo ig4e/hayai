@@ -533,6 +533,11 @@ object SettingsReaderScreen : SearchableSettings {
                         20 to stringResource(SYMR.strings.reader_preload_amount_20_pages),
                     ),
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.forcePreload(),
+                    title = stringResource(SYMR.strings.force_preload_ahead),
+                    subtitle = stringResource(SYMR.strings.force_preload_ahead_summary),
+                ),
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.readerThreads(),
                     title = stringResource(SYMR.strings.download_threads),

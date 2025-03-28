@@ -38,13 +38,11 @@ fun MangaToolbar(
     onClickEditCategory: (() -> Unit)?,
     onClickRefresh: () -> Unit,
     onClickMigrate: (() -> Unit)?,
-    // SY -->
     onClickEditInfo: (() -> Unit)?,
     onClickRecommend: (() -> Unit)?,
     onClickMerge: (() -> Unit)?,
     onClickMergedSettings: (() -> Unit)?,
-    // SY <--
-
+    onWebViewClicked: (() -> Unit)?,
     // For action mode
     actionModeCounter: Int,
     onCancelActionMode: () -> Unit,
@@ -110,10 +108,8 @@ fun MangaToolbar(
                         )
                     }
                     add(
-                        AppBar.Action(
+                        AppBar.OverflowAction(
                             title = stringResource(MR.strings.action_filter),
-                            icon = Icons.Outlined.FilterList,
-                            iconTint = filterTint,
                             onClick = onClickFilter,
                         ),
                     )
@@ -123,6 +119,14 @@ fun MangaToolbar(
                             onClick = onClickRefresh,
                         ),
                     )
+                    if (onWebViewClicked != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_web_view),
+                                onClick = onWebViewClicked,
+                            ),
+                        )
+                    }
                     if (onClickEditCategory != null) {
                         add(
                             AppBar.OverflowAction(
@@ -167,7 +171,7 @@ fun MangaToolbar(
                     if (onClickRecommend != null) {
                         add(
                             AppBar.OverflowAction(
-                                title = stringResource(SYMR.strings.az_recommends),
+                                title = stringResource(SYMR.strings.az_recommends_short),
                                 onClick = onClickRecommend,
                             ),
                         )

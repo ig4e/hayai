@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import tachiyomi.presentation.core.util.animateElevation
 import androidx.compose.material3.SuggestionChipDefaults as SuggestionChipDefaultsM3
+import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 
 @ExperimentalMaterial3Api
 @Composable
@@ -259,35 +260,40 @@ private fun ChipContent(
 object SuggestionChipDefaults {
 
     /**
-     * Creates a [ChipColors] that represents the default container, label, and icon colors used in
-     * a flat [SuggestionChip].
+     * Creates a [ChipColors] that represents the default container and content colors used in a
+     * [SuggestionChip].
      *
      * @param containerColor the container color of this chip when enabled
      * @param labelColor the label color of this chip when enabled
-     * @param iconContentColor the color of this chip's icon when enabled
+     * @param leadingIconContentColor the leading icon color of this chip when enabled
+     * @param trailingIconContentColor the trailing icon color of this chip when enabled
      * @param disabledContainerColor the container color of this chip when not enabled
      * @param disabledLabelColor the label color of this chip when not enabled
-     * @param disabledIconContentColor the color of this chip's icon when not enabled
+     * @param disabledLeadingIconContentColor the leading icon color of this chip when not enabled
+     * @param disabledTrailingIconContentColor the trailing icon color of this chip when not enabled
      */
     @Composable
     fun suggestionChipColors(
-        containerColor: Color = Color.Transparent,
-        labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-        iconContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-        disabledContainerColor: Color = Color.Transparent,
-        disabledLabelColor: Color = MaterialTheme.colorScheme.onSurface
-            .copy(alpha = 0.38f),
-        disabledIconContentColor: Color = MaterialTheme.colorScheme.onSurface
-            .copy(alpha = 0.38f),
+        containerColor: Color = MaterialTheme.colorScheme.secondaryContainer
+            .copy(alpha = 0.7f), // Make it less opaque and lighter
+        labelColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+        leadingIconContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+        trailingIconContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+        disabledContainerColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+        disabledLabelColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
+        disabledLeadingIconContentColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
+        disabledTrailingIconContentColor: Color = MaterialTheme.colorScheme.onSurface.copy(
+            alpha = DISABLED_ALPHA,
+        ),
     ): ChipColors = ChipColors(
         containerColor = containerColor,
         labelColor = labelColor,
-        leadingIconContentColor = iconContentColor,
-        trailingIconContentColor = Color.Unspecified,
+        leadingIconContentColor = leadingIconContentColor,
+        trailingIconContentColor = trailingIconContentColor,
         disabledContainerColor = disabledContainerColor,
         disabledLabelColor = disabledLabelColor,
-        disabledLeadingIconContentColor = disabledIconContentColor,
-        disabledTrailingIconContentColor = Color.Unspecified,
+        disabledLeadingIconContentColor = disabledLeadingIconContentColor,
+        disabledTrailingIconContentColor = disabledTrailingIconContentColor,
     )
 
     /**

@@ -7,6 +7,10 @@
     <string name="off">Off</string>
     <string name="selected">Selected</string>
     <string name="not_selected">Not selected</string>
+    <string name="description">Description</string>
+    <string name="description_placeholder">No description available</string>
+    <string name="genres">Genres</string>
+    <string name="tags">Tags</string>
     <string name="action_menu_overflow_description">More options</string>
     <string name="action_bar_up_description">Navigate up</string>
 

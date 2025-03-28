@@ -91,7 +91,7 @@ fun Button(
     enabled: Boolean = true,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     elevation: ButtonElevation? = ButtonDefaults.buttonElevation(),
-    shape: Shape = M3ButtonDefaults.textShape,
+    shape: Shape = ButtonDefaults.buttonShape,
     border: BorderStroke? = null,
     colors: ButtonColors = ButtonDefaults.buttonColors(),
     contentPadding: PaddingValues = M3ButtonDefaults.ContentPadding,
@@ -169,7 +169,7 @@ object ButtonDefaults {
         defaultElevation: Dp = 0.dp,
         pressedElevation: Dp = 0.dp,
         focusedElevation: Dp = 0.dp,
-        hoveredElevation: Dp = 1.dp,
+        hoveredElevation: Dp = 0.dp,
         disabledElevation: Dp = 0.dp,
     ): ButtonElevation = ButtonElevation(
         defaultElevation = defaultElevation,
@@ -178,6 +178,11 @@ object ButtonDefaults {
         hoveredElevation = hoveredElevation,
         disabledElevation = disabledElevation,
     )
+
+    // Custom shape for buttons with more rounded corners
+    val buttonShape: Shape
+        @Composable
+        get() = MaterialTheme.shapes.extraLarge
 }
 
 /**

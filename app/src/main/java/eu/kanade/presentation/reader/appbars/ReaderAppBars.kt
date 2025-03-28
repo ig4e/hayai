@@ -28,12 +28,14 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.reader.components.ChapterNavigator
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import kotlinx.collections.immutable.ImmutableSet
+import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.padding
 
 private val animationSpec = tween<IntOffset>(200)
@@ -210,8 +212,12 @@ fun ReaderAppBars(
                         modifier = /*SY --> */ Modifier /*SY <-- */
                             .clickable(onClick = onClickTopAppBar),
                         backgroundColor = backgroundColor,
-                        title = mangaTitle,
-                        subtitle = chapterTitle,
+                        titleContent = {
+                            AppBarTitle(
+                                title = mangaTitle,
+                                subtitle = chapterTitle,
+                            )
+                        },
                         navigateUp = navigateUp,
                         /* SY --> actions = {
                             AppBarActions(

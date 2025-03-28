@@ -42,7 +42,7 @@ fun Surface(
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
-    shape: Shape = RectangleShape,
+    shape: Shape = MaterialTheme.shapes.medium,
     color: Color = MaterialTheme.colorScheme.surface,
     contentColor: Color = contentColorFor(color),
     tonalElevation: Dp = 0.dp,
@@ -89,7 +89,13 @@ private fun Modifier.surface(
     border: BorderStroke?,
     shadowElevation: Dp,
 ) = this
-    .shadow(shadowElevation, shape, clip = false)
+    .shadow(
+        elevation = shadowElevation,
+        shape = shape,
+        clip = false,
+        ambientColor = Color.Black.copy(alpha = 0.1f),
+        spotColor = Color.Black.copy(alpha = 0.1f),
+    )
     .then(if (border != null) Modifier.border(border, shape) else Modifier)
     .background(color = backgroundColor, shape = shape)
     .clip(shape)

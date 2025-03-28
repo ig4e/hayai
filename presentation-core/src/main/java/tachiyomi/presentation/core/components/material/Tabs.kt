@@ -2,26 +2,35 @@ package tachiyomi.presentation.core.components.material
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import tachiyomi.presentation.core.components.Pill
 
 @Composable
-fun TabText(text: String, badgeCount: Int? = null) {
+fun TabText(
+    text: String,
+    badgeCount: Int? = null,
+    textColor: Color = LocalContentColor.current
+) {
     val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        CompositionLocalProvider(LocalContentColor provides textColor) {
         Text(
             text = text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        }
         if (badgeCount != null) {
             Pill(
                 text = "$badgeCount",

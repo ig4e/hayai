@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastMap
@@ -387,6 +389,7 @@ private fun MangaScreenSmallImpl(
                 onClickRecommend = onRecommendClicked.takeIf { state.showRecommendationsInOverflow },
                 onClickMergedSettings = onMergedSettingsClicked.takeIf { state.manga.source == MERGED_SOURCE_ID },
                 onClickMerge = onMergeClicked.takeIf { state.showMergeInOverflow },
+                onWebViewClicked = onWebViewClicked,
                 // SY <--
                 actionModeCounter = selectedChapterCount,
                 onCancelActionMode = { onAllChapterSelected(false) },
@@ -484,18 +487,32 @@ private fun MangaScreenSmallImpl(
                             nextUpdate = nextUpdate,
                             isUserIntervalMode = state.manga.fetchInterval < 0,
                             onAddToLibraryClicked = onAddToLibraryClicked,
-                            onWebViewClicked = onWebViewClicked,
-                            onWebViewLongClicked = onWebViewLongClicked,
                             onTrackingClicked = onTrackingClicked,
                             onEditIntervalClicked = onEditIntervalClicked,
                             onEditCategory = onEditCategoryClicked,
                             // SY -->
                             onMergeClicked = onMergeClicked.takeUnless { state.showMergeInOverflow },
+                            onRecommendClicked = onRecommendClicked.takeUnless { state.showRecommendationsInOverflow },
                             // SY <--
                         )
                     }
 
                     // SY -->
+                    // Add merge with another button if needed (recommendations moved to action row)
+                    if (state.showMergeWithAnother) {
+                        item(
+                            key = MangaScreenItem.INFO_BUTTONS,
+                            contentType = MangaScreenItem.INFO_BUTTONS,
+                        ) {
+                            MangaInfoButtons(
+                                showRecommendsButton = false,
+                                showMergeWithAnotherButton = true,
+                                onRecommendClicked = onRecommendClicked,
+                                onMergeWithAnotherClicked = onMergeWithAnotherClicked,
+                            )
+                        }
+                    }
+
                     if (metadataDescription != null) {
                         item(
                             key = MangaScreenItem.METADATA_INFO,
@@ -530,21 +547,6 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
-                    // SY -->
-                    if (!state.showRecommendationsInOverflow || state.showMergeWithAnother) {
-                        item(
-                            key = MangaScreenItem.INFO_BUTTONS,
-                            contentType = MangaScreenItem.INFO_BUTTONS,
-                        ) {
-                            MangaInfoButtons(
-                                showRecommendsButton = !state.showRecommendationsInOverflow,
-                                showMergeWithAnotherButton = state.showMergeWithAnother,
-                                onRecommendClicked = onRecommendClicked,
-                                onMergeWithAnotherClicked = onMergeWithAnotherClicked,
-                            )
-                        }
-                    }
-
                     if (state.pagePreviewsState !is PagePreviewState.Unused && previewsRowCount > 0) {
                         PagePreviewItems(
                             pagePreviewState = state.pagePreviewsState,
@@ -555,7 +557,6 @@ private fun MangaScreenSmallImpl(
                             rowCount = previewsRowCount,
                         )
                     }
-                    // SY <--
 
                     item(
                         key = MangaScreenItem.CHAPTER_HEADER,
@@ -701,6 +702,7 @@ fun MangaScreenLargeImpl(
                 onClickRecommend = onRecommendClicked.takeIf { state.showRecommendationsInOverflow },
                 onClickMergedSettings = onMergedSettingsClicked.takeIf { state.manga.source == MERGED_SOURCE_ID },
                 onClickMerge = onMergeClicked.takeIf { state.showMergeInOverflow },
+                onWebViewClicked = onWebViewClicked,
                 // SY <--
                 onCancelActionMode = { onAllChapterSelected(false) },
                 actionModeCounter = selectedChapterCount,
@@ -778,69 +780,76 @@ fun MangaScreenLargeImpl(
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = contentPadding.calculateBottomPadding()),
                     ) {
-                        MangaInfoBox(
-                            isTabletUi = true,
-                            appBarPadding = contentPadding.calculateTopPadding(),
-                            manga = state.manga,
-                            sourceName = remember { state.source.getNameForMangaInfo(state.mergedData?.sources) },
-                            isStubSource = remember { state.source is StubSource },
-                            onCoverClick = onCoverClicked,
-                            doSearch = onSearch,
-                        )
-                        MangaActionRow(
-                            favorite = state.manga.favorite,
-                            trackingCount = state.trackingCount,
-                            nextUpdate = nextUpdate,
-                            isUserIntervalMode = state.manga.fetchInterval < 0,
-                            onAddToLibraryClicked = onAddToLibraryClicked,
-                            onWebViewClicked = onWebViewClicked,
-                            onWebViewLongClicked = onWebViewLongClicked,
-                            onTrackingClicked = onTrackingClicked,
-                            onEditIntervalClicked = onEditIntervalClicked,
-                            onEditCategory = onEditCategoryClicked,
-                            // SY -->
-                            onMergeClicked = onMergeClicked.takeUnless { state.showMergeInOverflow },
-                            // SY <--
-                        )
-                        // SY -->
-                        metadataDescription?.invoke(
-                            state,
-                            onMetadataViewerClicked,
-                        ) {
-                            onSearch(it, false)
-                        }
-                        // SY <--
-                        ExpandableMangaDescription(
-                            defaultExpandState = true,
-                            description = state.manga.description,
-                            tagsProvider = { state.manga.genre },
-                            onTagSearch = onTagSearch,
-                            onCopyTagToClipboard = onCopyTagToClipboard,
-                            // SY -->
-                            doSearch = onSearch,
-                            searchMetadataChips = remember(state.meta, state.source.id, state.manga.genre) {
-                                SearchMetadataChips(state.meta, state.source, state.manga.genre)
-                            },
-                            // SY <--
-                        )
-                        // SY -->
-                        if (!state.showRecommendationsInOverflow || state.showMergeWithAnother) {
-                            MangaInfoButtons(
-                                showRecommendsButton = !state.showRecommendationsInOverflow,
-                                showMergeWithAnotherButton = state.showMergeWithAnother,
-                                onRecommendClicked = onRecommendClicked,
-                                onMergeWithAnotherClicked = onMergeWithAnotherClicked,
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            MangaInfoBox(
+                                isTabletUi = true,
+                                appBarPadding = contentPadding.calculateTopPadding(),
+                                manga = state.manga,
+                                sourceName = remember { state.source.getNameForMangaInfo(state.mergedData?.sources) },
+                                isStubSource = remember { state.source is StubSource },
+                                onCoverClick = onCoverClicked,
+                                doSearch = onSearch,
                             )
-                        }
-                        if (state.pagePreviewsState !is PagePreviewState.Unused && previewsRowCount > 0) {
-                            PagePreviews(
-                                pagePreviewState = state.pagePreviewsState,
-                                onOpenPage = onOpenPagePreview,
-                                onMorePreviewsClicked = onMorePreviewsClicked,
-                                rowCount = previewsRowCount,
+                            MangaActionRow(
+                                favorite = state.manga.favorite,
+                                trackingCount = state.trackingCount,
+                                nextUpdate = nextUpdate,
+                                isUserIntervalMode = state.manga.fetchInterval < 0,
+                                onAddToLibraryClicked = onAddToLibraryClicked,
+                                onTrackingClicked = onTrackingClicked,
+                                onEditIntervalClicked = onEditIntervalClicked,
+                                onEditCategory = onEditCategoryClicked,
+                                // SY -->
+                                onMergeClicked = onMergeClicked.takeUnless { state.showMergeInOverflow },
+                                onRecommendClicked = onRecommendClicked.takeUnless { state.showRecommendationsInOverflow },
+                                // SY <--
                             )
+
+                            // SY -->
+                            // Add merge with another button if needed (recommendations moved to action row)
+                            if (state.showMergeWithAnother) {
+                                MangaInfoButtons(
+                                    showRecommendsButton = false,
+                                    showMergeWithAnotherButton = true,
+                                    onRecommendClicked = onRecommendClicked,
+                                    onMergeWithAnotherClicked = onMergeWithAnotherClicked,
+                                )
+                            }
+
+                            if (metadataDescription != null) {
+                                metadataDescription(
+                                    state,
+                                    onMetadataViewerClicked,
+                                ) {
+                                    onSearch(it, false)
+                                }
+                            }
+                            // SY <--
+                            ExpandableMangaDescription(
+                                defaultExpandState = true,
+                                description = state.manga.description,
+                                tagsProvider = { state.manga.genre },
+                                onTagSearch = onTagSearch,
+                                onCopyTagToClipboard = onCopyTagToClipboard,
+                                // SY -->
+                                doSearch = onSearch,
+                                searchMetadataChips = remember(state.meta, state.source.id, state.manga.genre) {
+                                    SearchMetadataChips(state.meta, state.source, state.manga.genre)
+                                },
+                                // SY <--
+                            )
+
+                            // SY -->
+                            if (state.pagePreviewsState !is PagePreviewState.Unused && previewsRowCount > 0) {
+                                PagePreviews(
+                                    pagePreviewState = state.pagePreviewsState,
+                                    onOpenPage = onOpenPagePreview,
+                                    onMorePreviewsClicked = onMorePreviewsClicked,
+                                    rowCount = previewsRowCount,
+                                )
+                            }
+                            // SY <--
                         }
-                        // SY <--
                     }
                 },
                 endContent = {

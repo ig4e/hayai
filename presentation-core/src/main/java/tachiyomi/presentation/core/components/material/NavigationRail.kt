@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRailDefaults
 import androidx.compose.material3.contentColorFor
@@ -21,7 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * Center-aligned M3 Navigation rail
+ * Modern Navigation rail with rounded corners
  *
  * @see [androidx.compose.material3.NavigationRail]
  */
@@ -37,25 +38,26 @@ fun NavigationRail(
     androidx.compose.material3.Surface(
         color = containerColor,
         contentColor = contentColor,
-        modifier = modifier,
+        modifier = modifier.padding(vertical = 16.dp, horizontal = 8.dp),
         tonalElevation = 3.dp,
+        shape = RoundedCornerShape(28.dp),
     ) {
         Column(
             Modifier
                 .fillMaxHeight()
                 .windowInsetsPadding(windowInsets)
-                .widthIn(min = 80.dp)
-                .padding(vertical = MaterialTheme.padding.extraSmall)
+                .widthIn(min = 72.dp)
+                .padding(vertical = MaterialTheme.padding.small)
                 .selectableGroup(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(
-                MaterialTheme.padding.extraSmall,
+                MaterialTheme.padding.small,
                 alignment = Alignment.CenterVertically,
             ),
         ) {
             if (header != null) {
                 header()
-                Spacer(Modifier.height(MaterialTheme.padding.small))
+                Spacer(Modifier.height(MaterialTheme.padding.medium))
             }
             content()
         }

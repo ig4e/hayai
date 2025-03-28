@@ -80,6 +80,9 @@ class WebtoonViewer(
     /* [EXH] private */
     var currentPage: Any? = null
 
+    /* Whether this view allows preloading */
+    private var allowPreload = true
+
     private val threshold: Int =
         Injekt.get<ReaderPreferences>()
             .readerHideThreshold()
@@ -213,20 +216,38 @@ class WebtoonViewer(
      * Called from the RecyclerView listener when a [page] is marked as active. It notifies the
      * activity of the change and requests the preload of the next chapter if this is the last page.
      */
-    private fun onPageSelected(page: ReaderPage, allowPreload: Boolean) {
+    private fun onPageSelected(page: ReaderPage) {
+        currentPage = page
+
         val pages = page.chapter.pages ?: return
         logcat { "onPageSelected: ${page.number}/${pages.size}" }
         activity.onPageSelected(page)
 
-        // Preload next chapter once we're within the last 5 pages of the current chapter
-        val inPreloadRange = pages.size - page.number < 5
-        if (inPreloadRange && allowPreload && page.chapter == adapter.currentChapter) {
-            logcat { "Request preload next chapter because we're at page ${page.number} of ${pages.size}" }
+        // Preload behavior based on settings
+        val readerPrefs = Injekt.get<ReaderPreferences>()
+        val shouldForcePreload = readerPrefs.forcePreload().get()
+
+        if (shouldForcePreload && allowPreload) {
+            // Force preload next chapter based on setting
+            logcat { "Force preloading next chapter due to user setting" }
             val nextItem = adapter.items.getOrNull(adapter.items.size - 1)
-            val transitionChapter = (nextItem as? ChapterTransition.Next)?.to ?: (nextItem as?ReaderPage)?.chapter
+            val transitionChapter = (nextItem as? ChapterTransition.Next)?.to ?: (nextItem as? ReaderPage)?.chapter
             if (transitionChapter != null) {
                 logcat { "Requesting to preload chapter ${transitionChapter.chapter.chapter_number}" }
                 activity.requestPreloadChapter(transitionChapter)
+            }
+        } else {
+            // Standard preloading behavior
+            // Preload next chapter once we're within the last 5 pages of the current chapter
+            val inPreloadRange = pages.size - page.number < 5
+            if (inPreloadRange && allowPreload && page.chapter == adapter.currentChapter) {
+                logcat { "Request preload next chapter because we're at page ${page.number} of ${pages.size}" }
+                val nextItem = adapter.items.getOrNull(adapter.items.size - 1)
+                val transitionChapter = (nextItem as? ChapterTransition.Next)?.to ?: (nextItem as? ReaderPage)?.chapter
+                if (transitionChapter != null) {
+                    logcat { "Requesting to preload chapter ${transitionChapter.chapter.chapter_number}" }
+                    activity.requestPreloadChapter(transitionChapter)
+                }
             }
         }
     }
@@ -281,7 +302,7 @@ class WebtoonViewer(
         if (item != null && currentPage != item) {
             currentPage = item
             when (item) {
-                is ReaderPage -> onPageSelected(item, allowPreload)
+                is ReaderPage -> onPageSelected(item)
                 is ChapterTransition -> onTransitionSelected(item)
             }
         }

@@ -1,6 +1,7 @@
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
@@ -29,7 +30,10 @@ fun BadgeGroup(
     shape: Shape = MaterialTheme.shapes.extraSmall,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Row(modifier = modifier.clip(shape)) {
+    Row(
+        modifier = modifier.clip(shape),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         content()
     }
 }
@@ -40,14 +44,14 @@ fun Badge(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.secondary,
     textColor: Color = MaterialTheme.colorScheme.onSecondary,
-    shape: Shape = RectangleShape,
+    shape: Shape = MaterialTheme.shapes.small,
 ) {
     Text(
         text = text,
         modifier = modifier
             .clip(shape)
             .background(color)
-            .padding(horizontal = 3.dp, vertical = 1.dp),
+            .padding(horizontal = 5.dp, vertical = 2.dp),
         color = textColor,
         fontWeight = FontWeight.Medium,
         maxLines = 1,
@@ -61,7 +65,7 @@ fun Badge(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.secondary,
     iconColor: Color = MaterialTheme.colorScheme.onSecondary,
-    shape: Shape = RectangleShape,
+    shape: Shape = MaterialTheme.shapes.small,
 ) {
     val iconContentPlaceholder = "[icon]"
     val text = buildAnnotatedString {
@@ -92,7 +96,7 @@ fun Badge(
         modifier = modifier
             .clip(shape)
             .background(color)
-            .padding(horizontal = 3.dp, vertical = 1.dp),
+            .padding(horizontal = 5.dp, vertical = 2.dp),
         color = iconColor,
         fontWeight = FontWeight.Medium,
         maxLines = 1,

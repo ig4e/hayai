@@ -37,6 +37,7 @@ import com.kevinnzou.web.rememberWebViewNavigator
 import com.kevinnzou.web.rememberWebViewState
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
+import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.WarningBanner
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -47,6 +48,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import okhttp3.Request
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
@@ -166,8 +168,12 @@ fun WebViewScreenContent(
             Box {
                 Column {
                     AppBar(
-                        title = state.pageTitle ?: initialTitle,
-                        subtitle = currentUrl,
+                        titleContent = {
+                            AppBarTitle(
+                                title = state.pageTitle ?: initialTitle,
+                                subtitle = currentUrl,
+                            )
+                        },
                         navigateUp = onNavigateUp,
                         navigationIcon = Icons.Outlined.Close,
                         actions = {
