@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.updater
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.work.Constraints
@@ -106,8 +107,23 @@ class AppUpdateDownloadJob(private val context: Context, workerParams: WorkerPar
                 response.close()
                 throw Exception("Unsuccessful response")
             }
+
+            // Cancel the ongoing notification
             notifier.cancel()
+
+            // Show the install prompt notification
             notifier.promptInstall(apkFile.getUriCompat(context))
+
+            // Notify about automatic installation
+            notifier.notifyAutoInstall()
+
+            // Automatically start the installation
+            val apkUri = apkFile.getUriCompat(context)
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            context.startActivity(installIntent)
         } catch (e: Exception) {
             val shouldCancel = e is CancellationException ||
                 (e is StreamResetException && e.errorCode == ErrorCode.CANCEL)
