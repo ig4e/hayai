@@ -25,13 +25,13 @@ data class LibraryItem(
     fun matches(constraint: String): Boolean {
         val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo(null) }
 
-        return libraryManga.manga.title.containsFuzzy(constraint) ||
-            (libraryManga.manga.author?.containsFuzzy(constraint) ?: false) ||
-            (libraryManga.manga.artist?.containsFuzzy(constraint) ?: false) ||
-            (libraryManga.manga.description?.containsFuzzy(constraint) ?: false) ||
+        return containsFuzzy(libraryManga.manga.title, constraint) ||
+            (libraryManga.manga.author?.let { containsFuzzy(it, constraint) } ?: false) ||
+            (libraryManga.manga.artist?.let { containsFuzzy(it, constraint) } ?: false) ||
+            (libraryManga.manga.description?.let { containsFuzzy(it, constraint) } ?: false) ||
             constraint.split(",").map { it.trim() }.all { subconstraint ->
                 checkNegatableConstraint(subconstraint) {
-                    sourceName.containsFuzzy(it) ||
+                    containsFuzzy(sourceName, it) ||
                         (libraryManga.manga.genre?.any { genre -> genre.equals(it, true) } ?: false)
                 }
             }

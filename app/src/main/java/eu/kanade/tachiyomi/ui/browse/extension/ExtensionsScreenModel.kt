@@ -61,25 +61,25 @@ class ExtensionsScreenModel(
                     when (extension) {
                         is Extension.Available -> {
                             extension.sources.any {
-                                it.name.containsFuzzy(input) ||
-                                    it.baseUrl.containsFuzzy(input) ||
+                                containsFuzzy(it.name, input) ||
+                                    containsFuzzy(it.baseUrl, input) ||
                                     it.id == input.toLongOrNull()
                             } ||
-                                extension.name.containsFuzzy(input)
+                                containsFuzzy(extension.name, input)
                         }
                         is Extension.Installed -> {
                             extension.sources.any {
-                                it.name.containsFuzzy(input) ||
+                                containsFuzzy(it.name, input) ||
                                     it.id == input.toLongOrNull() ||
                                     if (it is HttpSource) {
-                                        it.baseUrl.containsFuzzy(input)
+                                        containsFuzzy(it.baseUrl, input)
                                     } else {
                                         false
                                     }
                             } ||
-                                extension.name.containsFuzzy(input)
+                                containsFuzzy(extension.name, input)
                         }
-                        is Extension.Untrusted -> extension.name.containsFuzzy(input)
+                        is Extension.Untrusted -> containsFuzzy(extension.name, input)
                     }
                 }
             }

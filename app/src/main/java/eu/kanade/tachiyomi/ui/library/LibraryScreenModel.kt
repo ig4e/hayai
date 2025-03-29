@@ -1018,20 +1018,20 @@ class LibraryScreenModel(
                 false -> when (queryComponent) {
                     is Text -> {
                         val query = queryComponent.asQuery()
-                        manga.title.containsFuzzy(query) ||
-                            (manga.author?.containsFuzzy(query) == true) ||
-                            (manga.artist?.containsFuzzy(query) == true) ||
-                            (manga.description?.containsFuzzy(query) == true) ||
-                            (source?.name?.containsFuzzy(query) == true) ||
+                        containsFuzzy(manga.title, query) ||
+                            (manga.author?.let { containsFuzzy(it, query) } == true) ||
+                            (manga.artist?.let { containsFuzzy(it, query) } == true) ||
+                            (manga.description?.let { containsFuzzy(it, query) } == true) ||
+                            (source?.name?.let { containsFuzzy(it, query) } == true) ||
                             (sourceIdString != null && sourceIdString == query) ||
                             (
                                 loggedInTrackServices.isNotEmpty() &&
                                     tracks != null &&
                                     filterTracksFuzzy(query, tracks, context)
                                 ) ||
-                            (genre.fastAny { it.containsFuzzy(query) }) ||
-                            (searchTags?.fastAny { it.name.containsFuzzy(query) } == true) ||
-                            (searchTitles?.fastAny { it.title.containsFuzzy(query) } == true)
+                            (genre.fastAny { containsFuzzy(it, query) }) ||
+                            (searchTags?.fastAny { containsFuzzy(it.name, query) } == true) ||
+                            (searchTitles?.fastAny { containsFuzzy(it.title, query) } == true)
                     }
                     is Namespace -> {
                         searchTags != null &&
@@ -1039,7 +1039,7 @@ class LibraryScreenModel(
                                 val tag = queryComponent.tag
                                 (
                                     it.namespace.equals(queryComponent.namespace, true) &&
-                                        tag?.run { it.name.containsFuzzy(tag.asQuery()) } == true
+                                        tag?.run { containsFuzzy(it.name, tag.asQuery()) } == true
                                     ) ||
                                     (tag == null && it.namespace.equals(queryComponent.namespace, true))
                             }
@@ -1051,20 +1051,20 @@ class LibraryScreenModel(
                         val query = queryComponent.asQuery()
                         query.isBlank() ||
                             (
-                                (!manga.title.containsFuzzy(query)) &&
-                                    (manga.author?.containsFuzzy(query) != true) &&
-                                    (manga.artist?.containsFuzzy(query) != true) &&
-                                    (manga.description?.containsFuzzy(query) != true) &&
-                                    (source?.name?.containsFuzzy(query) != true) &&
+                                (!containsFuzzy(manga.title, query)) &&
+                                    (manga.author?.let { containsFuzzy(it, query) } != true) &&
+                                    (manga.artist?.let { containsFuzzy(it, query) } != true) &&
+                                    (manga.description?.let { containsFuzzy(it, query) } != true) &&
+                                    (source?.name?.let { containsFuzzy(it, query) } != true) &&
                                     (sourceIdString != null && sourceIdString != query) &&
                                     (
                                         loggedInTrackServices.isEmpty() ||
                                             tracks == null ||
                                             !filterTracksFuzzy(query, tracks, context)
                                         ) &&
-                                    (!genre.fastAny { it.containsFuzzy(query) }) &&
-                                    (searchTags?.fastAny { it.name.containsFuzzy(query) } != true) &&
-                                    (searchTitles?.fastAny { it.title.containsFuzzy(query) } != true)
+                                    (!genre.fastAny { containsFuzzy(it, query) }) &&
+                                    (searchTags?.fastAny { containsFuzzy(it.name, query) } != true) &&
+                                    (searchTitles?.fastAny { containsFuzzy(it.title, query) } != true)
                                 )
                     }
                     is Namespace -> {
@@ -1073,14 +1073,14 @@ class LibraryScreenModel(
                             (queryComponent.namespace.isBlank() && searchedTag.isNullOrBlank()) ||
                             searchTags.fastAll { mangaTag ->
                                 if (queryComponent.namespace.isBlank() && !searchedTag.isNullOrBlank()) {
-                                    !mangaTag.name.containsFuzzy(searchedTag)
+                                    !containsFuzzy(mangaTag.name, searchedTag)
                                 } else if (searchedTag.isNullOrBlank()) {
                                     mangaTag.namespace == null ||
                                         !mangaTag.namespace.equals(queryComponent.namespace, true)
                                 } else if (mangaTag.namespace.isNullOrBlank()) {
                                     true
                                 } else {
-                                    !mangaTag.name.containsFuzzy(searchedTag) ||
+                                    !containsFuzzy(mangaTag.name, searchedTag) ||
                                         !mangaTag.namespace.equals(queryComponent.namespace, true)
                                 }
                             }
@@ -1100,7 +1100,7 @@ class LibraryScreenModel(
                 }
                 val name = trackerManager.get(track.trackerId)?.name
 
-                status?.containsFuzzy(constraint) == true || name?.containsFuzzy(constraint) == true
+                status?.let { containsFuzzy(it, constraint) } == true || name?.let { containsFuzzy(it, constraint) } == true
             } else {
                 false
             }
