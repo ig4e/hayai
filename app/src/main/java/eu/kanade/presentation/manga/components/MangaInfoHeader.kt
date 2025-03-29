@@ -130,8 +130,11 @@ fun MangaInfoBox(
         // Backdrop with enhanced gradient blend
         val backdropGradientColors = listOf(
             Color.Transparent,
-            MaterialTheme.colorScheme.background.copy(alpha = 0.4f),
+            Color.Transparent,
+            MaterialTheme.colorScheme.background.copy(alpha = 0.2f),
+            MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
             MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
+            MaterialTheme.colorScheme.background,
         )
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
@@ -152,8 +155,8 @@ fun MangaInfoBox(
                         ),
                     )
                 }
-                .blur(12.dp)
-                .alpha(0.7f),
+                .blur(16.dp)
+                .alpha(0.65f),
         )
 
         // Manga & source info
@@ -195,10 +198,6 @@ fun MangaActionRow(
     onMergeClicked: (() -> Unit)?,
     onRecommendClicked: (() -> Unit)?,
     // SY <--
-    // SY --> Additional parameter for detailed info
-    sourceId: Long? = null,
-    onMoreInfoClicked: (() -> Unit)? = null,
-    // SY <--
     modifier: Modifier = Modifier,
 ) {
     val defaultActionButtonColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
@@ -212,16 +211,6 @@ fun MangaActionRow(
             null
         }
     }
-
-    // SY --> Check if the manga is from MangaDex or E-Hentai
-    val isSpecialSource = remember(sourceId) {
-        sourceId != null && (
-            sourceId in exh.source.mangaDexSourceIds ||
-            sourceId == exh.source.EH_SOURCE_ID ||
-            sourceId == exh.source.EXH_SOURCE_ID
-        )
-    }
-    // SY <--
 
     Surface(
         modifier = modifier.padding(horizontal = 16.dp, vertical = 16.dp),
@@ -293,17 +282,6 @@ fun MangaActionRow(
                     modifier = Modifier.weight(1f),
                 )
             }
-            // SY --> Add More Info button for MangaDex/E-Hentai sources
-            if (isSpecialSource && onMoreInfoClicked != null) {
-                MangaActionButton(
-                    title = stringResource(MR.strings.more_information),
-                    icon = Icons.Outlined.Public,
-                    color = MaterialTheme.colorScheme.secondary,
-                    onClick = onMoreInfoClicked,
-                    active = true,
-                    modifier = Modifier.weight(1f),
-                )
-            }
             // SY <--
         }
     }
@@ -319,6 +297,9 @@ fun ExpandableMangaDescription(
     // SY -->
     searchMetadataChips: SearchMetadataChips?,
     doSearch: (query: String, global: Boolean) -> Unit,
+    // For MangaDex/E-Hentai Sources
+    isSpecialSource: Boolean = false,
+    onViewMoreInfo: (() -> Unit)? = null,
     // SY <--
     modifier: Modifier = Modifier,
 ) {
@@ -446,6 +427,20 @@ fun ExpandableMangaDescription(
                     // Display chips from SearchMetadataChips, passing the expanded state
                     chips.display(doSearch, expanded)
                 }
+            }
+        }
+
+        // More Info button for MangaDex/E-Hentai sources
+        if (isSpecialSource && onViewMoreInfo != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                MoreInfoButton(
+                    onClick = onViewMoreInfo
+                )
             }
         }
         // SY <--
@@ -1098,6 +1093,42 @@ private fun EnhancedTagChip(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
+
+// New compact and attractive More Info button
+@Composable
+private fun MoreInfoButton(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .clickableNoIndication(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Public,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = stringResource(MR.strings.more_info),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }

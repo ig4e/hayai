@@ -959,7 +959,6 @@
     <!-- Do not translate "WebView" -->
     <string name="information_webview_outdated">Please update the WebView app for better compatibility</string>
     <string name="chapter_settings_updated">Updated default chapter settings</string>
-    <string name="more_information">More information</string>
 
     <!-- Download Notification -->
     <string name="download_notifier_downloader_title">Downloader</string>
@@ -1010,4 +1009,21 @@
     <!-- EditMangaDialog section headers -->
     <string name="author_artist">Creator Information</string>
     <string name="information">Content Information</string>
+
+    <!-- SY strings for Metadata Page -->
+    <string name="gallery_info">Gallery Info</string>
+    <string name="more_info">More Info</string>
+    <string name="date_released">Release Date</string>
+    <string name="date_updated">Last Updated</string>
+
+    <!-- Manga metadata page -->
+    <string name="links">Links</string>
+    <string name="view_on_website">View on website</string>
+    <string name="release_date">Release date</string>
+    <string name="last_updated">Last updated</string>
+    <string name="alternative_titles">Alternative titles</string>
+    <string name="collapse">Collapse</string>
+    <string name="expand">Expand</string>
+    <string name="more_titles">+%d more</string>
+    <string name="more_info">More info</string>
 </resources>

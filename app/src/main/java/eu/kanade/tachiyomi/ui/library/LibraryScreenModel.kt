@@ -1011,25 +1011,47 @@ class LibraryScreenModel(
         val sourceIdString = manga.source.takeUnless { it == LocalSource.ID }?.toString()
         val genre = if (checkGenre) manga.genre.orEmpty() else emptyList()
         val context = Injekt.get<Application>()
+
+        // Fuzzy search function that checks if characters appear in sequence
+        fun String.containsFuzzy(other: String, ignoreCase: Boolean = true): Boolean {
+            if (other.isEmpty()) return true
+            if (this.isEmpty()) return false
+
+            val sourceText = if (ignoreCase) this.lowercase() else this
+            val searchText = if (ignoreCase) other.lowercase() else other
+
+            var sourceIndex = 0
+            var searchIndex = 0
+
+            while (sourceIndex < sourceText.length && searchIndex < searchText.length) {
+                if (sourceText[sourceIndex] == searchText[searchIndex]) {
+                    searchIndex++
+                }
+                sourceIndex++
+            }
+
+            return searchIndex == searchText.length
+        }
+
         return queries.all { queryComponent ->
             when (queryComponent.excluded) {
                 false -> when (queryComponent) {
                     is Text -> {
                         val query = queryComponent.asQuery()
-                        manga.title.contains(query, true) ||
-                            (manga.author?.contains(query, true) == true) ||
-                            (manga.artist?.contains(query, true) == true) ||
-                            (manga.description?.contains(query, true) == true) ||
-                            (source?.name?.contains(query, true) == true) ||
+                        manga.title.containsFuzzy(query) ||
+                            (manga.author?.containsFuzzy(query) == true) ||
+                            (manga.artist?.containsFuzzy(query) == true) ||
+                            (manga.description?.containsFuzzy(query) == true) ||
+                            (source?.name?.containsFuzzy(query) == true) ||
                             (sourceIdString != null && sourceIdString == query) ||
                             (
                                 loggedInTrackServices.isNotEmpty() &&
                                     tracks != null &&
-                                    filterTracks(query, tracks, context)
+                                    filterTracksFuzzy(query, tracks, context)
                                 ) ||
-                            (genre.fastAny { it.contains(query, true) }) ||
-                            (searchTags?.fastAny { it.name.contains(query, true) } == true) ||
-                            (searchTitles?.fastAny { it.title.contains(query, true) } == true)
+                            (genre.fastAny { it.containsFuzzy(query) }) ||
+                            (searchTags?.fastAny { it.name.containsFuzzy(query) } == true) ||
+                            (searchTitles?.fastAny { it.title.containsFuzzy(query) } == true)
                     }
                     is Namespace -> {
                         searchTags != null &&
@@ -1037,7 +1059,7 @@ class LibraryScreenModel(
                                 val tag = queryComponent.tag
                                 (
                                     it.namespace.equals(queryComponent.namespace, true) &&
-                                        tag?.run { it.name.contains(tag.asQuery(), true) } == true
+                                        tag?.run { it.name.containsFuzzy(tag.asQuery()) } == true
                                     ) ||
                                     (tag == null && it.namespace.equals(queryComponent.namespace, true))
                             }
@@ -1049,20 +1071,20 @@ class LibraryScreenModel(
                         val query = queryComponent.asQuery()
                         query.isBlank() ||
                             (
-                                (!manga.title.contains(query, true)) &&
-                                    (manga.author?.contains(query, true) != true) &&
-                                    (manga.artist?.contains(query, true) != true) &&
-                                    (manga.description?.contains(query, true) != true) &&
-                                    (source?.name?.contains(query, true) != true) &&
+                                (!manga.title.containsFuzzy(query)) &&
+                                    (manga.author?.containsFuzzy(query) != true) &&
+                                    (manga.artist?.containsFuzzy(query) != true) &&
+                                    (manga.description?.containsFuzzy(query) != true) &&
+                                    (source?.name?.containsFuzzy(query) != true) &&
                                     (sourceIdString != null && sourceIdString != query) &&
                                     (
                                         loggedInTrackServices.isEmpty() ||
                                             tracks == null ||
-                                            !filterTracks(query, tracks, context)
+                                            !filterTracksFuzzy(query, tracks, context)
                                         ) &&
-                                    (!genre.fastAny { it.contains(query, true) }) &&
-                                    (searchTags?.fastAny { it.name.contains(query, true) } != true) &&
-                                    (searchTitles?.fastAny { it.title.contains(query, true) } != true)
+                                    (!genre.fastAny { it.containsFuzzy(query) }) &&
+                                    (searchTags?.fastAny { it.name.containsFuzzy(query) } != true) &&
+                                    (searchTitles?.fastAny { it.title.containsFuzzy(query) } != true)
                                 )
                     }
                     is Namespace -> {
@@ -1071,14 +1093,14 @@ class LibraryScreenModel(
                             (queryComponent.namespace.isBlank() && searchedTag.isNullOrBlank()) ||
                             searchTags.fastAll { mangaTag ->
                                 if (queryComponent.namespace.isBlank() && !searchedTag.isNullOrBlank()) {
-                                    !mangaTag.name.contains(searchedTag, true)
+                                    !mangaTag.name.containsFuzzy(searchedTag)
                                 } else if (searchedTag.isNullOrBlank()) {
                                     mangaTag.namespace == null ||
                                         !mangaTag.namespace.equals(queryComponent.namespace, true)
                                 } else if (mangaTag.namespace.isNullOrBlank()) {
                                     true
                                 } else {
-                                    !mangaTag.name.contains(searchedTag, true) ||
+                                    !mangaTag.name.containsFuzzy(searchedTag) ||
                                         !mangaTag.namespace.equals(queryComponent.namespace, true)
                                 }
                             }
@@ -1089,7 +1111,7 @@ class LibraryScreenModel(
         }
     }
 
-    private fun filterTracks(constraint: String, tracks: List<Track>, context: Context): Boolean {
+    private fun filterTracksFuzzy(constraint: String, tracks: List<Track>, context: Context): Boolean {
         return tracks.fastAny { track ->
             val trackService = trackerManager.get(track.trackerId)
             if (trackService != null) {
@@ -1097,11 +1119,16 @@ class LibraryScreenModel(
                     context.stringResource(it)
                 }
                 val name = trackerManager.get(track.trackerId)?.name
-                status?.contains(constraint, true) == true || name?.contains(constraint, true) == true
+
+                status?.containsFuzzy(constraint) == true || name?.containsFuzzy(constraint) == true
             } else {
                 false
             }
         }
+    }
+
+    private fun filterTracks(constraint: String, tracks: List<Track>, context: Context): Boolean {
+        return filterTracksFuzzy(constraint, tracks, context)
     }
     // SY <--
 

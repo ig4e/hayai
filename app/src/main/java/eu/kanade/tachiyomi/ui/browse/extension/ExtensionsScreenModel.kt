@@ -56,28 +56,50 @@ class ExtensionsScreenModel(
                 query.split(",").any { _input ->
                     val input = _input.trim()
                     if (input.isEmpty()) return@any false
+
+                    // Fuzzy search function that checks if characters appear in sequence
+                    fun String.containsFuzzy(other: String, ignoreCase: Boolean = true): Boolean {
+                        if (other.isEmpty()) return true
+                        if (this.isEmpty()) return false
+
+                        val sourceText = if (ignoreCase) this.lowercase() else this
+                        val searchText = if (ignoreCase) other.lowercase() else other
+
+                        var sourceIndex = 0
+                        var searchIndex = 0
+
+                        while (sourceIndex < sourceText.length && searchIndex < searchText.length) {
+                            if (sourceText[sourceIndex] == searchText[searchIndex]) {
+                                searchIndex++
+                            }
+                            sourceIndex++
+                        }
+
+                        return searchIndex == searchText.length
+                    }
+
                     when (extension) {
                         is Extension.Available -> {
                             extension.sources.any {
-                                it.name.contains(input, ignoreCase = true) ||
-                                    it.baseUrl.contains(input, ignoreCase = true) ||
+                                it.name.containsFuzzy(input) ||
+                                    it.baseUrl.containsFuzzy(input) ||
                                     it.id == input.toLongOrNull()
                             } ||
-                                extension.name.contains(input, ignoreCase = true)
+                                extension.name.containsFuzzy(input)
                         }
                         is Extension.Installed -> {
                             extension.sources.any {
-                                it.name.contains(input, ignoreCase = true) ||
+                                it.name.containsFuzzy(input) ||
                                     it.id == input.toLongOrNull() ||
                                     if (it is HttpSource) {
-                                        it.baseUrl.contains(input, ignoreCase = true)
+                                        it.baseUrl.containsFuzzy(input)
                                     } else {
                                         false
                                     }
                             } ||
-                                extension.name.contains(input, ignoreCase = true)
+                                extension.name.containsFuzzy(input)
                         }
-                        is Extension.Untrusted -> extension.name.contains(input, ignoreCase = true)
+                        is Extension.Untrusted -> extension.name.containsFuzzy(input)
                     }
                 }
             }

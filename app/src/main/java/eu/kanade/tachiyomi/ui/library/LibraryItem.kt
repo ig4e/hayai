@@ -22,13 +22,35 @@ data class LibraryItem(
      */
     fun matches(constraint: String): Boolean {
         val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo(null) }
-        return libraryManga.manga.title.contains(constraint, true) ||
-            (libraryManga.manga.author?.contains(constraint, true) ?: false) ||
-            (libraryManga.manga.artist?.contains(constraint, true) ?: false) ||
-            (libraryManga.manga.description?.contains(constraint, true) ?: false) ||
+
+        // Fuzzy search function that checks if characters appear in sequence
+        fun String.containsFuzzy(other: String, ignoreCase: Boolean = true): Boolean {
+            if (other.isEmpty()) return true
+            if (this.isEmpty()) return false
+
+            val sourceText = if (ignoreCase) this.lowercase() else this
+            val searchText = if (ignoreCase) other.lowercase() else other
+
+            var sourceIndex = 0
+            var searchIndex = 0
+
+            while (sourceIndex < sourceText.length && searchIndex < searchText.length) {
+                if (sourceText[sourceIndex] == searchText[searchIndex]) {
+                    searchIndex++
+                }
+                sourceIndex++
+            }
+
+            return searchIndex == searchText.length
+        }
+
+        return libraryManga.manga.title.containsFuzzy(constraint) ||
+            (libraryManga.manga.author?.containsFuzzy(constraint) ?: false) ||
+            (libraryManga.manga.artist?.containsFuzzy(constraint) ?: false) ||
+            (libraryManga.manga.description?.containsFuzzy(constraint) ?: false) ||
             constraint.split(",").map { it.trim() }.all { subconstraint ->
                 checkNegatableConstraint(subconstraint) {
-                    sourceName.contains(it, true) ||
+                    sourceName.containsFuzzy(it) ||
                         (libraryManga.manga.genre?.any { genre -> genre.equals(it, true) } ?: false)
                 }
             }
