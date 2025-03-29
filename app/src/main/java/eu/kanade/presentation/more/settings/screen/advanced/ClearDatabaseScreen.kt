@@ -10,9 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -58,6 +55,12 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.selectedBackground
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.presentation.core.components.material.Checkbox
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 
 class ClearDatabaseScreen : Screen() {
 

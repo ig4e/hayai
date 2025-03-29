@@ -27,7 +27,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -68,6 +67,7 @@ import java.util.Locale
 import kotlin.reflect.KFunction
 import kotlin.reflect.KVisibility
 import kotlin.reflect.full.declaredFunctions
+import tachiyomi.presentation.core.components.material.Switch
 
 class SettingsDebugScreen : Screen() {
 

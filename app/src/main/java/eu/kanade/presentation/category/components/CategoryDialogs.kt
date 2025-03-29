@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TriStateCheckbox
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +40,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.Duration.Companion.seconds
+import androidx.compose.material3.rememberTopAppBarState
+import tachiyomi.presentation.core.components.material.Checkbox
 
 @Composable
 fun CategoryCreateDialog(
@@ -304,13 +309,13 @@ fun ChangeCategoryDialog(
                     ) {
                         when (checkbox) {
                             is CheckboxState.TriState -> {
-                                TriStateCheckbox(
+                                tachiyomi.presentation.core.components.material.TriStateCheckbox(
                                     state = checkbox.asToggleableState(),
                                     onClick = { onChange(checkbox) },
                                 )
                             }
                             is CheckboxState.State -> {
-                                Checkbox(
+                                tachiyomi.presentation.core.components.material.Checkbox(
                                     checked = checkbox.isChecked,
                                     onCheckedChange = { onChange(checkbox) },
                                 )

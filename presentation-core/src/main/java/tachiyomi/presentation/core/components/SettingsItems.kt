@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.DisabledByDefault
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -50,10 +49,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.state.ToggleableState
 import dev.icerock.moko.resources.StringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.toggle
+import tachiyomi.presentation.core.components.material.Checkbox
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.Slider
 import tachiyomi.presentation.core.components.material.padding
@@ -324,7 +325,7 @@ fun TriStateItem(
     label: String,
     state: TriState,
     enabled: Boolean = true,
-    onClick: ((TriState) -> Unit)?,
+    onClick: ((TriState) -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -348,22 +349,26 @@ fun TriStateItem(
     ) {
         val stateAlpha = if (enabled && onClick != null) 1f else DISABLED_ALPHA
 
-        Icon(
-            imageVector = when (state) {
-                TriState.DISABLED -> Icons.Rounded.CheckBoxOutlineBlank
-                TriState.ENABLED_IS -> Icons.Rounded.CheckBox
-                TriState.ENABLED_NOT -> Icons.Rounded.DisabledByDefault
+        tachiyomi.presentation.core.components.material.TriStateCheckbox(
+            state = when (state) {
+                TriState.DISABLED -> ToggleableState.Off
+                TriState.ENABLED_IS -> ToggleableState.On
+                TriState.ENABLED_NOT -> ToggleableState.Indeterminate
             },
-            contentDescription = null,
-            tint = if (!enabled || state == TriState.DISABLED) {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = stateAlpha)
-            } else {
-                when (onClick) {
-                    null -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
-                    else -> MaterialTheme.colorScheme.primary
+            onClick = if (onClick != null) {
+                {
+                    when (state) {
+                        TriState.DISABLED -> onClick(TriState.ENABLED_IS)
+                        TriState.ENABLED_IS -> onClick(TriState.ENABLED_NOT)
+                        TriState.ENABLED_NOT -> onClick(TriState.DISABLED)
+                    }
                 }
+            } else {
+                null
             },
+            enabled = enabled,
         )
+
         Text(
             text = label,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = stateAlpha),

@@ -8,11 +8,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PeopleAlt
+import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +54,7 @@ import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.presentation.core.components.material.Checkbox
 
 object SettingsMangadexScreen : SearchableSettings {
 
@@ -142,7 +144,7 @@ object SettingsMangadexScreen : SearchableSettings {
                     title = mdex.name + " Login",
                     widget = {
                         Icon(
-                            imageVector = Icons.Outlined.PeopleAlt,
+                            imageVector = Icons.Outlined.Error,
                             contentDescription = null,
                             modifier = Modifier
                                 .padding(start = 12.dp, end = PrefsHorizontalPadding)

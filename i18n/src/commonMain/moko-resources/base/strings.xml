@@ -237,6 +237,7 @@
     <string name="theme_rose">Rose</string>
     <string name="theme_violet">Violet</string>
     <string name="pref_dark_theme_pure_black">Pure black dark mode</string>
+    <string name="pref_dark_theme_pure_black_summary">Use pure black color in dark mode themes</string>
     <string name="pref_relative_format">Relative timestamps</string>
     <!-- "Today" instead of "2023-12-31" -->
     <string name="pref_relative_format_summary">\"%1$s\" instead of \"%2$s\"</string>
@@ -244,6 +245,7 @@
 
     <string name="pref_manage_notifications">Manage notifications</string>
     <string name="pref_app_language">App language</string>
+    <string name="pref_app_language_summary">Change the language of the app</string>
 
     <string name="pref_category_security">Security and privacy</string>
     <string name="pref_security">Security</string>
@@ -772,8 +774,8 @@
     <string name="reading">Reading</string>
     <string name="completed">Completed</string>
     <string name="dropped">Dropped</string>
-    <string name="on_hold">On hold</string>
     <string name="paused">Paused</string>
+    <string name="on_hold">On hold</string>
     <string name="plan_to_read">Plan to read</string>
     <string name="repeating">Rereading</string>
     <string name="reading_list">Reading List</string>

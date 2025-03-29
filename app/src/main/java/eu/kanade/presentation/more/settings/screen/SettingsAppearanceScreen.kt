@@ -2,11 +2,23 @@ package eu.kanade.presentation.more.settings.screen
 
 import android.app.Activity
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ColorLens
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.DisplaySettings
+import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.TabletAndroid
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -18,6 +30,10 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.appearance.AppLanguageScreen
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.AppThemePreferenceWidget
+import eu.kanade.presentation.more.settings.widget.ModernPreferenceItem
+import eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader
+import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
+import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap

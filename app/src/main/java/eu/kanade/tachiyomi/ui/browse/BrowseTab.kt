@@ -17,7 +17,7 @@ import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.ui.UiPreferences
-import eu.kanade.presentation.components.TabbedScreen
+import eu.kanade.presentation.browse.components.BrowseTabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
@@ -100,7 +100,7 @@ data object BrowseTab : Tab {
 
         val state = rememberPagerState { tabs.size }
 
-        TabbedScreen(
+        BrowseTabbedScreen(
             titleRes = MR.strings.browse,
             tabs = tabs,
             state = state,
