@@ -8,6 +8,21 @@
         <changelogtext>Improved animations throughout the app</changelogtext>
         <changelogtext>Bug fixes and performance improvements</changelogtext>
     </changelogversion>
+    <changelogversion changeDate="April 15, 2025" versionName="1.0.2">
+        <changelogtext>Added automatic installation notifications and update handling</changelogtext>
+        <changelogtext>Enhanced migration process with improved error handling</changelogtext>
+        <changelogtext>Improved Category Dialog with new search capability</changelogtext>
+        <changelogtext>Enhanced fuzzy search implementation across Extensions and Library</changelogtext>
+        <changelogtext>Improved URL encoding in DataSaver implementations</changelogtext>
+        <changelogtext>Implemented new Manga Metadata Screen with detailed information</changelogtext>
+        <changelogtext>Enhanced EditMangaDialog UI and functionality</changelogtext>
+        <changelogtext>Updated onboarding flow with clearer instructions</changelogtext>
+        <changelogtext>Improved navigation components with better scaling</changelogtext>
+        <changelogtext>Unified text fields with new CustomTextField component</changelogtext>
+        <changelogtext>Added new drawable resources and updated existing icons</changelogtext>
+        <changelogtext>Removed obsolete GitHub Actions workflows</changelogtext>
+        <changelogtext>Various bug fixes and performance improvements</changelogtext>
+    </changelogversion>
     <!--
 
     <changelogversion changeDate="" versionName="r1810">
