@@ -10,9 +10,9 @@ internal abstract class BaseColorScheme {
 
     // Cannot be pure black as there's content scrolling behind it
     // https://m3.material.io/components/navigation-bar/guidelines#90615a71-607e-485e-9e09-778bfc080563
-    private val surfaceContainer = Color(0xFF0C0C0C)
-    private val surfaceContainerHigh = Color(0xFF131313)
-    private val surfaceContainerHighest = Color(0xFF1B1B1B)
+    private val surfaceContainer = Color(0xFF060606)
+    private val surfaceContainerHigh = Color(0xFF0A0A0A)
+    private val surfaceContainerHighest = Color(0xFF121212)
 
     fun getColorScheme(isDark: Boolean, isAmoled: Boolean): ColorScheme {
         if (!isDark) return lightScheme

@@ -53,7 +53,7 @@ class PagerConfig(
         private set
 
     // SY -->
-    var usePageTransitions = false
+    var usePageTransitions = true
 
     var shiftDoublePage = false
 

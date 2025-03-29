@@ -12,20 +12,20 @@ import androidx.compose.ui.graphics.Color
 internal object EmeraldColorScheme : BaseColorScheme() {
 
     override val lightScheme = lightColorScheme(
-        // Emerald colors for primaries and accents - more vibrant
-        primary = Color(0xFF00875A),           // Deeper emerald green
+        // Emerald colors for primaries and accents - moderate (400-600 range)
+        primary = Color(0xFF10B981),           // Emerald-500
         onPrimary = Color(0xFFFFFFFF),
-        primaryContainer = Color(0xFF00C382),  // Brighter emerald
-        onPrimaryContainer = Color(0xFFFFFFFF),
-        inversePrimary = Color(0xFF2AE5AB),    // Very bright emerald
-        secondary = Color(0xFF00875A),
+        primaryContainer = Color(0xFF34D399),  // Emerald-400
+        onPrimaryContainer = Color(0xFF064E3B),
+        inversePrimary = Color(0xFF6EE7B7),    // Emerald-300
+        secondary = Color(0xFF10B981),         // Emerald-500
         onSecondary = Color(0xFFFFFFFF),
-        secondaryContainer = Color(0xFF7DFFD4), // Bright mint green
-        onSecondaryContainer = Color(0xFF003929), // Deep forest
-        tertiary = Color(0xFF006647),          // Darker emerald
+        secondaryContainer = Color(0xFF34D399), // Emerald-400
+        onSecondaryContainer = Color(0xFF064E3B), // Emerald-900
+        tertiary = Color(0xFF059669),          // Emerald-600
         onTertiary = Color(0xFFFFFFFF),
-        tertiaryContainer = Color(0xFFA0FFD9), // Bright mint
-        onTertiaryContainer = Color(0xFF00261B), // Very dark forest
+        tertiaryContainer = Color(0xFF34D399), // Emerald-400
+        onTertiaryContainer = Color(0xFF064E3B), // Emerald-900
 
         // Zinc colors for backgrounds and surfaces
         background = Color(0xFFfafafa),
@@ -34,7 +34,7 @@ internal object EmeraldColorScheme : BaseColorScheme() {
         onSurface = Color(0xFF18181b),
         surfaceVariant = Color(0xFFe4e4e7),
         onSurfaceVariant = Color(0xFF3f3f46),
-        surfaceTint = Color(0xFF00875A),       // Match primary
+        surfaceTint = Color(0xFF10B981),       // Match primary
         inverseSurface = Color(0xFF27272a),
         inverseOnSurface = Color(0xFFf4f4f5),
         outline = Color(0xFF71717a),
@@ -51,29 +51,29 @@ internal object EmeraldColorScheme : BaseColorScheme() {
     )
 
     override val darkScheme = darkColorScheme(
-        // Emerald colors for primaries and accents - more vibrant
-        primary = Color(0xFF2AE5AB),          // Bright emerald
-        onPrimary = Color(0xFF00261B),        // Very dark forest
-        primaryContainer = Color(0xFF00875A),  // Deep emerald
+        // Emerald colors for primaries and accents - moderate (400-600 range)
+        primary = Color(0xFF34D399),          // Emerald-400
+        onPrimary = Color(0xFF064E3B),        // Emerald-900
+        primaryContainer = Color(0xFF059669),  // Emerald-600
         onPrimaryContainer = Color(0xFFFFFFFF),
-        inversePrimary = Color(0xFF003929),    // Very dark emerald
-        secondary = Color(0xFF2AE5AB),         // Bright emerald
-        onSecondary = Color(0xFF00261B),       // Very dark forest
-        secondaryContainer = Color(0xFF006647), // Deeper emerald
-        onSecondaryContainer = Color(0xFFA0FFD9), // Very bright mint
-        tertiary = Color(0xFF7DFFD4),          // Bright mint
-        onTertiary = Color(0xFF003929),        // Very dark forest
-        tertiaryContainer = Color(0xFF005237), // Dark emerald
-        onTertiaryContainer = Color(0xFFA0FFD9), // Bright mint
+        inversePrimary = Color(0xFF064E3B),    // Emerald-900
+        secondary = Color(0xFF34D399),         // Emerald-400
+        onSecondary = Color(0xFF064E3B),       // Emerald-900
+        secondaryContainer = Color(0xFF059669), // Emerald-600
+        onSecondaryContainer = Color(0xFFD1FAE5), // Emerald-100
+        tertiary = Color(0xFF34D399),          // Emerald-400
+        onTertiary = Color(0xFF064E3B),        // Emerald-900
+        tertiaryContainer = Color(0xFF059669),  // Emerald-600
+        onTertiaryContainer = Color(0xFFD1FAE5), // Emerald-100
 
         // Zinc colors for backgrounds and surfaces
-        background = Color(0xFF18181b),
+        background = Color(0xFF09090b),         // Zinc-950
         onBackground = Color(0xFFf4f4f5),
-        surface = Color(0xFF27272a),
+        surface = Color(0xFF18181b),            // Zinc-900
         onSurface = Color(0xFFf4f4f5),
-        surfaceVariant = Color(0xFF3f3f46),
+        surfaceVariant = Color(0xFF27272a),     // Zinc-800
         onSurfaceVariant = Color(0xFFd4d4d8),
-        surfaceTint = Color(0xFF2AE5AB),       // Match primary
+        surfaceTint = Color(0xFF34D399),       // Match primary
         inverseSurface = Color(0xFFf4f4f5),
         inverseOnSurface = Color(0xFF27272a),
         outline = Color(0xFFa1a1aa),

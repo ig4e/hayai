@@ -1,16 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <set xmlns:android="http://schemas.android.com/apk/res/android">
     <alpha
-        android:duration="175"
+        android:duration="350"
         android:fillAfter="true"
         android:fromAlpha="0.0"
-        android:interpolator="@android:anim/accelerate_interpolator"
+        android:interpolator="@android:interpolator/decelerate_quad"
         android:toAlpha="1.0" />
 
     <translate
-        android:duration="200"
-        android:fromXDelta="-4%"
-        android:interpolator="@android:anim/accelerate_interpolator"
+        android:duration="500"
+        android:fromXDelta="-10%"
+        android:interpolator="@android:interpolator/overshoot"
         android:toXDelta="0%"
+        />
+
+    <scale
+        android:duration="500"
+        android:fromXScale="0.90"
+        android:fromYScale="0.90"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:toXScale="1.0"
+        android:toYScale="1.0"
+        android:interpolator="@android:interpolator/overshoot"
+        />
+
+    <rotate
+        android:duration="400"
+        android:fromDegrees="-2"
+        android:toDegrees="0"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:interpolator="@android:interpolator/decelerate_quint"
         />
 </set>

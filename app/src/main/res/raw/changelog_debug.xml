@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="false">
+    <changelogversion changeDate="March 29, 2025" versionName="1.0.1">
+        <changelogtext>UI enhancements and theme improvements</changelogtext>
+        <changelogtext>Removed redundant color schemes: GreenApple, Lavender, MidnightDusk, Nord, Strawberry, Tako, TealTurqoise, TidalWave, and YinYang</changelogtext>
+        <changelogtext>Enhanced remaining color schemes</changelogtext>
+        <changelogtext>Faster library updates for improved performance</changelogtext>
+        <changelogtext>Improved animations throughout the app</changelogtext>
+        <changelogtext>Bug fixes and performance improvements</changelogtext>
+    </changelogversion>
     <!--
 
     <changelogversion changeDate="" versionName="r1810">

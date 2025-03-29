@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -707,46 +709,55 @@ object SettingsEhScreen : SearchableSettings {
                         value = state.doujinshi,
                         onValueChange = { state.doujinshi = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Manga",
                         value = state.manga,
                         onValueChange = { state.manga = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Artist CG",
                         value = state.artistCg,
                         onValueChange = { state.artistCg = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Game CG",
                         value = state.gameCg,
                         onValueChange = { state.gameCg = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Western",
                         value = state.western,
                         onValueChange = { state.western = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Non-H",
                         value = state.nonH,
                         onValueChange = { state.nonH = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Image Set",
                         value = state.imageSet,
                         onValueChange = { state.imageSet = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Cosplay",
                         value = state.cosplay,
                         onValueChange = { state.cosplay = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Asian Porn",
                         value = state.asianPorn,
                         onValueChange = { state.asianPorn = it },
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     FrontPageCategoriesDialogRow(
                         title = "Misc",
                         value = state.misc,
@@ -1018,6 +1029,7 @@ object SettingsEhScreen : SearchableSettings {
             Surface(
                 modifier = Modifier.sizeIn(minWidth = 280.dp, maxWidth = 560.dp),
                 shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
             ) {
                 Text(
                     text = stringResource(SYMR.strings.gallery_updater_statistics_collection),

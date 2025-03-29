@@ -12,20 +12,20 @@ import androidx.compose.ui.graphics.Color
 internal object RoseColorScheme : BaseColorScheme() {
 
     override val lightScheme = lightColorScheme(
-        // Rose colors for primaries and accents - more vibrant
-        primary = Color(0xFFE01039),          // Rich rose red
+        // Rose colors for primaries and accents - moderate (400-600 range)
+        primary = Color(0xFFF43F5E),          // Rose-500
         onPrimary = Color(0xFFFFFFFF),
-        primaryContainer = Color(0xFFFF2D56),  // Vibrant rose
-        onPrimaryContainer = Color(0xFFFFFFFF),
-        inversePrimary = Color(0xFFFF91A4),    // Light rose pink
-        secondary = Color(0xFFE01039),
+        primaryContainer = Color(0xFFFB7185),  // Rose-400
+        onPrimaryContainer = Color(0xFF881337),
+        inversePrimary = Color(0xFFFDA4AF),    // Rose-300 -> Kept as is, not a primary color
+        secondary = Color(0xFFF43F5E),         // Rose-500
         onSecondary = Color(0xFFFFFFFF),
-        secondaryContainer = Color(0xFFFFD9DE), // Soft rose
-        onSecondaryContainer = Color(0xFF650017), // Deep rose
-        tertiary = Color(0xFFB90030),          // Deep rose
+        secondaryContainer = Color(0xFFFB7185), // Rose-400
+        onSecondaryContainer = Color(0xFF881337), // Rose-900
+        tertiary = Color(0xFFE11D48),          // Rose-600
         onTertiary = Color(0xFFFFFFFF),
-        tertiaryContainer = Color(0xFFFFD9DE), // Soft rose
-        onTertiaryContainer = Color(0xFF650017), // Deep rose
+        tertiaryContainer = Color(0xFFFB7185), // Rose-400
+        onTertiaryContainer = Color(0xFF881337), // Rose-900
 
         // Zinc colors for backgrounds and surfaces
         background = Color(0xFFfafafa),
@@ -34,7 +34,7 @@ internal object RoseColorScheme : BaseColorScheme() {
         onSurface = Color(0xFF18181b),
         surfaceVariant = Color(0xFFe4e4e7),
         onSurfaceVariant = Color(0xFF3f3f46),
-        surfaceTint = Color(0xFFE01039),       // Match primary
+        surfaceTint = Color(0xFFF43F5E),       // Match primary
         inverseSurface = Color(0xFF27272a),
         inverseOnSurface = Color(0xFFf4f4f5),
         outline = Color(0xFF71717a),
@@ -51,29 +51,29 @@ internal object RoseColorScheme : BaseColorScheme() {
     )
 
     override val darkScheme = darkColorScheme(
-        // Rose colors for primaries and accents - more vibrant
-        primary = Color(0xFFFF91A4),          // Light rose pink
-        onPrimary = Color(0xFF650017),        // Deep rose
-        primaryContainer = Color(0xFFE01039),  // Rich rose red
+        // Rose colors for primaries and accents - moderate (400-600 range)
+        primary = Color(0xFFFB7185),          // Rose-400 (was 300)
+        onPrimary = Color(0xFF881337),        // Rose-900
+        primaryContainer = Color(0xFFE11D48),  // Rose-600
         onPrimaryContainer = Color(0xFFFFFFFF),
-        inversePrimary = Color(0xFF650017),    // Deep rose
-        secondary = Color(0xFFFF91A4),         // Light rose pink
-        onSecondary = Color(0xFF650017),       // Deep rose
-        secondaryContainer = Color(0xFFB90030), // Deep rose
-        onSecondaryContainer = Color(0xFFFFDADF), // Light rose
-        tertiary = Color(0xFFFFDADF),          // Light rose
-        onTertiary = Color(0xFF650017),        // Deep rose
-        tertiaryContainer = Color(0xFF8C0025), // Strong rose
-        onTertiaryContainer = Color(0xFFFFDADF), // Light rose
+        inversePrimary = Color(0xFF881337),    // Rose-900
+        secondary = Color(0xFFFB7185),         // Rose-400 (was 300)
+        onSecondary = Color(0xFF881337),       // Rose-900
+        secondaryContainer = Color(0xFFE11D48), // Rose-600 (was 700)
+        onSecondaryContainer = Color(0xFFFFE4E6), // Rose-100
+        tertiary = Color(0xFFFB7185),          // Rose-400 (was 200)
+        onTertiary = Color(0xFF881337),        // Rose-900
+        tertiaryContainer = Color(0xFFE11D48),  // Rose-600 (was 800)
+        onTertiaryContainer = Color(0xFFFFE4E6), // Rose-100
 
         // Zinc colors for backgrounds and surfaces
-        background = Color(0xFF18181b),
+        background = Color(0xFF09090b),         // Zinc-950
         onBackground = Color(0xFFf4f4f5),
-        surface = Color(0xFF27272a),
+        surface = Color(0xFF18181b),            // Zinc-900
         onSurface = Color(0xFFf4f4f5),
-        surfaceVariant = Color(0xFF3f3f46),
+        surfaceVariant = Color(0xFF27272a),     // Zinc-800
         onSurfaceVariant = Color(0xFFd4d4d8),
-        surfaceTint = Color(0xFFFF91A4),       // Match primary
+        surfaceTint = Color(0xFFFB7185),       // Match primary
         inverseSurface = Color(0xFFf4f4f5),
         inverseOnSurface = Color(0xFF27272a),
         outline = Color(0xFFa1a1aa),

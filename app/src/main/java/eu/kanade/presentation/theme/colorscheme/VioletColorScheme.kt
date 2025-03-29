@@ -12,20 +12,20 @@ import androidx.compose.ui.graphics.Color
 internal object VioletColorScheme : BaseColorScheme() {
 
     override val lightScheme = lightColorScheme(
-        // Violet colors for primaries and accents - more vibrant
-        primary = Color(0xFF6D28DD),          // Rich violet purple
+        // Violet colors for primaries and accents - moderate (400-600 range)
+        primary = Color(0xFF8B5CF6),          // Violet-500
         onPrimary = Color(0xFFFFFFFF),
-        primaryContainer = Color(0xFF8B4FF7),  // Vibrant purple
-        onPrimaryContainer = Color(0xFFFFFFFF),
-        inversePrimary = Color(0xFFD3BDFF),    // Light lavender
-        secondary = Color(0xFF6D28DD),
+        primaryContainer = Color(0xFFA78BFA),  // Violet-400
+        onPrimaryContainer = Color(0xFF2E1065),
+        inversePrimary = Color(0xFFC4B5FD),    // Violet-300
+        secondary = Color(0xFF8B5CF6),         // Violet-500
         onSecondary = Color(0xFFFFFFFF),
-        secondaryContainer = Color(0xFFEDE0FF), // Soft violet
-        onSecondaryContainer = Color(0xFF2E0C7A), // Deep violet
-        tertiary = Color(0xFF5B20C4),          // Deep violet
+        secondaryContainer = Color(0xFFA78BFA), // Violet-400
+        onSecondaryContainer = Color(0xFF4C1D95), // Violet-900
+        tertiary = Color(0xFF7C3AED),          // Violet-600
         onTertiary = Color(0xFFFFFFFF),
-        tertiaryContainer = Color(0xFFEFE0FF), // Soft violet
-        onTertiaryContainer = Color(0xFF2B0B66), // Very deep violet
+        tertiaryContainer = Color(0xFFA78BFA), // Violet-400
+        onTertiaryContainer = Color(0xFF4C1D95), // Violet-900
 
         // Zinc colors for backgrounds and surfaces
         background = Color(0xFFfafafa),
@@ -34,7 +34,7 @@ internal object VioletColorScheme : BaseColorScheme() {
         onSurface = Color(0xFF18181b),
         surfaceVariant = Color(0xFFe4e4e7),
         onSurfaceVariant = Color(0xFF3f3f46),
-        surfaceTint = Color(0xFF6D28DD),       // Match primary
+        surfaceTint = Color(0xFF8B5CF6),       // Match primary
         inverseSurface = Color(0xFF27272a),
         inverseOnSurface = Color(0xFFf4f4f5),
         outline = Color(0xFF71717a),
@@ -51,29 +51,29 @@ internal object VioletColorScheme : BaseColorScheme() {
     )
 
     override val darkScheme = darkColorScheme(
-        // Violet colors for primaries and accents - more vibrant
-        primary = Color(0xFFD3BDFF),          // Light lavender
-        onPrimary = Color(0xFF2E0C7A),        // Deep violet
-        primaryContainer = Color(0xFF6D28DD),  // Rich violet
+        // Violet colors for primaries and accents - moderate (400-600 range)
+        primary = Color(0xFFA78BFA),          // Violet-400
+        onPrimary = Color(0xFF4C1D95),        // Violet-900
+        primaryContainer = Color(0xFF7C3AED),  // Violet-600
         onPrimaryContainer = Color(0xFFFFFFFF),
-        inversePrimary = Color(0xFF2E0C7A),    // Deep violet
-        secondary = Color(0xFFD3BDFF),         // Light lavender
-        onSecondary = Color(0xFF2E0C7A),       // Deep violet
-        secondaryContainer = Color(0xFF5B20C4), // Deep violet
-        onSecondaryContainer = Color(0xFFEFE0FF), // Soft violet
-        tertiary = Color(0xFFEFE0FF),          // Soft violet
-        onTertiary = Color(0xFF2E0C7A),        // Deep violet
-        tertiaryContainer = Color(0xFF4913AA),  // Strong violet
-        onTertiaryContainer = Color(0xFFEFE0FF), // Soft violet
+        inversePrimary = Color(0xFF4C1D95),    // Violet-900
+        secondary = Color(0xFFA78BFA),         // Violet-400
+        onSecondary = Color(0xFF4C1D95),       // Violet-900
+        secondaryContainer = Color(0xFF7C3AED), // Violet-600
+        onSecondaryContainer = Color(0xFFEDE9FE), // Violet-100
+        tertiary = Color(0xFFA78BFA),          // Violet-400
+        onTertiary = Color(0xFF4C1D95),        // Violet-900
+        tertiaryContainer = Color(0xFF7C3AED),  // Violet-600
+        onTertiaryContainer = Color(0xFFEDE9FE), // Violet-100
 
         // Zinc colors for backgrounds and surfaces
-        background = Color(0xFF18181b),
+        background = Color(0xFF09090b),         // Zinc-950
         onBackground = Color(0xFFf4f4f5),
-        surface = Color(0xFF27272a),
+        surface = Color(0xFF18181b),            // Zinc-900
         onSurface = Color(0xFFf4f4f5),
-        surfaceVariant = Color(0xFF3f3f46),
+        surfaceVariant = Color(0xFF27272a),     // Zinc-800
         onSurfaceVariant = Color(0xFFd4d4d8),
-        surfaceTint = Color(0xFFD3BDFF),       // Match primary
+        surfaceTint = Color(0xFFA78BFA),       // Match primary
         inverseSurface = Color(0xFFf4f4f5),
         inverseOnSurface = Color(0xFF27272a),
         outline = Color(0xFFa1a1aa),

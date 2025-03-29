@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
+    <changelogversion versionName="1.0.1" changeDate="March 29,2025">
+        <changelogtext>UI enhancements and theme improvements</changelogtext>
+        <changelogtext>Removed several color schemes and improved existing ones</changelogtext>
+        <changelogtext>Faster library updates</changelogtext>
+        <changelogtext>Better animations</changelogtext>
+        <changelogtext>Bug fixes and performance improvements</changelogtext>
+    </changelogversion>
     <changelogversion versionName="1.0.0" changeDate="March 29,2025">
         <changelogtext>Welcome to my first full release of Hayai!</changelogtext>
         <changelogtext>I hope you enjoy your stay, many improvements are planned!</changelogtext>

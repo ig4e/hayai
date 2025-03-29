@@ -125,8 +125,8 @@ fun MangaInfoBox(
         // Backdrop with enhanced gradient blend
         val backdropGradientColors = listOf(
             Color.Transparent,
-            MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
-            MaterialTheme.colorScheme.background,
+            MaterialTheme.colorScheme.background.copy(alpha = 0.4f),
+            MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
         )
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
@@ -143,12 +143,12 @@ fun MangaInfoBox(
                         brush = Brush.verticalGradient(
                             colors = backdropGradientColors,
                             startY = 0f,
-                            endY = size.height * 0.95f,
+                            endY = size.height,
                         ),
                     )
                 }
-                .blur(6.dp)
-                .alpha(0.5f),
+                .blur(12.dp)
+                .alpha(0.7f),
         )
 
         // Manga & source info
@@ -205,15 +205,14 @@ fun MangaActionRow(
     }
 
     Surface(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+        color = Color.Transparent,
         shape = MaterialTheme.shapes.medium,
     ) {
         Row(
             modifier = Modifier
-                .padding(8.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             MangaActionButton(
                 title = if (favorite) {
@@ -351,19 +350,40 @@ fun ExpandableMangaDescription(
                     .padding(horizontal = 16.dp, vertical = 2.dp)
                     .fillMaxWidth(),
             ) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(tags) { tag ->
-                        val haptic = LocalHapticFeedback.current
-                        TagChip(
-                            text = tag,
-                            onClick = { onTagSearch(tag) },
-                            onLongClick = {
-                                onCopyTagToClipboard(tag)
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            },
-                        )
+                if (expanded) {
+                    // When expanded, use FlowRow to display tags in multiple rows
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        tags.forEach { tag ->
+                            val haptic = LocalHapticFeedback.current
+                            TagChip(
+                                text = tag,
+                                onClick = { onTagSearch(tag) },
+                                onLongClick = {
+                                    onCopyTagToClipboard(tag)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                            )
+                        }
+                    }
+                } else {
+                    // When collapsed, use LazyRow for horizontal scrolling
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(tags) { tag ->
+                            val haptic = LocalHapticFeedback.current
+                            TagChip(
+                                text = tag,
+                                onClick = { onTagSearch(tag) },
+                                onLongClick = {
+                                    onCopyTagToClipboard(tag)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -386,8 +406,8 @@ fun ExpandableMangaDescription(
                     )
                 }
 
-                // Display chips from SearchMetadataChips
-                chips.display(doSearch)
+                // Display chips from SearchMetadataChips, passing the expanded state
+                chips.display(doSearch, expanded)
             }
         }
         // SY <--
@@ -713,31 +733,22 @@ private fun MangaSummary(
     expanded: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val animProgress by animateFloatAsState(
-        targetValue = if (expanded) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = 0.8f,
-            stiffness = Spring.StiffnessLow,
-        ),
-        label = "summary",
-    )
-
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        color = Color.Transparent,
         shape = MaterialTheme.shapes.medium,
-        tonalElevation = 1.dp,
+        tonalElevation = 0.dp,
     ) {
-        Column(
-            modifier = Modifier.padding(0.dp)
-        ) {
+        Column {
             Box(
-                modifier = Modifier.clipToBounds()
+                modifier = Modifier.fillMaxWidth()
             ) {
+                // Text content
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
+                        .padding(top = 8.dp, bottom = 8.dp)
                         .animateContentSize(
                             animationSpec = spring(
                                 dampingRatio = 0.8f,
@@ -753,16 +764,16 @@ private fun MangaSummary(
                                 lineHeight = 20.sp,
                             ),
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(vertical = 0.dp)
                         )
                     }
                 }
             }
 
-            // Add indicator for expandable content
+            // Add indicator for expandable content - now separate from the fade effect
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -808,13 +819,13 @@ private fun MangaActionButton(
         TextButton(
             onClick = onClick,
             modifier = Modifier
-                .padding(vertical = 4.dp, horizontal = 8.dp),
+                .padding(vertical = 1.dp, horizontal = 2.dp),
             onLongClick = onLongClick,
         ) {
             Column(
                 modifier = Modifier.wrapContentWidth(align = Alignment.CenterHorizontally),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Icon(
                     imageVector = icon,
@@ -825,7 +836,7 @@ private fun MangaActionButton(
                 Text(
                     text = title,
                     color = color,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
@@ -844,9 +855,43 @@ private fun SearchMetadataChips.hasContent(): Boolean {
 
 // Extension function for SearchMetadataChips to display chips
 @Composable
-private fun SearchMetadataChips.display(doSearch: (String, Boolean) -> Unit) {
-    NamespaceTags(
-        tags = this,
-        onClick = { doSearch(it, false) },
-    )
+private fun SearchMetadataChips.display(doSearch: (String, Boolean) -> Unit, expanded: Boolean) {
+    if (expanded) {
+        // When expanded, use a FlowRow for wrapping tags
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        ) {
+            NamespaceTagsInFlow(
+                tags = this@display,
+                onClick = { doSearch(it, false) },
+            )
+        }
+    } else {
+        // When collapsed, use the regular NamespaceTags
+        NamespaceTags(
+            tags = this,
+            onClick = { doSearch(it, false) },
+        )
+    }
+}
+
+// Helper composable for displaying namespace tags in a FlowRow
+@Composable
+private fun NamespaceTagsInFlow(
+    tags: SearchMetadataChips,
+    onClick: (String) -> Unit,
+) {
+    tags.tags.forEach { (namespace, values) ->
+        values.forEach { value ->
+            val valueStr = value.toString()
+            val displayValue = if (namespace.isNotBlank()) "$namespace:$valueStr" else valueStr
+            TagChip(
+                text = displayValue,
+                onClick = { onClick(displayValue) },
+                onLongClick = {},  // No long click handler needed for now
+            )
+        }
+    }
 }
