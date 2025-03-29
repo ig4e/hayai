@@ -1,22 +1,14 @@
 package tachiyomi.presentation.core.components.material
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -25,17 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,14 +38,12 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -85,14 +71,14 @@ fun <T> CustomDropdownMenu(
     val rotationAnimSpec = tween<Float>(durationMillis = 300)
     val scaleAnimSpec = tween<Float>(
         durationMillis = 200,
-        easing = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1.0f)
+        easing = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1.0f),
     )
 
     // Container scale animation
     val containerScale by animateFloatAsState(
         targetValue = if (expanded) 1.02f else 1f,
         animationSpec = scaleAnimSpec,
-        label = "ContainerScale"
+        label = "ContainerScale",
     )
 
     // Store the width and position of the input field for correct menu placement
@@ -111,10 +97,11 @@ fun <T> CustomDropdownMenu(
                     .graphicsLayer {
                         alpha = if (expanded) 1f else 0.9f
                     },
-                color = if (expanded)
+                color = if (expanded) {
                     MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -134,7 +121,7 @@ fun <T> CustomDropdownMenu(
                 .border(
                     width = if (expanded) 1.5.dp else 1.dp,
                     color = if (expanded) MaterialTheme.colorScheme.primary else borderColor,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
                 )
                 .clickable(
                     enabled = enabled,
@@ -150,7 +137,7 @@ fun <T> CustomDropdownMenu(
                     inputFieldHeight = coordinates.size.height
                     inputFieldPosition = IntOffset(
                         x = coordinates.positionInRoot().x.toInt(),
-                        y = coordinates.positionInRoot().y.toInt() + coordinates.size.height
+                        y = coordinates.positionInRoot().y.toInt() + coordinates.size.height,
                     )
                 },
             verticalAlignment = Alignment.CenterVertically,
@@ -180,10 +167,11 @@ fun <T> CustomDropdownMenu(
                 modifier = Modifier
                     .size(24.dp)
                     .rotate(rotation),
-                tint = if (expanded)
+                tint = if (expanded) {
                     MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant,
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
         }
 
@@ -199,7 +187,7 @@ fun <T> CustomDropdownMenu(
                 onDismissRequest = { expanded = false },
                 inputFieldWidth = inputFieldWidth,
                 inputFieldPosition = inputFieldPosition,
-                borderColor = borderColor
+                borderColor = borderColor,
             )
         }
     }
@@ -226,13 +214,13 @@ private fun <T> DropdownMenuContent(
         launch {
             animatedAlpha.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(180, easing = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1.0f))
+                animationSpec = tween(180, easing = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1.0f)),
             )
         }
         launch {
             animatedScale.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(220, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f))
+                animationSpec = tween(220, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)),
             )
         }
     }
@@ -243,11 +231,11 @@ private fun <T> DropdownMenuContent(
                 anchorBounds: IntRect,
                 windowSize: IntSize,
                 layoutDirection: LayoutDirection,
-                popupContentSize: IntSize
+                popupContentSize: IntSize,
             ): IntOffset {
                 return IntOffset(
                     x = inputFieldPosition.x,
-                    y = inputFieldPosition.y + 4
+                    y = inputFieldPosition.y + 4,
                 )
             }
         }
@@ -266,7 +254,7 @@ private fun <T> DropdownMenuContent(
                     scaleY = animatedScale.value
                     transformOrigin = TransformOrigin(0.5f, 0f) // Scale from top center
                     shadowElevation = 16f
-                }
+                },
         ) {
             Column(
                 modifier = Modifier
@@ -304,7 +292,7 @@ private fun CustomDropdownMenuItem(
     val backgroundColor by animateFloatAsState(
         targetValue = if (selected) 1f else 0f,
         animationSpec = tween(durationMillis = 150),
-        label = "MenuItemBackground"
+        label = "MenuItemBackground",
     )
 
     val containerColor = if (selected) {

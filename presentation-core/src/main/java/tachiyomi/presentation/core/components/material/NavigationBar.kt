@@ -38,7 +38,7 @@ fun NavigationBar(
         contentColor = contentColor,
         tonalElevation = tonalElevation,
         modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(28.dp)
+        shape = RoundedCornerShape(28.dp),
     ) {
         Row(
             modifier = Modifier

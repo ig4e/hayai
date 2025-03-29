@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -52,7 +51,7 @@ fun Checkbox(
     val checkScale by animateFloatAsState(
         targetValue = if (checked) 1f else 0f,
         animationSpec = animationSpec,
-        label = "CheckScale"
+        label = "CheckScale",
     )
 
     // Define colors directly instead of using internal APIs
@@ -63,7 +62,7 @@ fun Checkbox(
             !checked && enabled -> MaterialTheme.colorScheme.surfaceContainerHighest
             else -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
         },
-        label = "BackgroundColor"
+        label = "BackgroundColor",
     )
 
     val borderColor by animateColorAsState(
@@ -72,7 +71,7 @@ fun Checkbox(
             enabled -> MaterialTheme.colorScheme.outline
             else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
         },
-        label = "BorderColor"
+        label = "BorderColor",
     )
 
     val checkmarkColor by animateColorAsState(
@@ -81,7 +80,7 @@ fun Checkbox(
         } else {
             MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
         },
-        label = "CheckmarkColor"
+        label = "CheckmarkColor",
     )
 
     // Make it toggleable
@@ -101,7 +100,7 @@ fun Checkbox(
     Box(
         modifier = modifier
             .then(toggleModifier),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         // Checkbox container
         Box(
@@ -110,7 +109,7 @@ fun Checkbox(
                 .clip(checkboxShape)
                 .background(backgroundColor)
                 .border(borderWidth, borderColor, checkboxShape),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             // Checkmark
             Icon(
@@ -122,7 +121,7 @@ fun Checkbox(
                     .scale(checkScale)
                     .graphicsLayer {
                         alpha = checkScale
-                    }
+                    },
             )
         }
     }

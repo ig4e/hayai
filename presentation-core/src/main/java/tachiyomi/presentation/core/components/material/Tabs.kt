@@ -17,7 +17,7 @@ import tachiyomi.presentation.core.components.Pill
 fun TabText(
     text: String,
     badgeCount: Int? = null,
-    textColor: Color = LocalContentColor.current
+    textColor: Color = LocalContentColor.current,
 ) {
     val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
 
@@ -25,11 +25,11 @@ fun TabText(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CompositionLocalProvider(LocalContentColor provides textColor) {
-        Text(
-            text = text,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+            Text(
+                text = text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         if (badgeCount != null) {
             Pill(

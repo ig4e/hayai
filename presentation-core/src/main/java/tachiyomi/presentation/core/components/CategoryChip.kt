@@ -1,7 +1,6 @@
 package tachiyomi.presentation.core.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -19,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,27 +32,39 @@ fun CategoryChip(
     modifier: Modifier = Modifier,
 ) {
     val backgroundColor by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceContainerLow,
-        label = "backgroundColor"
+        if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        label = "backgroundColor",
     )
 
     val textColor by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.onSurface,
-        label = "textColor"
+        if (selected) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+        label = "textColor",
     )
 
     val countColor by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-        label = "countColor"
+        if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+        },
+        label = "countColor",
     )
 
     val countTextColor by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.surface,
-        label = "countTextColor"
+        if (selected) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
+        label = "countTextColor",
     )
 
     Surface(
@@ -62,7 +72,7 @@ fun CategoryChip(
         shape = RoundedCornerShape(24.dp),
         modifier = modifier
             .padding(horizontal = 6.dp, vertical = 2.dp)
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -70,14 +80,14 @@ fun CategoryChip(
                 start = 20.dp,
                 end = if (count != null) 10.dp else 20.dp,
                 top = 6.dp,
-                bottom = 6.dp
-            )
+                bottom = 6.dp,
+            ),
         ) {
             Text(
                 text = text,
                 color = textColor,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -90,7 +100,7 @@ fun CategoryChip(
                         .size(22.dp)
                         .clip(CircleShape)
                         .background(if (selected) MaterialTheme.colorScheme.onPrimary else countColor),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = if (count > 999) "999+" else count.toString(),

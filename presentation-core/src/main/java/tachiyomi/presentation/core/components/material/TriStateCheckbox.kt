@@ -49,7 +49,7 @@ fun TriStateCheckbox(
     val iconScale by animateFloatAsState(
         targetValue = if (state != ToggleableState.Off) 1f else 0f,
         animationSpec = animationSpec,
-        label = "IconScale"
+        label = "IconScale",
     )
 
     val backgroundColor by animateColorAsState(
@@ -58,7 +58,7 @@ fun TriStateCheckbox(
             ToggleableState.Indeterminate -> if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
             ToggleableState.Off -> if (enabled) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
         },
-        label = "BackgroundColor"
+        label = "BackgroundColor",
     )
 
     val borderColor by animateColorAsState(
@@ -66,7 +66,7 @@ fun TriStateCheckbox(
             ToggleableState.On, ToggleableState.Indeterminate -> Color.Transparent
             ToggleableState.Off -> if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
         },
-        label = "BorderColor"
+        label = "BorderColor",
     )
 
     val iconColor by animateColorAsState(
@@ -74,7 +74,7 @@ fun TriStateCheckbox(
             ToggleableState.On, ToggleableState.Indeterminate -> if (enabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
             ToggleableState.Off -> if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         },
-        label = "IconColor"
+        label = "IconColor",
     )
 
     Box(
@@ -83,7 +83,7 @@ fun TriStateCheckbox(
             .clip(checkboxShape)
             .background(backgroundColor)
             .border(borderWidth, borderColor, checkboxShape),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         when (state) {
             ToggleableState.On -> {
@@ -97,7 +97,7 @@ fun TriStateCheckbox(
                             scaleX = iconScale
                             scaleY = iconScale
                             alpha = iconScale
-                        }
+                        },
                 )
             }
             ToggleableState.Indeterminate -> {
@@ -111,7 +111,7 @@ fun TriStateCheckbox(
                             scaleX = iconScale
                             scaleY = iconScale
                             alpha = iconScale
-                        }
+                        },
                 )
             }
             else -> {
