@@ -202,9 +202,9 @@ fun OnboardingScreen(
                     .fillMaxWidth()
                     .weight(1f, fill = true)
                     .background(Color.Transparent),
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = MaterialTheme.colorScheme.surface,
                 shape = MaterialTheme.shapes.medium,
-                tonalElevation = 1.dp
+                tonalElevation = 0.dp
             ) {
                 Box(
                     modifier = Modifier
