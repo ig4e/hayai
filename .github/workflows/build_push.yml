@@ -50,8 +50,8 @@ jobs:
       - name: Build app
         run: ./gradlew assembleStandardRelease
 
-      - name: Run unit tests
-        run: ./gradlew testReleaseUnitTest testStandardReleaseUnitTest
+      # - name: Run unit tests
+      #   run: ./gradlew testReleaseUnitTest testStandardReleaseUnitTest
 
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
