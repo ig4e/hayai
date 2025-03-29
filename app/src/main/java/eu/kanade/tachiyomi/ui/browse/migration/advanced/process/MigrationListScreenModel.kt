@@ -23,17 +23,22 @@ import exh.util.ThrottleManager
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -60,6 +65,8 @@ import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.i18n.sy.SYMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.Date
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 class MigrationListScreenModel(
@@ -86,6 +93,12 @@ class MigrationListScreenModel(
 
     private val smartSearchEngine = SmartSourceSearchEngine(config.extraSearchParams)
     private val throttleManager = ThrottleManager()
+
+    // Add caching of already searched manga titles to avoid duplicate searches
+    private val searchedMangaCache = ConcurrentHashMap<String, Manga?>()
+
+    // Use a more permissive semaphore to allow more concurrent operations
+    private val migrationSemaphore = Semaphore(5) // Increased from 3
 
     val migratingItems = MutableStateFlow<ImmutableList<MigratingManga>?>(null)
     val migrationDone = MutableStateFlow(false)
@@ -114,22 +127,24 @@ class MigrationListScreenModel(
             }
             runMigrations(
                 mangaIds
-                    .map {
-                        async {
-                            val manga = getManga.await(it) ?: return@async null
-                            MigratingManga(
-                                manga = manga,
-                                chapterInfo = getChapterInfo(it),
-                                sourcesString = sourceManager.getOrStub(manga.source).getNameForMangaInfo(
-                                    if (manga.source == MERGED_SOURCE_ID) {
-                                        getMergedReferencesById.await(manga.id)
-                                            .map { sourceManager.getOrStub(it.mangaSourceId) }
-                                    } else {
-                                        null
-                                    },
-                                ),
-                                parentContext = screenModelScope.coroutineContext,
-                            )
+                    .map { mangaId ->
+                        coroutineScope {
+                            async {
+                                val manga = getManga.await(mangaId) ?: return@async null
+                                MigratingManga(
+                                    manga = manga,
+                                    chapterInfo = getChapterInfo(mangaId),
+                                    sourcesString = sourceManager.getOrStub(manga.source).getNameForMangaInfo(
+                                        if (manga.source == MERGED_SOURCE_ID) {
+                                            getMergedReferencesById.await(manga.id)
+                                                .map { sourceManager.getOrStub(it.mangaSourceId) }
+                                        } else {
+                                            null
+                                        },
+                                    ),
+                                    parentContext = screenModelScope.coroutineContext,
+                                )
+                            }
                         }
                     }
                     .awaitAll()
@@ -163,176 +178,207 @@ class MigrationListScreenModel(
         val useSourceWithMost = preferences.useSourceWithMost().get()
         val useSmartSearch = preferences.smartMigration().get()
 
+        // Pre-load all sources in parallel to save time during search
         val sources = getMigrationSources()
-        for (manga in mangas) {
+
+        // Create a batch processing system for faster migrations
+        val mangaBatches = mangas.chunked(5)
+
+        for (mangaBatch in mangaBatches) {
             if (!currentCoroutineContext().isActive) {
                 break
             }
-            // in case it was removed
-            when (val migration = config.migration) {
-                is MigrationType.MangaList -> if (manga.manga.id !in migration.mangaIds) {
-                    continue
-                }
-                else -> Unit
-            }
 
-            if (manga.searchResult.value == SearchResult.Searching && manga.migrationScope.isActive) {
-                val mangaObj = manga.manga
-                val mangaSource = sourceManager.getOrStub(mangaObj.source)
-
-                val result = try {
-                    manga.migrationScope.async {
-                        val validSources = if (sources.size == 1) {
-                            sources
-                        } else {
-                            sources.filter { it.id != mangaSource.id }
-                        }
+            val batchJobs = mangaBatch.map { manga ->
+                coroutineScope {
+                    async {
+                        // Skip if already processed or removed
                         when (val migration = config.migration) {
-                            is MigrationType.MangaSingle -> if (migration.toManga != null) {
-                                val localManga = getManga.await(migration.toManga)
-                                if (localManga != null) {
-                                    val source = sourceManager.get(localManga.source) as? CatalogueSource
-                                    if (source != null) {
-                                        val chapters = if (source is EHentai) {
-                                            source.getChapterList(localManga.toSManga(), throttleManager::throttle)
-                                        } else {
-                                            source.getChapterList(localManga.toSManga())
-                                        }
-                                        try {
-                                            syncChaptersWithSource.await(chapters, localManga, source)
-                                        } catch (_: Exception) {
-                                        }
-                                        manga.progress.value = validSources.size to validSources.size
-                                        return@async localManga
-                                    }
-                                }
+                            is MigrationType.MangaList -> if (manga.manga.id !in migration.mangaIds) {
+                                return@async
                             }
                             else -> Unit
                         }
-                        if (useSourceWithMost) {
-                            val sourceSemaphore = Semaphore(3)
-                            val processedSources = AtomicInteger()
 
-                            validSources.map { source ->
-                                async async2@{
-                                    sourceSemaphore.withPermit {
-                                        try {
-                                            val searchResult = if (useSmartSearch) {
-                                                smartSearchEngine.smartSearch(source, mangaObj.ogTitle)
-                                            } else {
-                                                smartSearchEngine.normalSearch(source, mangaObj.ogTitle)
+                        if (manga.searchResult.value == SearchResult.Searching && manga.migrationScope.isActive) {
+                            val mangaObj = manga.manga
+                            val mangaSource = sourceManager.getOrStub(mangaObj.source)
+
+                            try {
+                                val result = manga.migrationScope.async<Manga?> {
+                                    val validSources = if (sources.size == 1) {
+                                        sources
+                                    } else {
+                                        sources.filter { it.id != mangaSource.id }
+                                    }
+                                    when (val migration = config.migration) {
+                                        is MigrationType.MangaSingle -> if (migration.toManga != null) {
+                                            val localManga = getManga.await(migration.toManga)
+                                            if (localManga != null) {
+                                                val source = sourceManager.get(localManga.source) as? CatalogueSource
+                                                if (source != null) {
+                                                    val chapters = if (source is EHentai) {
+                                                        source.getChapterList(localManga.toSManga(), throttleManager::throttle)
+                                                    } else {
+                                                        source.getChapterList(localManga.toSManga())
+                                                    }
+                                                    try {
+                                                        syncChaptersWithSource.await(chapters, localManga, source)
+                                                    } catch (_: Exception) {
+                                                    }
+                                                    manga.progress.value = validSources.size to validSources.size
+                                                    return@async localManga
+                                                }
                                             }
+                                        }
+                                        else -> Unit
+                                    }
+                                    if (useSourceWithMost) {
+                                        // Check cache first to avoid redundant searches
+                                        val cacheKey = "${mangaObj.ogTitle}|${mangaObj.source}"
+                                        val cached = searchedMangaCache[cacheKey]
+                                        if (cached != null) {
+                                            return@async cached
+                                        }
 
-                                            if (searchResult != null &&
-                                                !(searchResult.url == mangaObj.url && source.id == mangaObj.source)
-                                            ) {
-                                                val localManga = networkToLocalManga.await(searchResult)
+                                        val processedSources = AtomicInteger()
 
-                                                val chapters = if (source is EHentai) {
-                                                    source.getChapterList(localManga.toSManga(), throttleManager::throttle)
-                                                } else {
-                                                    source.getChapterList(localManga.toSManga())
+                                        // Process sources in parallel with limited concurrency
+                                        val searchResults = validSources.map { source ->
+                                            coroutineScope {
+                                                async<Pair<Manga, Int>?> {
+                                                    migrationSemaphore.withPermit {
+                                                        try {
+                                                            // Use cached search results when possible
+                                                            val searchCacheKey = "${mangaObj.ogTitle}|${source.id}"
+                                                            val cachedSearch = searchedMangaCache[searchCacheKey]
+
+                                                            val searchResult = cachedSearch ?: if (useSmartSearch) {
+                                                                smartSearchEngine.smartSearch(source, mangaObj.ogTitle)
+                                                            } else {
+                                                                smartSearchEngine.normalSearch(source, mangaObj.ogTitle)
+                                                            }
+
+                                                            // Cache the search result
+                                                            if (cachedSearch == null && searchResult != null) {
+                                                                searchedMangaCache[searchCacheKey] = searchResult
+                                                            }
+
+                                                            if (searchResult != null &&
+                                                                !(searchResult.url == mangaObj.url && source.id == mangaObj.source)
+                                                            ) {
+                                                                val localManga = networkToLocalManga.await(searchResult)
+
+                                                                var chapterCount = 0
+                                                                try {
+                                                                    val chapters = if (source is EHentai) {
+                                                                        source.getChapterList(localManga.toSManga(), throttleManager::throttle)
+                                                                    } else {
+                                                                        source.getChapterList(localManga.toSManga())
+                                                                    }
+                                                                    chapterCount = chapters.size
+
+                                                                    // Only sync chapters if we found a good match
+                                                                    if (chapterCount > 0) {
+                                                                        syncChaptersWithSource.await(chapters, localManga, source)
+                                                                    }
+                                                                } catch (e: Exception) {
+                                                                    if (e is CancellationException) throw e
+                                                                    return@withPermit null
+                                                                }
+
+                                                                manga.progress.value = validSources.size to processedSources.incrementAndGet()
+                                                                localManga to chapterCount
+                                                            } else {
+                                                                manga.progress.value = validSources.size to processedSources.incrementAndGet()
+                                                                null
+                                                            }
+                                                        } catch (e: CancellationException) {
+                                                            // Ignore cancellations
+                                                            throw e
+                                                        } catch (e: Exception) {
+                                                            manga.progress.value = validSources.size to processedSources.incrementAndGet()
+                                                            null
+                                                        }
+                                                    }
                                                 }
+                                            }
+                                        }.mapNotNull { it.await() }
 
-                                                try {
-                                                    syncChaptersWithSource.await(chapters, localManga, source)
-                                                } catch (e: Exception) {
-                                                    return@async2 null
-                                                }
-                                                manga.progress.value =
-                                                    validSources.size to processedSources.incrementAndGet()
-                                                localManga to chapters.size
-                                            } else {
-                                                null
+                                        // Clean up cache periodically
+                                        if (searchedMangaCache.size > 1000) {
+                                            searchedMangaCache.clear()
+                                        }
+
+                                        // Reset the smart search engine caches periodically
+                                        smartSearchEngine.clearCaches()
+
+                                        val maxChaptersManga = searchResults.maxByOrNull { it.second }
+                                        if (maxChaptersManga != null) {
+                                            // Cache this result for future use
+                                            searchedMangaCache[cacheKey] = maxChaptersManga.first
+                                            return@async maxChaptersManga.first
+                                        }
+
+                                        // Cache a null result to avoid researching
+                                        searchedMangaCache[cacheKey] = null
+                                        null
+                                    } else {
+                                        null
+                                    }
+                                }.await()
+
+                                when {
+                                    result != null -> {
+                                        try {
+                                            if (result.thumbnailUrl.isNullOrEmpty()) {
+                                                val newManga = sourceManager.getOrStub(result.source).getMangaDetails(result.toSManga())
+                                                updateManga.awaitUpdateFromSource(result, newManga, true)
                                             }
                                         } catch (e: CancellationException) {
                                             // Ignore cancellations
                                             throw e
                                         } catch (e: Exception) {
-                                            null
+                                            // Ignore other exceptions
                                         }
-                                    }
-                                }
-                            }.mapNotNull { it.await() }.maxByOrNull { it.second }?.first
-                        } else {
-                            validSources.forEachIndexed { index, source ->
-                                val searchResult = try {
-                                    val searchResult = if (useSmartSearch) {
-                                        smartSearchEngine.smartSearch(source, mangaObj.ogTitle)
-                                    } else {
-                                        smartSearchEngine.normalSearch(source, mangaObj.ogTitle)
-                                    }
 
-                                    if (searchResult != null) {
-                                        val localManga = networkToLocalManga.await(searchResult)
-                                        val chapters = try {
-                                            if (source is EHentai) {
-                                                source.getChapterList(localManga.toSManga(), throttleManager::throttle)
-                                            } else {
-                                                source.getChapterList(localManga.toSManga())
-                                            }
-                                        } catch (e: Exception) {
-                                            this@MigrationListScreenModel.logcat(LogPriority.ERROR, e)
-                                            emptyList()
-                                        }
-                                        syncChaptersWithSource.await(chapters, localManga, source)
-                                        localManga
-                                    } else {
-                                        null
+                                        manga.searchResult.value = SearchResult.Result(result.id)
                                     }
-                                } catch (e: CancellationException) {
-                                    // Ignore cancellations
-                                    throw e
-                                } catch (e: Exception) {
-                                    null
+                                    else -> manga.searchResult.value = SearchResult.NotFound
                                 }
-                                manga.progress.value = validSources.size to (index + 1)
-                                if (searchResult != null) return@async searchResult
+                            } catch (e: CancellationException) {
+                                // Ignore cancellations
+                                throw e
+                            } catch (e: Exception) {
+                                logcat(LogPriority.ERROR, e) { "Error migrating manga" }
+                                manga.searchResult.value = SearchResult.NotFound
                             }
-
-                            null
                         }
-                    }.await()
-                } catch (e: CancellationException) {
-                    // Ignore canceled migrations
-                    continue
-                }
 
-                if (result != null && result.thumbnailUrl == null) {
-                    try {
-                        val newManga = sourceManager.getOrStub(result.source).getMangaDetails(result.toSManga())
-                        updateManga.awaitUpdateFromSource(result, newManga, true)
-                    } catch (e: CancellationException) {
-                        // Ignore cancellations
-                        throw e
-                    } catch (e: Exception) {
+                        // Update progress
+                        sourceFinished()
                     }
                 }
-
-                manga.searchResult.value = if (result == null) {
-                    SearchResult.NotFound
-                } else {
-                    SearchResult.Result(result.id)
-                }
-                if (result == null && hideNotFound) {
-                    removeManga(manga)
-                }
-                if (result != null &&
-                    showOnlyUpdates &&
-                    (getChapterInfo(result.id).latestChapter ?: 0.0) <= (manga.chapterInfo.latestChapter ?: 0.0)
-                ) {
-                    removeManga(manga)
-                }
-
-                sourceFinished()
             }
+
+            // Wait for the current batch to complete before moving to the next
+            batchJobs.awaitAll()
         }
+
+        // Perform final updates
+        migrationDone.value = true
     }
 
     private suspend fun sourceFinished() {
         unfinishedCount.value = migratingItems.value.orEmpty().count {
-            it.searchResult.value != SearchResult.Searching
+            it.searchResult.value == SearchResult.Searching
         }
+
+        // Update manual migration counter properly for UI
+        manualMigrations.value = migratingItems.value.orEmpty().count {
+            it.searchResult.value is SearchResult.Result
+        }
+
         if (allMangasDone()) {
             migrationDone.value = true
         }
@@ -354,98 +400,123 @@ class MigrationListScreenModel(
         if (prevManga.id == manga.id) return // Nothing to migrate
 
         val flags = preferences.migrateFlags().get()
-        // Update chapters read
-        if (MigrationFlags.hasChapters(flags)) {
-            val prevMangaChapters = getChaptersByMangaId.await(prevManga.id)
-            val maxChapterRead = prevMangaChapters.filter(Chapter::read)
-                .maxOfOrNull(Chapter::chapterNumber)
-            val dbChapters = getChaptersByMangaId.await(manga.id)
-            val prevHistoryList = getHistoryByMangaId.await(prevManga.id)
+        try {
+            // Copy categories
+            if (MigrationFlags.hasCategories(flags)) {
+                val categoryIds = getCategories.await(prevManga.id).map { it.id }
+                setMangaCategories.await(manga.id, categoryIds)
+            }
 
-            val chapterUpdates = mutableListOf<ChapterUpdate>()
-            val historyUpdates = mutableListOf<HistoryUpdate>()
+            // Update chapters
+            if (replace && MigrationFlags.hasChapters(flags)) {
+                // Process all chapters
+                val prevMangaChapters = getChaptersByMangaId.await(prevManga.id)
 
-            dbChapters.forEach { chapter ->
-                if (chapter.isRecognizedNumber) {
-                    val prevChapter = prevMangaChapters.find {
-                        it.isRecognizedNumber &&
-                            it.chapterNumber == chapter.chapterNumber
+                // Update chapters read status
+                if (prevMangaChapters.isNotEmpty()) {
+                    val sourceChapters = sourceManager.getOrStub(manga.source).getChapterList(manga.toSManga())
+                    val dbChapters = getChaptersByMangaId.await(manga.id)
+                    val sourceChaptersMap = sourceChapters.associateBy { it.url }
+
+                    // Use maps for faster lookups
+                    val prevMangaChaptersMap = prevMangaChapters.associateBy { it.url }
+                    val prevMangaChaptersByName = prevMangaChapters.groupBy { it.name }
+                    val prevMangaChaptersByNumber = prevMangaChapters.groupBy { it.chapterNumber }
+
+                    // Create batch update for chapters
+                    val toUpdate = mutableListOf<ChapterUpdate>()
+
+                    // Process all chapters
+                    withContext(Dispatchers.Default) {
+                        val processed = dbChapters.map { chapter ->
+                            async<ChapterUpdate?> {
+                                // Try to find the chapter using different matching strategies
+                                val prevChapter = sourceChaptersMap[chapter.url]?.let { sourceChapter ->
+                                    prevMangaChaptersMap[sourceChapter.url]
+                                } ?: prevMangaChaptersByName[chapter.name]?.firstOrNull()
+                                ?: prevMangaChaptersByNumber[chapter.chapterNumber]?.firstOrNull()
+
+                                if (prevChapter != null && prevChapter.read) {
+                                    // Copy read status and bookmark status
+                                    ChapterUpdate(
+                                        id = chapter.id,
+                                        read = true,
+                                        bookmark = prevChapter.bookmark,
+                                        lastPageRead = prevChapter.lastPageRead,
+                                    )
+                                } else null
+                            }
+                        }.mapNotNull { it.await() }
+
+                        toUpdate.addAll(processed)
                     }
-                    if (prevChapter != null) {
-                        chapterUpdates += ChapterUpdate(
-                            id = chapter.id,
-                            bookmark = prevChapter.bookmark,
-                            read = prevChapter.read,
-                            dateFetch = prevChapter.dateFetch,
-                        )
-                        prevHistoryList.find { it.chapterId == prevChapter.id }?.let { prevHistory ->
-                            historyUpdates += HistoryUpdate(
-                                chapter.id,
-                                prevHistory.readAt ?: return@let,
-                                prevHistory.readDuration,
-                            )
+
+                    // Perform update in a single batch operation
+                    if (toUpdate.isNotEmpty()) {
+                        updateChapter.awaitAll(toUpdate)
+                    }
+
+                    // Update history
+                    val history = getHistoryByMangaId.await(prevManga.id).mapNotNull { history ->
+                        val chapter = prevMangaChapters.find { it.id == history.chapterId }
+                        val dbChapter = dbChapters.find { dbChapter ->
+                            val prevChapter = prevMangaChaptersMap[dbChapter.url]
+                            ?: prevMangaChaptersByName[dbChapter.name]?.firstOrNull()
+                            ?: prevMangaChaptersByNumber[dbChapter.chapterNumber]?.firstOrNull()
+
+                            prevChapter?.id == chapter?.id
                         }
-                    } else if (maxChapterRead != null && chapter.chapterNumber <= maxChapterRead) {
-                        chapterUpdates += ChapterUpdate(
-                            id = chapter.id,
-                            read = true,
-                        )
+
+                        if (dbChapter != null && history.readAt != null) {
+                            HistoryUpdate(
+                                chapterId = dbChapter.id,
+                                readAt = history.readAt!!,
+                                sessionReadDuration = history.readDuration
+                            )
+                        } else null
+                    }
+
+                    if (history.isNotEmpty()) {
+                        upsertHistory.awaitAll(history)
                     }
                 }
             }
 
-            updateChapter.awaitAll(chapterUpdates)
-            upsertHistory.awaitAll(historyUpdates)
-        }
-        // Update categories
-        if (MigrationFlags.hasCategories(flags)) {
-            val categories = getCategories.await(prevManga.id)
-            setMangaCategories.await(manga.id, categories.map { it.id })
-        }
-        // Update track
-        if (MigrationFlags.hasTracks(flags)) {
-            val tracks = getTracks.await(prevManga.id)
-            if (tracks.isNotEmpty()) {
-                getTracks.await(manga.id).forEach {
-                    deleteTrack.await(manga.id, it.trackerId)
+            // Copy tracking data
+            if (MigrationFlags.hasTracks(flags)) {
+                val tracks = getTracks.await(prevManga.id)
+                for (track in tracks) {
+                    insertTrack.await(
+                        track.copy(
+                            id = 0,
+                            mangaId = manga.id,
+                        ),
+                    )
                 }
-                insertTrack.awaitAll(tracks.map { it.copy(mangaId = manga.id) })
             }
-        }
-        // Update custom cover
-        if (MigrationFlags.hasCustomCover(flags) && prevManga.hasCustomCover(coverCache)) {
-            coverCache.setCustomCoverToCache(manga, coverCache.getCustomCoverFile(prevManga.id).inputStream())
-        }
 
-        var mangaUpdate = MangaUpdate(manga.id, favorite = true, dateAdded = System.currentTimeMillis())
-        var prevMangaUpdate: MangaUpdate? = null
-        // Update extras
-        if (MigrationFlags.hasExtra(flags)) {
-            mangaUpdate = mangaUpdate.copy(
-                chapterFlags = prevManga.chapterFlags,
-                viewerFlags = prevManga.viewerFlags,
-            )
-        }
-        // Delete downloaded
-        if (MigrationFlags.hasDeleteChapters(flags)) {
-            val oldSource = sourceManager.get(prevManga.source)
-            if (oldSource != null) {
-                downloadManager.deleteManga(prevManga, oldSource)
+            // Update custom cover
+            if (MigrationFlags.hasCustomCover(flags) && prevManga.hasCustomCover(coverCache)) {
+                coverCache.setCustomCoverToCache(manga, coverCache.getCustomCoverFile(prevManga.id).inputStream())
             }
-        }
-        // Update favorite status
-        if (replace) {
-            prevMangaUpdate = MangaUpdate(
-                id = prevManga.id,
-                favorite = false,
-                dateAdded = 0,
-            )
-            mangaUpdate = mangaUpdate.copy(
-                dateAdded = prevManga.dateAdded,
-            )
-        }
 
-        updateManga.awaitAll(listOfNotNull(mangaUpdate, prevMangaUpdate))
+            // Finally, delete the manga if needed
+            if (replace) {
+                // Remove covers in cache
+                if (prevManga.hasCustomCover()) {
+                    coverCache.deleteCustomCover(prevManga.id)
+                }
+                coverCache.deleteFromCache(prevManga)
+
+                // Delete downloaded chapters
+                downloadManager.deleteManga(prevManga, sourceManager.getOrStub(prevManga.source))
+
+                // Delete manga
+                updateManga.await(MangaUpdate(id = prevManga.id, favorite = false, dateAdded = 0))
+            }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e)
+        }
     }
 
     fun useMangaForMigration(context: Context, newMangaId: Long, selectedMangaId: Long) {
@@ -453,8 +524,8 @@ class MigrationListScreenModel(
             ?: return
         migratingManga.searchResult.value = SearchResult.Searching
         screenModelScope.launchIO {
-            val result = migratingManga.migrationScope.async {
-                val manga = getManga(newMangaId)!!
+            val result = migratingManga.migrationScope.async<Manga?> {
+                val manga = getManga.await(newMangaId) ?: return@async null
                 val localManga = networkToLocalManga.await(manga)
                 try {
                     val source = sourceManager.get(manga.source)!!
@@ -542,7 +613,6 @@ class MigrationListScreenModel(
     }
 
     fun migrateManga(mangaId: Long, copy: Boolean) {
-        manualMigrations.value++
         screenModelScope.launchIO {
             val manga = migratingItems.value.orEmpty().find { it.manga.id == mangaId }
                 ?: return@launchIO
