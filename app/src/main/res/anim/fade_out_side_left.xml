@@ -1,16 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <set xmlns:android="http://schemas.android.com/apk/res/android">
     <alpha
-        android:duration="175"
+        android:duration="350"
         android:fillAfter="true"
         android:fromAlpha="1.0"
-        android:interpolator="@android:anim/accelerate_interpolator"
+        android:interpolator="@android:interpolator/accelerate_quad"
         android:toAlpha="0.0" />
 
     <translate
-        android:duration="200"
+        android:duration="500"
         android:fromXDelta="0%"
-        android:interpolator="@android:anim/accelerate_interpolator"
-        android:toXDelta="-4%"
+        android:interpolator="@android:interpolator/accelerate_quint"
+        android:toXDelta="-10%"
+        />
+
+    <scale
+        android:duration="500"
+        android:fromXScale="1.0"
+        android:fromYScale="1.0"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:toXScale="0.90"
+        android:toYScale="0.90"
+        android:interpolator="@android:interpolator/accelerate_cubic"
+        />
+
+    <rotate
+        android:duration="400"
+        android:fromDegrees="0"
+        android:toDegrees="-2"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:interpolator="@android:interpolator/accelerate_cubic"
         />
 </set>

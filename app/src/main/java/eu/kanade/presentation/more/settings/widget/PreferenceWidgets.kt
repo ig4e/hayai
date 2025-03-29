@@ -136,7 +136,7 @@ fun PreferenceWidget(
                         text = subtitle.toString(),
                         style = MaterialTheme.typography.bodyMedium,
                         overflow = TextOverflow.Ellipsis,
-                        maxLines = 4,
+                        maxLines = 20,
                     )
                 }
             }

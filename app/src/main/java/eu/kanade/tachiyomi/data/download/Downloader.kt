@@ -867,7 +867,7 @@ class Downloader(
                 return null
             }
 
-            // Group pages by domain
+            // Group pages by domain for more efficient parallel downloading
             val result = mutableMapOf<String, MutableList<Page>>()
 
             // Process pages with URLs

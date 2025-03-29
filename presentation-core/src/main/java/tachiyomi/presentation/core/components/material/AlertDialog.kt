@@ -28,7 +28,7 @@ fun AlertDialogContent(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
         tonalElevation = 6.dp,
     ) {
         AlertDialogContent(

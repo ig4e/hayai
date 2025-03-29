@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash">@color/accent_blue</color>
+    <color name="splash">#424242</color>
 
     <color name="cover_placeholder">#1F888888</color>
 
@@ -15,9 +15,9 @@
     <color name="amoled_onBackground">#FFFFFF</color>
     <color name="amoled_surface">#000000</color>
     <color name="amoled_onSurface">#FFFFFF</color>
-    <color name="amoled_surfaceContainer">#0C0C0C</color>
-    <color name="amoled_surfaceContainerHigh">#131313</color>
-    <color name="amoled_surfaceContainerHighest">#1B1B1B</color>
+    <color name="amoled_surfaceContainer">#060606</color>
+    <color name="amoled_surfaceContainerHigh">#0A0A0A</color>
+    <color name="amoled_surfaceContainerHighest">#121212</color>
 
     <!-- Material Design Colors -->
     <color name="md_black_1000_12">#1F000000</color>

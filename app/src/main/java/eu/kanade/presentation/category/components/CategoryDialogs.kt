@@ -1,6 +1,7 @@
 package eu.kanade.presentation.category.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.style.TextOverflow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.core.preference.asToggleableState
 import eu.kanade.presentation.category.visualName
@@ -42,6 +44,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.Duration.Companion.seconds
 import androidx.compose.material3.rememberTopAppBarState
 import tachiyomi.presentation.core.components.material.Checkbox
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun CategoryCreateDialog(
@@ -291,6 +294,7 @@ fun ChangeCategoryDialog(
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 selection.forEach { checkbox ->
                     val onChange: (CheckboxState<Category>) -> Unit = {
@@ -325,6 +329,8 @@ fun ChangeCategoryDialog(
                         Text(
                             text = checkbox.value.visualName,
                             modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }

@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <set xmlns:android="http://schemas.android.com/apk/res/android">
     <translate
-        android:duration="300"
+        android:duration="450"
         android:fromXDelta="0"
-        android:interpolator="@android:interpolator/fast_out_slow_in"
-        android:toXDelta="-5%p" />
+        android:interpolator="@android:interpolator/accelerate_cubic"
+        android:toXDelta="-12%p" />
 
     <alpha
-        android:duration="195"
+        android:duration="350"
         android:fromAlpha="1"
         android:interpolator="@android:interpolator/fast_out_linear_in"
         android:toAlpha="0" />
+
+    <scale
+        android:duration="450"
+        android:fromXScale="1.0"
+        android:fromYScale="1.0"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:toXScale="0.88"
+        android:toYScale="0.88"
+        android:interpolator="@android:interpolator/accelerate_cubic" />
 </set>

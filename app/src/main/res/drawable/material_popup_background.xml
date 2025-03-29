@@ -2,7 +2,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape>
-            <solid android:color="?attr/colorSurface" />
+            <solid android:color="?attr/colorSurfaceContainerHighest" />
             <corners android:radius="@dimen/m3_alert_dialog_corner_size" />
         </shape>
     </item>

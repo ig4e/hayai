@@ -30,11 +30,11 @@ internal object TachiyomiColorScheme : BaseColorScheme() {
         onTertiary = Color(0xFF003909), // Downloaded badge text
         tertiaryContainer = Color(0xFF005312),
         onTertiaryContainer = Color(0xFF95F990),
-        background = Color(0xFF1B1B1F),
+        background = Color(0xFF09090b), // Darker background
         onBackground = Color(0xFFE3E2E6),
-        surface = Color(0xFF1B1B1F),
+        surface = Color(0xFF18181b), // Darker surface
         onSurface = Color(0xFFE3E2E6),
-        surfaceVariant = Color(0xFF211F26), // Navigation bar background (ThemePrefWidget)
+        surfaceVariant = Color(0xFF27272a), // Darker surface variant - Navigation bar background (ThemePrefWidget)
         onSurfaceVariant = Color(0xFFC5C6D0),
         surfaceTint = Color(0xFFB0C6FF),
         inverseSurface = Color(0xFFE3E2E6),
@@ -45,11 +45,11 @@ internal object TachiyomiColorScheme : BaseColorScheme() {
         onErrorContainer = Color(0xFFFFDAD6),
         outline = Color(0xFF8F9099),
         outlineVariant = Color(0xFF44464F),
-        surfaceContainerLowest = Color(0xFF1A181D),
-        surfaceContainerLow = Color(0xFF1E1C22),
-        surfaceContainer = Color(0xFF211F26), // Navigation bar background
-        surfaceContainerHigh = Color(0xFF292730),
-        surfaceContainerHighest = Color(0xFF302E38),
+        surfaceContainerLowest = Color(0xFF050508), // Darker container
+        surfaceContainerLow = Color(0xFF0d0d10), // Darker container
+        surfaceContainer = Color(0xFF151518), // Navigation bar background
+        surfaceContainerHigh = Color(0xFF1d1d20),
+        surfaceContainerHighest = Color(0xFF252528),
     )
 
     override val lightScheme = lightColorScheme(
