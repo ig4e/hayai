@@ -9,6 +9,7 @@ jobs:
   trigger_preview_build:
     name: Trigger preview build
     runs-on: ubuntu-latest
+    environment: build
 
     steps:
       - name: Clone repo
