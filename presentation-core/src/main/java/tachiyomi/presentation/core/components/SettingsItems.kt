@@ -18,16 +18,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.rounded.CheckBox
-import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
-import androidx.compose.material.icons.rounded.DisabledByDefault
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,21 +39,25 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.state.ToggleableState
 import dev.icerock.moko.resources.StringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.presentation.core.components.material.Checkbox
+import tachiyomi.presentation.core.components.material.CustomDropdownMenu
+import tachiyomi.presentation.core.components.material.CustomLabelTextField
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.Slider
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.collectAsState
+import tachiyomi.presentation.core.util.plus
+import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 object SettingsItemsPaddings {
     val Horizontal = 24.dp
@@ -271,53 +268,18 @@ fun SelectItem(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-    ) {
-        OutlinedTextField(
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth()
-                .padding(
-                    horizontal = SettingsItemsPaddings.Horizontal,
-                    vertical = SettingsItemsPaddings.Vertical,
-                ),
-            label = { Text(text = label) },
-            value = options[selectedIndex].toString(),
-            onValueChange = {},
-            enabled = false,
-            readOnly = true,
-            singleLine = true,
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(
-                    expanded = expanded,
-                )
-            },
-            colors = ExposedDropdownMenuDefaults.textFieldColors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+    CustomDropdownMenu(
+        items = options.toList(),
+        selectedIndex = selectedIndex,
+        onItemSelected = onSelect,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = SettingsItemsPaddings.Horizontal,
+                vertical = SettingsItemsPaddings.Vertical,
             ),
-        )
-
-        ExposedDropdownMenu(
-            modifier = Modifier.exposedDropdownSize(),
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            options.forEachIndexed { index, text ->
-                DropdownMenuItem(
-                    text = { Text(text.toString()) },
-                    onClick = {
-                        onSelect(index)
-                        expanded = false
-                    },
-                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-                )
-            }
-        }
-    }
+        label = label,
+    )
 }
 
 @Composable
@@ -379,7 +341,7 @@ fun TriStateItem(
 
 @Composable
 fun TextItem(label: String, value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(
+    CustomLabelTextField(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = 4.dp),

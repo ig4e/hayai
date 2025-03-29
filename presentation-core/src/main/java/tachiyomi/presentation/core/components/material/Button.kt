@@ -166,10 +166,10 @@ object ButtonDefaults {
      */
     @Composable
     fun buttonElevation(
-        defaultElevation: Dp = 0.dp,
+        defaultElevation: Dp = 1.dp,
         pressedElevation: Dp = 0.dp,
-        focusedElevation: Dp = 0.dp,
-        hoveredElevation: Dp = 0.dp,
+        focusedElevation: Dp = 2.dp,
+        hoveredElevation: Dp = 3.dp,
         disabledElevation: Dp = 0.dp,
     ): ButtonElevation = ButtonElevation(
         defaultElevation = defaultElevation,

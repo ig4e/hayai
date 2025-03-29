@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.LocalContentColor
@@ -32,6 +31,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.Pill
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.icons.CustomIcons
+import tachiyomi.presentation.core.icons.Filter
 import tachiyomi.presentation.core.theme.active
 
 @Composable
@@ -136,7 +137,7 @@ private fun LibraryRegularToolbar(
                 persistentListOf(
                     AppBar.Action(
                         title = stringResource(MR.strings.action_filter),
-                        icon = Icons.Outlined.FilterList,
+                        icon = CustomIcons.Filter,
                         iconTint = filterTint,
                         onClick = onClickFilter,
                     ),

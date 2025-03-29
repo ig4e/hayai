@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -31,6 +30,8 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.icons.CustomIcons
+import tachiyomi.presentation.core.icons.Filter
 
 @Composable
 fun GlobalSearchToolbar(
@@ -111,7 +112,7 @@ fun GlobalSearchToolbar(
                 onClick = { onToggleResults() },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Outlined.FilterList,
+                        imageVector = CustomIcons.Filter,
                         contentDescription = null,
                         modifier = Modifier
                             .size(FilterChipDefaults.IconSize),

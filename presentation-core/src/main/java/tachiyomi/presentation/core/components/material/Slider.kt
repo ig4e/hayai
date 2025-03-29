@@ -2,13 +2,22 @@ package tachiyomi.presentation.core.components.material
 
 import androidx.annotation.IntRange
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderState
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
 @Composable
@@ -20,18 +29,12 @@ fun Slider(
     valueRange: IntProgression = 0..1,
     @IntRange(from = 0) steps: Int = with(valueRange) { (last - first) - 1 },
     onValueChangeFinished: (() -> Unit)? = null,
-    colors: SliderColors = SliderDefaults.colors(),
+    colors: SliderColors = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+    ),
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
-    thumb: @Composable (SliderState) -> Unit = {
-        SliderDefaults.Thumb(
-            interactionSource = interactionSource,
-            colors = colors,
-            enabled = enabled,
-        )
-    },
-    track: @Composable (SliderState) -> Unit = { sliderState ->
-        SliderDefaults.Track(colors = colors, enabled = enabled, sliderState = sliderState)
-    },
 ) {
     Slider(
         value = value.toFloat(),
@@ -43,7 +46,28 @@ fun Slider(
         onValueChangeFinished = onValueChangeFinished,
         colors = colors,
         interactionSource = interactionSource,
-        thumb = thumb,
-        track = track,
+        thumb = {
+            CustomThumb(
+                interactionSource = interactionSource,
+                enabled = enabled,
+            )
+        },
     )
+}
+
+@Composable
+private fun CustomThumb(
+    interactionSource: MutableInteractionSource,
+    enabled: Boolean,
+) {
+    // Fixed size thumb with Material3 styling
+    val size = 20.dp
+
+    Surface(
+        color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else 0.38f),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.size(size),
+    ) {
+        Box(contentAlignment = Alignment.Center) {}
+    }
 }

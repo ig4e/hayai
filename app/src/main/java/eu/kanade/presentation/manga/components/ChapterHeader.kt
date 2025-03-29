@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Filter
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -27,6 +26,8 @@ import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.icons.CustomIcons
+import tachiyomi.presentation.core.icons.Filter
 
 @Composable
 fun ChapterHeader(
@@ -75,7 +76,7 @@ fun ChapterHeader(
 
             if (enabled) {
                 Icon(
-                    imageVector = Icons.Filled.FilterList,
+                    imageVector = CustomIcons.Filter,
                     contentDescription = stringResource(MR.strings.action_filter),
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,

@@ -28,6 +28,8 @@ import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.icons.CustomIcons
+import tachiyomi.presentation.core.icons.Filter
 
 @Composable
 fun Screen.sourcesTab(
@@ -55,7 +57,7 @@ fun Screen.sourcesTab(
                     it.add(
                         AppBar.Action(
                             title = stringResource(MR.strings.action_filter),
-                            icon = Icons.Outlined.FilterList,
+                            icon = CustomIcons.Filter,
                             onClick = { navigator.push(SourcesFilterScreen()) },
                         ),
                     )

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Favorite
-import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -69,6 +68,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.icons.CustomIcons
+import tachiyomi.presentation.core.icons.Filter
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.LocalSource
 import uy.kohesive.injekt.Injekt
@@ -214,7 +215,7 @@ data class BrowseSourceScreen(
                                 onClick = screenModel::openFilterSheet,
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Outlined.FilterList,
+                                        imageVector = CustomIcons.Filter,
                                         contentDescription = null,
                                         modifier = Modifier
                                             .size(FilterChipDefaults.IconSize),

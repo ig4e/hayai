@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -24,48 +26,55 @@ fun AlertDialogContent(
     title: (@Composable () -> Unit)? = null,
     text: @Composable () -> Unit,
 ) {
-    AlertDialogContent(
+    Surface(
         modifier = modifier,
-        icon = icon,
-        title = title,
-        content = {
-            Column {
-                CompositionLocalProvider(
-                    LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant,
-                ) {
-                    val textStyle = MaterialTheme.typography.bodyMedium
-                    ProvideTextStyle(textStyle) {
-                        Box(
-                            Modifier
-                                .weight(weight = 1f, fill = false)
-                                .padding(horizontal = DialogPadding)
-                                .padding(TextPadding)
-                                .align(Alignment.Start),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 6.dp,
+    ) {
+        AlertDialogContent(
+            modifier = Modifier,
+            icon = icon,
+            title = title,
+            content = {
+                Column {
+                    CompositionLocalProvider(
+                        LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant,
+                    ) {
+                        val textStyle = MaterialTheme.typography.bodyMedium
+                        ProvideTextStyle(textStyle) {
+                            Box(
+                                Modifier
+                                    .weight(weight = 1f, fill = false)
+                                    .padding(horizontal = DialogPadding)
+                                    .padding(TextPadding)
+                                    .align(Alignment.Start),
+                            ) {
+                                text()
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .padding(
+                                start = DialogPadding,
+                                end = DialogPadding,
+                                bottom = DialogPadding,
+                            )
+                            .align(Alignment.End),
+                    ) {
+                        CompositionLocalProvider(
+                            LocalContentColor provides MaterialTheme.colorScheme.primary,
                         ) {
-                            text()
+                            val textStyle = MaterialTheme.typography.labelLarge
+                            ProvideTextStyle(value = textStyle, content = buttons)
                         }
                     }
                 }
-
-                Box(
-                    modifier = Modifier
-                        .padding(
-                            start = DialogPadding,
-                            end = DialogPadding,
-                            bottom = DialogPadding,
-                        )
-                        .align(Alignment.End),
-                ) {
-                    CompositionLocalProvider(
-                        LocalContentColor provides MaterialTheme.colorScheme.primary,
-                    ) {
-                        val textStyle = MaterialTheme.typography.labelLarge
-                        ProvideTextStyle(value = textStyle, content = buttons)
-                    }
-                }
-            }
-        },
-    )
+            },
+        )
+    }
 }
 
 @Composable
