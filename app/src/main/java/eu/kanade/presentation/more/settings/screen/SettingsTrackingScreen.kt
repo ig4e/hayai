@@ -60,10 +60,11 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
-import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.components.material.CustomTextField
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.presentation.core.components.material.padding
 
 object SettingsTrackingScreen : SearchableSettings {
 
@@ -227,22 +228,21 @@ object SettingsTrackingScreen : SearchableSettings {
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
+                    CustomTextField(
                         modifier = Modifier.fillMaxWidth(),
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text(text = stringResource(uNameStringRes)) },
+                        value = username.text,
+                        onValueChange = { username = TextFieldValue(it) },
+                        labelText = stringResource(uNameStringRes),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         singleLine = true,
-                        isError = inputError && !processing,
                     )
 
                     var hidePassword by remember { mutableStateOf(true) }
-                    OutlinedTextField(
+                    CustomTextField(
                         modifier = Modifier.fillMaxWidth(),
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text(text = stringResource(MR.strings.password)) },
+                        value = password.text,
+                        onValueChange = { password = TextFieldValue(it) },
+                        labelText = stringResource(MR.strings.password),
                         trailingIcon = {
                             IconButton(onClick = { hidePassword = !hidePassword }) {
                                 Icon(
@@ -265,7 +265,6 @@ object SettingsTrackingScreen : SearchableSettings {
                             imeAction = ImeAction.Done,
                         ),
                         singleLine = true,
-                        isError = inputError && !processing,
                     )
                 }
             },

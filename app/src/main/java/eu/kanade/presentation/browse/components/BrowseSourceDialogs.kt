@@ -20,6 +20,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.components.material.CustomTextField
 
 @Composable
 fun RemoveMangaDialog(
@@ -99,9 +100,9 @@ fun SavedSearchCreateDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(text = stringResource(SYMR.strings.save_search)) },
         text = {
-            OutlinedTextField(
-                value = textFieldValue,
-                onValueChange = { textFieldValue = it },
+            CustomTextField(
+                value = textFieldValue.text,
+                onValueChange = { textFieldValue = TextFieldValue(it) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {

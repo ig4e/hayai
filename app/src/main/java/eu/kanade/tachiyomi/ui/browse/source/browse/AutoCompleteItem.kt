@@ -38,6 +38,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
+import tachiyomi.presentation.core.components.material.CustomTextField
 import tachiyomi.presentation.core.util.runOnEnterKeyPressed
 
 @Composable
@@ -138,17 +139,13 @@ fun AutoCompleteTextField(
         expanded = expanded,
         onExpandedChange = { expanded = it },
     ) {
-        OutlinedTextField(
-            value = value,
+        CustomTextField(
+            value = value.text,
             onValueChange = {
-                value = it
+                value = TextFieldValue(it)
                 expanded = true // todo remove if focus bug is fixed
             },
-            label = if (label != null) {
-                { Text(label) }
-            } else {
-                null
-            },
+            labelText = label,
             placeholder = if (placeholder != null) {
                 { Text(placeholder) }
             } else {
@@ -166,7 +163,6 @@ fun AutoCompleteTextField(
                     expanded = expanded,
                 )
             },
-            colors = ExposedDropdownMenuDefaults.textFieldColors(),
         )
 
         val filteredValues by produceState(emptyList(), value) {

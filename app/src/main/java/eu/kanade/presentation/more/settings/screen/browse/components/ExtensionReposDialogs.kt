@@ -3,7 +3,6 @@ package eu.kanade.presentation.more.settings.screen.browse.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,6 +21,7 @@ import mihon.domain.extensionrepo.model.ExtensionRepo
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.Duration.Companion.seconds
+import tachiyomi.presentation.core.components.material.CustomTextField
 
 @Composable
 fun ExtensionRepoCreateDialog(
@@ -59,15 +59,13 @@ fun ExtensionRepoCreateDialog(
             Column {
                 Text(text = stringResource(MR.strings.action_add_repo_message))
 
-                OutlinedTextField(
+                CustomTextField(
                     modifier = Modifier
                         .focusRequester(focusRequester),
                     value = name,
                     onValueChange = { name = it },
-                    label = {
-                        Text(text = stringResource(MR.strings.label_add_repo_input))
-                    },
-                    supportingText = {
+                    labelText = stringResource(MR.strings.label_add_repo_input),
+                    placeholder = {
                         val msgRes = if (name.isNotEmpty() && nameAlreadyExists) {
                             MR.strings.error_repo_exists
                         } else {
@@ -75,7 +73,6 @@ fun ExtensionRepoCreateDialog(
                         }
                         Text(text = stringResource(msgRes))
                     },
-                    isError = name.isNotEmpty() && nameAlreadyExists,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     singleLine = true,
                 )

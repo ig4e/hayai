@@ -30,8 +30,8 @@ android {
 
     defaultConfig {
         // Production
-        applicationId = "dev.ahmedmohamed.hayai"
-        //applicationId = "eu.kanade.tachiyomi.sy"
+        //applicationId = "dev.ahmedmohamed.hayai"
+        applicationId = "eu.kanade.tachiyomi.sy"
 
         versionCode = 2
         versionName = "1.0.1"

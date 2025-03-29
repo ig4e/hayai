@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.components.material.Switch
+import tachiyomi.presentation.core.components.material.CustomTextField
 
 @Composable
 fun ExhUtils(
@@ -119,20 +120,13 @@ fun ExhUtils(
                             var autoScrollFrequencyState by remember {
                                 mutableStateOf(autoScrollFrequency)
                             }
-                            TextField(
+                            CustomTextField(
                                 value = autoScrollFrequencyState,
                                 onValueChange = {
                                     autoScrollFrequencyState = it
                                     onSetAutoScrollFrequency(it)
                                 },
-                                isError = !isAutoScrollEnabled,
                                 singleLine = true,
-                                colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                ),
                                 modifier = Modifier.fillMaxWidth(0.75f),
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Decimal,

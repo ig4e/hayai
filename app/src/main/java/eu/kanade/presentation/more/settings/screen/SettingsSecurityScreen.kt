@@ -62,6 +62,7 @@ import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import tachiyomi.presentation.core.components.material.Checkbox
+import tachiyomi.presentation.core.components.material.CustomTextField
 
 object SettingsSecurityScreen : SearchableSettings {
 
@@ -312,13 +313,12 @@ object SettingsSecurityScreen : SearchableSettings {
 
             title = { Text(text = stringResource(SYMR.strings.cbz_archive_password)) },
             text = {
-                TextField(
+                CustomTextField(
                     value = password,
                     onValueChange = { password = it },
-
                     maxLines = 1,
                     placeholder = { Text(text = stringResource(MR.strings.password)) },
-                    label = { Text(text = stringResource(MR.strings.password)) },
+                    labelText = stringResource(MR.strings.password),
                     trailingIcon = {
                         IconButton(
                             onClick = {

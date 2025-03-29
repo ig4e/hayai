@@ -45,6 +45,7 @@ import kotlin.time.Duration.Companion.seconds
 import androidx.compose.material3.rememberTopAppBarState
 import tachiyomi.presentation.core.components.material.Checkbox
 import androidx.compose.ui.unit.dp
+import tachiyomi.presentation.core.components.material.CustomTextField
 
 @Composable
 fun CategoryCreateDialog(
@@ -91,15 +92,13 @@ fun CategoryCreateDialog(
                 extraMessage?.let { Text(it) }
                 // SY <--
 
-                OutlinedTextField(
+                CustomTextField(
                     modifier = Modifier
                         .focusRequester(focusRequester),
                     value = name,
                     onValueChange = { name = it },
-                    label = {
-                        Text(text = stringResource(MR.strings.name))
-                    },
-                    supportingText = {
+                    labelText = stringResource(MR.strings.name),
+                    placeholder = {
                         val msgRes = if (name.isNotEmpty() && nameAlreadyExists) {
                             // SY -->
                             alreadyExistsError
@@ -109,7 +108,6 @@ fun CategoryCreateDialog(
                         }
                         Text(text = stringResource(msgRes))
                     },
-                    isError = name.isNotEmpty() && nameAlreadyExists,
                     singleLine = true,
                 )
                 // SY -->
@@ -160,15 +158,15 @@ fun CategoryRenameDialog(
             Text(text = stringResource(MR.strings.action_rename_category))
         },
         text = {
-            OutlinedTextField(
+            CustomTextField(
                 modifier = Modifier.focusRequester(focusRequester),
                 value = name,
                 onValueChange = {
                     valueHasChanged = name != it
                     name = it
                 },
-                label = { Text(text = stringResource(MR.strings.name)) },
-                supportingText = {
+                labelText = stringResource(MR.strings.name),
+                placeholder = {
                     val msgRes = if (valueHasChanged && nameAlreadyExists) {
                         MR.strings.error_category_exists
                     } else {
@@ -176,7 +174,6 @@ fun CategoryRenameDialog(
                     }
                     Text(text = stringResource(msgRes))
                 },
-                isError = valueHasChanged && nameAlreadyExists,
                 singleLine = true,
             )
         },
