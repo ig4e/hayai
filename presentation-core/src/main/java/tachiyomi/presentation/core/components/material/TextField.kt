@@ -113,7 +113,7 @@ fun CustomTextField(
                         modifier = Modifier
                             .graphicsLayer {
                                 alpha = if (isFocused) 1f else 0.9f
-                            }
+                            },
                     ) {
                         if (labelText != null) {
                             Text(
@@ -469,7 +469,7 @@ fun CustomLabelTextField(
                         modifier = Modifier
                             .graphicsLayer {
                                 alpha = if (isFocused) 1f else 0.9f
-                            }
+                            },
                     ) {
                         if (labelText != null) {
                             Text(

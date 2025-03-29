@@ -85,7 +85,7 @@ fun RowScope.NavigationBarItem(
                         modifier = Modifier.align(Alignment.Center),
                     ) {
                         Box(
-                            modifier = Modifier.scale(scale)
+                            modifier = Modifier.scale(scale),
                         ) {
                             icon()
                         }
@@ -94,7 +94,7 @@ fun RowScope.NavigationBarItem(
                     Box(
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .scale(scale)
+                            .scale(scale),
                     ) {
                         icon()
                     }

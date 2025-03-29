@@ -92,7 +92,7 @@ fun NavigationRailItem(
                         modifier = Modifier.align(Alignment.Center),
                     ) {
                         Box(
-                            modifier = Modifier.scale(scale)
+                            modifier = Modifier.scale(scale),
                         ) {
                             icon()
                         }
@@ -101,7 +101,7 @@ fun NavigationRailItem(
                     Box(
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .scale(scale)
+                            .scale(scale),
                     ) {
                         icon()
                     }
