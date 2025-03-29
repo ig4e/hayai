@@ -203,6 +203,28 @@
     <string name="onboarding_permission_action_grant">Grant</string>
     <string name="onboarding_guides_new_user">New to %s? We recommend checking out the getting started guide.</string>
     <string name="onboarding_guides_returning_user">Reinstalling %s?</string>
+    <string name="onboarding_step_indicator">Step %1$d of %2$d</string>
+    <string name="onboarding_step_appearance">Appearance</string>
+    <string name="onboarding_step_storage">Storage</string>
+    <string name="onboarding_step_permissions">Permissions</string>
+    <string name="onboarding_step_guides">Getting Started</string>
+    <string name="onboarding_step_completed">Completed</string>
+    <string name="onboarding_appearance_settings">Appearance Settings</string>
+    <string name="onboarding_theme_mode">Theme Mode</string>
+    <string name="onboarding_color_theme">Color Theme</string>
+    <string name="onboarding_appearance_change_later">You can change these settings later in the app\'s appearance preferences.</string>
+    <string name="onboarding_storage_location">Storage Location</string>
+    <string name="onboarding_select_storage_folder">Select Storage Folder</string>
+    <string name="onboarding_folder_selected">Folder selected: %s</string>
+    <string name="onboarding_no_folder_selected">No folder selected yet. Please select a storage folder to continue.</string>
+    <string name="onboarding_folder_required">You must select a storage folder to continue</string>
+    <string name="onboarding_need_help">Need Help?</string>
+    <string name="onboarding_required_permissions">Required Permissions</string>
+    <string name="onboarding_privacy_settings">Privacy Settings</string>
+    <string name="onboarding_permissions_help">These permissions help improve your reading experience and allow the app to function properly. You can change these settings later.</string>
+    <string name="onboarding_new_user">New User?</string>
+    <string name="onboarding_returning_user">Returning User?</string>
+    <string name="onboarding_all_set">You\'re all set! Click \'Get Started\' to begin your journey.</string>
 
     <!-- Preferences -->
       <!-- Subsections -->
