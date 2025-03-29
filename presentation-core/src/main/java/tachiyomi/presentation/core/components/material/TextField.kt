@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -40,6 +41,7 @@ fun CustomTextField(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     label: @Composable (() -> Unit)? = null,
+    labelText: String? = null,
     placeholder: @Composable (() -> Unit)? = null,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
@@ -84,54 +86,123 @@ fun CustomTextField(
         label = "BorderWidth",
     )
 
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier
-            .fillMaxWidth()
-            .background(
-                color = backgroundColor,
-                shape = MaterialTheme.shapes.small,
-            )
-            .border(
-                width = borderWidth.dp,
-                color = borderColor,
-                shape = MaterialTheme.shapes.small,
-            )
-            .defaultMinSize(
-                minWidth = 40.dp,
-                minHeight = 48.dp,
-            ),
-        enabled = enabled,
-        readOnly = readOnly,
-        textStyle = TextStyle.Default.copy(
-            color = textColor,
-            fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-        ),
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        singleLine = singleLine,
-        maxLines = maxLines,
-        minLines = minLines,
-        visualTransformation = visualTransformation,
-        interactionSource = interactionSource,
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        decorationBox = { innerTextField ->
+    // For label styling
+    val labelColor by animateColorAsState(
+        targetValue = if (isFocused) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        },
+        animationSpec = tween(durationMillis = 200),
+        label = "LabelColor",
+    )
+
+    androidx.compose.foundation.layout.Column(
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        // Label above the text field
+        if (label != null || labelText != null) {
             Box(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                contentAlignment = Alignment.CenterStart,
+                modifier = Modifier
+                    .padding(bottom = 6.dp),
             ) {
-                if (value.isEmpty() && placeholder != null) {
-                    CompositionLocalProvider(
-                        LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                CompositionLocalProvider(
+                    LocalContentColor provides labelColor,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                alpha = if (isFocused) 1f else 0.9f
+                            },
                     ) {
-                        placeholder()
+                        if (labelText != null) {
+                            Text(
+                                text = labelText,
+                                style = getLabelTextStyle(),
+                                color = labelColor,
+                            )
+                        } else {
+                            label?.invoke()
+                        }
                     }
                 }
-                innerTextField()
             }
-        },
-    )
+        }
+
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = backgroundColor,
+                    shape = MaterialTheme.shapes.small,
+                )
+                .border(
+                    width = borderWidth.dp,
+                    color = borderColor,
+                    shape = MaterialTheme.shapes.small,
+                )
+                .defaultMinSize(
+                    minWidth = 40.dp,
+                    minHeight = 48.dp,
+                ),
+            enabled = enabled,
+            readOnly = readOnly,
+            textStyle = TextStyle.Default.copy(
+                color = textColor,
+                fontSize = MaterialTheme.typography.bodyLarge.fontSize,
+            ),
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+            singleLine = singleLine,
+            maxLines = maxLines,
+            minLines = minLines,
+            visualTransformation = visualTransformation,
+            interactionSource = interactionSource,
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    if (leadingIcon != null) {
+                        Box(
+                            modifier = Modifier.padding(end = 8.dp),
+                        ) {
+                            leadingIcon()
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier.padding(
+                            start = if (leadingIcon != null) 28.dp else 0.dp,
+                            end = if (trailingIcon != null) 28.dp else 0.dp,
+                        ),
+                    ) {
+                        if (value.isEmpty() && placeholder != null) {
+                            CompositionLocalProvider(
+                                LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            ) {
+                                placeholder()
+                            }
+                        }
+                        innerTextField()
+                    }
+
+                    if (trailingIcon != null) {
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .align(Alignment.CenterEnd),
+                        ) {
+                            trailingIcon()
+                        }
+                    }
+                }
+            },
+        )
+    }
 }
 
 /**
@@ -145,6 +216,7 @@ fun CustomOutlinedTextField(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     label: @Composable (() -> Unit)? = null,
+    labelText: String? = null,
     placeholder: @Composable (() -> Unit)? = null,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
@@ -199,7 +271,7 @@ fun CustomOutlinedTextField(
     Box(
         modifier = modifier.fillMaxWidth(),
     ) {
-        label?.let {
+        if (label != null || labelText != null) {
             Box(
                 modifier = Modifier
                     .padding(start = 12.dp, top = 4.dp)
@@ -211,12 +283,21 @@ fun CustomOutlinedTextField(
                     .graphicsLayer {
                         scaleX = labelScale
                         scaleY = labelScale
+                        alpha = if (isFocused) 1f else 0.9f
                     },
             ) {
                 CompositionLocalProvider(
                     LocalContentColor provides labelColor,
                 ) {
-                    label()
+                    if (labelText != null) {
+                        Text(
+                            text = labelText,
+                            style = getLabelTextStyle(),
+                            color = labelColor,
+                        )
+                    } else {
+                        label?.invoke()
+                    }
                 }
             }
         }
@@ -298,6 +379,12 @@ fun CustomOutlinedTextField(
 }
 
 /**
+ * Custom Label Text style that matches the dropdown menu label styling
+ */
+@Composable
+fun getLabelTextStyle() = MaterialTheme.typography.bodyMedium
+
+/**
  * Custom Text Field with a fixed label positioned above the input field
  * instead of the default Material 3 shrinking label behavior.
  */
@@ -309,6 +396,7 @@ fun CustomLabelTextField(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     label: @Composable (() -> Unit)? = null,
+    labelText: String? = null,
     placeholder: @Composable (() -> Unit)? = null,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
@@ -368,15 +456,31 @@ fun CustomLabelTextField(
         modifier = modifier.fillMaxWidth(),
     ) {
         // Label above the text field
-        if (label != null) {
+        if (label != null || labelText != null) {
             Box(
                 modifier = Modifier
-                    .padding(bottom = 4.dp, start = 4.dp),
+                    .padding(bottom = 6.dp),
             ) {
                 CompositionLocalProvider(
                     LocalContentColor provides labelColor,
                 ) {
-                    label()
+                    // Using the same styling as dropdown menu label
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                alpha = if (isFocused) 1f else 0.9f
+                            },
+                    ) {
+                        if (labelText != null) {
+                            Text(
+                                text = labelText,
+                                style = getLabelTextStyle(),
+                                color = labelColor,
+                            )
+                        } else {
+                            label?.invoke()
+                        }
+                    }
                 }
             }
         }

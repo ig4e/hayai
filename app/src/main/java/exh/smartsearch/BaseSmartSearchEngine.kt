@@ -3,8 +3,11 @@ package exh.smartsearch
 import info.debatty.java.stringsimilarity.NormalizedLevenshtein
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 typealias SearchAction<T> = suspend (String) -> List<T>
 
@@ -14,32 +17,63 @@ abstract class BaseSmartSearchEngine<T>(
 ) {
     private val normalizedLevenshtein = NormalizedLevenshtein()
 
+    // Cache for cleaned titles to avoid redundant processing
+    private val cleanedTitleCache = ConcurrentHashMap<String, String>()
+
+    // Cache for search results to avoid redundant API calls
+    private val searchResultsCache = ConcurrentHashMap<String, List<T>>()
+
     protected abstract fun getTitle(result: T): String
 
     protected suspend fun smartSearch(searchAction: SearchAction<T>, title: String): T? {
-        val cleanedTitle = cleanSmartSearchTitle(title)
+        // Get or compute cleaned title with caching
+        val cleanedTitle = cleanedTitleCache.getOrPut(title) { cleanSmartSearchTitle(title) }
 
         val queries = getSmartSearchQueries(cleanedTitle)
 
+        // If the title is very short, use more precise matching to avoid false positives
+        val effectiveThreshold = if (cleanedTitle.length <= 5) eligibleThreshold + 0.2 else eligibleThreshold
+
         val eligibleManga = supervisorScope {
-            queries.map { query ->
+            // Process only first 3 queries for performance if title is long enough
+            val limitedQueries = if (cleanedTitle.length > 10) queries.take(3) else queries
+
+            limitedQueries.map { query ->
                 async(Dispatchers.Default) {
+                    // Check cache first before making network call
                     val builtQuery = if (extraSearchParams != null) {
                         "$query ${extraSearchParams.trim()}"
                     } else {
                         query
                     }
 
-                    searchAction(builtQuery).map {
-                        val cleanedMangaTitle = cleanSmartSearchTitle(getTitle(it))
-                        val normalizedDistance = normalizedLevenshtein.similarity(cleanedTitle, cleanedMangaTitle)
-                        SearchEntry(it, normalizedDistance)
-                    }.filter { (_, normalizedDistance) ->
-                        normalizedDistance >= eligibleThreshold
+                    // Get search results with caching
+                    val searchResults = searchResultsCache.getOrPut(builtQuery) {
+                        searchAction(builtQuery)
+                    }
+
+                    if (searchResults.isEmpty()) return@async emptyList()
+
+                    // Process in batches for better performance
+                    withContext(Dispatchers.Default) {
+                        searchResults.map {
+                            val mangaTitle = getTitle(it)
+                            val cleanedMangaTitle = cleanedTitleCache.getOrPut(mangaTitle) {
+                                cleanSmartSearchTitle(mangaTitle)
+                            }
+                            val normalizedDistance = normalizedLevenshtein.similarity(cleanedTitle, cleanedMangaTitle)
+                            SearchEntry(it, normalizedDistance)
+                        }.filter { (_, normalizedDistance) ->
+                            normalizedDistance >= effectiveThreshold
+                        }
                     }
                 }
             }.flatMap { it.await() }
         }
+
+        // Early return if we found exact match
+        val exactMatch = eligibleManga.find { it.dist > 0.9 }
+        if (exactMatch != null) return exactMatch.manga
 
         return eligibleManga.maxByOrNull { it.dist }?.manga
     }
@@ -51,19 +85,36 @@ abstract class BaseSmartSearchEngine<T>(
             } else {
                 title
             }
-            val searchResults = searchAction(searchQuery)
 
+            // Use cache for search results
+            val searchResults = searchResultsCache.getOrPut(searchQuery) {
+                searchAction(searchQuery)
+            }
+
+            if (searchResults.isEmpty()) {
+                return@supervisorScope emptyList()
+            }
+
+            // Early return for single result
             if (searchResults.size == 1) {
                 return@supervisorScope listOf(SearchEntry(searchResults.first(), 0.0))
             }
 
-            searchResults.map {
-                val normalizedDistance = normalizedLevenshtein.similarity(title, getTitle(it))
-                SearchEntry(it, normalizedDistance)
-            }.filter { (_, normalizedDistance) ->
-                normalizedDistance >= eligibleThreshold
+            // Batch process all results
+            withContext(Dispatchers.Default) {
+                searchResults.map {
+                    val mangaTitle = getTitle(it)
+                    val normalizedDistance = normalizedLevenshtein.similarity(title, mangaTitle)
+                    SearchEntry(it, normalizedDistance)
+                }.filter { (_, normalizedDistance) ->
+                    normalizedDistance >= eligibleThreshold
+                }
             }
         }
+
+        // Early return if we found exact match
+        val exactMatch = eligibleManga.find { it.dist > 0.9 }
+        if (exactMatch != null) return exactMatch.manga
 
         return eligibleManga.maxByOrNull { it.dist }?.manga
     }
@@ -150,12 +201,16 @@ abstract class BaseSmartSearchEngine<T>(
             return emptyList()
         }
 
-        // Search cleaned title
-        // Search two largest words
-        // Search largest word
-        // Search first two words
-        // Search first word
+        // For very long titles, we want to be more targeted with our search queries
+        if (splitCleanedTitle.size > 5) {
+            return listOf(
+                cleanedTitle,
+                splitSortedByLargest.take(2).joinToString(" "),
+                splitSortedByLargest.first()
+            )
+        }
 
+        // For regular titles, use the standard approach but optimize order
         val searchQueries = listOf(
             listOf(cleanedTitle),
             splitSortedByLargest.take(2),
@@ -167,6 +222,16 @@ abstract class BaseSmartSearchEngine<T>(
         return searchQueries.map {
             it.joinToString(" ").trim()
         }.distinct()
+    }
+
+    // Clear caches if they get too large
+    open fun clearCaches() {
+        if (cleanedTitleCache.size > 1000) {
+            cleanedTitleCache.clear()
+        }
+        if (searchResultsCache.size > 200) {
+            searchResultsCache.clear()
+        }
     }
 
     companion object {

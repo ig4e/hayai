@@ -140,6 +140,22 @@ internal class AppUpdateNotifier(private val context: Context) {
     }
 
     /**
+     * Call when apk download is finished and automatic installation has been triggered.
+     */
+    fun notifyAutoInstall() {
+        with(notificationBuilder) {
+            setContentTitle(context.stringResource(MR.strings.app_name))
+            setContentText("Installing update automatically...")
+            setSmallIcon(R.drawable.ic_system_update_alt_white_24dp)
+            setOnlyAlertOnce(false)
+            setProgress(0, 0, false)
+            setOngoing(false)
+            clearActions()
+        }
+        notificationBuilder.show(Notifications.ID_APP_UPDATE_INSTALL)
+    }
+
+    /**
      * Call when apk download throws a error
      *
      * @param url web location of apk to download.

@@ -38,6 +38,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
+import tachiyomi.presentation.core.components.material.CustomTextField
 
 class BatchAddScreen : Screen() {
 
@@ -67,7 +68,7 @@ class BatchAddScreen : Screen() {
                     ) {
                         Text(text = stringResource(SYMR.strings.eh_batch_add_title), style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.height(8.dp))
-                        TextField(
+                        CustomTextField(
                             value = state.galleries,
                             onValueChange = screenModel::updateGalleries,
                             modifier = Modifier.fillMaxWidth(),
@@ -77,8 +78,6 @@ class BatchAddScreen : Screen() {
                                 )
                             },
                             keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
-                            textStyle = MaterialTheme.typography.bodyLarge,
-
                         )
                         Spacer(Modifier.height(8.dp))
                         Button(

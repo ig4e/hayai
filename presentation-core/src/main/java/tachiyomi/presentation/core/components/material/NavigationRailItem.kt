@@ -50,8 +50,7 @@ fun NavigationRailItem(
                 role = Role.Tab,
                 interactionSource = interactionSource,
                 indication = null,
-            )
-            .padding(vertical = 8.dp),
+            ),
         contentAlignment = Alignment.Center,
     ) {
         val scale by animateFloatAsState(
@@ -70,9 +69,7 @@ fun NavigationRailItem(
         )
 
         Box(
-            modifier = Modifier
-                .padding(4.dp)
-                .scale(scale),
+            modifier = Modifier.padding(4.dp),
         ) {
             if (selected) {
                 Box(
@@ -94,10 +91,18 @@ fun NavigationRailItem(
                         },
                         modifier = Modifier.align(Alignment.Center),
                     ) {
-                        icon()
+                        Box(
+                            modifier = Modifier.scale(scale),
+                        ) {
+                            icon()
+                        }
                     }
                 } else {
-                    Box(modifier = Modifier.align(Alignment.Center)) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .scale(scale),
+                    ) {
                         icon()
                     }
                 }

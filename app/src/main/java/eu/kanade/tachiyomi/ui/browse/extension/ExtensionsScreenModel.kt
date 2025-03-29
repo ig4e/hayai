@@ -33,6 +33,7 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
+import eu.kanade.tachiyomi.util.lang.containsFuzzy
 
 class ExtensionsScreenModel(
     preferences: SourcePreferences = Injekt.get(),
@@ -56,28 +57,29 @@ class ExtensionsScreenModel(
                 query.split(",").any { _input ->
                     val input = _input.trim()
                     if (input.isEmpty()) return@any false
+
                     when (extension) {
                         is Extension.Available -> {
                             extension.sources.any {
-                                it.name.contains(input, ignoreCase = true) ||
-                                    it.baseUrl.contains(input, ignoreCase = true) ||
+                                containsFuzzy(it.name, input) ||
+                                    containsFuzzy(it.baseUrl, input) ||
                                     it.id == input.toLongOrNull()
                             } ||
-                                extension.name.contains(input, ignoreCase = true)
+                                containsFuzzy(extension.name, input)
                         }
                         is Extension.Installed -> {
                             extension.sources.any {
-                                it.name.contains(input, ignoreCase = true) ||
+                                containsFuzzy(it.name, input) ||
                                     it.id == input.toLongOrNull() ||
                                     if (it is HttpSource) {
-                                        it.baseUrl.contains(input, ignoreCase = true)
+                                        containsFuzzy(it.baseUrl, input)
                                     } else {
                                         false
                                     }
                             } ||
-                                extension.name.contains(input, ignoreCase = true)
+                                containsFuzzy(extension.name, input)
                         }
-                        is Extension.Untrusted -> extension.name.contains(input, ignoreCase = true)
+                        is Extension.Untrusted -> containsFuzzy(extension.name, input)
                     }
                 }
             }

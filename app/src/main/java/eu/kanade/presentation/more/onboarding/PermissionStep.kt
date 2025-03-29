@@ -10,15 +10,24 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.InstallMobile
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -27,7 +36,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
@@ -79,65 +90,113 @@ internal class PermissionStep : OnboardingStep {
             }
         }
 
-        Column {
-            PermissionCheckbox(
-                title = stringResource(MR.strings.onboarding_permission_install_apps),
-                subtitle = stringResource(MR.strings.onboarding_permission_install_apps_description),
-                granted = installGranted,
-                onButtonClick = {
-                    context.launchRequestPackageInstallsPermission()
-                },
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = stringResource(MR.strings.onboarding_required_permissions),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp),
+                color = MaterialTheme.colorScheme.primary
             )
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val permissionRequester = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestPermission(),
-                    onResult = {
-                        // no-op. resulting checks is being done on resume
-                    },
-                )
-                PermissionCheckbox(
-                    title = stringResource(MR.strings.onboarding_permission_notifications),
-                    subtitle = stringResource(MR.strings.onboarding_permission_notifications_description),
-                    granted = notificationGranted,
-                    onButtonClick = { permissionRequester.launch(Manifest.permission.POST_NOTIFICATIONS) },
-                )
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    PermissionCheckbox(
+                        title = stringResource(MR.strings.onboarding_permission_install_apps),
+                        subtitle = stringResource(MR.strings.onboarding_permission_install_apps_description),
+                        icon = Icons.Outlined.InstallMobile,
+                        granted = installGranted,
+                        onButtonClick = {
+                            context.launchRequestPackageInstallsPermission()
+                        },
+                    )
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val permissionRequester = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.RequestPermission(),
+                            onResult = {
+                                // no-op. resulting checks is being done on resume
+                            },
+                        )
+                        PermissionCheckbox(
+                            title = stringResource(MR.strings.onboarding_permission_notifications),
+                            subtitle = stringResource(MR.strings.onboarding_permission_notifications_description),
+                            icon = Icons.Outlined.Notifications,
+                            granted = notificationGranted,
+                            onButtonClick = { permissionRequester.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                        )
+                    }
+
+                    PermissionCheckbox(
+                        title = stringResource(MR.strings.onboarding_permission_ignore_battery_opts),
+                        subtitle = stringResource(MR.strings.onboarding_permission_ignore_battery_opts_description),
+                        icon = Icons.Outlined.PowerSettingsNew,
+                        granted = batteryGranted,
+                        onButtonClick = {
+                            @SuppressLint("BatteryLife")
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = "package:${context.packageName}".toUri()
+                            }
+                            context.startActivity(intent)
+                        },
+                    )
+                }
             }
 
-            PermissionCheckbox(
-                title = stringResource(MR.strings.onboarding_permission_ignore_battery_opts),
-                subtitle = stringResource(MR.strings.onboarding_permission_ignore_battery_opts_description),
-                granted = batteryGranted,
-                onButtonClick = {
-                    @SuppressLint("BatteryLife")
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = "package:${context.packageName}".toUri()
-                    }
-                    context.startActivity(intent)
-                },
-            )
-
             HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(vertical = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
             )
 
-            val crashlyticsPref = privacyPreferences.crashlytics()
-            val crashlytics by crashlyticsPref.collectAsState()
-            PermissionSwitch(
-                title = stringResource(MR.strings.onboarding_permission_crashlytics),
-                subtitle = stringResource(MR.strings.onboarding_permission_crashlytics_description),
-                granted = crashlytics,
-                onToggleChange = crashlyticsPref::set,
+            Text(
+                text = stringResource(MR.strings.onboarding_privacy_settings),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp),
+                color = MaterialTheme.colorScheme.primary
             )
 
-            val analyticsPref = privacyPreferences.analytics()
-            val analytics by analyticsPref.collectAsState()
-            PermissionSwitch(
-                title = stringResource(MR.strings.onboarding_permission_analytics),
-                subtitle = stringResource(MR.strings.onboarding_permission_analytics_description),
-                granted = analytics,
-                onToggleChange = analyticsPref::set,
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    val crashlyticsPref = privacyPreferences.crashlytics()
+                    val crashlytics by crashlyticsPref.collectAsState()
+                    PermissionSwitch(
+                        title = stringResource(MR.strings.onboarding_permission_crashlytics),
+                        subtitle = stringResource(MR.strings.onboarding_permission_crashlytics_description),
+                        icon = Icons.Outlined.BugReport,
+                        granted = crashlytics,
+                        onToggleChange = crashlyticsPref::set,
+                    )
+
+                    val analyticsPref = privacyPreferences.analytics()
+                    val analytics by analyticsPref.collectAsState()
+                    PermissionSwitch(
+                        title = stringResource(MR.strings.onboarding_permission_analytics),
+                        subtitle = stringResource(MR.strings.onboarding_permission_analytics_description),
+                        icon = Icons.Outlined.Analytics,
+                        granted = analytics,
+                        onToggleChange = analyticsPref::set,
+                    )
+                }
+            }
+
+            Text(
+                text = stringResource(MR.strings.onboarding_permissions_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 16.dp),
             )
         }
     }
@@ -160,6 +219,7 @@ internal class PermissionStep : OnboardingStep {
     private fun PermissionCheckbox(
         title: String,
         subtitle: String,
+        icon: ImageVector,
         granted: Boolean,
         modifier: Modifier = Modifier,
         onButtonClick: () -> Unit,
@@ -168,6 +228,13 @@ internal class PermissionStep : OnboardingStep {
             modifier = modifier,
             headlineContent = { Text(text = title) },
             supportingContent = { Text(text = subtitle) },
+            leadingContent = {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             trailingContent = {
                 OutlinedButton(
                     enabled = !granted,
@@ -192,6 +259,7 @@ internal class PermissionStep : OnboardingStep {
     private fun PermissionSwitch(
         title: String,
         subtitle: String,
+        icon: ImageVector,
         granted: Boolean,
         modifier: Modifier = Modifier,
         onToggleChange: (Boolean) -> Unit,
@@ -200,6 +268,13 @@ internal class PermissionStep : OnboardingStep {
             modifier = modifier,
             headlineContent = { Text(text = title) },
             supportingContent = { Text(text = subtitle) },
+            leadingContent = {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             trailingContent = {
                 Switch(
                     checked = granted,

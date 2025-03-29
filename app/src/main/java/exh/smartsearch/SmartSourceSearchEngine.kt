@@ -24,4 +24,9 @@ class SmartSourceSearchEngine(
 
     private fun makeSearchAction(source: CatalogueSource): SearchAction<SManga> =
         { query -> source.getSearchManga(1, query, FilterList()).mangas }
+
+    // Make sure to clear caches to prevent memory issues
+    override fun clearCaches() {
+        super.clearCaches()
+    }
 }

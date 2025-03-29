@@ -2,14 +2,26 @@ package eu.kanade.presentation.category.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,6 +33,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.core.preference.asToggleableState
 import eu.kanade.presentation.category.visualName
@@ -45,6 +62,8 @@ import kotlin.time.Duration.Companion.seconds
 import androidx.compose.material3.rememberTopAppBarState
 import tachiyomi.presentation.core.components.material.Checkbox
 import androidx.compose.ui.unit.dp
+import tachiyomi.presentation.core.components.material.CustomTextField
+import eu.kanade.tachiyomi.util.lang.containsFuzzy
 
 @Composable
 fun CategoryCreateDialog(
@@ -91,15 +110,13 @@ fun CategoryCreateDialog(
                 extraMessage?.let { Text(it) }
                 // SY <--
 
-                OutlinedTextField(
+                CustomTextField(
                     modifier = Modifier
                         .focusRequester(focusRequester),
                     value = name,
                     onValueChange = { name = it },
-                    label = {
-                        Text(text = stringResource(MR.strings.name))
-                    },
-                    supportingText = {
+                    labelText = stringResource(MR.strings.name),
+                    placeholder = {
                         val msgRes = if (name.isNotEmpty() && nameAlreadyExists) {
                             // SY -->
                             alreadyExistsError
@@ -109,7 +126,6 @@ fun CategoryCreateDialog(
                         }
                         Text(text = stringResource(msgRes))
                     },
-                    isError = name.isNotEmpty() && nameAlreadyExists,
                     singleLine = true,
                 )
                 // SY -->
@@ -160,15 +176,15 @@ fun CategoryRenameDialog(
             Text(text = stringResource(MR.strings.action_rename_category))
         },
         text = {
-            OutlinedTextField(
+            CustomTextField(
                 modifier = Modifier.focusRequester(focusRequester),
                 value = name,
                 onValueChange = {
                     valueHasChanged = name != it
                     name = it
                 },
-                label = { Text(text = stringResource(MR.strings.name)) },
-                supportingText = {
+                labelText = stringResource(MR.strings.name),
+                placeholder = {
                     val msgRes = if (valueHasChanged && nameAlreadyExists) {
                         MR.strings.error_category_exists
                     } else {
@@ -176,7 +192,6 @@ fun CategoryRenameDialog(
                     }
                     Text(text = stringResource(msgRes))
                 },
-                isError = valueHasChanged && nameAlreadyExists,
                 singleLine = true,
             )
         },
@@ -238,7 +253,7 @@ fun ChangeCategoryDialog(
         AlertDialog(
             onDismissRequest = onDismissRequest,
             confirmButton = {
-                tachiyomi.presentation.core.components.material.TextButton(
+                TextButton(
                     onClick = {
                         onDismissRequest()
                         onEditCategories()
@@ -256,85 +271,174 @@ fun ChangeCategoryDialog(
         )
         return
     }
+
     var selection by remember { mutableStateOf(initialSelection) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+
+    val filteredSelection = remember(selection, searchQuery) {
+        if (searchQuery.isEmpty()) {
+            selection
+        } else {
+            selection.filter { checkbox ->
+                val categoryName = checkbox.value.name
+                val defaultName = if (checkbox.value.isSystemCategory) {
+                    context.getString(MR.strings.label_default.resourceId)
+                } else {
+                    ""
+                }
+
+                containsFuzzy(categoryName, searchQuery, ignoreCase = true) ||
+                    (defaultName.isNotEmpty() && containsFuzzy(defaultName, searchQuery, ignoreCase = true))
+            }.toImmutableList()
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        confirmButton = {
-            Row {
-                tachiyomi.presentation.core.components.material.TextButton(onClick = {
-                    onDismissRequest()
-                    onEditCategories()
-                }) {
-                    Text(text = stringResource(MR.strings.action_edit))
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                tachiyomi.presentation.core.components.material.TextButton(onClick = onDismissRequest) {
-                    Text(text = stringResource(MR.strings.action_cancel))
-                }
-                tachiyomi.presentation.core.components.material.TextButton(
-                    onClick = {
-                        onDismissRequest()
-                        onConfirm(
-                            selection
-                                .filter { it is CheckboxState.State.Checked || it is CheckboxState.TriState.Include }
-                                .map { it.value.id },
-                            selection
-                                .filter { it is CheckboxState.State.None || it is CheckboxState.TriState.None }
-                                .map { it.value.id },
-                        )
-                    },
-                ) {
-                    Text(text = stringResource(MR.strings.action_ok))
-                }
-            }
-        },
-        title = {
-            Text(text = stringResource(MR.strings.action_move_category))
-        },
+        confirmButton = {},
+        title = null,
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                selection.forEach { checkbox ->
-                    val onChange: (CheckboxState<Category>) -> Unit = {
-                        val index = selection.indexOf(it)
-                        if (index != -1) {
-                            val mutableList = selection.toMutableList()
-                            mutableList[index] = it.next()
-                            selection = mutableList.toList().toImmutableList()
-                        }
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onChange(checkbox) },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        when (checkbox) {
-                            is CheckboxState.TriState -> {
-                                tachiyomi.presentation.core.components.material.TriStateCheckbox(
-                                    state = checkbox.asToggleableState(),
-                                    onClick = { onChange(checkbox) },
-                                )
-                            }
-                            is CheckboxState.State -> {
-                                tachiyomi.presentation.core.components.material.Checkbox(
-                                    checked = checkbox.isChecked,
-                                    onCheckedChange = { onChange(checkbox) },
-                                )
-                            }
-                        }
+                // Dialog header with title
+                Text(
+                    text = stringResource(MR.strings.action_move_category),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = MaterialTheme.padding.small)
+                )
 
-                        Text(
-                            text = checkbox.value.visualName,
-                            modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                // Search bar
+                CustomTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = MaterialTheme.padding.small),
+                    placeholder = { Text(text = stringResource(MR.strings.action_search)) },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    singleLine = true,
+                )
+
+                // Categories list
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                ) {
+                    items(
+                        items = filteredSelection,
+                        key = { it.value.id }
+                    ) { checkbox ->
+                        CategoryRow(
+                            checkbox = checkbox,
+                            onToggle = { toggledCheckbox ->
+                                val index = selection.indexOf(toggledCheckbox)
+                                if (index != -1) {
+                                    val mutableList = selection.toMutableList()
+                                    mutableList[index] = toggledCheckbox.next()
+                                    selection = mutableList.toList().toImmutableList()
+                                }
+                            }
                         )
                     }
                 }
+
+                Divider(
+                    modifier = Modifier.padding(vertical = MaterialTheme.padding.small)
+                )
+
+                // Action buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = MaterialTheme.padding.small),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)
+                ) {
+                    TextButton(
+                        onClick = {
+                            onDismissRequest()
+                            onEditCategories()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = stringResource(MR.strings.action_edit))
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    TextButton(
+                        onClick = onDismissRequest,
+                        modifier = Modifier.padding(end = MaterialTheme.padding.small)
+                    ) {
+                        Text(text = stringResource(MR.strings.action_cancel))
+                    }
+
+                    Button(
+                        onClick = {
+                            onDismissRequest()
+                            onConfirm(
+                                selection
+                                    .filter { it is CheckboxState.State.Checked || it is CheckboxState.TriState.Include }
+                                    .map { it.value.id },
+                                selection
+                                    .filter { it is CheckboxState.State.None || it is CheckboxState.TriState.None }
+                                    .map { it.value.id },
+                            )
+                        }
+                    ) {
+                        Text(text = stringResource(MR.strings.action_ok))
+                    }
+                }
             }
-        },
+        }
     )
+}
+
+@Composable
+private fun CategoryRow(
+    checkbox: CheckboxState<Category>,
+    onToggle: (CheckboxState<Category>) -> Unit,
+) {
+    val category = checkbox.value
+    val categoryName = if (category.isSystemCategory) {
+        stringResource(MR.strings.label_default)
+    } else {
+        category.name
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle(checkbox) }
+            .padding(vertical = MaterialTheme.padding.small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        when (checkbox) {
+            is CheckboxState.TriState -> {
+                tachiyomi.presentation.core.components.material.TriStateCheckbox(
+                    state = checkbox.asToggleableState(),
+                    onClick = { onToggle(checkbox) },
+                )
+            }
+            is CheckboxState.State -> {
+                tachiyomi.presentation.core.components.material.Checkbox(
+                    checked = checkbox.isChecked,
+                    onCheckedChange = { onToggle(checkbox) },
+                )
+            }
+        }
+
+        Text(
+            text = categoryName,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }

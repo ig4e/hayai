@@ -7,7 +7,6 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,6 +23,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.components.material.CustomTextField
 
 @Composable
 fun EditTextPreferenceWidget(
@@ -52,9 +52,9 @@ fun EditTextPreferenceWidget(
             onDismissRequest = onDismissRequest,
             title = { Text(text = title) },
             text = {
-                OutlinedTextField(
-                    value = textFieldValue,
-                    onValueChange = { textFieldValue = it },
+                CustomTextField(
+                    value = textFieldValue.text,
+                    onValueChange = { textFieldValue = TextFieldValue(it) },
                     trailingIcon = {
                         if (textFieldValue.text.isBlank()) {
                             Icon(imageVector = Icons.Filled.Error, contentDescription = null)
@@ -64,7 +64,6 @@ fun EditTextPreferenceWidget(
                             }
                         }
                     },
-                    isError = textFieldValue.text.isBlank(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

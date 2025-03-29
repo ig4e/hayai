@@ -8,6 +8,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,8 +81,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -125,8 +130,11 @@ fun MangaInfoBox(
         // Backdrop with enhanced gradient blend
         val backdropGradientColors = listOf(
             Color.Transparent,
-            MaterialTheme.colorScheme.background.copy(alpha = 0.4f),
+            Color.Transparent,
+            MaterialTheme.colorScheme.background.copy(alpha = 0.2f),
+            MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
             MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
+            MaterialTheme.colorScheme.background,
         )
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
@@ -147,8 +155,8 @@ fun MangaInfoBox(
                         ),
                     )
                 }
-                .blur(12.dp)
-                .alpha(0.7f),
+                .blur(16.dp)
+                .alpha(0.65f),
         )
 
         // Manga & source info
@@ -289,6 +297,9 @@ fun ExpandableMangaDescription(
     // SY -->
     searchMetadataChips: SearchMetadataChips?,
     doSearch: (query: String, global: Boolean) -> Unit,
+    // For MangaDex/E-Hentai Sources
+    isSpecialSource: Boolean = false,
+    onViewMoreInfo: (() -> Unit)? = null,
     // SY <--
     modifier: Modifier = Modifier,
 ) {
@@ -355,6 +366,7 @@ fun ExpandableMangaDescription(
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         tags.forEach { tag ->
                             val haptic = LocalHapticFeedback.current
@@ -406,8 +418,29 @@ fun ExpandableMangaDescription(
                     )
                 }
 
-                // Display chips from SearchMetadataChips, passing the expanded state
-                chips.display(doSearch, expanded)
+                // Ensure proper display when expanded
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    // Display chips from SearchMetadataChips, passing the expanded state
+                    chips.display(doSearch, expanded)
+                }
+            }
+        }
+
+        // More Info button for MangaDex/E-Hentai sources
+        if (isSpecialSource && onViewMoreInfo != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                MoreInfoButton(
+                    onClick = onViewMoreInfo
+                )
             }
         }
         // SY <--
@@ -823,7 +856,7 @@ private fun MangaActionButton(
             onLongClick = onLongClick,
         ) {
             Column(
-                modifier = Modifier.wrapContentWidth(align = Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -857,27 +890,121 @@ private fun SearchMetadataChips.hasContent(): Boolean {
 @Composable
 private fun SearchMetadataChips.display(doSearch: (String, Boolean) -> Unit, expanded: Boolean) {
     if (expanded) {
-        // When expanded, use a FlowRow for wrapping tags
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        // Enhanced expanded view with better namespace grouping
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            NamespaceTagsInFlow(
-                tags = this@display,
-                onClick = { doSearch(it, false) },
-            )
+            tags.forEach { (namespace, values) ->
+                // Create a section for each namespace
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Namespace header
+                    if (namespace.isNotBlank()) {
+                        Text(
+                            text = namespace,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                        )
+                    }
+
+                    // Tags for this namespace
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        values.forEach { value ->
+                            EnhancedTagChip(
+                                text = value.text,
+                                namespace = namespace.takeIf { it.isNotBlank() },
+                                border = value.border,
+                                onClick = { doSearch(value.search, false) },
+                            )
+                        }
+                    }
+                }
+            }
         }
     } else {
-        // When collapsed, use the regular NamespaceTags
-        NamespaceTags(
-            tags = this,
-            onClick = { doSearch(it, false) },
-        )
+        // Compact view that still preserves namespace grouping
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
+            tags.forEach { (namespace, values) ->
+                if (values.isNotEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .width(180.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Namespace header in compact view
+                            if (namespace.isNotBlank()) {
+                                Text(
+                                    text = namespace,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+                                )
+                            }
+
+                            // Show first few tags
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                val displayedValues = values.take(5)
+                                displayedValues.forEach { value ->
+                                    EnhancedTagChip(
+                                        text = value.text,
+                                        namespace = null, // Don't show namespace in compact chip
+                                        border = value.border,
+                                        onClick = { doSearch(value.search, false) },
+                                        compact = true,
+                                    )
+                                }
+
+                                // Show count of remaining tags if needed
+                                if (values.size > 5) {
+                                    val remaining = values.size - 5
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "+$remaining",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-// Helper composable for displaying namespace tags in a FlowRow
+// Helper composable for displaying namespace tags in a FlowRow - no longer needed with new design
 @Composable
 private fun NamespaceTagsInFlow(
     tags: SearchMetadataChips,
@@ -885,12 +1012,122 @@ private fun NamespaceTagsInFlow(
 ) {
     tags.tags.forEach { (namespace, values) ->
         values.forEach { value ->
-            val valueStr = value.toString()
-            val displayValue = if (namespace.isNotBlank()) "$namespace:$valueStr" else valueStr
+            val displayValue = if (namespace.isNotBlank()) "$namespace:${value.text}" else value.text
             TagChip(
                 text = displayValue,
-                onClick = { onClick(displayValue) },
+                onClick = { onClick(value.search) },
                 onLongClick = {},  // No long click handler needed for now
+            )
+        }
+    }
+}
+
+// New enhanced tag chip that can show both compact and full versions
+@Composable
+private fun EnhancedTagChip(
+    text: String,
+    namespace: String?,
+    border: Int?,
+    onClick: () -> Unit,
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    val borderWidth = border?.dp ?: 1.dp
+    val borderColor = when (border) {
+        2 -> MaterialTheme.colorScheme.primary
+        1 -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+    }
+
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(
+            alpha = if (border != null && border > 0) 0.9f else 0.7f
+        ),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = borderWidth,
+            color = borderColor
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .clickableNoIndication(onClick = onClick)
+                .padding(
+                    horizontal = if (compact) 8.dp else 10.dp,
+                    vertical = if (compact) 4.dp else 6.dp
+                )
+        ) {
+            if (namespace != null && !compact) {
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(
+                            style = SpanStyle(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        ) {
+                            append(namespace)
+                            append(":")
+                        }
+                        append(" ")
+                        append(text)
+                    },
+                    style = if (compact)
+                        MaterialTheme.typography.labelSmall
+                    else
+                        MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Text(
+                    text = text,
+                    style = if (compact)
+                        MaterialTheme.typography.labelSmall
+                    else
+                        MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+// New compact and attractive More Info button
+@Composable
+private fun MoreInfoButton(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .clickableNoIndication(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Public,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = stringResource(MR.strings.more_info),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.Medium
             )
         }
     }

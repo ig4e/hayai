@@ -121,6 +121,7 @@ import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.random.Random
+import eu.kanade.tachiyomi.util.lang.containsFuzzy
 
 /**
  * Typealias for the library manga, using the category as keys, and list of manga as values.
@@ -1011,25 +1012,26 @@ class LibraryScreenModel(
         val sourceIdString = manga.source.takeUnless { it == LocalSource.ID }?.toString()
         val genre = if (checkGenre) manga.genre.orEmpty() else emptyList()
         val context = Injekt.get<Application>()
+
         return queries.all { queryComponent ->
             when (queryComponent.excluded) {
                 false -> when (queryComponent) {
                     is Text -> {
                         val query = queryComponent.asQuery()
-                        manga.title.contains(query, true) ||
-                            (manga.author?.contains(query, true) == true) ||
-                            (manga.artist?.contains(query, true) == true) ||
-                            (manga.description?.contains(query, true) == true) ||
-                            (source?.name?.contains(query, true) == true) ||
+                        containsFuzzy(manga.title, query) ||
+                            (manga.author?.let { containsFuzzy(it, query) } == true) ||
+                            (manga.artist?.let { containsFuzzy(it, query) } == true) ||
+                            (manga.description?.let { containsFuzzy(it, query) } == true) ||
+                            (source?.name?.let { containsFuzzy(it, query) } == true) ||
                             (sourceIdString != null && sourceIdString == query) ||
                             (
                                 loggedInTrackServices.isNotEmpty() &&
                                     tracks != null &&
-                                    filterTracks(query, tracks, context)
+                                    filterTracksFuzzy(query, tracks, context)
                                 ) ||
-                            (genre.fastAny { it.contains(query, true) }) ||
-                            (searchTags?.fastAny { it.name.contains(query, true) } == true) ||
-                            (searchTitles?.fastAny { it.title.contains(query, true) } == true)
+                            (genre.fastAny { containsFuzzy(it, query) }) ||
+                            (searchTags?.fastAny { containsFuzzy(it.name, query) } == true) ||
+                            (searchTitles?.fastAny { containsFuzzy(it.title, query) } == true)
                     }
                     is Namespace -> {
                         searchTags != null &&
@@ -1037,7 +1039,7 @@ class LibraryScreenModel(
                                 val tag = queryComponent.tag
                                 (
                                     it.namespace.equals(queryComponent.namespace, true) &&
-                                        tag?.run { it.name.contains(tag.asQuery(), true) } == true
+                                        tag?.run { containsFuzzy(it.name, tag.asQuery()) } == true
                                     ) ||
                                     (tag == null && it.namespace.equals(queryComponent.namespace, true))
                             }
@@ -1049,20 +1051,20 @@ class LibraryScreenModel(
                         val query = queryComponent.asQuery()
                         query.isBlank() ||
                             (
-                                (!manga.title.contains(query, true)) &&
-                                    (manga.author?.contains(query, true) != true) &&
-                                    (manga.artist?.contains(query, true) != true) &&
-                                    (manga.description?.contains(query, true) != true) &&
-                                    (source?.name?.contains(query, true) != true) &&
+                                (!containsFuzzy(manga.title, query)) &&
+                                    (manga.author?.let { containsFuzzy(it, query) } != true) &&
+                                    (manga.artist?.let { containsFuzzy(it, query) } != true) &&
+                                    (manga.description?.let { containsFuzzy(it, query) } != true) &&
+                                    (source?.name?.let { containsFuzzy(it, query) } != true) &&
                                     (sourceIdString != null && sourceIdString != query) &&
                                     (
                                         loggedInTrackServices.isEmpty() ||
                                             tracks == null ||
-                                            !filterTracks(query, tracks, context)
+                                            !filterTracksFuzzy(query, tracks, context)
                                         ) &&
-                                    (!genre.fastAny { it.contains(query, true) }) &&
-                                    (searchTags?.fastAny { it.name.contains(query, true) } != true) &&
-                                    (searchTitles?.fastAny { it.title.contains(query, true) } != true)
+                                    (!genre.fastAny { containsFuzzy(it, query) }) &&
+                                    (searchTags?.fastAny { containsFuzzy(it.name, query) } != true) &&
+                                    (searchTitles?.fastAny { containsFuzzy(it.title, query) } != true)
                                 )
                     }
                     is Namespace -> {
@@ -1071,14 +1073,14 @@ class LibraryScreenModel(
                             (queryComponent.namespace.isBlank() && searchedTag.isNullOrBlank()) ||
                             searchTags.fastAll { mangaTag ->
                                 if (queryComponent.namespace.isBlank() && !searchedTag.isNullOrBlank()) {
-                                    !mangaTag.name.contains(searchedTag, true)
+                                    !containsFuzzy(mangaTag.name, searchedTag)
                                 } else if (searchedTag.isNullOrBlank()) {
                                     mangaTag.namespace == null ||
                                         !mangaTag.namespace.equals(queryComponent.namespace, true)
                                 } else if (mangaTag.namespace.isNullOrBlank()) {
                                     true
                                 } else {
-                                    !mangaTag.name.contains(searchedTag, true) ||
+                                    !containsFuzzy(mangaTag.name, searchedTag) ||
                                         !mangaTag.namespace.equals(queryComponent.namespace, true)
                                 }
                             }
@@ -1089,7 +1091,7 @@ class LibraryScreenModel(
         }
     }
 
-    private fun filterTracks(constraint: String, tracks: List<Track>, context: Context): Boolean {
+    private fun filterTracksFuzzy(constraint: String, tracks: List<Track>, context: Context): Boolean {
         return tracks.fastAny { track ->
             val trackService = trackerManager.get(track.trackerId)
             if (trackService != null) {
@@ -1097,11 +1099,16 @@ class LibraryScreenModel(
                     context.stringResource(it)
                 }
                 val name = trackerManager.get(track.trackerId)?.name
-                status?.contains(constraint, true) == true || name?.contains(constraint, true) == true
+
+                status?.let { containsFuzzy(it, constraint) } == true || name?.let { containsFuzzy(it, constraint) } == true
             } else {
                 false
             }
         }
+    }
+
+    private fun filterTracks(constraint: String, tracks: List<Track>, context: Context): Boolean {
+        return filterTracksFuzzy(constraint, tracks, context)
     }
     // SY <--
 

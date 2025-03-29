@@ -83,6 +83,8 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import tachiyomi.presentation.core.components.material.Switch
 import tachiyomi.presentation.core.components.material.Checkbox
+import tachiyomi.presentation.core.components.material.CustomOutlinedTextField
+import tachiyomi.presentation.core.components.material.CustomTextField
 
 object SettingsEhScreen : SearchableSettings {
 
@@ -324,12 +326,11 @@ object SettingsEhScreen : SearchableSettings {
                         .fillMaxWidth()
                         .padding(4.dp),
                 ) {
-                    OutlinedTextField(
+                    CustomTextField(
                         value = value,
                         onValueChange = { value = it },
                         maxLines = 1,
                         singleLine = true,
-                        isError = !isValid,
                         modifier = Modifier.fillMaxWidth(),
                         trailingIcon = if (!isValid) {
                             { Icon(Icons.Outlined.Error, outsideRangeError) }
@@ -674,7 +675,7 @@ object SettingsEhScreen : SearchableSettings {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(text = title)
-            Switch(checked = value, onCheckedChange = null)
+            tachiyomi.presentation.core.components.material.Switch(checked = value, onCheckedChange = null)
         }
     }
 

@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.ui.library
 
+import android.content.Context
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
+import eu.kanade.tachiyomi.util.lang.containsFuzzy
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
@@ -22,13 +24,14 @@ data class LibraryItem(
      */
     fun matches(constraint: String): Boolean {
         val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo(null) }
-        return libraryManga.manga.title.contains(constraint, true) ||
-            (libraryManga.manga.author?.contains(constraint, true) ?: false) ||
-            (libraryManga.manga.artist?.contains(constraint, true) ?: false) ||
-            (libraryManga.manga.description?.contains(constraint, true) ?: false) ||
+
+        return containsFuzzy(libraryManga.manga.title, constraint) ||
+            (libraryManga.manga.author?.let { containsFuzzy(it, constraint) } ?: false) ||
+            (libraryManga.manga.artist?.let { containsFuzzy(it, constraint) } ?: false) ||
+            (libraryManga.manga.description?.let { containsFuzzy(it, constraint) } ?: false) ||
             constraint.split(",").map { it.trim() }.all { subconstraint ->
                 checkNegatableConstraint(subconstraint) {
-                    sourceName.contains(it, true) ||
+                    containsFuzzy(sourceName, it) ||
                         (libraryManga.manga.genre?.any { genre -> genre.equals(it, true) } ?: false)
                 }
             }
