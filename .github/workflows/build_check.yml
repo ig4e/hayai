@@ -24,10 +24,32 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build app
-        run: ./gradlew assembleDevDebug
+        run: ./gradlew clean assembleDevDebug --stacktrace
+
+      - name: Debug APK location
+        id: find_apk
+        run: |
+          ls -la app/build/outputs/
+          ls -la app/build/outputs/apk/ || echo "apk directory not found"
+          echo "Looking for APK files:"
+          APK_PATH=$(find app/build -name "*.apk" | head -n 1)
+          echo "Found APK: $APK_PATH"
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+
+          # Print APK path patterns to help diagnose issues
+          echo "Expected APK path patterns based on build.gradle:"
+          echo "app/build/outputs/apk/dev/debug/app-dev-debug.apk"
+          echo "app/build/outputs/apk/debug/app-debug.apk"
+
+          mkdir -p app/build/outputs/apk/dev/debug/
+          touch app/build/outputs/apk/dev/debug/placeholder.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: hayai-${{ github.sha }}.apk
-          path: app/build/outputs/apk/dev/debug/app-dev-debug.apk
+          path: |
+            ${{ steps.find_apk.outputs.apk_path }}
+            app/build/outputs/apk/dev/debug/*-debug.apk
+            app/build/outputs/apk/**/debug/*-debug.apk
+        if: always() # Try to upload even if the find command failed
