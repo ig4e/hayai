@@ -53,7 +53,7 @@ fun Switch(
     val thumbPosition by animateFloatAsState(
         targetValue = if (checked) 1f else 0f,
         animationSpec = animationSpec,
-        label = "ThumbPosition"
+        label = "ThumbPosition",
     )
 
     // Define colors using Material Theme
@@ -62,7 +62,7 @@ fun Switch(
             checked -> Color.White
             else -> MaterialTheme.colorScheme.onSurface
         },
-        label = "ThumbColor"
+        label = "ThumbColor",
     )
 
     val trackColor by animateColorAsState(
@@ -72,7 +72,7 @@ fun Switch(
             !checked && enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
         },
-        label = "TrackColor"
+        label = "TrackColor",
     )
 
     // Make it toggleable
@@ -92,14 +92,14 @@ fun Switch(
     Box(
         modifier = modifier
             .then(toggleModifier),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         // Track
         Box(
             modifier = Modifier
                 .size(width = trackWidth, height = trackHeight)
                 .clip(trackShape)
-                .background(trackColor)
+                .background(trackColor),
         ) {
             // Thumb
             Box(
@@ -110,9 +110,12 @@ fun Switch(
                     .clip(CircleShape)
                     .background(thumbColor)
                     .then(
-                        if (checked) Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), CircleShape)
-                        else Modifier
-                    )
+                        if (checked) {
+                            Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), CircleShape)
+                        } else {
+                            Modifier
+                        },
+                    ),
             )
         }
     }

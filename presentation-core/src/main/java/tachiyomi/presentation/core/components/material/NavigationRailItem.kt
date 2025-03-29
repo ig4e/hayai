@@ -52,12 +52,12 @@ fun NavigationRailItem(
                 indication = null,
             )
             .padding(vertical = 8.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         val scale by animateFloatAsState(
             targetValue = if (selected) 1f else 0.86f,
             animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-            label = "IconScale"
+            label = "IconScale",
         )
         val iconColor by animateColorAsState(
             targetValue = if (selected) {
@@ -66,13 +66,13 @@ fun NavigationRailItem(
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
             animationSpec = tween(durationMillis = 300),
-            label = "IconColor"
+            label = "IconColor",
         )
 
         Box(
             modifier = Modifier
                 .padding(4.dp)
-                .scale(scale)
+                .scale(scale),
         ) {
             if (selected) {
                 Box(
@@ -80,7 +80,7 @@ fun NavigationRailItem(
                         .align(Alignment.Center)
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
                 )
             }
 
@@ -92,7 +92,7 @@ fun NavigationRailItem(
                                 Text(text = badgeCount.toString())
                             }
                         },
-                        modifier = Modifier.align(Alignment.Center)
+                        modifier = Modifier.align(Alignment.Center),
                     ) {
                         icon()
                     }
