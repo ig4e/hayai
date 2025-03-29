@@ -1,27 +1,18 @@
 package tachiyomi.presentation.core.components.material
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -36,12 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
  * Custom NavigationBarItem with modern animation and styling
@@ -62,7 +49,7 @@ fun RowScope.NavigationBarItem(
         val scale by animateFloatAsState(
             targetValue = if (selected) 1f else 0.86f,
             animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-            label = "IconScale"
+            label = "IconScale",
         )
         val iconColor by animateColorAsState(
             targetValue = if (selected) {
@@ -71,13 +58,13 @@ fun RowScope.NavigationBarItem(
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
             animationSpec = tween(durationMillis = 300),
-            label = "IconColor"
+            label = "IconColor",
         )
 
         Box(
             modifier = Modifier
                 .padding(4.dp)
-                .scale(scale)
+                .scale(scale),
         ) {
             if (selected) {
                 Box(
@@ -85,7 +72,7 @@ fun RowScope.NavigationBarItem(
                         .align(Alignment.Center)
                         .size(60.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
                 )
             }
 
@@ -97,7 +84,7 @@ fun RowScope.NavigationBarItem(
                                 Text(text = badgeCount.toString())
                             }
                         },
-                        modifier = Modifier.align(Alignment.Center)
+                        modifier = Modifier.align(Alignment.Center),
                     ) {
                         icon()
                     }
@@ -119,18 +106,18 @@ fun RowScope.NavigationBarItem(
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
                 animationSpec = tween(durationMillis = 300),
-                label = "TextColor"
+                label = "TextColor",
             )
 
             CompositionLocalProvider(LocalContentColor provides textColor) {
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
-                        .fillMaxWidth()
+                        .fillMaxWidth(),
                 ) {
                     CompositionLocalProvider(
                         LocalContentColor provides textColor,
-                        content = it
+                        content = it,
                     )
                 }
             }
@@ -148,7 +135,7 @@ fun RowScope.NavigationBarItem(
             )
             .weight(1f)
             .fillMaxHeight(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         styledIcon()
     }

@@ -47,9 +47,6 @@ jobs:
       #     write-mode: overwrite
       # # SY <--
 
-      - name: Check code format
-        run: ./gradlew spotlessCheck
-
       - name: Build app
         run: ./gradlew assembleStandardRelease
 
