@@ -29,7 +29,7 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        applicationId = "com.ig4e.hayai"
+        applicationId = "dev.ahmedmohamed.hayai"
 
         versionCode = 1
         versionName = "1.0.0"
@@ -38,6 +38,7 @@ android {
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
         buildConfigField("String", "BUILD_TIME", "\"${getBuildTime()}\"")
         buildConfigField("boolean", "INCLUDE_UPDATER", "false")
+        buildConfigField("String", "REPOSITORY", "\"ig4e/hayai\"")
 
         ndk {
             abiFilters += supportedAbis

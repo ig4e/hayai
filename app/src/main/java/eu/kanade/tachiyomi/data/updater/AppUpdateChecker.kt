@@ -46,10 +46,6 @@ class AppUpdateChecker {
 
 val GITHUB_REPO: String by lazy {
     // SY -->
-    if (isPreviewBuildType) {
-        "ig4e/hayai"
-    } else {
-        "ig4e/hayai"
-    }
+    "ig4e/hayai"
     // SY <--
 }

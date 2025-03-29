@@ -167,8 +167,8 @@ data class ComicInfo(
 
     // SY -->
     @Serializable
-    @XmlSerialName("PaddingHayai", "http://www.w3.org/2001/XMLSchema", "hayai")
-    data class PaddingHayai(@XmlValue(true) val value: String = "")
+    @XmlSerialName("PaddingTachiyomiSY", "http://www.w3.org/2001/XMLSchema", "tysy")
+    data class PaddingTachiyomiSY(@XmlValue(true) val value: String = "")
     // SY <--
 }
 

@@ -29,5 +29,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hayai-${{ github.sha }}.apk
+          name: hayai-${{ github.sha }}.apk
           path: app/build/outputs/apk/dev/debug/app-dev-debug.apk

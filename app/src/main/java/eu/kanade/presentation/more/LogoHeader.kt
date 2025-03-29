@@ -37,7 +37,7 @@ fun LogoHeader() {
         )
 
         Text(
-            text = "Hayai",
+            text = "TachiyomiSY",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
