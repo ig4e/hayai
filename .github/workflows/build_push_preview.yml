@@ -1,14 +1,15 @@
 name: Remote Dispatch Action Initiator
- 
+
 on:
   push:
-   branches: 
-    - 'preview'
- 
+    branches:
+      - "preview"
+
 jobs:
   trigger_preview_build:
     name: Trigger preview build
     runs-on: ubuntu-latest
+    environment: build
 
     steps:
       - name: Clone repo
