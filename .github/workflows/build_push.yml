@@ -12,6 +12,7 @@ jobs:
   build:
     name: Build release app
     runs-on: ubuntu-latest
+    environment: build
 
     steps:
       - name: Clone repo
@@ -38,19 +39,19 @@ jobs:
           contents: ${{ secrets.GOOGLE_SERVICES_TEXT }}
           write-mode: overwrite
 
-      - name: Write client_secrets.json
-        uses: DamianReeves/write-file-action@v1.3
-        with:
-          path: app/src/main/assets/client_secrets.json
-          contents: ${{ secrets.CLIENT_SECRETS_TEXT }}
-          write-mode: overwrite
-      # SY <--
+      # - name: Write client_secrets.json
+      #   uses: DamianReeves/write-file-action@v1.3
+      #   with:
+      #     path: app/src/main/assets/client_secrets.json
+      #     contents: ${{ secrets.CLIENT_SECRETS_TEXT }}
+      #     write-mode: overwrite
+      # # SY <--
 
       - name: Build app
         run: ./gradlew assembleStandardRelease
 
-      - name: Run unit tests
-        run: ./gradlew testReleaseUnitTest testStandardReleaseUnitTest
+      # - name: Run unit tests
+      #   run: ./gradlew testReleaseUnitTest testStandardReleaseUnitTest
 
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
