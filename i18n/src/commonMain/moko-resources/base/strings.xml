@@ -959,6 +959,7 @@
     <!-- Do not translate "WebView" -->
     <string name="information_webview_outdated">Please update the WebView app for better compatibility</string>
     <string name="chapter_settings_updated">Updated default chapter settings</string>
+    <string name="more_information">More information</string>
 
     <!-- Download Notification -->
     <string name="download_notifier_downloader_title">Downloader</string>
@@ -1005,4 +1006,8 @@
     <string name="pref_export_description">Export your library and reading history as CSV files that can be imported into other applications.</string>
     <string name="export_as_csv">Export as CSV</string>
     <string name="export_select_columns">Select columns to include in the exported file</string>
+
+    <!-- EditMangaDialog section headers -->
+    <string name="author_artist">Creator Information</string>
+    <string name="information">Content Information</string>
 </resources>

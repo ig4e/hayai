@@ -675,7 +675,7 @@ object SettingsEhScreen : SearchableSettings {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(text = title)
-            Switch(checked = value, onCheckedChange = null)
+            tachiyomi.presentation.core.components.material.Switch(checked = value, onCheckedChange = null)
         }
     }
 

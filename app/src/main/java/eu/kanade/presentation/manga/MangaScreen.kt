@@ -493,6 +493,8 @@ private fun MangaScreenSmallImpl(
                             // SY -->
                             onMergeClicked = onMergeClicked.takeUnless { state.showMergeInOverflow },
                             onRecommendClicked = onRecommendClicked.takeUnless { state.showRecommendationsInOverflow },
+                            sourceId = state.source.id,
+                            onMoreInfoClicked = onMetadataViewerClicked,
                             // SY <--
                         )
                     }
@@ -802,6 +804,8 @@ fun MangaScreenLargeImpl(
                                 // SY -->
                                 onMergeClicked = onMergeClicked.takeUnless { state.showMergeInOverflow },
                                 onRecommendClicked = onRecommendClicked.takeUnless { state.showRecommendationsInOverflow },
+                                sourceId = state.source.id,
+                                onMoreInfoClicked = onMetadataViewerClicked,
                                 // SY <--
                             )
 
