@@ -3,7 +3,6 @@ package eu.kanade.presentation.library.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,6 +16,7 @@ import kotlinx.coroutines.delay
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 import kotlin.time.Duration.Companion.seconds
 
 data class SyncFavoritesProgressProperties(
@@ -179,7 +179,7 @@ fun SyncFavoritesProgressDialog(
     }
     val dialog = properties
     if (dialog != null) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = {},
             confirmButton = {
                 if (dialog.positiveButton != null && dialog.positiveButtonText != null) {

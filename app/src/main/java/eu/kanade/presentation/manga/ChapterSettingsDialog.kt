@@ -11,7 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PeopleAlt
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -39,6 +38,7 @@ import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.RadioItem
 import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.active
 import uy.kohesive.injekt.Injekt
@@ -234,7 +234,7 @@ private fun SetAsDefaultDialog(
 ) {
     var optionalChecked by rememberSaveable { mutableStateOf(false) }
 
-    AlertDialog(
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(text = stringResource(MR.strings.chapter_settings)) },
         text = {

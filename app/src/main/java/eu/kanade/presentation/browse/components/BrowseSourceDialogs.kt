@@ -1,7 +1,6 @@
 package eu.kanade.presentation.browse.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +19,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 import tachiyomi.presentation.core.components.material.CustomTextField
 
 @Composable
@@ -28,7 +28,7 @@ fun RemoveMangaDialog(
     onConfirm: () -> Unit,
     mangaToRemove: Manga,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissRequest,
         dismissButton = {
             TextButton(onClick = onDismissRequest) {
@@ -60,7 +60,7 @@ fun SavedSearchDeleteDialog(
     name: String,
     deleteSavedSearch: () -> Unit,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = {
             TextButton(onClick = onDismissRequest) {
@@ -96,7 +96,7 @@ fun SavedSearchCreateDialog(
         mutableStateOf(TextFieldValue(""))
     }
     val context = LocalContext.current
-    AlertDialog(
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(text = stringResource(SYMR.strings.save_search)) },
         text = {

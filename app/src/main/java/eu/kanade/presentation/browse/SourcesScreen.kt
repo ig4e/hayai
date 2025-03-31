@@ -45,6 +45,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.plus
 import tachiyomi.source.local.isLocal
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 @Composable
 fun SourcesScreen(
@@ -204,7 +205,7 @@ fun SourceOptionsDialog(
     // SY <--
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = source.visualName)
         },
@@ -274,7 +275,7 @@ fun SourceCategoriesDialog(
     val newCategories = remember(source) {
         mutableStateListOf<String>().also { it += source.categories }
     }
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = source.visualName)
         },

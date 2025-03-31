@@ -39,6 +39,7 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
 import tachiyomi.presentation.core.components.material.CustomTextField
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 class BatchAddScreen : Screen() {
 
@@ -153,7 +154,7 @@ class BatchAddScreen : Screen() {
 
         val onDismissRequest = screenModel::dismissDialog
         when (state.dialog) {
-            BatchAddScreenModel.Dialog.NoGalleriesSpecified -> AlertDialog(
+            BatchAddScreenModel.Dialog.NoGalleriesSpecified -> BottomSheetAlertDialog(
                 onDismissRequest = onDismissRequest,
                 confirmButton = {
                     TextButton(onClick = onDismissRequest) {

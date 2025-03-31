@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 @Composable
 fun extensionsTab(
@@ -107,7 +108,7 @@ private fun ExtensionUninstallConfirmation(
     onClickConfirm: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = stringResource(MR.strings.ext_confirm_remove))
         },

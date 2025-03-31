@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
@@ -54,7 +55,7 @@ fun AlertDialogContent(
                         }
                     }
 
-                    Box(
+                    Row(
                         modifier = Modifier
                             .padding(
                                 start = DialogPadding,
@@ -141,9 +142,9 @@ fun AlertDialogContent(
 
 // Paddings for each of the dialog's parts.
 private val DialogPadding = 24.dp
-private val IconPadding = PaddingValues(bottom = 16.dp)
-private val TitlePadding = PaddingValues(bottom = 16.dp)
-private val TextPadding = PaddingValues(bottom = 24.dp)
+private val IconPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
+private val TitlePadding = PaddingValues(top = 16.dp, bottom = 16.dp)
+private val TextPadding = PaddingValues(bottom = 16.dp)
 
 private val MinWidth = 280.dp
 private val MaxWidth = 560.dp

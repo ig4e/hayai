@@ -28,6 +28,11 @@
     <color name="yinyang_inverseSurface">#E6E6E6</color>
     <color name="yinyang_inverseOnSurface">#1E1E1E</color>
     <color name="yinyang_outline">#999999</color>
+    <color name="yinyang_error">#FFB4AB</color>
+    <color name="yinyang_onError">#690005</color>
+    <color name="yinyang_errorContainer">#93000A</color>
+    <color name="yinyang_onErrorContainer">#FFDAD6</color>
+    <color name="yinyang_outlineVariant">#515151</color>
     <color name="yinyang_surfaceContainerLowest">#2A2A2A</color>
     <color name="yinyang_surfaceContainerLow">#2D2D2D</color>
     <color name="yinyang_surfaceContainer">#313131</color>

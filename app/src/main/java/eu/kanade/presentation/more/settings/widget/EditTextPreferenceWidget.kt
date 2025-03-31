@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -22,8 +21,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 import tachiyomi.presentation.core.components.material.CustomTextField
+import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
 fun EditTextPreferenceWidget(
@@ -48,7 +48,7 @@ fun EditTextPreferenceWidget(
         var textFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue(value))
         }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = { Text(text = title) },
             text = {

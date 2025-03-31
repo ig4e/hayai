@@ -33,6 +33,11 @@
     <color name="tidalwave_inverseSurface">#ffe3c4</color>
     <color name="tidalwave_inverseOnSurface">#001c3b</color>
     <color name="tidalwave_outline">#8a9296</color>
+    <color name="tidalwave_error">#FFB4AB</color>
+    <color name="tidalwave_onError">#690005</color>
+    <color name="tidalwave_errorContainer">#93000A</color>
+    <color name="tidalwave_onErrorContainer">#FFDAD6</color>
+    <color name="tidalwave_outlineVariant">#40484C</color>
     <color name="tidalwave_surfaceContainerLowest">#072642</color>
     <color name="tidalwave_surfaceContainerLow">#072947</color>
     <color name="tidalwave_surfaceContainer">#082b4b</color>

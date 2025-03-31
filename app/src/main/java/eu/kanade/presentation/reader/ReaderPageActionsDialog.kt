@@ -26,6 +26,7 @@ import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.ActionButton
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 @Composable
 fun ReaderPageActionsDialog(
@@ -198,7 +199,8 @@ fun ReaderPageActionsDialog(
     }
 
     if (showSetCoverDialog) {
-        SetCoverDialog(
+        SetAsCoverDialog(
+            onDismiss = { showSetCoverDialog = false },
             onConfirm = {
                 // SY -->
                 onSetAsCover(useExtraPage)
@@ -206,17 +208,16 @@ fun ReaderPageActionsDialog(
                 useExtraPage = false
                 // SY <--
             },
-            onDismiss = { showSetCoverDialog = false },
         )
     }
 }
 
 @Composable
-private fun SetCoverDialog(
-    onConfirm: () -> Unit,
+private fun SetAsCoverDialog(
     onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         text = {
             Text(stringResource(MR.strings.confirm_set_image_as_cover))
         },

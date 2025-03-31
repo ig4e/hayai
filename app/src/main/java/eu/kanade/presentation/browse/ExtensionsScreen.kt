@@ -70,6 +70,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.plus
 import tachiyomi.presentation.core.util.secondaryItemAlpha
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 @Composable
 fun ExtensionScreen(
@@ -521,7 +522,7 @@ private fun ExtensionTrustDialog(
     onClickDismiss: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = stringResource(MR.strings.untrusted_extension))
         },

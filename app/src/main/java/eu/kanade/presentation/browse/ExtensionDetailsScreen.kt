@@ -65,6 +65,7 @@ import tachiyomi.presentation.core.components.material.Switch
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 @Composable
 fun ExtensionDetailsScreen(
@@ -465,7 +466,7 @@ private fun SourceSwitchPreference(
 private fun NsfwWarningDialog(
     onClickConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         text = {
             Text(text = stringResource(MR.strings.ext_nsfw_warning))
         },

@@ -55,6 +55,7 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import tachiyomi.presentation.core.components.material.Checkbox
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 object SettingsMangadexScreen : SearchableSettings {
 
@@ -84,7 +85,7 @@ object SettingsMangadexScreen : SearchableSettings {
         onDismissRequest: () -> Unit,
         onLogoutRequest: () -> Unit,
     ) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = {
                 Text(text = stringResource(MR.strings.logout))
@@ -204,7 +205,7 @@ object SettingsMangadexScreen : SearchableSettings {
                 index == 0 || index == 5
             }.toMutableStateList()
         }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = {
                 Text(text = stringResource(SYMR.strings.mangadex_sync_follows_to_library))

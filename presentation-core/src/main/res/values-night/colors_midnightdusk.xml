@@ -34,6 +34,11 @@
     <color name="midnightdusk_inverseSurface">#333043</color>
     <color name="midnightdusk_inverseOnSurface">#FFFFFF</color>
     <color name="midnightdusk_outline">#9F8C8F</color>
+    <color name="midnightdusk_error">#FFB4AB</color>
+    <color name="midnightdusk_onError">#690005</color>
+    <color name="midnightdusk_errorContainer">#93000A</color>
+    <color name="midnightdusk_onErrorContainer">#FFDAD6</color>
+    <color name="midnightdusk_outlineVariant">#534345</color>
     <color name="midnightdusk_surfaceContainerLowest">#221320</color>
     <color name="midnightdusk_surfaceContainerLow">#251522</color>
     <color name="midnightdusk_surfaceContainer">#281624</color>

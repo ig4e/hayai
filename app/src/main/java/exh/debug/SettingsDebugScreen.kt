@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -68,6 +67,7 @@ import kotlin.reflect.KFunction
 import kotlin.reflect.KVisibility
 import kotlin.reflect.full.declaredFunctions
 import tachiyomi.presentation.core.components.material.Switch
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 class SettingsDebugScreen : Screen() {
 
@@ -224,7 +224,7 @@ class SettingsDebugScreen : Screen() {
     @Composable
     private fun ResultTextDialog(result: Pair<String, String>?, onDismissRequest: () -> Unit) {
         if (result != null) {
-            AlertDialog(
+            BottomSheetAlertDialog(
                 onDismissRequest = onDismissRequest,
                 title = {
                     Text(text = result.first)

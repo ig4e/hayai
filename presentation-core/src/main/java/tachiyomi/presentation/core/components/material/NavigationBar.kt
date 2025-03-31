@@ -5,10 +5,8 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.contentColorFor
@@ -20,7 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Custom Navigation Bar with modern floating design and rounded corners
+ * Custom Navigation Bar
  *
  * @see [androidx.compose.material3.NavigationBar]
  */
@@ -37,14 +35,13 @@ fun NavigationBar(
         color = containerColor,
         contentColor = contentColor,
         tonalElevation = tonalElevation,
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(28.dp),
+        modifier = modifier,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(windowInsets)
-                .height(56.dp)
+                .height(64.dp)
                 .selectableGroup(),
             verticalAlignment = Alignment.CenterVertically,
             content = content,

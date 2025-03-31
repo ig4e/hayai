@@ -95,10 +95,10 @@
     <string name="action_edit">Edit</string>
     <string name="action_add">Add</string>
     <string name="action_update_category">Update category</string>
-    <string name="action_open_random_manga">Open random entry</string>
     <string name="action_add_category">Add category</string>
     <string name="action_edit_categories">Edit categories</string>
     <string name="action_rename_category">Rename category</string>
+    <string name="action_rename">Rename</string>
     <string name="action_move_category">Set categories</string>
     <string name="delete_category_confirmation">Do you wish to delete the category \"%s\"?</string>
     <string name="delete_category">Delete category</string>
@@ -140,6 +140,8 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_ok">OK</string>
     <string name="action_cancel_all">Cancel all</string>
+    <string name="action_increment">Increment</string>
+    <string name="action_decrement">Decrement</string>
     <string name="cancel_all_for_series">Cancel all for this series</string>
     <string name="action_sort">Sort</string>
     <string name="action_order_by_upload_date">By upload date</string>
@@ -170,10 +172,12 @@
     <string name="action_not_now">Not now</string>
     <string name="action_add_anyway">Add anyway</string>
     <string name="action_migrate_duplicate">Migrate existing entry</string>
+    <string name="action_open_random_manga">Open random entry</string>
 
     <!-- Operations -->
     <string name="loading">Loading…</string>
     <string name="internal_error">InternalError: Check crash logs for further information</string>
+    <string name="next_update">Next update: %s</string>
 
     <!-- Shortcuts-->
     <string name="app_not_available">App not available</string>
@@ -225,6 +229,7 @@
     <string name="onboarding_new_user">New User?</string>
     <string name="onboarding_returning_user">Returning User?</string>
     <string name="onboarding_all_set">You\'re all set! Click \'Get Started\' to begin your journey.</string>
+    <string name="cover_placeholder">Cover placeholder</string>
 
     <!-- Preferences -->
       <!-- Subsections -->
@@ -258,6 +263,17 @@
     <string name="theme_emerald">Emerald</string>
     <string name="theme_rose">Rose</string>
     <string name="theme_violet">Violet</string>
+    <string name="theme_greenapple">Green Apple</string>
+    <string name="theme_lavender">Lavender</string>
+    <string name="theme_midnight_dusk">Midnight Dusk</string>
+    <string name="theme_nord">Nord</string>
+    <string name="theme_strawberry">Strawberry</string>
+    <string name="theme_tako">Tako</string>
+    <string name="theme_teal_turquoise">Teal Turquoise</string>
+    <string name="theme_tidal_wave">Tidal Wave</string>
+    <string name="theme_yin_yang">Yin Yang</string>
+    <string name="theme_yotsuba">Yotsuba</string>
+    <string name="theme_monochrome">Monochrome</string>
     <string name="pref_dark_theme_pure_black">Pure black dark mode</string>
     <string name="pref_dark_theme_pure_black_summary">Use pure black color in dark mode themes</string>
     <string name="pref_relative_format">Relative timestamps</string>
@@ -296,6 +312,8 @@
 
     <string name="pref_category_library_update">Global update</string>
     <string name="pref_library_update_interval">Automatic updates</string>
+    <string name="update_interval_days">Update interval in days</string>
+    <string name="days_suffix">days</string>
     <string name="update_never">Off</string>
     <string name="update_6hour">Every 6 hours</string>
     <string name="update_12hour">Every 12 hours</string>
@@ -699,6 +717,7 @@
     <string name="intervals_header">Intervals</string>
     <!-- For badges/buttons on library covers. -->
     <string name="overlay_header">Overlay</string>
+    <string name="scrim">Scrim</string>
     <string name="tabs_header">Tabs</string>
 
     <!-- Browse source -->

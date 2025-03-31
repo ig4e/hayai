@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.DisabledByDefault
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.collections.immutable.ImmutableSet
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 import tachiyomi.presentation.core.components.material.TextButton
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -44,7 +44,7 @@ fun ScanlatorFilterDialog(
         availableScanlators.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
     }
     val mutableExcludedScanlators = remember(excludedScanlators) { excludedScanlators.toMutableStateList() }
-    AlertDialog(
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(text = stringResource(MR.strings.exclude_scanlators)) },
         text = textFunc@{

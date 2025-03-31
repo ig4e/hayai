@@ -44,6 +44,7 @@ import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.material.Button
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.components.material.BottomSheetDialog
 
 @Composable
 fun EhLoginWebViewScreen(
@@ -154,7 +155,7 @@ fun EhLoginWebViewScreen(
                         .fillMaxSize()
                         .background(Color(0xb5000000)),
                 ) {
-                    Dialog(onDismissRequest = { showAdvancedOptions = false }) {
+                    BottomSheetDialog(onDismissRequest = { showAdvancedOptions = false }) {
                         fun loadUrl(url: String) {
                             state.content = WebContent.Url(url)
                         }

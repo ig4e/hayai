@@ -93,6 +93,7 @@ import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import tachiyomi.presentation.core.components.material.Checkbox
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 object SettingsDataScreen : SearchableSettings {
 
@@ -534,7 +535,7 @@ object SettingsDataScreen : SearchableSettings {
         var authorSelected by remember { mutableStateOf(options.includeAuthor) }
         var artistSelected by remember { mutableStateOf(options.includeArtist) }
 
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = {
                 Text(
@@ -625,42 +626,24 @@ object SettingsDataScreen : SearchableSettings {
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        onConfirm(
-                            ExportOptions(
-                                includeTitle = titleSelected,
-                                includeAuthor = authorSelected,
-                                includeArtist = artistSelected,
-                            ),
-                        )
-                        onDismissRequest()
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                ) {
-                    Text(
-                        text = stringResource(MR.strings.action_save),
-                        style = MaterialTheme.typography.labelLarge,
+                TextButton(onClick = {
+                    onConfirm(
+                        ExportOptions(
+                            includeTitle = titleSelected,
+                            includeAuthor = authorSelected,
+                            includeArtist = artistSelected,
+                        ),
                     )
+                    onDismissRequest()
+                }) {
+                    Text(text = stringResource(MR.strings.action_ok))
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = onDismissRequest,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                ) {
-                    Text(
-                        text = stringResource(MR.strings.action_cancel),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
         )
     }
 
@@ -792,7 +775,7 @@ object SettingsDataScreen : SearchableSettings {
         onConfirm: () -> Unit,
         onDismissRequest: () -> Unit,
     ) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = { Text(text = stringResource(SYMR.strings.pref_purge_confirmation_title)) },
             text = { Text(text = stringResource(SYMR.strings.pref_purge_confirmation_message)) },
