@@ -72,6 +72,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -200,92 +201,210 @@ fun MangaActionRow(
     // SY <--
     modifier: Modifier = Modifier,
 ) {
-    val defaultActionButtonColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
+    val defaultActionColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+    val activeActionColor = MaterialTheme.colorScheme.primary
 
-    // TODO: show something better when using custom interval
-    val nextUpdateDays = remember(nextUpdate) {
-        return@remember if (nextUpdate != null) {
-            val now = Instant.now()
-            now.until(nextUpdate, ChronoUnit.DAYS).toInt().coerceAtLeast(0)
-        } else {
-            null
-        }
-    }
-
-    Surface(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-        color = Color.Transparent,
-        shape = MaterialTheme.shapes.medium,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            MangaActionButton(
-                title = if (favorite) {
-                    stringResource(MR.strings.in_library)
-                } else {
-                    stringResource(MR.strings.add_to_library)
-                },
+    // Calculate available actions
+    val actions = buildList {
+        add(
+            ActionItem(
+                title = if (favorite) stringResource(MR.strings.in_library) else stringResource(MR.strings.add_to_library),
                 icon = if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                color = if (favorite) MaterialTheme.colorScheme.primary else defaultActionButtonColor,
+                color = if (favorite) activeActionColor else defaultActionColor,
                 active = favorite,
                 onClick = onAddToLibraryClicked,
                 onLongClick = onEditCategory,
-                modifier = Modifier.weight(1f),
             )
-            MangaActionButton(
-                title = when (nextUpdateDays) {
-                    null -> stringResource(MR.strings.not_applicable)
-                    0 -> stringResource(MR.strings.manga_interval_expected_update_soon)
-                    else -> pluralStringResource(
-                        MR.plurals.day,
-                        count = nextUpdateDays,
-                        nextUpdateDays,
-                    )
-                },
-                icon = Icons.Default.HourglassEmpty,
-                color = if (isUserIntervalMode) MaterialTheme.colorScheme.primary else defaultActionButtonColor,
-                active = isUserIntervalMode,
-                onClick = { onEditIntervalClicked?.invoke() },
-                modifier = Modifier.weight(1f),
+        )
+
+        onEditIntervalClicked?.let {
+            val updateDays = if (nextUpdate != null) {
+                val now = Instant.now()
+                now.until(nextUpdate, ChronoUnit.DAYS).toInt().coerceAtLeast(0)
+            } else {
+                null
+            }
+
+            add(
+                ActionItem(
+                    title = when (updateDays) {
+                        null -> stringResource(MR.strings.not_applicable)
+                        0 -> stringResource(MR.strings.manga_interval_expected_update_soon)
+                        else -> pluralStringResource(MR.plurals.day, count = updateDays, updateDays)
+                    },
+                    icon = Icons.Default.HourglassEmpty,
+                    color = if (isUserIntervalMode) activeActionColor else defaultActionColor,
+                    active = isUserIntervalMode,
+                    onClick = onEditIntervalClicked,
+                )
             )
-            MangaActionButton(
+        }
+
+        add(
+            ActionItem(
                 title = if (trackingCount == 0) {
                     stringResource(MR.strings.manga_tracking_tab)
                 } else {
                     pluralStringResource(MR.plurals.num_trackers, count = trackingCount, trackingCount)
                 },
                 icon = if (trackingCount == 0) Icons.Outlined.Sync else Icons.Outlined.Done,
-                color = if (trackingCount == 0) defaultActionButtonColor else MaterialTheme.colorScheme.primary,
+                color = if (trackingCount == 0) defaultActionColor else activeActionColor,
                 active = trackingCount > 0,
                 onClick = onTrackingClicked,
-                modifier = Modifier.weight(1f),
             )
-            // SY -->
-            if (onRecommendClicked != null) {
-                MangaActionButton(
-                    title = "Recs",
+        )
+
+        // SY -->
+        onRecommendClicked?.let {
+            add(
+                ActionItem(
+                    title = stringResource(SYMR.strings.az_recommends_short),
                     icon = Icons.Outlined.Recommend,
-                    color = defaultActionButtonColor,
+                    color = defaultActionColor,
                     onClick = onRecommendClicked,
-                    modifier = Modifier.weight(1f),
                 )
-            }
-            if (onMergeClicked != null) {
-                MangaActionButton(
+            )
+        }
+
+        onMergeClicked?.let {
+            add(
+                ActionItem(
                     title = stringResource(SYMR.strings.merge),
                     icon = Icons.AutoMirrored.Outlined.CallMerge,
-                    color = defaultActionButtonColor,
+                    color = defaultActionColor,
                     onClick = onMergeClicked,
-                    modifier = Modifier.weight(1f),
                 )
+            )
+        }
+        // SY <--
+    }
+
+    Surface(
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 2.dp,
+    ) {
+        Layout(
+            content = {
+                actions.forEach { action ->
+                    CompactActionButton(
+                        title = action.title,
+                        icon = action.icon,
+                        color = action.color,
+                        active = action.active,
+                        onClick = action.onClick,
+                        onLongClick = action.onLongClick,
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth().padding(4.dp),
+        ) { measurables, constraints ->
+            // Adaptive layout based on available width
+            val itemCount = measurables.size
+            val itemWidth = (constraints.maxWidth / itemCount.coerceAtMost(4)).coerceAtLeast(56)
+
+            // Decide how many items per row based on available width
+            val columns = (constraints.maxWidth / itemWidth).coerceAtLeast(1)
+            val rows = (itemCount + columns - 1) / columns
+
+            val itemConstraints = constraints.copy(
+                minWidth = itemWidth,
+                maxWidth = itemWidth,
+                minHeight = 0,
+            )
+
+            val placeables = measurables.map { it.measure(itemConstraints) }
+            val height = placeables.maxOf { it.height } * rows
+
+            layout(constraints.maxWidth, height) {
+                var x = 0
+                var y = 0
+                var rowHeight = 0
+
+                placeables.forEachIndexed { index, placeable ->
+                    placeable.placeRelative(x, y)
+                    rowHeight = maxOf(rowHeight, placeable.height)
+
+                    x += itemWidth
+                    if ((index + 1) % columns == 0) {
+                        x = 0
+                        y += rowHeight
+                        rowHeight = 0
+                    }
+                }
             }
-            // SY <--
         }
     }
 }
+
+@Composable
+private fun CompactActionButton(
+    title: String,
+    icon: ImageVector,
+    color: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    active: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+) {
+    val haptic = LocalHapticFeedback.current
+    val textColor = if (active) MaterialTheme.colorScheme.onPrimaryContainer else color
+
+    Surface(
+        modifier = modifier,
+        color = if (active) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            Color.Transparent
+        },
+        shape = MaterialTheme.shapes.small,
+        tonalElevation = if (active) 4.dp else 0.dp,
+        shadowElevation = if (active) 2.dp else 0.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .clickableNoIndication(
+                    onClick = onClick,
+                    onLongClick = onLongClick?.let { longClick ->
+                        {
+                            longClick()
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    },
+                )
+                .padding(vertical = 6.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = textColor,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = title,
+                color = textColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+}
+
+private data class ActionItem(
+    val title: String,
+    val icon: ImageVector,
+    val color: Color,
+    val onClick: () -> Unit,
+    val active: Boolean = false,
+    val onLongClick: (() -> Unit)? = null,
+)
 
 @Composable
 fun ExpandableMangaDescription(
@@ -355,11 +474,17 @@ fun ExpandableMangaDescription(
                 )
             }
 
-            // Enhanced tags display
+            // Enhanced tags display with animation
             Row(
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 2.dp)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = 0.8f,
+                            stiffness = Spring.StiffnessLow,
+                        )
+                    ),
             ) {
                 if (expanded) {
                     // When expanded, use FlowRow to display tags in multiple rows
@@ -423,6 +548,12 @@ fun ExpandableMangaDescription(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = 0.8f,
+                                stiffness = Spring.StiffnessLow,
+                            )
+                        )
                 ) {
                     // Display chips from SearchMetadataChips, passing the expanded state
                     chips.display(doSearch, expanded)
@@ -781,7 +912,7 @@ private fun MangaSummary(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .padding(top = 8.dp, bottom = 8.dp)
+                        .padding(top = 8.dp, bottom = if (expanded) 8.dp else 24.dp)
                         .animateContentSize(
                             animationSpec = spring(
                                 dampingRatio = 0.8f,
@@ -800,27 +931,76 @@ private fun MangaSummary(
                         )
                     }
                 }
-            }
 
-            // Add indicator for expandable content - now separate from the fade effect
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = if (expanded)
-                        Icons.Filled.KeyboardArrowUp
-                    else
-                        Icons.Filled.KeyboardArrowDown,
-                    contentDescription = if (expanded)
-                        stringResource(MR.strings.manga_info_collapse)
-                    else
-                        stringResource(MR.strings.manga_info_expand),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    modifier = Modifier.size(20.dp),
-                )
+                // Add fade effect for collapsed state
+                if (!expanded) {
+                    val fadeColors = listOf(
+                        Color.Transparent,
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .background(
+                                brush = Brush.verticalGradient(fadeColors),
+                            )
+                    )
+
+                    // Add indicator on top of fade effect
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 4.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val arrowRotation by animateFloatAsState(
+                            targetValue = if (expanded) 180f else 0f,
+                            label = "arrow_rotation"
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (expanded)
+                                stringResource(MR.strings.manga_info_collapse)
+                            else
+                                stringResource(MR.strings.manga_info_expand),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clipToBounds()
+                                .padding(2.dp)
+                                .rotate(arrowRotation),
+                        )
+                    }
+                } else {
+                    // Add indicator for expanded state
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val arrowRotation by animateFloatAsState(
+                            targetValue = if (expanded) 180f else 0f,
+                            label = "arrow_rotation"
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (expanded)
+                                stringResource(MR.strings.manga_info_collapse)
+                            else
+                                stringResource(MR.strings.manga_info_expand),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clipToBounds()
+                                .padding(2.dp)
+                                .rotate(arrowRotation),
+                        )
+                    }
+                }
             }
         }
     }

@@ -25,9 +25,11 @@
     <color name="nord_inverseSurface">#3B4252</color>
     <color name="nord_inverseOnSurface">#ECEFF4</color>
     <color name="nord_outline">#2E3440</color>
+    <color name="nord_error">#BF616A</color>
     <color name="nord_onError">#ECEFF4</color>
     <color name="nord_errorContainer">#BF616A</color>
     <color name="nord_onErrorContainer">#000000</color>
+    <color name="nord_outlineVariant">#90939A</color>
     <color name="nord_surfaceContainerLowest">#D1D7E0</color>
     <color name="nord_surfaceContainerLow">#D6DCE6</color>
     <color name="nord_surfaceContainer">#DAE0EA</color>

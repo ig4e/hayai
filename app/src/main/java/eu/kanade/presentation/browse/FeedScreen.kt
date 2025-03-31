@@ -51,6 +51,7 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
 import kotlin.time.Duration.Companion.seconds
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 data class FeedItemUI(
     val feed: FeedSavedSearch,
@@ -161,7 +162,7 @@ fun FeedAddDialog(
     onClickAdd: (CatalogueSource?) -> Unit,
 ) {
     var selected by remember { mutableStateOf<Int?>(null) }
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = stringResource(SYMR.strings.feed))
         },
@@ -187,7 +188,7 @@ fun FeedAddSearchDialog(
     onClickAdd: (CatalogueSource, SavedSearch?) -> Unit,
 ) {
     var selected by remember { mutableStateOf<Int?>(null) }
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = source.name)
         },
@@ -245,7 +246,7 @@ fun FeedDeleteConfirmDialog(
     onDismiss: () -> Unit,
     onClickDeleteConfirm: (FeedSavedSearch) -> Unit,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = stringResource(SYMR.strings.feed))
         },

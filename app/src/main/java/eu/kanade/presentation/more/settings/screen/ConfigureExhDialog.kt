@@ -22,6 +22,7 @@ import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.domain.UnsortedPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -48,7 +49,7 @@ fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
     }
 
     if (warnDialogOpen) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = { warnDialogOpen = false },
             properties = DialogProperties(
                 dismissOnBackPress = false,
@@ -91,7 +92,7 @@ fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
                 }
             }
         }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = {},
             properties = DialogProperties(
                 dismissOnBackPress = false,
@@ -107,7 +108,7 @@ fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
         )
     }
     if (configureFailedDialogOpen != null) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = { configureFailedDialogOpen = null },
             confirmButton = {
                 TextButton(onClick = { configureFailedDialogOpen = null }) {

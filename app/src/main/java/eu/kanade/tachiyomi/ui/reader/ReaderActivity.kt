@@ -130,6 +130,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
 import kotlin.time.Duration.Companion.seconds
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 class ReaderActivity : BaseActivity() {
 
@@ -543,7 +544,7 @@ class ReaderActivity : BaseActivity() {
             val onDismissRequest = viewModel::closeDialog
             when (state.dialog) {
                 is ReaderViewModel.Dialog.Loading -> {
-                    AlertDialog(
+                    BottomSheetAlertDialog(
                         onDismissRequest = {},
                         confirmButton = {},
                         text = {
@@ -624,7 +625,7 @@ class ReaderActivity : BaseActivity() {
                     )
                 }
                 // SY -->
-                ReaderViewModel.Dialog.AutoScrollHelp -> AlertDialog(
+                ReaderViewModel.Dialog.AutoScrollHelp -> BottomSheetAlertDialog(
                     onDismissRequest = onDismissRequest,
                     confirmButton = {
                         TextButton(onClick = onDismissRequest) {
@@ -634,7 +635,7 @@ class ReaderActivity : BaseActivity() {
                     title = { Text(text = stringResource(SYMR.strings.eh_autoscroll_help)) },
                     text = { Text(text = stringResource(SYMR.strings.eh_autoscroll_help_message)) },
                 )
-                ReaderViewModel.Dialog.BoostPageHelp -> AlertDialog(
+                ReaderViewModel.Dialog.BoostPageHelp -> BottomSheetAlertDialog(
                     onDismissRequest = onDismissRequest,
                     confirmButton = {
                         TextButton(onClick = onDismissRequest) {
@@ -644,7 +645,7 @@ class ReaderActivity : BaseActivity() {
                     title = { Text(text = stringResource(SYMR.strings.eh_boost_page_help)) },
                     text = { Text(text = stringResource(SYMR.strings.eh_boost_page_help_message)) },
                 )
-                ReaderViewModel.Dialog.RetryAllHelp -> AlertDialog(
+                ReaderViewModel.Dialog.RetryAllHelp -> BottomSheetAlertDialog(
                     onDismissRequest = onDismissRequest,
                     confirmButton = {
                         TextButton(onClick = onDismissRequest) {

@@ -65,6 +65,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 object SettingsTrackingScreen : SearchableSettings {
 
@@ -210,7 +211,7 @@ object SettingsTrackingScreen : SearchableSettings {
         var processing by remember { mutableStateOf(false) }
         var inputError by remember { mutableStateOf(false) }
 
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -317,7 +318,7 @@ object SettingsTrackingScreen : SearchableSettings {
         onDismissRequest: () -> Unit,
     ) {
         val context = LocalContext.current
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = {
                 Text(

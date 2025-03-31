@@ -45,6 +45,7 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
 import kotlin.math.roundToInt
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 @Composable
 fun PagePreviewScreen(
@@ -131,7 +132,7 @@ fun PagePreviewPageDialog(
         mutableStateOf(currentPage.toFloat())
     }
     val scope = rememberCoroutineScope()
-    AlertDialog(
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissPageDialog,
         confirmButton = {
             TextButton(onClick = {

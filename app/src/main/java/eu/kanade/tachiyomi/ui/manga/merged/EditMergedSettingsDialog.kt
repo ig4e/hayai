@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +30,7 @@ import tachiyomi.domain.manga.model.MergedMangaReference
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 @Stable
 class EditMergedSettingsState(
@@ -180,7 +180,7 @@ fun EditMergedSettingsDialog(
     val state = remember {
         EditMergedSettingsState(context, onDeleteClick, onDismissRequest, onPositiveClick)
     }
-    AlertDialog(
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = {
             TextButton(onClick = state::onPositiveButtonClick) {

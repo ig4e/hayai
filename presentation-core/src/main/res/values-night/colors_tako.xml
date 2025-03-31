@@ -34,6 +34,11 @@
     <color name="tako_inverseSurface">#E5E1E6</color>
     <color name="tako_inverseOnSurface">#1B1B1E</color>
     <color name="tako_outline">#958F99</color>
+    <color name="tako_error">#FFB4AB</color>
+    <color name="tako_onError">#690005</color>
+    <color name="tako_errorContainer">#93000A</color>
+    <color name="tako_onErrorContainer">#FFDAD6</color>
+    <color name="tako_outlineVariant">#49454E</color>
     <color name="tako_surfaceContainerLowest">#20202E</color>
     <color name="tako_surfaceContainerLow">#262636</color>
     <color name="tako_surfaceContainer">#2A2A3C</color>

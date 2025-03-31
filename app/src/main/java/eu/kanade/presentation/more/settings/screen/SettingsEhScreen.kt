@@ -85,6 +85,8 @@ import tachiyomi.presentation.core.components.material.Switch
 import tachiyomi.presentation.core.components.material.Checkbox
 import tachiyomi.presentation.core.components.material.CustomOutlinedTextField
 import tachiyomi.presentation.core.components.material.CustomTextField
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
+import tachiyomi.presentation.core.components.material.BottomSheetDialog
 
 object SettingsEhScreen : SearchableSettings {
 
@@ -302,7 +304,7 @@ object SettingsEhScreen : SearchableSettings {
             mutableStateOf(initialValue.toString())
         }
         val isValid = remember(value) { value.toIntOrNull().let { it != null && it in valueRange } }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             confirmButton = {
                 TextButton(
@@ -551,7 +553,7 @@ object SettingsEhScreen : SearchableSettings {
         onValueChange: (String) -> Unit,
     ) {
         val state = remember(initialValue) { LanguageDialogState(initialValue) }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = { Text(stringResource(SYMR.strings.language_filtering)) },
             text = {
@@ -686,7 +688,7 @@ object SettingsEhScreen : SearchableSettings {
         onValueChange: (String) -> Unit,
     ) {
         val state = remember(initialValue) { FrontPageCategoriesDialogState(initialValue) }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = { Text(stringResource(SYMR.strings.frong_page_categories)) },
             text = {
@@ -888,7 +890,7 @@ object SettingsEhScreen : SearchableSettings {
         onDismissRequest: () -> Unit,
         onStartReset: () -> Unit,
     ) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = {
                 Text(text = stringResource(SYMR.strings.favorites_sync_reset))
@@ -906,10 +908,6 @@ object SettingsEhScreen : SearchableSettings {
                     Text(text = stringResource(MR.strings.action_cancel))
                 }
             },
-            properties = DialogProperties(
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false,
-            ),
         )
     }
 
@@ -1020,7 +1018,7 @@ object SettingsEhScreen : SearchableSettings {
 
     @Composable
     fun UpdaterStatisticsLoadingDialog() {
-        Dialog(
+        BottomSheetDialog(
             onDismissRequest = {},
             properties = DialogProperties(
                 dismissOnBackPress = false,
@@ -1046,7 +1044,7 @@ object SettingsEhScreen : SearchableSettings {
         onDismissRequest: () -> Unit,
         updateInfo: String,
     ) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = {
                 Text(text = stringResource(SYMR.strings.gallery_updater_statistics))

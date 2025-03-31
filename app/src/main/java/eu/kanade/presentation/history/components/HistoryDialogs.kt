@@ -2,7 +2,6 @@ package eu.kanade.presentation.history.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -15,6 +14,7 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -25,7 +25,7 @@ fun HistoryDeleteDialog(
 ) {
     var removeEverything by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = stringResource(MR.strings.action_remove))
         },
@@ -64,7 +64,7 @@ fun HistoryDeleteAllDialog(
     onDismissRequest: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    AlertDialog(
+    BottomSheetAlertDialog(
         title = {
             Text(text = stringResource(MR.strings.action_remove_everything))
         },

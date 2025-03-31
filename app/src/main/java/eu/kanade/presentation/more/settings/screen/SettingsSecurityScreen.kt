@@ -63,6 +63,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import tachiyomi.presentation.core.components.material.Checkbox
 import tachiyomi.presentation.core.components.material.CustomTextField
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 object SettingsSecurityScreen : SearchableSettings {
 
@@ -243,7 +244,7 @@ object SettingsSecurityScreen : SearchableSettings {
             DayOption.entries.filter { it.day and initialSelection == it.day }
                 .toMutableStateList()
         }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = { Text(text = stringResource(SYMR.strings.biometric_lock_days)) },
             text = {
@@ -308,7 +309,7 @@ object SettingsSecurityScreen : SearchableSettings {
     ) {
         var password by rememberSaveable { mutableStateOf("") }
         var passwordVisibility by remember { mutableStateOf(false) }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
 
             title = { Text(text = stringResource(SYMR.strings.cbz_archive_password)) },

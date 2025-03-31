@@ -61,6 +61,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import tachiyomi.presentation.core.components.material.BottomSheetDialog
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 class ClearDatabaseScreen : Screen() {
 
@@ -79,7 +81,7 @@ class ClearDatabaseScreen : Screen() {
                     // SY -->
                     var keepReadManga by remember { mutableStateOf(true) }
                     // SY <--
-                    AlertDialog(
+                    BottomSheetAlertDialog(
                         onDismissRequest = model::hideConfirmation,
                         confirmButton = {
                             TextButton(
@@ -97,25 +99,18 @@ class ClearDatabaseScreen : Screen() {
                                 Text(text = stringResource(MR.strings.action_ok))
                             }
                         },
-                        dismissButton = {
-                            TextButton(onClick = model::hideConfirmation) {
-                                Text(text = stringResource(MR.strings.action_cancel))
-                            }
-                        },
                         text = {
-                            // SY -->
-                            Column {
-                                // SY <--
+                            Column(
+                                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                            ) {
                                 Text(text = stringResource(MR.strings.clear_database_confirmation))
-                                // SY -->
                                 LabeledCheckbox(
                                     label = stringResource(SYMR.strings.clear_db_exclude_read),
                                     checked = keepReadManga,
                                     onCheckedChange = { keepReadManga = it },
                                 )
                             }
-                            // SY <--
-                        },
+                        }
                     )
                 }
 

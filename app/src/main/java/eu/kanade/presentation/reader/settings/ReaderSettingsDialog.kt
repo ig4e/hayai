@@ -42,6 +42,7 @@ fun ReaderSettingsDialog(
             },
             tabTitles = tabTitles,
             pagerState = pagerState,
+            isTabletUi = false,
         ) { page ->
             val window = (LocalView.current.parent as? DialogWindowProvider)?.window
 

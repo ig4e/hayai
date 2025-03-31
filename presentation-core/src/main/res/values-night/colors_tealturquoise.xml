@@ -23,6 +23,11 @@
     <color name="tealturquoise_inverseSurface">#DFDEDA</color>
     <color name="tealturquoise_inverseOnSurface">#202125</color>
     <color name="tealturquoise_outline">#899391</color>
+    <color name="tealturquoise_error">#FFB4AB</color>
+    <color name="tealturquoise_onError">#690005</color>
+    <color name="tealturquoise_errorContainer">#93000A</color>
+    <color name="tealturquoise_onErrorContainer">#FFDAD6</color>
+    <color name="tealturquoise_outlineVariant">#424A48</color>
     <color name="tealturquoise_surfaceContainerLowest">#202C2E</color>
     <color name="tealturquoise_surfaceContainerLow">#222F31</color>
     <color name="tealturquoise_surfaceContainer">#233133</color>

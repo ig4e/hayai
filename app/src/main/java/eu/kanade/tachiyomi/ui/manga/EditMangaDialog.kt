@@ -87,6 +87,7 @@ import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import androidx.compose.ui.window.DialogProperties
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 @Composable
 fun EditMangaDialog(
@@ -197,7 +198,7 @@ fun EditMangaDialog(
         autofillFromTracker(tracks.first().first, tracks.first().second)
     }
 
-    AlertDialog(
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         confirmButton = {
@@ -451,7 +452,7 @@ fun EditMangaDialog(
 
     // Add tag dialog
     if (showAddTagDialog) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = {
                 showAddTagDialog = false
                 newTagText = ""
@@ -662,9 +663,9 @@ private fun TrackerSelectDialog(
     onDismissRequest: () -> Unit,
     onTrackerSelect: (Tracker, Track) -> Unit,
 ) {
-    AlertDialog(
-        modifier = Modifier.fillMaxWidth(),
+    BottomSheetAlertDialog(
         onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         confirmButton = {
             TextButton(onClick = onDismissRequest) {
                 Text(stringResource(MR.strings.action_cancel))
@@ -675,7 +676,7 @@ private fun TrackerSelectDialog(
         },
         text = {
             FlowRow(
-                modifier = Modifier.padding(8.dp),
+                modifier = Modifier.padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {

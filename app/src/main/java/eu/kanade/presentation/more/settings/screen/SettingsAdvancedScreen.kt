@@ -94,6 +94,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.LabeledCheckbox
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
@@ -419,7 +420,7 @@ object SettingsAdvancedScreen : SearchableSettings {
 
         if (shizukuMissing) {
             val dismiss = { shizukuMissing = false }
-            AlertDialog(
+            BottomSheetAlertDialog(
                 onDismissRequest = dismiss,
                 title = { Text(text = stringResource(MR.strings.ext_installer_shizuku)) },
                 text = { Text(text = stringResource(MR.strings.ext_installer_shizuku_unavailable_dialog)) },
@@ -490,7 +491,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val selection = remember {
             options.toMutableStateList()
         }
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = onDismissRequest,
             title = { Text(text = stringResource(SYMR.strings.clean_up_downloaded_chapters)) },
             text = {
@@ -757,7 +758,7 @@ object SettingsAdvancedScreen : SearchableSettings {
 
                     if (enableEncryptDatabase) {
                         val dismiss = { enableEncryptDatabase = false }
-                        AlertDialog(
+                        BottomSheetAlertDialog(
                             onDismissRequest = dismiss,
                             title = { Text(text = stringResource(SYMR.strings.encrypt_database)) },
                             text = {

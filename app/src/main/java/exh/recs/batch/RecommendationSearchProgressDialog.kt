@@ -21,6 +21,7 @@ import androidx.compose.ui.window.DialogProperties
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
+import tachiyomi.presentation.core.components.material.BottomSheetAlertDialog
 
 data class RecommendationSearchProgressProperties(
     val title: String,
@@ -78,7 +79,7 @@ fun RecommendationSearchProgressDialog(
     }
     val dialog = properties
     if (dialog != null) {
-        AlertDialog(
+        BottomSheetAlertDialog(
             onDismissRequest = {},
             confirmButton = {
                 if (dialog.positiveButton != null && dialog.positiveButtonText != null) {
