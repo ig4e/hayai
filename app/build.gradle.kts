@@ -31,10 +31,9 @@ android {
     defaultConfig {
         // Production
         applicationId = "dev.ahmedmohamed.hayai"
-        //applicationId = "eu.kanade.tachiyomi.sy"
 
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
