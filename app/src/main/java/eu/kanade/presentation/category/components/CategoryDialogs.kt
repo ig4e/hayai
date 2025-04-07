@@ -64,6 +64,7 @@ import tachiyomi.presentation.core.components.material.Checkbox
 import androidx.compose.ui.unit.dp
 import tachiyomi.presentation.core.components.material.CustomTextField
 import eu.kanade.tachiyomi.util.lang.containsFuzzy
+import eu.kanade.presentation.components.UnifiedBottomSheet
 
 @Composable
 fun CategoryCreateDialog(
@@ -250,9 +251,9 @@ fun ChangeCategoryDialog(
     onConfirm: (List<Long>, List<Long>) -> Unit,
 ) {
     if (initialSelection.isEmpty()) {
-        AlertDialog(
+        UnifiedBottomSheet(
             onDismissRequest = onDismissRequest,
-            confirmButton = {
+            actions = @Composable {
                 TextButton(
                     onClick = {
                         onDismissRequest()
@@ -262,10 +263,12 @@ fun ChangeCategoryDialog(
                     Text(text = stringResource(MR.strings.action_edit_categories))
                 }
             },
-            title = {
-                Text(text = stringResource(MR.strings.action_move_category))
+            title = @Composable {
+                Text(
+                    text = stringResource(MR.strings.action_move_category),
+                )
             },
-            text = {
+            content = @Composable {
                 Text(text = stringResource(MR.strings.information_empty_category_dialog))
             },
         )
@@ -295,22 +298,16 @@ fun ChangeCategoryDialog(
         }
     }
 
-    AlertDialog(
+    UnifiedBottomSheet(
         onDismissRequest = onDismissRequest,
-        confirmButton = {},
-        title = null,
-        text = {
+        title = @Composable {
+            Text(
+                text = stringResource(MR.strings.action_move_category),
+            )
+        },
+        content = @Composable {
             Column(
-                modifier = Modifier.fillMaxWidth(),
             ) {
-                // Dialog header with title
-                Text(
-                    text = stringResource(MR.strings.action_move_category),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = MaterialTheme.padding.small)
-                )
-
                 // Search bar
                 CustomTextField(
                     value = searchQuery,
@@ -328,7 +325,7 @@ fun ChangeCategoryDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp),
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                 ) {
                     items(
                         items = filteredSelection,
@@ -347,52 +344,45 @@ fun ChangeCategoryDialog(
                         )
                     }
                 }
-
-                Divider(
-                    modifier = Modifier.padding(vertical = MaterialTheme.padding.small)
-                )
-
-                // Action buttons
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = MaterialTheme.padding.small),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)
+            }
+        },
+        actions = @Composable {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                TextButton(
+                    onClick = {
+                        onDismissRequest()
+                        onEditCategories()
+                    },
+                    modifier = Modifier.weight(1f)
                 ) {
-                    TextButton(
-                        onClick = {
-                            onDismissRequest()
-                            onEditCategories()
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(text = stringResource(MR.strings.action_edit))
-                    }
+                    Text(text = stringResource(MR.strings.action_edit))
+                }
 
-                    Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.weight(1f))
 
-                    TextButton(
-                        onClick = onDismissRequest,
-                        modifier = Modifier.padding(end = MaterialTheme.padding.small)
-                    ) {
-                        Text(text = stringResource(MR.strings.action_cancel))
-                    }
+                TextButton(
+                    onClick = onDismissRequest,
+                    modifier = Modifier.padding(end = MaterialTheme.padding.small)
+                ) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
 
-                    Button(
-                        onClick = {
-                            onDismissRequest()
-                            onConfirm(
-                                selection
-                                    .filter { it is CheckboxState.State.Checked || it is CheckboxState.TriState.Include }
-                                    .map { it.value.id },
-                                selection
-                                    .filter { it is CheckboxState.State.None || it is CheckboxState.TriState.None }
-                                    .map { it.value.id },
-                            )
-                        }
-                    ) {
-                        Text(text = stringResource(MR.strings.action_ok))
+                Button(
+                    onClick = {
+                        onDismissRequest()
+                        onConfirm(
+                            selection
+                                .filter { it is CheckboxState.State.Checked || it is CheckboxState.TriState.Include }
+                                .map { it.value.id },
+                            selection
+                                .filter { it is CheckboxState.State.None || it is CheckboxState.TriState.None }
+                                .map { it.value.id },
+                        )
                     }
+                ) {
+                    Text(text = stringResource(MR.strings.action_ok))
                 }
             }
         }
@@ -415,7 +405,7 @@ private fun CategoryRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggle(checkbox) }
-            .padding(vertical = MaterialTheme.padding.small),
+            .padding(vertical = MaterialTheme.padding.medium),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (checkbox) {
@@ -435,7 +425,7 @@ private fun CategoryRow(
 
         Text(
             text = categoryName,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

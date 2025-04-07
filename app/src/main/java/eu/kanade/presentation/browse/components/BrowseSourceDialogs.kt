@@ -1,7 +1,14 @@
 package eu.kanade.presentation.browse.components
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,7 +20,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import eu.kanade.presentation.components.UnifiedBottomSheet
+import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.collections.immutable.ImmutableList
 import tachiyomi.domain.manga.model.Manga
@@ -28,30 +38,51 @@ fun RemoveMangaDialog(
     onConfirm: () -> Unit,
     mangaToRemove: Manga,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onDismissRequest()
-                    onConfirm()
-                },
-            ) {
-                Text(text = stringResource(MR.strings.action_remove))
-            }
-        },
-        title = {
-            Text(text = stringResource(MR.strings.are_you_sure))
-        },
-        text = {
-            Text(text = stringResource(MR.strings.remove_manga, mangaToRemove.title))
-        },
-    )
+    val onConfirmAction = {
+        onDismissRequest()
+        onConfirm()
+    }
+
+    if (isTabletUi()) {
+        AlertDialog(
+            onDismissRequest = onDismissRequest,
+            dismissButton = {
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onConfirmAction) {
+                    Text(text = stringResource(MR.strings.action_remove))
+                }
+            },
+            title = {
+                Text(text = stringResource(MR.strings.are_you_sure))
+            },
+            text = {
+                Text(text = stringResource(MR.strings.remove_manga, mangaToRemove.title))
+            },
+        )
+    } else {
+        UnifiedBottomSheet(
+            onDismissRequest = onDismissRequest,
+            title = {
+                Text(text = stringResource(MR.strings.are_you_sure))
+            },
+            actions = {
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+                TextButton(onClick = onConfirmAction) {
+                    Text(text = stringResource(MR.strings.action_remove))
+                }
+            },
+        ) {
+            Text(
+                text = stringResource(MR.strings.remove_manga, mangaToRemove.title),
+            )
+        }
+    }
 }
 
 @Composable

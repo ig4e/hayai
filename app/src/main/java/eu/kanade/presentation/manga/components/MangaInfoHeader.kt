@@ -213,7 +213,7 @@ fun MangaActionRow(
     }
 
     Surface(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         color = Color.Transparent,
         shape = MaterialTheme.shapes.medium,
     ) {
@@ -359,7 +359,13 @@ fun ExpandableMangaDescription(
             Row(
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 2.dp)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = 0.8f,
+                            stiffness = Spring.StiffnessLow,
+                        ),
+                    ),
             ) {
                 if (expanded) {
                     // When expanded, use FlowRow to display tags in multiple rows
@@ -851,14 +857,13 @@ private fun MangaActionButton(
     ) {
         TextButton(
             onClick = onClick,
-            modifier = Modifier
-                .padding(vertical = 1.dp, horizontal = 2.dp),
+            modifier = Modifier,
             onLongClick = onLongClick,
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 Icon(
                     imageVector = icon,

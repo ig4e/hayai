@@ -23,9 +23,14 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
@@ -34,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
@@ -51,8 +57,10 @@ import com.google.android.material.elevation.SurfaceColors
 import com.google.android.material.transition.platform.MaterialContainerTransform
 import com.hippo.unifile.UniFile
 import dev.chrisbanes.insetter.applyInsetter
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.manga.model.readingMode
+import eu.kanade.presentation.components.UnifiedBottomSheet
 import eu.kanade.presentation.reader.ChapterListDialog
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.OrientationSelectDialog
@@ -130,6 +138,17 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
 import kotlin.time.Duration.Companion.seconds
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import cafe.adriel.voyager.navigator.Navigator
+import coil3.imageLoader
+import eu.kanade.presentation.components.UnifiedBottomSheet
+import eu.kanade.presentation.util.AssistContentScreen
+import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
+import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.BuildConfig
+import androidx.compose.foundation.verticalScroll
 
 class ReaderActivity : BaseActivity() {
 
@@ -624,36 +643,120 @@ class ReaderActivity : BaseActivity() {
                     )
                 }
                 // SY -->
-                ReaderViewModel.Dialog.AutoScrollHelp -> AlertDialog(
-                    onDismissRequest = onDismissRequest,
-                    confirmButton = {
-                        TextButton(onClick = onDismissRequest) {
-                            Text(text = stringResource(MR.strings.action_ok))
+                ReaderViewModel.Dialog.AutoScrollHelp -> {
+                    if (isTabletUi()) {
+                        AlertDialog(
+                            onDismissRequest = onDismissRequest,
+                            confirmButton = {
+                                TextButton(onClick = onDismissRequest) {
+                                    Text(text = stringResource(MR.strings.action_ok))
+                                }
+                            },
+                            title = { Text(text = stringResource(SYMR.strings.eh_autoscroll_help)) },
+                            text = { Text(text = stringResource(SYMR.strings.eh_autoscroll_help_message)) },
+                        )
+                    } else {
+                        UnifiedBottomSheet(
+                            onDismissRequest = onDismissRequest,
+                            title = { Text(text = stringResource(SYMR.strings.eh_autoscroll_help)) },
+                            actions = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                ) {
+                                    TextButton(onClick = onDismissRequest) {
+                                        Text(stringResource(MR.strings.action_ok))
+                                    }
+                                }
+                            },
+                        ) {
+                            // Keep Column for content, remove padding
+                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                Text(
+                                    text = stringResource(SYMR.strings.eh_autoscroll_help_message),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    // Removed padding modifier
+                                )
+                            }
                         }
-                    },
-                    title = { Text(text = stringResource(SYMR.strings.eh_autoscroll_help)) },
-                    text = { Text(text = stringResource(SYMR.strings.eh_autoscroll_help_message)) },
-                )
-                ReaderViewModel.Dialog.BoostPageHelp -> AlertDialog(
-                    onDismissRequest = onDismissRequest,
-                    confirmButton = {
-                        TextButton(onClick = onDismissRequest) {
-                            Text(text = stringResource(MR.strings.action_ok))
+                    }
+                }
+                ReaderViewModel.Dialog.BoostPageHelp -> {
+                    if (isTabletUi()) {
+                        AlertDialog(
+                            onDismissRequest = onDismissRequest,
+                            confirmButton = {
+                                TextButton(onClick = onDismissRequest) {
+                                    Text(text = stringResource(MR.strings.action_ok))
+                                }
+                            },
+                            title = { Text(text = stringResource(SYMR.strings.eh_boost_page_help)) },
+                            text = { Text(text = stringResource(SYMR.strings.eh_boost_page_help_message)) },
+                        )
+                    } else {
+                        UnifiedBottomSheet(
+                            onDismissRequest = onDismissRequest,
+                            title = { Text(text = stringResource(SYMR.strings.eh_boost_page_help)) },
+                            actions = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                ) {
+                                    TextButton(onClick = onDismissRequest) {
+                                        Text(stringResource(MR.strings.action_ok))
+                                    }
+                                }
+                            },
+                        ) {
+                            // Keep Column for content, remove padding
+                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                Text(
+                                    text = stringResource(SYMR.strings.eh_boost_page_help_message),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                     // Removed padding modifier
+                                )
+                            }
                         }
-                    },
-                    title = { Text(text = stringResource(SYMR.strings.eh_boost_page_help)) },
-                    text = { Text(text = stringResource(SYMR.strings.eh_boost_page_help_message)) },
-                )
-                ReaderViewModel.Dialog.RetryAllHelp -> AlertDialog(
-                    onDismissRequest = onDismissRequest,
-                    confirmButton = {
-                        TextButton(onClick = onDismissRequest) {
-                            Text(text = stringResource(MR.strings.action_ok))
+                    }
+                }
+                ReaderViewModel.Dialog.RetryAllHelp -> {
+                    if (isTabletUi()) {
+                        AlertDialog(
+                            onDismissRequest = onDismissRequest,
+                            confirmButton = {
+                                TextButton(onClick = onDismissRequest) {
+                                    Text(text = stringResource(MR.strings.action_ok))
+                                }
+                            },
+                            title = { Text(text = stringResource(SYMR.strings.eh_retry_all_help)) },
+                            text = { Text(text = stringResource(SYMR.strings.eh_retry_all_help_message)) },
+                        )
+                    } else {
+                        UnifiedBottomSheet(
+                            onDismissRequest = onDismissRequest,
+                            title = { Text(text = stringResource(SYMR.strings.eh_retry_all_help)) },
+                            actions = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                ) {
+                                    TextButton(onClick = onDismissRequest) {
+                                        Text(stringResource(MR.strings.action_ok))
+                                    }
+                                }
+                            },
+                        ) {
+                             // Keep Column for content, remove padding
+                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                Text(
+                                    text = stringResource(SYMR.strings.eh_retry_all_help_message),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                     // Removed padding modifier
+                                )
+                            }
                         }
-                    },
-                    title = { Text(text = stringResource(SYMR.strings.eh_retry_all_help)) },
-                    text = { Text(text = stringResource(SYMR.strings.eh_retry_all_help_message)) },
-                )
+                    }
+                }
                 // SY <--
                 null -> {}
             }

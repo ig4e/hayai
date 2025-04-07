@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Divider
@@ -121,6 +122,7 @@ fun MangaMetadataPage(
     // SY -->
     searchMetadataChips: SearchMetadataChips? = null,
     doSearch: (query: String, global: Boolean) -> Unit = { _, _ -> },
+    extraInfo: List<Pair<String, String>> = emptyList(),
     // SY <--
 ) {
     val scrollState = rememberScrollState()
@@ -534,6 +536,44 @@ fun MangaMetadataPage(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Extra Info Section
+            if (extraInfo.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    tonalElevation = 1.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = stringResource(MR.strings.details), // Or a more specific title if preferred
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        extraInfo.forEach { (key, value) ->
+                            // Reusing InfoItem, assuming generic icon is acceptable
+                            // If specific icons are needed per key, more logic would be required.
+                            InfoItem(
+                                // TODO: Maybe use a generic icon like Icons.Outlined.Info?
+                                icon = Icons.Outlined.Info, // Placeholder icon
+                                label = key,
+                                value = value
+                            )
+                            // Add divider between items for clarity
+                            if (extraInfo.last() != Pair(key, value)) {
+                                Divider(modifier = Modifier.padding(vertical = 4.dp))
                             }
                         }
                     }

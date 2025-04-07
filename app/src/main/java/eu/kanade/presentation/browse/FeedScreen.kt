@@ -51,6 +51,7 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
 import kotlin.time.Duration.Companion.seconds
+import eu.kanade.presentation.components.UnifiedBottomSheet
 
 data class FeedItemUI(
     val feed: FeedSavedSearch,
@@ -161,17 +162,17 @@ fun FeedAddDialog(
     onClickAdd: (CatalogueSource?) -> Unit,
 ) {
     var selected by remember { mutableStateOf<Int?>(null) }
-    AlertDialog(
-        title = {
+    UnifiedBottomSheet(
+        onDismissRequest = onDismiss,
+        title = @Composable {
             Text(text = stringResource(SYMR.strings.feed))
         },
-        text = {
+        content = @Composable {
             RadioSelector(options = sources, selected = selected) {
                 selected = it
             }
         },
-        onDismissRequest = onDismiss,
-        confirmButton = {
+        actions = @Composable {
             TextButton(onClick = { onClickAdd(selected?.let { sources[it] }) }) {
                 Text(text = stringResource(MR.strings.action_ok))
             }
@@ -187,11 +188,12 @@ fun FeedAddSearchDialog(
     onClickAdd: (CatalogueSource, SavedSearch?) -> Unit,
 ) {
     var selected by remember { mutableStateOf<Int?>(null) }
-    AlertDialog(
-        title = {
+    UnifiedBottomSheet(
+        onDismissRequest = onDismiss,
+        title = @Composable {
             Text(text = source.name)
         },
-        text = {
+        content = @Composable {
             val context = LocalContext.current
             val savedSearchStrings = remember {
                 savedSearches.map {
@@ -206,8 +208,7 @@ fun FeedAddSearchDialog(
                 selected = it
             }
         },
-        onDismissRequest = onDismiss,
-        confirmButton = {
+        actions = @Composable {
             TextButton(onClick = { onClickAdd(source, selected?.let { savedSearches[it] }) }) {
                 Text(text = stringResource(MR.strings.action_ok))
             }
@@ -222,7 +223,7 @@ fun <T> RadioSelector(
     selected: Int?,
     onSelectOption: (Int) -> Unit,
 ) {
-    Column(Modifier.verticalScroll(rememberScrollState())) {
+    Column {
         optionStrings.forEachIndexed { index, option ->
             Row(
                 Modifier
@@ -245,15 +246,15 @@ fun FeedDeleteConfirmDialog(
     onDismiss: () -> Unit,
     onClickDeleteConfirm: (FeedSavedSearch) -> Unit,
 ) {
-    AlertDialog(
-        title = {
+    UnifiedBottomSheet(
+        onDismissRequest = onDismiss,
+        title = @Composable {
             Text(text = stringResource(SYMR.strings.feed))
         },
-        text = {
+        content = @Composable {
             Text(text = stringResource(SYMR.strings.feed_delete))
         },
-        onDismissRequest = onDismiss,
-        confirmButton = {
+        actions = @Composable {
             TextButton(onClick = { onClickDeleteConfirm(feed) }) {
                 Text(text = stringResource(MR.strings.action_delete))
             }

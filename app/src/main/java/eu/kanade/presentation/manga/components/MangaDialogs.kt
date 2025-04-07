@@ -1,11 +1,16 @@
 package eu.kanade.presentation.manga.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.components.UnifiedBottomSheet
+import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.util.system.isDevFlavor
 import eu.kanade.tachiyomi.util.system.isPreviewBuildType
 import kotlinx.collections.immutable.toImmutableList
@@ -37,30 +44,51 @@ fun DeleteChaptersDialog(
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onDismissRequest()
-                    onConfirm()
-                },
-            ) {
-                Text(text = stringResource(MR.strings.action_ok))
-            }
-        },
-        title = {
-            Text(text = stringResource(MR.strings.are_you_sure))
-        },
-        text = {
-            Text(text = stringResource(MR.strings.confirm_delete_chapters))
-        },
-    )
+    val onConfirmAction = {
+        onDismissRequest()
+        onConfirm()
+    }
+
+    if (isTabletUi()) {
+        AlertDialog(
+            onDismissRequest = onDismissRequest,
+            dismissButton = {
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onConfirmAction) {
+                    Text(text = stringResource(MR.strings.action_ok))
+                }
+            },
+            title = {
+                Text(text = stringResource(MR.strings.are_you_sure))
+            },
+            text = {
+                Text(text = stringResource(MR.strings.confirm_delete_chapters))
+            },
+        )
+    } else {
+        UnifiedBottomSheet(
+            onDismissRequest = onDismissRequest,
+            title = {
+                Text(text = stringResource(MR.strings.are_you_sure))
+            },
+            actions = {
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+                TextButton(onClick = onConfirmAction) {
+                    Text(text = stringResource(MR.strings.action_ok))
+                }
+            },
+        ) {
+            Text(
+                text = stringResource(MR.strings.confirm_delete_chapters),
+            )
+        }
+    }
 }
 
 @Composable
@@ -81,14 +109,14 @@ fun SetIntervalDialog(
         }
     }
 
-    AlertDialog(
+    UnifiedBottomSheet(
         onDismissRequest = onDismissRequest,
-        title = { Text(stringResource(MR.strings.pref_library_update_smart_update)) },
-        text = {
+        title = @Composable { Text(stringResource(MR.strings.pref_library_update_smart_update)) },
+        content = @Composable {
             Column {
                 if (nextUpdateDays != null && nextUpdateDays >= 0 && interval >= 0) {
                     Text(
-                        stringResource(
+                        text = stringResource(
                             MR.strings.manga_interval_expected_update,
                             pluralStringResource(
                                 MR.plurals.day,
@@ -101,16 +129,21 @@ fun SetIntervalDialog(
                                 interval.absoluteValue,
                             ),
                         ),
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 } else {
                     Text(
-                        stringResource(MR.strings.manga_interval_expected_update_null),
+                        text = stringResource(MR.strings.manga_interval_expected_update_null),
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
                 Spacer(Modifier.height(MaterialTheme.padding.small))
 
                 if (onValueChanged != null && (isDevFlavor || isPreviewBuildType)) {
-                    Text(stringResource(MR.strings.manga_interval_custom_amount))
+                    Text(
+                        text = stringResource(MR.strings.manga_interval_custom_amount),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
 
                     BoxWithConstraints(
                         modifier = Modifier.fillMaxWidth(),
@@ -136,17 +169,20 @@ fun SetIntervalDialog(
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onValueChanged?.invoke(selectedInterval)
-                onDismissRequest()
-            }) {
-                Text(text = stringResource(MR.strings.action_ok))
+        actions = @Composable {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+                TextButton(onClick = {
+                    onValueChanged?.invoke(selectedInterval)
+                    onDismissRequest()
+                }) {
+                    Text(text = stringResource(MR.strings.action_ok))
+                }
             }
         },
     )

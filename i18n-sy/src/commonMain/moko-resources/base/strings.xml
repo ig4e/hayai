@@ -744,4 +744,9 @@
     <!-- New string resources for force preload setting -->
     <string name="force_preload_ahead">Force preload ahead</string>
     <string name="force_preload_ahead_summary">Always preload the next set of pages regardless of current reading position to ensure smoother reading</string>
+
+    <!-- Recommendation Search -->
+    <string name="include_sources">Include sources</string>
+    <string name="include_tracking_services">Include tracking services</string>
+    <string name="pref_rec_hide_in_library">Hide entries already in library</string>
 </resources>

@@ -87,6 +87,9 @@ import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import androidx.compose.ui.window.DialogProperties
+import eu.kanade.presentation.components.UnifiedBottomSheet
+import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.source.online.MetadataSource
 
 @Composable
 fun EditMangaDialog(
@@ -451,49 +454,96 @@ fun EditMangaDialog(
 
     // Add tag dialog
     if (showAddTagDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showAddTagDialog = false
-                newTagText = ""
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        newTagText.takeIf { it.isNotBlank() }?.let { text ->
-                            val newTags = text.split(",").map { it.trimOrNull() }.filterNotNull()
-                            genreTags.addAll(newTags)
-                        }
-                        showAddTagDialog = false
-                        newTagText = ""
-                    },
-                ) {
-                    Text(stringResource(MR.strings.action_ok))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showAddTagDialog = false
-                        newTagText = ""
-                    },
-                ) {
-                    Text(stringResource(MR.strings.action_cancel))
-                }
-            },
-            title = {
-                Text(stringResource(SYMR.strings.add_tags))
-            },
-            text = {
-                Column {
+        var newTagTextState by remember { mutableStateOf(newTagText) }
+        if (isTabletUi()) {
+            AlertDialog(
+                onDismissRequest = {
+                    showAddTagDialog = false
+                    newTagText = ""
+                },
+                title = { Text(stringResource(SYMR.strings.add_tags)) },
+                text = {
                     CustomLabelTextField(
-                        value = newTagText,
-                        onValueChange = { newTagText = it },
+                        value = newTagTextState,
+                        onValueChange = { newTagTextState = it },
+                        labelText = stringResource(SYMR.strings.multi_tags_comma_separated),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            newTagTextState.takeIf { it.isNotBlank() }?.let { text ->
+                                val newTags = text.split(",").map { it.trimOrNull() }.filterNotNull()
+                                genreTags.addAll(newTags)
+                            }
+                            showAddTagDialog = false
+                            newTagText = ""
+                        },
+                    ) {
+                        Text(stringResource(MR.strings.action_ok))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showAddTagDialog = false
+                            newTagText = ""
+                        },
+                    ) {
+                        Text(stringResource(MR.strings.action_cancel))
+                    }
+                },
+            )
+        } else {
+            UnifiedBottomSheet(
+                onDismissRequest = {
+                    showAddTagDialog = false
+                    newTagText = ""
+                },
+                title = {
+                    Text(
+                        text = stringResource(SYMR.strings.add_tags),
+                    )
+                },
+                actions = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(
+                            onClick = {
+                                showAddTagDialog = false
+                                newTagText = ""
+                            },
+                        ) {
+                            Text(stringResource(MR.strings.action_cancel))
+                        }
+                        TextButton(
+                            onClick = {
+                                newTagTextState.takeIf { it.isNotBlank() }?.let { text ->
+                                    val newTags = text.split(",").map { it.trimOrNull() }.filterNotNull()
+                                    genreTags.addAll(newTags)
+                                }
+                                showAddTagDialog = false
+                                newTagText = ""
+                            },
+                        ) {
+                            Text(stringResource(MR.strings.action_ok))
+                        }
+                    }
+                },
+            ) {
+                Column(/* Removed modifier */) {
+                    CustomLabelTextField(
+                        value = newTagTextState,
+                        onValueChange = { newTagTextState = it },
                         labelText = stringResource(SYMR.strings.multi_tags_comma_separated),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-            },
-        )
+            }
+        }
     }
 
     // Tracker selection dialog
@@ -662,32 +712,69 @@ private fun TrackerSelectDialog(
     onDismissRequest: () -> Unit,
     onTrackerSelect: (Tracker, Track) -> Unit,
 ) {
-    AlertDialog(
-        modifier = Modifier.fillMaxWidth(),
-        onDismissRequest = onDismissRequest,
-        confirmButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(stringResource(MR.strings.action_cancel))
-            }
-        },
-        title = {
-            Text(stringResource(SYMR.strings.select_tracker))
-        },
-        text = {
-            FlowRow(
-                modifier = Modifier.padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                tracks.forEach { (track, tracker) ->
-                    TrackLogoIcon(
-                        tracker,
-                        onClick = {
-                            onTrackerSelect(tracker, track)
-                        },
-                    )
+    if (isTabletUi()) {
+        AlertDialog(
+            modifier = Modifier.fillMaxWidth(),
+            onDismissRequest = onDismissRequest,
+            confirmButton = {
+                TextButton(onClick = onDismissRequest) {
+                    Text(stringResource(MR.strings.action_cancel))
+                }
+            },
+            title = {
+                Text(stringResource(SYMR.strings.select_tracker))
+            },
+            text = {
+                FlowRow(
+                    modifier = Modifier.padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    tracks.forEach { (track, tracker) ->
+                        TrackLogoIcon(
+                            tracker,
+                            onClick = {
+                                onTrackerSelect(tracker, track)
+                            },
+                        )
+                    }
+                }
+            },
+        )
+    } else {
+        UnifiedBottomSheet(
+            onDismissRequest = onDismissRequest,
+            title = {
+                Text(
+                    text = stringResource(SYMR.strings.select_tracker),
+                )
+            },
+            actions = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismissRequest) {
+                        Text(stringResource(MR.strings.action_cancel))
+                    }
+                }
+            },
+            content = {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    tracks.forEach { (track, tracker) ->
+                        TrackLogoIcon(
+                            tracker,
+                            onClick = {
+                                onTrackerSelect(tracker, track)
+                                onDismissRequest()
+                            },
+                        )
+                    }
                 }
             }
-        },
-    )
+        )
+    }
 }

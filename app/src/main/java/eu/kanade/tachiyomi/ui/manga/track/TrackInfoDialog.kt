@@ -47,6 +47,7 @@ import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.components.UnifiedBottomSheet
 import eu.kanade.presentation.track.TrackChapterSelector
 import eu.kanade.presentation.track.TrackDateSelector
 import eu.kanade.presentation.track.TrackInfoDialogHome
@@ -689,21 +690,21 @@ private data class TrackDateRemoverScreen(
                 start = start,
             )
         }
-        AlertDialogContent(
-            modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                )
+        UnifiedBottomSheet(
+            onDismissRequest = navigator::pop,
+            title = @Composable {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                    )
+                    Text(
+                        text = stringResource(MR.strings.track_remove_date_conf_title),
+                        textAlign = TextAlign.Center,
+                    )
+                }
             },
-            title = {
-                Text(
-                    text = stringResource(MR.strings.track_remove_date_conf_title),
-                    textAlign = TextAlign.Center,
-                )
-            },
-            text = {
+            content = @Composable {
                 val serviceName = screenModel.getServiceName()
                 Text(
                     text = if (start) {
@@ -713,10 +714,10 @@ private data class TrackDateRemoverScreen(
                     },
                 )
             },
-            buttons = {
+            actions = @Composable {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small, Alignment.End),
+                    horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(onClick = navigator::pop) {
                         Text(text = stringResource(MR.strings.action_cancel))
@@ -869,23 +870,21 @@ private data class TrackerRemoveScreen(
         }
         val serviceName = screenModel.getName()
         var removeRemoteTrack by remember { mutableStateOf(false) }
-        AlertDialogContent(
-            modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                )
+        UnifiedBottomSheet(
+            onDismissRequest = navigator::pop,
+            title = @Composable {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                    )
+                    Text(
+                        text = stringResource(MR.strings.track_delete_title, serviceName),
+                    )
+                }
             },
-            title = {
-                Text(
-                    text = stringResource(MR.strings.track_delete_title, serviceName),
-                    textAlign = TextAlign.Center,
-                )
-            },
-            text = {
+            content = @Composable {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                 ) {
                     Text(
                         text = stringResource(MR.strings.track_delete_text, serviceName),
@@ -900,13 +899,10 @@ private data class TrackerRemoveScreen(
                     }
                 }
             },
-            buttons = {
+            actions = @Composable {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(
-                        MaterialTheme.padding.small,
-                        Alignment.End,
-                    ),
+                    horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(onClick = navigator::pop) {
                         Text(text = stringResource(MR.strings.action_cancel))

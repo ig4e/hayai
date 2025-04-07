@@ -658,7 +658,7 @@
       <!-- About section -->
     <string name="website">Website</string>
     <string name="version">Version</string>
-    <string name="whats_new">What\'s new</string>
+    <string name="whats_new">What's new</string>
     <string name="help_translate">Help translate</string>
     <string name="licenses">Open source licenses</string>
     <string name="privacy_policy">Privacy policy</string>
@@ -1048,4 +1048,23 @@
     <string name="expand">Expand</string>
     <string name="more_titles">+%d more</string>
     <string name="more_info">More info</string>
+
+    <string name="link_discord">Discord</string>
+    <string name="link_x">X</string>
+    <string name="link_facebook">Facebook</string>
+    <string name="link_reddit">Reddit</string>
+    <string name="link_github">GitHub</string>
+
+    <string name="confirm_exit">Confirm exit</string>
+
+    <string name="updating_app">Updating app…</string>
+    <string name="updating_app_downloading">Downloading update…</string>
+
+    <string name="details">Details</string>
+
+    <string name="updates_last_checked_never">Never</string>
+    <string name="updates_last_checked">Last checked %s</string>
+
+    <string name="label_text_size">Text size</string>
+    <string name="label_all">All</string>
 </resources>

@@ -3,7 +3,6 @@ package eu.kanade.presentation.library.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -12,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.text.HtmlCompat
+import eu.kanade.presentation.components.UnifiedBottomSheet
 import exh.util.toAnnotatedString
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -30,23 +30,22 @@ fun SyncFavoritesWarningDialog(
             HtmlCompat.FROM_HTML_MODE_LEGACY,
         ).toAnnotatedString()
     }
-    AlertDialog(
+    UnifiedBottomSheet(
         onDismissRequest = onDismissRequest,
-        confirmButton = {
+        actions = @Composable {
             TextButton(onClick = onAccept) {
                 Text(text = stringResource(MR.strings.action_ok))
             }
         },
-        title = {
+        title = @Composable {
             Text(stringResource(SYMR.strings.favorites_sync_notes))
         },
-        text = {
+        content = @Composable {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
             ) {
                 Text(text = text)
             }
         },
-        properties = DialogProperties(dismissOnClickOutside = false),
     )
 }

@@ -19,7 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.components.AdaptiveSheet
+import eu.kanade.presentation.components.UnifiedBottomSheet
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.collections.immutable.ImmutableList
@@ -36,6 +36,8 @@ import tachiyomi.presentation.core.components.TextItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.components.material.Button
 import tachiyomi.presentation.core.i18n.stringResource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
 
 @Composable
 fun SourceFilterDialog(
@@ -56,44 +58,42 @@ fun SourceFilterDialog(
 ) {
     val updateFilters = { onUpdate(filters) }
 
-    AdaptiveSheet(onDismissRequest = onDismissRequest) {
-        LazyColumn {
-            stickyHeader {
-                Row(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(8.dp),
-                ) {
-                    TextButton(onClick = onReset) {
-                        Text(
-                            text = stringResource(MR.strings.action_reset),
-                            style = LocalTextStyle.current.copy(
-                                color = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // SY -->
-                    IconButton(onClick = onSave) {
-                        Icon(
-                            Icons.Default.Save,
-                            contentDescription = stringResource(MR.strings.action_save),
-                            tint = MaterialTheme.colorScheme.onBackground,
-                        )
-                    }
-                    // SY <--
-                    Button(onClick = {
-                        onFilter()
-                        onDismissRequest()
-                    }) {
-                        Text(stringResource(MR.strings.action_filter))
-                    }
+    // SY -->
+    UnifiedBottomSheet(
+        onDismissRequest = onDismissRequest,
+        actions = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TextButton(onClick = onReset) {
+                    Text(
+                        text = stringResource(MR.strings.action_reset),
+                        style = LocalTextStyle.current.copy(
+                            color = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
                 }
-                HorizontalDivider()
-            }
 
+                IconButton(onClick = onSave) {
+                    Icon(
+                        Icons.Default.Save,
+                        contentDescription = stringResource(MR.strings.action_save),
+                        tint = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+                Button(onClick = {
+                    onFilter()
+                    onDismissRequest()
+                }) {
+                    Text(stringResource(MR.strings.action_filter))
+                }
+            }
+        },
+    ) {
+        LazyColumn(
+            modifier = Modifier,
+        ) {
             if (openMangaDexRandom != null && openMangaDexFollows != null) {
                 item {
                     MangaDexFilterHeader(

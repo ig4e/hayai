@@ -543,6 +543,8 @@ private fun MangaScreenSmallImpl(
                             searchMetadataChips = remember(state.meta, state.source.id, state.manga.genre) {
                                 SearchMetadataChips(state.meta, state.source, state.manga.genre)
                             },
+                            isSpecialSource = metadataDescription != null,
+                            onViewMoreInfo = onMetadataViewerClicked,
                             // SY <--
                         )
                     }
@@ -836,6 +838,8 @@ fun MangaScreenLargeImpl(
                                 searchMetadataChips = remember(state.meta, state.source.id, state.manga.genre) {
                                     SearchMetadataChips(state.meta, state.source, state.manga.genre)
                                 },
+                                isSpecialSource = metadataDescription != null,
+                                onViewMoreInfo = onMetadataViewerClicked,
                                 // SY <--
                             )
 

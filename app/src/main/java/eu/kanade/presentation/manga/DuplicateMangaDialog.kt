@@ -18,12 +18,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.components.AdaptiveSheet
+import eu.kanade.presentation.components.UnifiedBottomSheet
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.presentation.more.settings.LocalPreferenceMinHeight
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
@@ -40,24 +42,25 @@ fun DuplicateMangaDialog(
 ) {
     val minHeight = LocalPreferenceMinHeight.current
 
-    AdaptiveSheet(
+    UnifiedBottomSheet(
         modifier = modifier,
         onDismissRequest = onDismissRequest,
+        title = {
+            Text(text = stringResource(MR.strings.are_you_sure))
+        },
+        actions = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismissRequest) {
+                    Text(stringResource(MR.strings.action_cancel))
+                }
+            }
+        },
     ) {
         Column(
-            modifier = Modifier
-                .padding(
-                    vertical = TabbedDialogPaddings.Vertical,
-                    horizontal = TabbedDialogPaddings.Horizontal,
-                )
-                .fillMaxWidth(),
         ) {
-            Text(
-                modifier = Modifier.padding(TitlePadding),
-                text = stringResource(MR.strings.are_you_sure),
-                style = MaterialTheme.typography.headlineMedium,
-            )
-
             Text(
                 text = stringResource(MR.strings.confirm_add_duplicate_manga),
                 style = MaterialTheme.typography.bodyMedium,
@@ -95,27 +98,6 @@ fun DuplicateMangaDialog(
                     onConfirm()
                 },
             )
-
-            Row(
-                modifier = Modifier
-                    .sizeIn(minHeight = minHeight)
-                    .clickable { onDismissRequest.invoke() }
-                    .padding(ButtonPadding)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                OutlinedButton(onClick = onDismissRequest, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        modifier = Modifier
-                            .padding(vertical = 8.dp),
-                        text = stringResource(MR.strings.action_cancel),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontSize = 16.sp,
-                    )
-                }
-            }
         }
     }
 }

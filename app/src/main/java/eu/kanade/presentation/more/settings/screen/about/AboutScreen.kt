@@ -2,14 +2,24 @@ package eu.kanade.presentation.more.settings.screen.about
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.NewReleases
+import androidx.compose.material.icons.outlined.Policy
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.SecurityUpdateGood
+import androidx.compose.material.icons.outlined.Source
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,7 +35,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.LogoHeader
-import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.BuildConfig
@@ -45,6 +54,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LinkIcon
+import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -92,10 +102,16 @@ object AboutScreen : Screen() {
                 }
 
                 item {
-                    TextPreferenceWidget(
-                        title = stringResource(MR.strings.version),
-                        subtitle = getVersionName(withBuildDate = true),
-                        onPreferenceClick = {
+                    ListItem(
+                        headlineContent = { Text(stringResource(MR.strings.version)) },
+                        supportingContent = { Text(getVersionName(withBuildDate = true)) },
+                        leadingContent = {
+                             Icon(
+                                 imageVector = Icons.Outlined.Info,
+                                 contentDescription = null,
+                             )
+                        },
+                        modifier = Modifier.clickable {
                             val deviceInfo = CrashLogUtil(context).getDebugInfo()
                             context.copyToClipboard("Debug information", deviceInfo)
                         },
@@ -104,9 +120,15 @@ object AboutScreen : Screen() {
 
                 if (BuildConfig.INCLUDE_UPDATER) {
                     item {
-                        TextPreferenceWidget(
-                            title = stringResource(MR.strings.check_for_updates),
-                            widget = {
+                        ListItem(
+                            headlineContent = { Text(stringResource(MR.strings.check_for_updates)) },
+                             leadingContent = {
+                                 Icon(
+                                     imageVector = Icons.Outlined.SecurityUpdateGood,
+                                     contentDescription = null,
+                                 )
+                             },
+                            trailingContent = {
                                 AnimatedVisibility(visible = isCheckingUpdates) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(28.dp),
@@ -114,7 +136,7 @@ object AboutScreen : Screen() {
                                     )
                                 }
                             },
-                            onPreferenceClick = {
+                            modifier = Modifier.clickable(enabled = !isCheckingUpdates) {
                                 if (!isCheckingUpdates) {
                                     scope.launch {
                                         isCheckingUpdates = true
@@ -143,11 +165,15 @@ object AboutScreen : Screen() {
 
                 if (!BuildConfig.DEBUG) {
                     item {
-                        TextPreferenceWidget(
-                            title = stringResource(MR.strings.whats_new),
-                            // SY -->
-                            onPreferenceClick = { showWhatsNewDialog = true },
-                            // SY <--
+                        ListItem(
+                            headlineContent = { Text(stringResource(MR.strings.whats_new)) },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Outlined.NewReleases,
+                                    contentDescription = null,
+                                )
+                            },
+                            modifier = Modifier.clickable { showWhatsNewDialog = true },
                         )
                     }
                 }
@@ -160,16 +186,28 @@ object AboutScreen : Screen() {
                 // }
 
                 item {
-                    TextPreferenceWidget(
-                        title = stringResource(MR.strings.licenses),
-                        onPreferenceClick = { navigator.push(OpenSourceLicensesScreen()) },
+                    ListItem(
+                        headlineContent = { Text(stringResource(MR.strings.licenses)) },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Outlined.Source,
+                                contentDescription = null,
+                            )
+                        },
+                        modifier = Modifier.clickable { navigator.push(OpenSourceLicensesScreen()) },
                     )
                 }
 
                 item {
-                    TextPreferenceWidget(
-                        title = stringResource(MR.strings.privacy_policy),
-                        onPreferenceClick = { uriHandler.openUri("https://mihon.app/privacy/") },
+                    ListItem(
+                        headlineContent = { Text(stringResource(MR.strings.privacy_policy)) },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Outlined.Policy,
+                                contentDescription = null,
+                            )
+                        },
+                        modifier = Modifier.clickable { uriHandler.openUri("https://mihon.app/privacy/") },
                     )
                 }
 
@@ -177,7 +215,7 @@ object AboutScreen : Screen() {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = MaterialTheme.padding.medium),
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         LinkIcon(
@@ -186,31 +224,29 @@ object AboutScreen : Screen() {
                             url = "https://mihon.app",
                         )
                         LinkIcon(
-                            label = "Discord",
+                            label = stringResource(MR.strings.link_discord),
                             icon = CustomIcons.Discord,
                             url = "https://discord.gg/mihon",
                         )
                         LinkIcon(
-                            label = "X",
+                            label = stringResource(MR.strings.link_x),
                             icon = CustomIcons.X,
                             url = "https://x.com/mihonapp",
                         )
                         LinkIcon(
-                            label = "Facebook",
+                            label = stringResource(MR.strings.link_facebook),
                             icon = CustomIcons.Facebook,
                             url = "https://facebook.com/mihonapp",
                         )
                         LinkIcon(
-                            label = "Reddit",
+                            label = stringResource(MR.strings.link_reddit),
                             icon = CustomIcons.Reddit,
                             url = "https://www.reddit.com/r/mihonapp",
                         )
                         LinkIcon(
-                            label = "GitHub",
+                            label = stringResource(MR.strings.link_github),
                             icon = CustomIcons.Github,
-                            // SY -->
                             url = "https://github.com/ig4e/hayai",
-                            // SY <--
                         )
                     }
                 }

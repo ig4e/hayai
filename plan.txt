@@ -1,0 +1,38 @@
+# Refactor Dialogs/BottomSheets to Unified Material 3 Bottom Sheet Plan
+
+**(Note: Please keep this plan updated! Mark items as DONE or add notes if skipped as you refactor.)**
+
+1.  **Create `UnifiedBottomSheet.kt`:** Define a new file (e.g., under `eu.kanade.presentation.components`).
+2.  **Implement `UnifiedBottomSheet` Composable:**
+    *   Use `androidx.compose.material3.ModalBottomSheet`.
+    *   Parameters: `onDismissRequest: () -> Unit`, `title: (@Composable () -> Unit)? = null`, `actions: (@Composable () -> Unit)? = null`, `content: @Composable (PaddingValues) -> Unit`.
+    *   Internal Layout: `Column` -> Optional `title` -> Scrollable `content` area (using `Modifier.weight(1f)` and `verticalScroll`, applying padding from lambda) -> Sticky `actions` area.
+    *   Set `skipPartiallyExpanded = true` on the sheet state.
+    *   Ensure dismissal via scrim click/back press works via `onDismissRequest`.
+3.  **Refactor Existing Usages:**
+    *   Search codebase for `AlertDialog`, `Dialog`, `BottomSheetDialog`, `BottomSheetDialogFragment`, and `AdaptiveSheet` usages acting as dialogs/sheets.
+    *   Incrementally replace these with `UnifiedBottomSheet` *specifically for phone layouts* (use `!isTabletUi()` check).
+        *   **DONE:**
+            *   `ExtensionUninstallConfirmation` (`ExtensionsTab.kt`)
+            *   `DeleteLibraryMangaDialog` (`DeleteLibraryMangaDialog.kt`)
+            *   `DeleteChaptersDialog` (`MangaDialogs.kt`)
+            *   `UpdatesDeleteConfirmationDialog` (`UpdatesDialog.kt`)
+            *   `RemoveMangaDialog` (`BrowseSourceDialogs.kt`)
+            *   `AlertDialog` usages in `TrackInfoDialog.kt` (Remove date, Delete track DONE)
+            *   `AlertDialog` usages in `ReaderActivity.kt` (Help dialogs DONE; Loading skipped)
+            *   `AlertDialog` usages in `EditMangaDialog.kt` (Add Tag, Select Tracker DONE; Main dialog skipped)
+            *   `AdaptiveSheet` usages (`SourceFilterDialog`, `DuplicateMangaDialog` DONE)
+            *   `ChangeCategoryDialog` (`CategoryDialogs.kt`)
+            *   `SetIntervalDialog` (`MangaDialogs.kt`)
+            *   `Feed*Dialog` (`FeedScreen.kt`)
+            *   `SyncFavorites*Dialog` (`SyncFavorites*Dialog.kt`)
+            *   `RecommendationSearchBottomSheetDialog` (`RecommendationSearchBottomSheetDialog.kt`)
+        *   **TODO (Examples):**
+            *   `MaterialAlertDialogBuilder` usages (Skipped: `EditMergedSettingsDialog.kt`, `MangaScreen.kt`, `InterceptActivity.kt` - complexity/View system interop)
+            *   `AdaptiveSheet` usages (`MigrationBottomSheetDialog` skipped - View system interop)
+            *   ... other instances identified during search ...
+    *   Map existing title/content/actions to the new component's parameters.
+    *   Handle conversion or wrapping of View-based dialog logic.
+4.  **String Resources:** Add required strings to `strings.xml` (TBD based on implementation needs - *Added SYMR.strings.include_sources, SYMR.strings.include_tracking_services, SYMR.strings.pref_rec_hide_in_library*).
+5.  **Testing:** Verify correct appearance, scrolling, sticky actions, and dismissal behavior on phone emulators/devices.
+6.  **Review & Refine:** Ensure consistency and address any edge cases found during refactoring.
