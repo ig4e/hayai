@@ -249,33 +249,12 @@ fun ChangeCategoryDialog(
     onEditCategories: () -> Unit,
     onConfirm: (List<Long>, List<Long>) -> Unit,
 ) {
-    if (initialSelection.isEmpty()) {
-        AlertDialog(
-            onDismissRequest = onDismissRequest,
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDismissRequest()
-                        onEditCategories()
-                    },
-                ) {
-                    Text(text = stringResource(MR.strings.action_edit_categories))
-                }
-            },
-            title = {
-                Text(text = stringResource(MR.strings.action_move_category))
-            },
-            text = {
-                Text(text = stringResource(MR.strings.information_empty_category_dialog))
-            },
-        )
-        return
-    }
-
     var selection by remember { mutableStateOf(initialSelection) }
     var searchQuery by remember { mutableStateOf("") }
 
     val context = LocalContext.current
+
+    val isEmpty = remember(initialSelection) { initialSelection.isEmpty() }
 
     val filteredSelection = remember(selection, searchQuery) {
         if (searchQuery.isEmpty()) {
@@ -297,87 +276,83 @@ fun ChangeCategoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        confirmButton = {},
-        title = null,
+        title = {
+            Text(text = stringResource(MR.strings.action_move_category))
+        },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                // Dialog header with title
-                Text(
-                    text = stringResource(MR.strings.action_move_category),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = MaterialTheme.padding.small)
-                )
+                if (isEmpty) {
+                    Text(
+                        text = stringResource(MR.strings.information_empty_category_dialog),
+                        modifier = Modifier.padding(vertical = MaterialTheme.padding.medium),
+                    )
+                } else {
+                    // Search bar
+                    CustomTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = MaterialTheme.padding.small),
+                        placeholder = { Text(text = stringResource(MR.strings.action_search)) },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        singleLine = true,
+                    )
 
-                // Search bar
-                CustomTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = MaterialTheme.padding.small),
-                    placeholder = { Text(text = stringResource(MR.strings.action_search)) },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    singleLine = true,
-                )
-
-                // Categories list
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp),
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-                ) {
-                    items(
-                        items = filteredSelection,
-                        key = { it.value.id }
-                    ) { checkbox ->
-                        CategoryRow(
-                            checkbox = checkbox,
-                            onToggle = { toggledCheckbox ->
-                                val index = selection.indexOf(toggledCheckbox)
-                                if (index != -1) {
-                                    val mutableList = selection.toMutableList()
-                                    mutableList[index] = toggledCheckbox.next()
-                                    selection = mutableList.toList().toImmutableList()
-                                }
-                            }
-                        )
+                    // Categories list
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp), // Keep fixed height for now
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                    ) {
+                        items(
+                            items = filteredSelection,
+                            key = { it.value.id },
+                        ) { checkbox ->
+                            CategoryRow(
+                                checkbox = checkbox,
+                                onToggle = { toggledCheckbox ->
+                                    val index = selection.indexOf(toggledCheckbox)
+                                    if (index != -1) {
+                                        val mutableList = selection.toMutableList()
+                                        mutableList[index] = toggledCheckbox.next()
+                                        selection = mutableList.toList().toImmutableList()
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
-
-                Divider(
-                    modifier = Modifier.padding(vertical = MaterialTheme.padding.small)
-                )
-
-                // Action buttons
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = MaterialTheme.padding.small),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)
-                ) {
+            }
+        },
+        confirmButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+            ) {
+                if (isEmpty) {
                     TextButton(
                         onClick = {
                             onDismissRequest()
                             onEditCategories()
                         },
-                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = stringResource(MR.strings.action_edit_categories))
+                    }
+                } else {
+                    TextButton(
+                        onClick = {
+                            onDismissRequest()
+                            onEditCategories()
+                        },
                     ) {
                         Text(text = stringResource(MR.strings.action_edit))
                     }
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    TextButton(
-                        onClick = onDismissRequest,
-                        modifier = Modifier.padding(end = MaterialTheme.padding.small)
-                    ) {
+                    TextButton(onClick = onDismissRequest) {
                         Text(text = stringResource(MR.strings.action_cancel))
                     }
-
                     Button(
                         onClick = {
                             onDismissRequest()
@@ -389,13 +364,25 @@ fun ChangeCategoryDialog(
                                     .filter { it is CheckboxState.State.None || it is CheckboxState.TriState.None }
                                     .map { it.value.id },
                             )
-                        }
+                        },
                     ) {
                         Text(text = stringResource(MR.strings.action_ok))
                     }
                 }
             }
-        }
+        },
+        dismissButton = if (!isEmpty) {
+            {
+                // Place Cancel and OK inside confirmButton Row when not empty
+            }
+        } else {
+            {
+                // Standard Cancel button when empty
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+            }
+        },
     )
 }
 

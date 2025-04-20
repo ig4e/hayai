@@ -437,7 +437,7 @@
     <string name="pref_skip_read_chapters">Skip chapters marked read</string>
     <string name="pref_skip_filtered_chapters">Skip filtered chapters</string>
     <string name="pref_skip_dupe_chapters">Skip duplicate chapters</string>
-    <string name="pref_reader_navigation">Navigation</string>
+    <string name="pref_reader_navigation">Navigation layout</string>
     <string name="pref_read_with_volume_keys">Volume keys</string>
     <string name="pref_read_with_volume_keys_inverted">Invert volume keys</string>
     <string name="pref_read_with_tapping_inverted">Invert tap zones</string>
@@ -1048,4 +1048,17 @@
     <string name="expand">Expand</string>
     <string name="more_titles">+%d more</string>
     <string name="more_info">More info</string>
+
+    <!-- New themes -->
+    <string name="theme_monochrome">Monochrome</string>
+    <string name="theme_green_apple">Green Apple</string>
+    <string name="theme_lavender">Lavender</string>
+    <string name="theme_midnight_dusk">Midnight Dusk</string>
+    <string name="theme_nord">Nord</string>
+    <string name="theme_strawberry">Strawberry</string>
+    <string name="theme_tako">Tako</string>
+    <string name="theme_tealturquoise">Teal Turquoise</string>
+    <string name="theme_tidal_wave">Tidal Wave</string>
+    <string name="theme_yinyang">Yin/Yang</string>
+    <string name="theme_yotsuba">Yotsuba</string>
 </resources>

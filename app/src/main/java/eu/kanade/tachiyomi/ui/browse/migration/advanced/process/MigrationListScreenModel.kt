@@ -98,7 +98,7 @@ class MigrationListScreenModel(
     private val searchedMangaCache = ConcurrentHashMap<String, Manga?>()
 
     // Use a more permissive semaphore to allow more concurrent operations
-    private val migrationSemaphore = Semaphore(5) // Increased from 3
+    private val migrationSemaphore = Semaphore(8) // Increased from 5
 
     val migratingItems = MutableStateFlow<ImmutableList<MigratingManga>?>(null)
     val migrationDone = MutableStateFlow(false)
@@ -499,6 +499,18 @@ class MigrationListScreenModel(
             if (MigrationFlags.hasCustomCover(flags) && prevManga.hasCustomCover(coverCache)) {
                 coverCache.setCustomCoverToCache(manga, coverCache.getCustomCoverFile(prevManga.id).inputStream())
             }
+
+            // SY --> Ensure the new manga is marked as favorite and has a valid dateAdded
+            updateManga.await(
+                MangaUpdate(
+                    id = manga.id,
+                    favorite = true,
+                    // Optionally inherit dateAdded or set to current time
+                    // dateAdded = prevManga.dateAdded // Inherit from previous manga
+                    dateAdded = Date().time, // Set to current time
+                )
+            )
+            // SY <--
 
             // Finally, delete the manga if needed
             if (replace) {

@@ -36,7 +36,7 @@ class ThrottleManager(
     }
 
     companion object {
-        val THROTTLE_MAX = 5.5.seconds
-        val THROTTLE_INC = 20.milliseconds
+        val THROTTLE_MAX = 2.5.seconds
+        val THROTTLE_INC = 10.milliseconds
     }
 }

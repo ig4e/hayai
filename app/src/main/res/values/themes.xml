@@ -97,156 +97,49 @@
     <style name="Theme.Tachiyomi.Monet" />
 
     <!--== Zinc Theme ==-->
-    <style name="Theme.Tachiyomi.Zinc">
-        <!-- Theme Colors -->
-        <item name="colorPrimary">@color/zinc_primary</item>
-        <item name="colorOnPrimary">@color/zinc_onPrimary</item>
-        <item name="colorPrimaryContainer">@color/zinc_primaryContainer</item>
-        <item name="colorOnPrimaryContainer">@color/zinc_onPrimaryContainer</item>
-        <item name="colorPrimaryInverse">@color/zinc_inversePrimary</item>
-        <item name="colorSecondary">@color/zinc_secondary</item>
-        <item name="colorOnSecondary">@color/zinc_onSecondary</item>
-        <item name="colorSecondaryContainer">@color/zinc_secondaryContainer</item>
-        <item name="colorOnSecondaryContainer">@color/zinc_onSecondaryContainer</item>
-        <item name="colorTertiary">@color/zinc_tertiary</item>
-        <item name="colorOnTertiary">@color/zinc_onTertiary</item>
-        <item name="colorTertiaryContainer">@color/zinc_tertiaryContainer</item>
-        <item name="colorOnTertiaryContainer">@color/zinc_onTertiaryContainer</item>
-        <item name="android:colorBackground">@color/zinc_background</item>
-        <item name="colorOnBackground">@color/zinc_onBackground</item>
-        <item name="colorSurface">@color/zinc_surface</item>
-        <item name="colorOnSurface">@color/zinc_onSurface</item>
-        <item name="colorSurfaceVariant">@color/zinc_surfaceVariant</item>
-        <item name="colorOnSurfaceVariant">@color/zinc_onSurfaceVariant</item>
-        <item name="elevationOverlayColor">@color/zinc_surfaceTint</item>
-        <item name="colorSurfaceInverse">@color/zinc_inverseSurface</item>
-        <item name="colorOnSurfaceInverse">@color/zinc_inverseOnSurface</item>
-        <item name="colorError">@color/zinc_error</item>
-        <item name="colorOnError">@color/zinc_onError</item>
-        <item name="colorErrorContainer">@color/zinc_errorContainer</item>
-        <item name="colorOnErrorContainer">@color/zinc_onErrorContainer</item>
-        <item name="colorOutline">@color/zinc_outline</item>
-        <item name="colorOutlineVariant">@color/zinc_outlineVariant</item>
-        <item name="colorSurfaceContainer">@color/zinc_surfaceContainer</item>
-        <item name="colorSurfaceContainerHigh">@color/zinc_surfaceContainerHigh</item>
-        <item name="colorSurfaceContainerHighest">@color/zinc_surfaceContainerHighest</item>
-        <item name="colorSurfaceContainerLow">@color/zinc_surfaceContainerLow</item>
-        <item name="colorSurfaceContainerLowest">@color/zinc_surfaceContainerLowest</item>
-    </style>
+    <style name="Theme.Tachiyomi.Zinc" parent="Base.Theme.Tachiyomi"/>
 
     <!--== Emerald Theme ==-->
-    <style name="Theme.Tachiyomi.Emerald">
-        <!-- Theme Colors -->
-        <item name="colorPrimary">@color/emerald_primary</item>
-        <item name="colorOnPrimary">@color/emerald_onPrimary</item>
-        <item name="colorPrimaryContainer">@color/emerald_primaryContainer</item>
-        <item name="colorOnPrimaryContainer">@color/emerald_onPrimaryContainer</item>
-        <item name="colorPrimaryInverse">@color/emerald_inversePrimary</item>
-        <item name="colorSecondary">@color/emerald_secondary</item>
-        <item name="colorOnSecondary">@color/emerald_onSecondary</item>
-        <item name="colorSecondaryContainer">@color/emerald_secondaryContainer</item>
-        <item name="colorOnSecondaryContainer">@color/emerald_onSecondaryContainer</item>
-        <item name="colorTertiary">@color/emerald_tertiary</item>
-        <item name="colorOnTertiary">@color/emerald_onTertiary</item>
-        <item name="colorTertiaryContainer">@color/emerald_tertiaryContainer</item>
-        <item name="colorOnTertiaryContainer">@color/emerald_onTertiaryContainer</item>
-        <item name="android:colorBackground">@color/emerald_background</item>
-        <item name="colorOnBackground">@color/emerald_onBackground</item>
-        <item name="colorSurface">@color/emerald_surface</item>
-        <item name="colorOnSurface">@color/emerald_onSurface</item>
-        <item name="colorSurfaceVariant">@color/emerald_surfaceVariant</item>
-        <item name="colorOnSurfaceVariant">@color/emerald_onSurfaceVariant</item>
-        <item name="elevationOverlayColor">@color/emerald_surfaceTint</item>
-        <item name="colorSurfaceInverse">@color/emerald_inverseSurface</item>
-        <item name="colorOnSurfaceInverse">@color/emerald_inverseOnSurface</item>
-        <item name="colorError">@color/emerald_error</item>
-        <item name="colorOnError">@color/emerald_onError</item>
-        <item name="colorErrorContainer">@color/emerald_errorContainer</item>
-        <item name="colorOnErrorContainer">@color/emerald_onErrorContainer</item>
-        <item name="colorOutline">@color/emerald_outline</item>
-        <item name="colorOutlineVariant">@color/emerald_outlineVariant</item>
-        <item name="colorSurfaceContainer">@color/emerald_surfaceContainer</item>
-        <item name="colorSurfaceContainerHigh">@color/emerald_surfaceContainerHigh</item>
-        <item name="colorSurfaceContainerHighest">@color/emerald_surfaceContainerHighest</item>
-        <item name="colorSurfaceContainerLow">@color/emerald_surfaceContainerLow</item>
-        <item name="colorSurfaceContainerLowest">@color/emerald_surfaceContainerLowest</item>
-    </style>
+    <style name="Theme.Tachiyomi.Emerald" parent="Base.Theme.Tachiyomi"/>
 
     <!--== Rose Theme ==-->
-    <style name="Theme.Tachiyomi.Rose">
-        <!-- Theme Colors -->
-        <item name="colorPrimary">@color/rose_primary</item>
-        <item name="colorOnPrimary">@color/rose_onPrimary</item>
-        <item name="colorPrimaryContainer">@color/rose_primaryContainer</item>
-        <item name="colorOnPrimaryContainer">@color/rose_onPrimaryContainer</item>
-        <item name="colorPrimaryInverse">@color/rose_inversePrimary</item>
-        <item name="colorSecondary">@color/rose_secondary</item>
-        <item name="colorOnSecondary">@color/rose_onSecondary</item>
-        <item name="colorSecondaryContainer">@color/rose_secondaryContainer</item>
-        <item name="colorOnSecondaryContainer">@color/rose_onSecondaryContainer</item>
-        <item name="colorTertiary">@color/rose_tertiary</item>
-        <item name="colorOnTertiary">@color/rose_onTertiary</item>
-        <item name="colorTertiaryContainer">@color/rose_tertiaryContainer</item>
-        <item name="colorOnTertiaryContainer">@color/rose_onTertiaryContainer</item>
-        <item name="android:colorBackground">@color/rose_background</item>
-        <item name="colorOnBackground">@color/rose_onBackground</item>
-        <item name="colorSurface">@color/rose_surface</item>
-        <item name="colorOnSurface">@color/rose_onSurface</item>
-        <item name="colorSurfaceVariant">@color/rose_surfaceVariant</item>
-        <item name="colorOnSurfaceVariant">@color/rose_onSurfaceVariant</item>
-        <item name="elevationOverlayColor">@color/rose_surfaceTint</item>
-        <item name="colorSurfaceInverse">@color/rose_inverseSurface</item>
-        <item name="colorOnSurfaceInverse">@color/rose_inverseOnSurface</item>
-        <item name="colorError">@color/rose_error</item>
-        <item name="colorOnError">@color/rose_onError</item>
-        <item name="colorErrorContainer">@color/rose_errorContainer</item>
-        <item name="colorOnErrorContainer">@color/rose_onErrorContainer</item>
-        <item name="colorOutline">@color/rose_outline</item>
-        <item name="colorOutlineVariant">@color/rose_outlineVariant</item>
-        <item name="colorSurfaceContainer">@color/rose_surfaceContainer</item>
-        <item name="colorSurfaceContainerHigh">@color/rose_surfaceContainerHigh</item>
-        <item name="colorSurfaceContainerHighest">@color/rose_surfaceContainerHighest</item>
-        <item name="colorSurfaceContainerLow">@color/rose_surfaceContainerLow</item>
-        <item name="colorSurfaceContainerLowest">@color/rose_surfaceContainerLowest</item>
-    </style>
+    <style name="Theme.Tachiyomi.Rose" parent="Base.Theme.Tachiyomi"/>
 
     <!--== Violet Theme ==-->
-    <style name="Theme.Tachiyomi.Violet">
-        <!-- Theme Colors -->
-        <item name="colorPrimary">@color/violet_primary</item>
-        <item name="colorOnPrimary">@color/violet_onPrimary</item>
-        <item name="colorPrimaryContainer">@color/violet_primaryContainer</item>
-        <item name="colorOnPrimaryContainer">@color/violet_onPrimaryContainer</item>
-        <item name="colorPrimaryInverse">@color/violet_inversePrimary</item>
-        <item name="colorSecondary">@color/violet_secondary</item>
-        <item name="colorOnSecondary">@color/violet_onSecondary</item>
-        <item name="colorSecondaryContainer">@color/violet_secondaryContainer</item>
-        <item name="colorOnSecondaryContainer">@color/violet_onSecondaryContainer</item>
-        <item name="colorTertiary">@color/violet_tertiary</item>
-        <item name="colorOnTertiary">@color/violet_onTertiary</item>
-        <item name="colorTertiaryContainer">@color/violet_tertiaryContainer</item>
-        <item name="colorOnTertiaryContainer">@color/violet_onTertiaryContainer</item>
-        <item name="android:colorBackground">@color/violet_background</item>
-        <item name="colorOnBackground">@color/violet_onBackground</item>
-        <item name="colorSurface">@color/violet_surface</item>
-        <item name="colorOnSurface">@color/violet_onSurface</item>
-        <item name="colorSurfaceVariant">@color/violet_surfaceVariant</item>
-        <item name="colorOnSurfaceVariant">@color/violet_onSurfaceVariant</item>
-        <item name="elevationOverlayColor">@color/violet_surfaceTint</item>
-        <item name="colorSurfaceInverse">@color/violet_inverseSurface</item>
-        <item name="colorOnSurfaceInverse">@color/violet_inverseOnSurface</item>
-        <item name="colorError">@color/violet_error</item>
-        <item name="colorOnError">@color/violet_onError</item>
-        <item name="colorErrorContainer">@color/violet_errorContainer</item>
-        <item name="colorOnErrorContainer">@color/violet_onErrorContainer</item>
-        <item name="colorOutline">@color/violet_outline</item>
-        <item name="colorOutlineVariant">@color/violet_outlineVariant</item>
-        <item name="colorSurfaceContainer">@color/violet_surfaceContainer</item>
-        <item name="colorSurfaceContainerHigh">@color/violet_surfaceContainerHigh</item>
-        <item name="colorSurfaceContainerHighest">@color/violet_surfaceContainerHighest</item>
-        <item name="colorSurfaceContainerLow">@color/violet_surfaceContainerLow</item>
-        <item name="colorSurfaceContainerLowest">@color/violet_surfaceContainerLowest</item>
-    </style>
+    <style name="Theme.Tachiyomi.Violet" parent="Base.Theme.Tachiyomi" />
+
+    <!--== Monochrome Theme ==-->
+    <style name="Theme.Tachiyomi.Monochrome" parent="Base.Theme.Tachiyomi" />
+
+    <!--== GreenApple Theme ==-->
+    <style name="Theme.Tachiyomi.GreenApple" parent="Base.Theme.Tachiyomi" />
+
+    <!--== Lavender Theme ==-->
+    <style name="Theme.Tachiyomi.Lavender" parent="Base.Theme.Tachiyomi" />
+
+    <!--== MidnightDusk Theme ==-->
+    <style name="Theme.Tachiyomi.MidnightDusk" parent="Base.Theme.Tachiyomi" />
+
+    <!--== Nord Theme ==-->
+    <style name="Theme.Tachiyomi.Nord" parent="Base.Theme.Tachiyomi" />
+
+    <!--== Strawberry Theme ==-->
+    <style name="Theme.Tachiyomi.Strawberry" parent="Base.Theme.Tachiyomi" />
+
+    <!--== Tako Theme ==-->
+    <style name="Theme.Tachiyomi.Tako" parent="Base.Theme.Tachiyomi" />
+
+    <!--== TealTurquoise Theme ==-->
+    <style name="Theme.Tachiyomi.TealTurquoise" parent="Base.Theme.Tachiyomi" />
+
+    <!--== TidalWave Theme ==-->
+    <style name="Theme.Tachiyomi.TidalWave" parent="Base.Theme.Tachiyomi" />
+
+    <!--== YinYang Theme ==-->
+    <style name="Theme.Tachiyomi.YinYang" parent="Base.Theme.Tachiyomi" />
+
+    <!--== Yotsuba Theme ==-->
+    <style name="Theme.Tachiyomi.Yotsuba" parent="Base.Theme.Tachiyomi" />
 
     <!--===============-->
     <!-- Launch Screen -->

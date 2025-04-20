@@ -15,10 +15,21 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.theme.colorscheme.BaseColorScheme
 import eu.kanade.presentation.theme.colorscheme.EmeraldColorScheme
+import eu.kanade.presentation.theme.colorscheme.GreenAppleColorScheme
+import eu.kanade.presentation.theme.colorscheme.LavenderColorScheme
+import eu.kanade.presentation.theme.colorscheme.MidnightDuskColorScheme
 import eu.kanade.presentation.theme.colorscheme.MonetColorScheme
+import eu.kanade.presentation.theme.colorscheme.MonochromeColorScheme
+import eu.kanade.presentation.theme.colorscheme.NordColorScheme
 import eu.kanade.presentation.theme.colorscheme.RoseColorScheme
+import eu.kanade.presentation.theme.colorscheme.StrawberryColorScheme
 import eu.kanade.presentation.theme.colorscheme.TachiyomiColorScheme
+import eu.kanade.presentation.theme.colorscheme.TakoColorScheme
+import eu.kanade.presentation.theme.colorscheme.TealTurqoiseColorScheme
+import eu.kanade.presentation.theme.colorscheme.TidalWaveColorScheme
 import eu.kanade.presentation.theme.colorscheme.VioletColorScheme
+import eu.kanade.presentation.theme.colorscheme.YinYangColorScheme
+import eu.kanade.presentation.theme.colorscheme.YotsubaColorScheme
 import eu.kanade.presentation.theme.colorscheme.ZincColorScheme
 import eu.kanade.presentation.theme.shape.TachiyomiShapes
 import tachiyomi.presentation.core.theme.createOutfitTypography
@@ -83,6 +94,17 @@ private val colorSchemes: Map<AppTheme, BaseColorScheme> = mapOf(
     AppTheme.EMERALD to EmeraldColorScheme,
     AppTheme.ROSE to RoseColorScheme,
     AppTheme.VIOLET to VioletColorScheme,
+    AppTheme.MONOCHROME to MonochromeColorScheme,
+    AppTheme.GREEN_APPLE to GreenAppleColorScheme,
+    AppTheme.LAVENDER to LavenderColorScheme,
+    AppTheme.MIDNIGHT_DUSK to MidnightDuskColorScheme,
+    AppTheme.NORD to NordColorScheme,
+    AppTheme.STRAWBERRY to StrawberryColorScheme,
+    AppTheme.TAKO to TakoColorScheme,
+    AppTheme.TEALTURQUOISE to TealTurqoiseColorScheme,
+    AppTheme.TIDAL_WAVE to TidalWaveColorScheme,
+    AppTheme.YINYANG to YinYangColorScheme,
+    AppTheme.YOTSUBA to YotsubaColorScheme,
     // Deprecated but still used
     AppTheme.DARK_BLUE to TachiyomiColorScheme,
     AppTheme.HOT_PINK to TachiyomiColorScheme,
