@@ -94,12 +94,15 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import mihon.domain.extensionrepo.interactor.CreateExtensionRepo
 import kotlinx.coroutines.launch
+import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
+import kotlinx.coroutines.GlobalScope
 
 class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory {
 
     private val basePreferences: BasePreferences by injectLazy()
     private val privacyPreferences: PrivacyPreferences by injectLazy()
     private val networkPreferences: NetworkPreferences by injectLazy()
+    private val appUpdateChecker: AppUpdateChecker by injectLazy()
 
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 
@@ -208,6 +211,17 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         initializeMigrator()
 
         // SY -->
+        // Check for updates
+        if (BuildConfig.INCLUDE_UPDATER) {
+            scope.launch {
+                try {
+                    appUpdateChecker.checkForUpdate(this@App)
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e) { "Failed to check for updates" }
+                }
+            }
+        }
+
         setupExtensionRepo()
         // SY <--
     }
