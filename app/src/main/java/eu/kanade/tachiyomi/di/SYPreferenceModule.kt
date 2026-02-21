@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.di
 
 import android.app.Application
 import exh.pref.DelegateSourcePreferences
-import tachiyomi.domain.UnsortedPreferences
+import exh.source.ExhPreferences
 import uy.kohesive.injekt.api.InjektRegistrar
 
 class SYPreferenceModule(val application: Application) : InjektModule {
@@ -15,7 +15,7 @@ class SYPreferenceModule(val application: Application) : InjektModule {
         }
 
         addSingletonFactory {
-            UnsortedPreferences(get())
+            ExhPreferences(get())
         }
     }
 }

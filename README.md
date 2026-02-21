@@ -60,7 +60,7 @@ Additional features for some extensions, features include custom description, op
 * Mangadex
 * NHentai
 * Puruin
-* Tsumino
+* LANraragi
 
 ## Download
 Get the app from our [releases page](https://github.com/ig4e/hayai/releases/latest).

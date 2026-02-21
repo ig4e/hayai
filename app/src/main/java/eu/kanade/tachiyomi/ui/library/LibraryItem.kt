@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.ui.library
 
-import android.content.Context
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
-import eu.kanade.tachiyomi.util.lang.containsFuzzy
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
@@ -16,6 +14,8 @@ data class LibraryItem(
     val sourceLanguage: String = "",
     private val sourceManager: SourceManager = Injekt.get(),
 ) {
+    val id: Long = libraryManga.id
+
     /**
      * Checks if a query matches the manga
      *
@@ -23,15 +23,17 @@ data class LibraryItem(
      * @return true if the manga matches the query, false otherwise.
      */
     fun matches(constraint: String): Boolean {
-        val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo(null) }
-
-        return containsFuzzy(libraryManga.manga.title, constraint) ||
-            (libraryManga.manga.author?.let { containsFuzzy(it, constraint) } ?: false) ||
-            (libraryManga.manga.artist?.let { containsFuzzy(it, constraint) } ?: false) ||
-            (libraryManga.manga.description?.let { containsFuzzy(it, constraint) } ?: false) ||
+        val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo() }
+        if (constraint.startsWith("id:", true)) {
+            return id == constraint.substringAfter("id:").toLongOrNull()
+        }
+        return libraryManga.manga.title.contains(constraint, true) ||
+            (libraryManga.manga.author?.contains(constraint, true) ?: false) ||
+            (libraryManga.manga.artist?.contains(constraint, true) ?: false) ||
+            (libraryManga.manga.description?.contains(constraint, true) ?: false) ||
             constraint.split(",").map { it.trim() }.all { subconstraint ->
                 checkNegatableConstraint(subconstraint) {
-                    containsFuzzy(sourceName, it) ||
+                    sourceName.contains(it, true) ||
                         (libraryManga.manga.genre?.any { genre -> genre.equals(it, true) } ?: false)
                 }
             }

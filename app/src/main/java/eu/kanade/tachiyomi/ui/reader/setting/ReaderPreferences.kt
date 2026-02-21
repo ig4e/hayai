@@ -37,9 +37,9 @@ class ReaderPreferences(
 
     fun fullscreen() = preferenceStore.getBoolean("fullscreen", true)
 
-    fun cutoutShort() = preferenceStore.getBoolean("cutout_short", true)
+    fun drawUnderCutout() = preferenceStore.getBoolean("cutout_short", true)
 
-    fun keepScreenOn() = preferenceStore.getBoolean("pref_keep_screen_on_key", true)
+    fun keepScreenOn() = preferenceStore.getBoolean("pref_keep_screen_on_key", false)
 
     fun defaultReadingMode() = preferenceStore.getInt(
         "pref_default_reading_mode_key",
@@ -186,8 +186,6 @@ class ReaderPreferences(
     fun centerMarginType() = preferenceStore.getInt("center_margin_type", PagerConfig.CenterMarginType.NONE)
 
     fun archiveReaderMode() = preferenceStore.getInt("archive_reader_mode", ArchiveReaderMode.LOAD_FROM_FILE)
-
-    fun markReadDupe() = preferenceStore.getBoolean("mark_read_dupe", false)
     // SY <--
 
     enum class FlashColor {

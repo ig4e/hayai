@@ -38,11 +38,14 @@ fun MangaToolbar(
     onClickEditCategory: (() -> Unit)?,
     onClickRefresh: () -> Unit,
     onClickMigrate: (() -> Unit)?,
+    onClickEditNotes: () -> Unit,
+    // SY -->
     onClickEditInfo: (() -> Unit)?,
     onClickRecommend: (() -> Unit)?,
     onClickMerge: (() -> Unit)?,
     onClickMergedSettings: (() -> Unit)?,
-    onWebViewClicked: (() -> Unit)?,
+    // SY <--
+
     // For action mode
     actionModeCounter: Int,
     onCancelActionMode: () -> Unit,
@@ -108,8 +111,10 @@ fun MangaToolbar(
                         )
                     }
                     add(
-                        AppBar.OverflowAction(
+                        AppBar.Action(
                             title = stringResource(MR.strings.action_filter),
+                            icon = Icons.Outlined.FilterList,
+                            iconTint = filterTint,
                             onClick = onClickFilter,
                         ),
                     )
@@ -119,14 +124,6 @@ fun MangaToolbar(
                             onClick = onClickRefresh,
                         ),
                     )
-                    if (onWebViewClicked != null) {
-                        add(
-                            AppBar.OverflowAction(
-                                title = stringResource(MR.strings.action_web_view),
-                                onClick = onWebViewClicked,
-                            ),
-                        )
-                    }
                     if (onClickEditCategory != null) {
                         add(
                             AppBar.OverflowAction(
@@ -151,6 +148,12 @@ fun MangaToolbar(
                             ),
                         )
                     }
+                    add(
+                        AppBar.OverflowAction(
+                            title = stringResource(MR.strings.action_notes),
+                            onClick = onClickEditNotes,
+                        ),
+                    )
                     // SY -->
                     if (onClickMerge != null) {
                         add(
@@ -171,7 +174,7 @@ fun MangaToolbar(
                     if (onClickRecommend != null) {
                         add(
                             AppBar.OverflowAction(
-                                title = stringResource(SYMR.strings.az_recommends_short),
+                                title = stringResource(SYMR.strings.az_recommends),
                                 onClick = onClickRecommend,
                             ),
                         )

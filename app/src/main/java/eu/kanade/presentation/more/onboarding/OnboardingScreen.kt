@@ -60,7 +60,9 @@ fun OnboardingScreen(
     val isLastStep = currentStep == steps.lastIndex
     val progress = (currentStep + 1) / steps.size.toFloat()
 
-    BackHandler(enabled = currentStep != 0, onBack = { currentStep-- })
+    BackHandler(enabled = currentStep != 0) {
+        currentStep--
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets.statusBars,

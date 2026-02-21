@@ -43,7 +43,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                app:constraint_referenced_ids="mig_chapters,mig_categories,mig_tracking,mig_custom_cover,mig_extra,mig_delete_downloaded"
+                app:constraint_referenced_ids="mig_chapters,mig_categories,mig_tracking,mig_custom_cover,mig_extra,mig_delete_downloaded,mig_notes"
                 app:flow_horizontalBias="0"
                 app:flow_horizontalGap="8dp"
                 app:flow_horizontalStyle="packed"
@@ -94,6 +94,13 @@
                 android:layout_height="wrap_content"
                 android:checked="true"
                 android:text="@string/delete_downloaded" />
+
+            <CheckBox
+                android:id="@+id/mig_notes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="@string/action_notes" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <View

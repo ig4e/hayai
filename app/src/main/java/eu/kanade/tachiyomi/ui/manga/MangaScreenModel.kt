@@ -125,6 +125,7 @@ import tachiyomi.domain.manga.interactor.UpdateMergedSettings
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
+import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.MergeMangaSettingsUpdate
 import tachiyomi.domain.manga.model.MergedMangaReference
 import tachiyomi.domain.manga.model.applyFilter
@@ -140,8 +141,6 @@ import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
-import kotlin.collections.filter
-import kotlin.collections.forEach
 import kotlin.math.floor
 
 class MangaScreenModel(
@@ -658,7 +657,7 @@ class MangaScreenModel(
                 existingManga = getManga.await(mergedManga.url, mergedManga.source)
             }
 
-            mergedManga = networkToLocalManga.await(mergedManga)
+            mergedManga = networkToLocalManga(mergedManga)
 
             getCategories.await(originalMangaId)
                 .let {
@@ -783,10 +782,10 @@ class MangaScreenModel(
                 // Add to library
                 // First, check if duplicate exists if callback is provided
                 if (checkDuplicate) {
-                    val duplicate = getDuplicateLibraryManga.await(manga).getOrNull(0)
+                    val duplicates = getDuplicateLibraryManga(manga)
 
-                    if (duplicate != null) {
-                        updateSuccessState { it.copy(dialog = Dialog.DuplicateManga(manga, duplicate)) }
+                    if (duplicates.isNotEmpty()) {
+                        updateSuccessState { it.copy(dialog = Dialog.DuplicateManga(manga, duplicates)) }
                         return@launchIO
                     }
                 }
@@ -1023,12 +1022,11 @@ class MangaScreenModel(
                 true
             } else {
                 downloadManager.isChapterDownloaded(
-                    // SY -->
                     chapter.name,
                     chapter.scanlator,
-                    manga.ogTitle,
+                    chapter.url,
+                    /* SY --> */ manga.ogTitle, /* <-- SY */
                     manga.source,
-                    // SY <--
                 )
             }
             val downloadState = when {
@@ -1043,7 +1041,7 @@ class MangaScreenModel(
                 downloadProgress = activeDownload?.progress ?: 0,
                 selected = chapter.id in selectedChapterIds,
                 // SY -->
-                sourceName = source?.getNameForMangaInfo(null, enabledLanguages = enabledLanguages),
+                sourceName = source?.getNameForMangaInfo(enabledLanguages = enabledLanguages),
                 showScanlator = !isExhManga,
                 // SY <--
             )
@@ -1653,11 +1651,9 @@ class MangaScreenModel(
             val initialSelection: ImmutableList<CheckboxState<Category>>,
         ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
-        data class DuplicateManga(val manga: Manga, val duplicate: Manga) : Dialog
+        data class DuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
 
-        /* SY -->
-        data class Migrate(val newManga: Manga, val oldManga: Manga) : Dialog
-        SY <-- */
+        data class Migrate(val target: Manga, val current: Manga) : Dialog
         data class SetFetchInterval(val manga: Manga) : Dialog
 
         // SY -->
@@ -1690,11 +1686,10 @@ class MangaScreenModel(
         updateSuccessState { it.copy(dialog = Dialog.FullCover) }
     }
 
-    /* SY -->
     fun showMigrateDialog(duplicate: Manga) {
         val manga = successState?.manga ?: return
-        updateSuccessState { it.copy(dialog = Dialog.Migrate(newManga = manga, oldManga = duplicate)) }
-    } SY <-- */
+        updateSuccessState { it.copy(dialog = Dialog.Migrate(target = manga, current = duplicate)) }
+    }
 
     fun setExcludedScanlators(excludedScanlators: Set<String>) {
         screenModelScope.launchIO {

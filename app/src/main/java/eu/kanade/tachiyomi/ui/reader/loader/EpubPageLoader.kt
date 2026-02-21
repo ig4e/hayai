@@ -20,7 +20,7 @@ internal class EpubPageLoader(reader: ArchiveReader) : PageLoader() {
                 val streamFn = { epub.getInputStream(path)!! }
                 ReaderPage(i).apply {
                     stream = streamFn
-                    status = Page.State.READY
+                    status = Page.State.Ready
                 }
             }
     }

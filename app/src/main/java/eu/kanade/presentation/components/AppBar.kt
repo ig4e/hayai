@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -172,6 +173,7 @@ fun AppBarActions(
                 }
             },
             state = rememberTooltipState(),
+            focusable = false,
         ) {
             IconButton(
                 onClick = it.onClick,
@@ -196,6 +198,7 @@ fun AppBarActions(
                 }
             },
             state = rememberTooltipState(),
+            focusable = false,
         ) {
             IconButton(
                 onClick = { showMenu = !showMenu },
@@ -260,6 +263,7 @@ fun SearchToolbar(
                 onSearch(searchQuery)
                 focusManager.clearFocus()
                 keyboardController?.hide()
+                focusManager.moveFocus(FocusDirection.Next)
             }
 
             BasicTextField(
@@ -323,6 +327,7 @@ fun SearchToolbar(
                             }
                         },
                         state = rememberTooltipState(),
+                        focusable = false,
                     ) {
                         IconButton(
                             onClick = onClick,
@@ -342,6 +347,7 @@ fun SearchToolbar(
                             }
                         },
                         state = rememberTooltipState(),
+                        focusable = false,
                     ) {
                         IconButton(
                             onClick = {

@@ -153,6 +153,8 @@
     <string name="bandwidth_data_saver_server">Bandwidth Hero Proxy Server</string>
     <string name="data_saver_server_summary">Put Bandwidth Hero Proxy server url here</string>
     <string name="clear_db_exclude_read">Keep entries with read chapters</string>
+    <string name="pref_include_chapter_url_hash">Include chapter URL hash</string>
+    <string name="pref_include_chapter_url_hash_desc">Append the first six characters of the chapter URL's MD5 hash to the chapter file or folder name.</string>
 
     <!-- Log Level -->
     <string name="log_minimal">Minimal</string>
@@ -229,6 +231,7 @@
     <string name="pref_sync_interval">Synchronization frequency</string>
     <string name="pref_choose_what_to_sync">Choose what to sync</string>
     <string name="syncyomi">SyncYomi</string>
+    <string name="scan_qr_code">Scan a QR code</string>
     <string name="last_synchronization">Last Synchronization: %1$s</string>
     <string name="google_drive">Google Drive</string>
     <string name="pref_google_drive_sign_in">Sign in</string>
@@ -669,6 +672,9 @@
     <string name="manga_updates_id">Manga updates id</string>
     <string name="anime_planet_id">Anime planet id</string>
     <string name="translated">Translated</string>
+    <string name="filename">File name</string>
+    <string name="file_extension">File extension</string>
+    <string name="base_url">Base url</string>
 
     <!-- Extra gallery info -->
     <string name="is_visible">Visible: %1$s</string>
@@ -707,7 +713,8 @@
     <string name="mangadex_push_favorites_to_mangadex_summary">Syncs any non MdList tracked entries to MangaDex as reading.</string>
     <string name="community_recommendations">Community recommendations</string>
     <string name="similar_titles">Similar titles</string>
-    <string name="alt_titles">Alternative Titles</string>
+    <string name="alt_titles">Alternative titles</string>
+    <string name="final_chapter">Final chapter</string>
 
     <!-- Scanlator filters -->
     <string name="select_scanlators">Scanlator groups to show</string>

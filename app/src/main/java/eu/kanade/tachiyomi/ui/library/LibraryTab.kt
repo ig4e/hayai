@@ -42,7 +42,6 @@ import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
-import eu.kanade.tachiyomi.ui.browse.migration.advanced.design.PreMigrationScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
@@ -61,9 +60,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import mihon.feature.migration.config.MigrationConfigScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.domain.UnsortedPreferences
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryGroup
 import tachiyomi.domain.library.model.LibraryManga
@@ -76,8 +75,6 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.isLocal
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 data object LibraryTab : Tab {
 
@@ -140,20 +137,17 @@ data object LibraryTab : Tab {
                 val title = state.getToolbarTitle(
                     defaultTitle = stringResource(MR.strings.label_library),
                     defaultCategoryTitle = stringResource(MR.strings.label_default),
-                    page = screenModel.activeCategoryIndex,
+                    page = state.coercedActiveCategoryIndex,
                 )
-                val tabVisible = state.showCategoryTabs && state.categories.size > 1
                 LibraryToolbar(
                     hasActiveFilters = state.hasActiveFilters,
                     selectedCount = state.selection.size,
                     title = title,
                     onClickUnselectAll = screenModel::clearSelection,
-                    onClickSelectAll = { screenModel.selectAll(screenModel.activeCategoryIndex) },
-                    onClickInvertSelection = { screenModel.invertSelection(screenModel.activeCategoryIndex) },
+                    onClickSelectAll = screenModel::selectAll,
+                    onClickInvertSelection = screenModel::invertSelection,
                     onClickFilter = screenModel::showSettingsDialog,
-                    onClickRefresh = {
-                        onClickRefresh(state.categories[screenModel.activeCategoryIndex.coerceAtMost(state.categories.lastIndex)])
-                    },
+                    onClickRefresh = { onClickRefresh(state.activeCategory) },
                     onClickGlobalUpdate = { onClickRefresh(null) },
                     onClickOpenRandomManga = {
                         scope.launch {
@@ -180,7 +174,8 @@ data object LibraryTab : Tab {
                     // SY <--
                     searchQuery = state.searchQuery,
                     onSearchQueryChange = screenModel::search,
-                    scrollBehavior = scrollBehavior.takeIf { !tabVisible }, // For scroll overlay when no tab
+                    // For scroll overlay when no tab
+                    scrollBehavior = scrollBehavior.takeIf { !state.showCategoryTabs },
                 )
             },
             bottomBar = {
@@ -189,26 +184,27 @@ data object LibraryTab : Tab {
                     onChangeCategoryClicked = screenModel::openChangeCategoryDialog,
                     onMarkAsReadClicked = { screenModel.markReadSelection(true) },
                     onMarkAsUnreadClicked = { screenModel.markReadSelection(false) },
-                    onDownloadClicked = screenModel::runDownloadActionSelection
-                        .takeIf { state.selection.fastAll { !it.manga.isLocal() } },
+                    onDownloadClicked = screenModel::performDownloadAction
+                        .takeIf { state.selectedManga.fastAll { !it.isLocal() } },
                     onDeleteClicked = screenModel::openDeleteMangaDialog,
-                    // SY -->
-                    onClickCleanTitles = screenModel::cleanTitles.takeIf { state.showCleanTitles },
-                    onClickMigrate = {
-                        val selectedMangaIds = state.selection
-                            .filterNot { it.manga.source == MERGED_SOURCE_ID }
-                            .map { it.manga.id }
+                    onMigrateClicked = {
+                        val selection = state.selectedManga
+                            // SY -->
+                            .filterNot { it.source == MERGED_SOURCE_ID }
+                            .map { it.id }
+                        // <-- SY
                         screenModel.clearSelection()
-                        if (selectedMangaIds.isNotEmpty()) {
-                            PreMigrationScreen.navigateToMigration(
-                                Injekt.get<UnsortedPreferences>().skipPreMigration().get(),
-                                navigator,
-                                selectedMangaIds,
-                            )
+                        /* SY --> */if (selection.isNotEmpty()) {
+                            /* <-- SY */
+                            navigator.push(MigrationConfigScreen(selection))
+                            // SY ->>
                         } else {
                             context.toast(SYMR.strings.no_valid_entry)
                         }
+                        // <-- SY
                     },
+                    // SY -->
+                    onClickCleanTitles = screenModel::cleanTitles.takeIf { state.showCleanTitles },
                     onClickCollectRecommendations = screenModel::showRecommendationSearchDialog.takeIf { state.selection.size > 1 },
                     onClickAddToMangaDex = screenModel::syncMangaToDex.takeIf { state.showAddToMangadex },
                     onClickResetInfo = screenModel::resetInfo.takeIf { state.showResetInfo },
@@ -218,7 +214,10 @@ data object LibraryTab : Tab {
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { contentPadding ->
             when {
-                state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
+                state.isLoading -> {
+                    LoadingScreen(Modifier.padding(contentPadding))
+                }
+
                 state.searchQuery.isNullOrEmpty() && !state.hasActiveFilters && state.isLibraryEmpty -> {
                     val handler = LocalUriHandler.current
                     EmptyScreen(
@@ -233,17 +232,18 @@ data object LibraryTab : Tab {
                         ),
                     )
                 }
+
                 else -> {
                     LibraryContent(
-                        categories = state.categories,
+                        categories = state.displayedCategories,
                         searchQuery = state.searchQuery,
                         selection = state.selection,
                         contentPadding = contentPadding,
-                        currentPage = { screenModel.activeCategoryIndex },
+                        currentPage = state.coercedActiveCategoryIndex,
                         hasActiveFilters = state.hasActiveFilters,
                         showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
-                        onChangeCurrentPage = { screenModel.activeCategoryIndex = it },
-                        onMangaClicked = { navigator.push(MangaScreen(it)) },
+                        onChangeCurrentPage = screenModel::updateActiveCategoryIndex,
+                        onClickManga = { navigator.push(MangaScreen(it)) },
                         onContinueReadingClicked = { it: LibraryManga ->
                             scope.launchIO {
                                 val chapter = screenModel.getNextUnreadChapter(it.manga)
@@ -258,18 +258,19 @@ data object LibraryTab : Tab {
                             Unit
                         }.takeIf { state.showMangaContinueButton },
                         onToggleSelection = screenModel::toggleSelection,
-                        onToggleRangeSelection = {
-                            screenModel.toggleRangeSelection(it)
+                        onToggleRangeSelection = { category, manga ->
+                            screenModel.toggleRangeSelection(category, manga)
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         },
-                        onRefresh = onClickRefresh,
+                        onRefresh = { onClickRefresh(state.activeCategory) },
                         onGlobalSearchClicked = {
                             navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
                         },
-                        getNumberOfMangaForCategory = { state.getMangaCountForCategory(it) },
+                        getItemCountForCategory = { state.getItemCountForCategory(it) },
                         getDisplayMode = { screenModel.getDisplayMode() },
-                        getColumnsForOrientation = { screenModel.getColumnsPreferenceForCurrentOrientation(it) },
-                    ) { state.getLibraryItemsByPage(it) }
+                        getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
+                        getItemsForCategory = { state.getItemsForCategory(it) },
+                    )
                 }
             }
         }
@@ -277,20 +278,16 @@ data object LibraryTab : Tab {
         val onDismissRequest = screenModel::closeDialog
         when (val dialog = state.dialog) {
             is LibraryScreenModel.Dialog.SettingsSheet -> run {
-                val category = state.categories.getOrNull(screenModel.activeCategoryIndex)
-                if (category == null) {
-                    onDismissRequest()
-                    return@run
-                }
                 LibrarySettingsDialog(
                     onDismissRequest = onDismissRequest,
                     screenModel = settingsScreenModel,
-                    category = category,
+                    category = state.activeCategory,
                     // SY -->
-                    hasCategories = state.categories.fastAny { !it.isSystemCategory },
+                    hasCategories = state.libraryData.categories.fastAny { !it.isSystemCategory },
                     // SY <--
                 )
             }
+
             is LibraryScreenModel.Dialog.ChangeCategory -> {
                 ChangeCategoryDialog(
                     initialSelection = dialog.initialSelection,
@@ -305,6 +302,7 @@ data object LibraryTab : Tab {
                     },
                 )
             }
+
             is LibraryScreenModel.Dialog.DeleteManga -> {
                 DeleteLibraryMangaDialog(
                     containsLocalManga = dialog.manga.any(Manga::isLocal),
@@ -325,6 +323,7 @@ data object LibraryTab : Tab {
                     },
                 )
             }
+
             LibraryScreenModel.Dialog.SyncFavoritesConfirm -> {
                 SyncFavoritesConfirmDialog(
                     onDismissRequest = onDismissRequest,
@@ -334,6 +333,7 @@ data object LibraryTab : Tab {
                     },
                 )
             }
+
             is LibraryScreenModel.Dialog.RecommendationSearchSheet -> {
                 RecommendationSearchBottomSheetDialog(
                     onDismissRequest = onDismissRequest,
@@ -390,14 +390,17 @@ data object LibraryTab : Tab {
 
                     screenModel.recommendationSearch.status.value = SearchStatus.Idle
                 }
+
                 is SearchStatus.Finished.WithoutResults -> {
                     context.toast(SYMR.strings.rec_no_results)
                     screenModel.recommendationSearch.status.value = SearchStatus.Idle
                 }
+
                 is SearchStatus.Cancelling -> {
                     screenModel.cancelRecommendationSearch()
                     screenModel.recommendationSearch.status.value = SearchStatus.Idle
                 }
+
                 else -> {}
             }
         }

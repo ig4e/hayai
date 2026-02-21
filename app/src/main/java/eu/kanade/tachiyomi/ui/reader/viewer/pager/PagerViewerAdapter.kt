@@ -42,6 +42,7 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
     var currentChapter: ReaderChapter? = null
 
     // SY -->
+
     /** Page used to start the shifted pages */
     var pageToShift: ReaderPage? = null
 
@@ -145,7 +146,7 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
 
         // Will skip insert page otherwise
         if (insertPageLastPage != null) {
-            viewer.moveToPage(insertPageLastPage!!)
+            viewer.moveToPage(insertPageLastPage)
         }
     }
 

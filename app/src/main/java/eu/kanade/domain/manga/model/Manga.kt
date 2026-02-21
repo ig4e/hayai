@@ -38,12 +38,14 @@ fun Manga.chaptersFiltered(): Boolean {
 
 fun Manga.toSManga(): SManga = SManga.create().also {
     it.url = url
-    it.title = title
-    it.artist = artist
-    it.author = author
-    it.description = description
-    it.genre = genre.orEmpty().joinToString()
-    it.status = status.toInt()
+    // SY -->
+    it.title = ogTitle
+    it.artist = ogArtist
+    it.author = ogAuthor
+    it.description = ogDescription
+    it.genre = ogGenre.orEmpty().joinToString()
+    it.status = ogStatus.toInt()
+    // SY <--
     it.thumbnail_url = thumbnailUrl
     it.initialized = initialized
 }
@@ -73,24 +75,6 @@ fun Manga.copyFrom(other: SManga): Manga {
         // SY <--
         updateStrategy = other.update_strategy,
         initialized = other.initialized && initialized,
-    )
-}
-
-fun SManga.toDomainManga(sourceId: Long): Manga {
-    return Manga.create().copy(
-        url = url,
-        // SY -->
-        ogTitle = title,
-        ogArtist = artist,
-        ogAuthor = author,
-        ogThumbnailUrl = thumbnail_url,
-        ogDescription = description,
-        ogGenre = getGenres(),
-        ogStatus = status.toLong(),
-        // SY <--
-        updateStrategy = update_strategy,
-        initialized = initialized,
-        source = sourceId,
     )
 }
 

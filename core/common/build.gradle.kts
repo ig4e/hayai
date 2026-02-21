@@ -54,10 +54,11 @@ dependencies {
     implementation(libs.bundles.js.engine)
 
     testImplementation(libs.bundles.test)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     // SY -->
     implementation(sylibs.xlog)
-    implementation(libs.injekt.core)
+    implementation(libs.injekt)
     implementation(sylibs.exifinterface)
     // SY <--
 }

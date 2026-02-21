@@ -19,7 +19,6 @@ import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
-import eu.kanade.tachiyomi.data.database.models.isRecognizedNumber
 import eu.kanade.tachiyomi.data.database.models.toDomainChapter
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
@@ -184,6 +183,11 @@ class ReaderViewModel @JvmOverloads constructor(
 
     private var chapterToDownload: Download? = null
 
+    private val unfilteredChapterList by lazy {
+        val manga = manga!!
+        runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = false) }
+    }
+
     /**
      * Chapter list for the active manga. It's retrieved lazily and should be accessed for the first
      * time in a background thread to avoid blocking the UI.
@@ -205,6 +209,7 @@ class ReaderViewModel @JvmOverloads constructor(
             return downloadManager.isChapterDownloaded(
                 chapterName = chapter.name,
                 chapterScanlator = chapter.scanlator,
+                chapterUrl = chapter.url,
                 mangaTitle = chapterManga.ogTitle,
                 sourceId = chapterManga.source,
             )
@@ -482,7 +487,7 @@ class ReaderViewModel @JvmOverloads constructor(
         viewModelScope.launchIO {
             logcat { "Loading ${chapter.chapter.url}" }
 
-            flushReadTimer()
+            updateHistory()
             restartReadTimer()
 
             try {
@@ -541,6 +546,7 @@ class ReaderViewModel @JvmOverloads constructor(
             val isDownloaded = downloadManager.isChapterDownloaded(
                 dbChapter.name,
                 dbChapter.scanlator,
+                dbChapter.url,
                 /* SY --> */ manga.ogTitle /* SY <-- */,
                 manga.source,
                 skipCache = true,
@@ -621,6 +627,7 @@ class ReaderViewModel @JvmOverloads constructor(
             val isNextChapterDownloaded = downloadManager.isChapterDownloaded(
                 nextChapter.name,
                 nextChapter.scanlator,
+                nextChapter.url,
                 // SY -->
                 manga.ogTitle,
                 // SY <--
@@ -693,7 +700,7 @@ class ReaderViewModel @JvmOverloads constructor(
         readerChapter.requestedPage = pageIndex
         chapterPageIndex = pageIndex
 
-        if (!incognitoMode && page.status != Page.State.ERROR) {
+        if (!incognitoMode && page.status !is Page.State.Error) {
             readerChapter.chapter.last_page_read = pageIndex
 
             // SY -->
@@ -732,11 +739,11 @@ class ReaderViewModel @JvmOverloads constructor(
         // SY -->
         if (manga?.isEhBasedManga() == true) {
             viewModelScope.launchNonCancellable {
-                val chapterUpdates = chapterList
-                    .filter { it.chapter.source_order > readerChapter.chapter.source_order }
+                val chapterUpdates = unfilteredChapterList
+                    .filter { it.sourceOrder > readerChapter.chapter.source_order }
                     .map { chapter ->
                         ChapterUpdate(
-                            id = chapter.chapter.id!!,
+                            id = chapter.id,
                             read = true,
                         )
                     }
@@ -752,49 +759,45 @@ class ReaderViewModel @JvmOverloads constructor(
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
         if (!markDuplicateAsRead) return
 
-        val duplicateUnreadChapters = chapterList
-            .mapNotNull {
-                val chapter = it.chapter
+        val duplicateUnreadChapters = unfilteredChapterList
+            .mapNotNull { chapter ->
                 if (
                     !chapter.read &&
                     chapter.isRecognizedNumber &&
-                    chapter.chapter_number == readerChapter.chapter.chapter_number
+                    chapter.chapterNumber.toFloat() == readerChapter.chapter.chapter_number
                 ) {
-                    ChapterUpdate(id = chapter.id!!, read = true)
-                        // SY -->
-                        .also { deleteChapterIfNeeded(ReaderChapter(chapter)) }
-                    // SY <--
+                    ChapterUpdate(id = chapter.id, read = true)
                 } else {
                     null
                 }
             }
         updateChapter.awaitAll(duplicateUnreadChapters)
+        // SY -->
+        duplicateUnreadChapters.forEach { chapterUpdate ->
+            val chapter = unfilteredChapterList.first { it.id == chapterUpdate.id }
+            deleteChapterIfNeeded(ReaderChapter(chapter))
+        }
+        // SY <--
     }
 
     fun restartReadTimer() {
         chapterReadStartTime = Instant.now().toEpochMilli()
     }
 
-    fun flushReadTimer() {
-        getCurrentChapter()?.let {
-            viewModelScope.launchNonCancellable {
-                updateHistory(it)
-            }
-        }
-    }
-
     /**
      * Saves the chapter last read history if incognito mode isn't on.
      */
-    private suspend fun updateHistory(readerChapter: ReaderChapter) {
-        if (incognitoMode) return
+    suspend fun updateHistory() {
+        getCurrentChapter()?.let { readerChapter ->
+            if (incognitoMode) return@let
 
-        val chapterId = readerChapter.chapter.id!!
-        val endTime = Date()
-        val sessionReadDuration = chapterReadStartTime?.let { endTime.time - it } ?: 0
+            val chapterId = readerChapter.chapter.id!!
+            val endTime = Date()
+            val sessionReadDuration = chapterReadStartTime?.let { endTime.time - it } ?: 0
 
-        upsertHistory.await(HistoryUpdate(chapterId, endTime, sessionReadDuration))
-        chapterReadStartTime = null
+            upsertHistory.await(HistoryUpdate(chapterId, endTime, sessionReadDuration))
+            chapterReadStartTime = null
+        }
     }
 
     /**
@@ -978,7 +981,8 @@ class ReaderViewModel @JvmOverloads constructor(
         val chapter = page.chapter.chapter
         val filenameSuffix = " - ${page.number}"
         return DiskUtil.buildValidFilename(
-            "${manga.title} - ${chapter.name}".takeBytes(DiskUtil.MAX_FILE_NAME_BYTES - filenameSuffix.byteSize()),
+            "${manga.title} - ${chapter.name}",
+            DiskUtil.MAX_FILE_NAME_BYTES - filenameSuffix.byteSize(),
         ) + filenameSuffix
     }
 
@@ -1068,7 +1072,7 @@ class ReaderViewModel @JvmOverloads constructor(
             (state.value.dialog as? Dialog.PageActions)?.page
         }
         // SY <--
-        if (page?.status != Page.State.READY) return
+        if (page?.status != Page.State.Ready) return
         val manga = manga ?: return
 
         val context = Injekt.get<Application>()
@@ -1112,8 +1116,8 @@ class ReaderViewModel @JvmOverloads constructor(
         val isLTR = (viewer !is R2LPagerViewer) xor (viewer.config.invertDoublePages)
         val bg = viewer.config.pageCanvasColor
 
-        if (firstPage.status != Page.State.READY) return
-        if (secondPage?.status != Page.State.READY) return
+        if (firstPage.status != Page.State.Ready) return
+        if (secondPage?.status != Page.State.Ready) return
 
         val manga = manga ?: return
 
@@ -1188,7 +1192,7 @@ class ReaderViewModel @JvmOverloads constructor(
             (state.value.dialog as? Dialog.PageActions)?.page
         }
         // SY <--
-        if (page?.status != Page.State.READY) return
+        if (page?.status != Page.State.Ready) return
         val manga = manga ?: return
 
         val context = Injekt.get<Application>()
@@ -1220,8 +1224,8 @@ class ReaderViewModel @JvmOverloads constructor(
         val isLTR = (viewer !is R2LPagerViewer) xor (viewer.config.invertDoublePages)
         val bg = viewer.config.pageCanvasColor
 
-        if (firstPage.status != Page.State.READY) return
-        if (secondPage?.status != Page.State.READY) return
+        if (firstPage.status != Page.State.Ready) return
+        if (secondPage?.status != Page.State.Ready) return
         val manga = manga ?: return
 
         val context = Injekt.get<Application>()
@@ -1257,7 +1261,7 @@ class ReaderViewModel @JvmOverloads constructor(
             (state.value.dialog as? Dialog.PageActions)?.page
         }
         // SY <--
-        if (page?.status != Page.State.READY) return
+        if (page?.status != Page.State.Ready) return
         val manga = manga ?: return
         val stream = page.stream ?: return
 

@@ -337,6 +337,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                     |staff {
                         |edges {
                             |role
+                            |id
                             |node {
                                 |name {
                                     |userPreferred

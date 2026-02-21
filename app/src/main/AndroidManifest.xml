@@ -416,6 +416,10 @@
                     android:scheme="hayai" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            tools:remove="screenOrientation" />
     </application>
 
     <uses-sdk tools:overrideLibrary="rikka.shizuku.api"

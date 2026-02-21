@@ -206,6 +206,7 @@ object ImageUtil {
         LEFT,
     }
     // SY -->
+
     /**
      * Split the image into left and right parts, then merge them into a
      * new image with added center padding scaled relative to the height of the display view

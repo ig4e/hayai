@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.track.mdlist
 
-import android.graphics.Color
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.tachiyomi.R
@@ -18,8 +17,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 class MdList(id: Long) : BaseTracker(id, "MDList") {
@@ -30,16 +27,12 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
             .toImmutableList()
     }
 
-    private val mdex by lazy { MdUtil.getEnabledMangaDex(Injekt.get()) }
+    private val mdex by lazy { MdUtil.getEnabledMangaDex() }
 
     val interceptor = MangaDexAuthInterceptor(trackPreferences, this)
 
     override fun getLogo(): Int {
-        return R.drawable.ic_tracker_mangadex_logo
-    }
-
-    override fun getLogoColor(): Int {
-        return Color.rgb(43, 48, 53)
+        return R.drawable.brand_mangadex
     }
 
     override fun getStatusList(): List<Long> {
@@ -170,17 +163,17 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
         trackPreferences.trackToken(this).delete()
     }
 
-    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata? {
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
         return withIOContext {
             val mdex = mdex ?: throw MangaDexNotFoundException()
             val manga = mdex.getMangaMetadata(track.toDbTrack())
             TrackMangaMetadata(
                 remoteId = 0,
-                title = manga?.title,
-                thumbnailUrl = manga?.thumbnail_url, // Doesn't load the actual cover because of Refer header
-                description = manga?.description,
-                authors = manga?.author,
-                artists = manga?.artist,
+                title = manga.title,
+                thumbnailUrl = manga.thumbnail_url, // Doesn't load the actual cover because of Refer header
+                description = manga.description,
+                authors = manga.author,
+                artists = manga.artist,
             )
         }
     }

@@ -118,13 +118,15 @@ class MangaBackupCreator(
 private fun Manga.toBackupManga(/* SY --> */customMangaInfo: CustomMangaInfo?/* SY <-- */) =
     BackupManga(
         url = this.url,
-        title = this.title,
-        artist = this.artist,
-        author = this.author,
-        description = this.description,
-        genre = this.genre.orEmpty(),
-        status = this.status.toInt(),
-        thumbnailUrl = this.thumbnailUrl,
+        // SY -->
+        title = this.ogTitle,
+        artist = this.ogArtist,
+        author = this.ogAuthor,
+        description = this.ogDescription,
+        genre = this.ogGenre.orEmpty(),
+        status = this.ogStatus.toInt(),
+        thumbnailUrl = this.ogThumbnailUrl,
+        // SY <--
         favorite = this.favorite,
         source = this.source,
         dateAdded = this.dateAdded,
@@ -135,6 +137,8 @@ private fun Manga.toBackupManga(/* SY --> */customMangaInfo: CustomMangaInfo?/* 
         lastModifiedAt = this.lastModifiedAt,
         favoriteModifiedAt = this.favoriteModifiedAt,
         version = this.version,
+        notes = this.notes,
+        initialized = this.initialized,
         // SY -->
     ).also { backupManga ->
         customMangaInfo?.let {

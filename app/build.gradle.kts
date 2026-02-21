@@ -29,16 +29,15 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        applicationId = "dev.ahmedmohamed.hayai"
+        applicationId = "eu.kanade.tachiyomi.sy"
 
-        versionCode = 6
-        versionName = "1.0.6"
+        versionCode = 75
+        versionName = "1.12.0"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
-        buildConfigField("String", "BUILD_TIME", "\"${getBuildTime()}\"")
+        buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLastCommitTime = false)}\"")
         buildConfigField("boolean", "INCLUDE_UPDATER", "false")
-        buildConfigField("String", "REPOSITORY", "\"ig4e/hayai\"")
 
         ndk {
             abiFilters += supportedAbis
@@ -72,6 +71,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             setProguardFiles(listOf(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"))
+
+            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLastCommitTime = true)}\"")
         }
         create("benchmark") {
             initWith(getByName("release"))
@@ -128,9 +129,9 @@ android {
     buildFeatures {
         viewBinding = true
         buildConfig = true
+        aidl = true
 
         // Disable some unused things
-        aidl = false
         renderScript = false
         shaders = false
     }
@@ -238,7 +239,7 @@ dependencies {
     implementation(libs.preferencektx)
 
     // Dependency injection
-    implementation(libs.injekt.core)
+    implementation(libs.injekt)
 
     // Image loading
     implementation(platform(libs.coil.bom))
@@ -255,8 +256,7 @@ dependencies {
     implementation(libs.directionalviewpager) {
         exclude(group = "androidx.viewpager", module = "viewpager")
     }
-    implementation(libs.insetter)
-    implementation(libs.bundles.richtext)
+    implementation(libs.richeditor.compose)
     implementation(libs.aboutLibraries.compose)
     implementation(libs.bundles.voyager)
     implementation(libs.compose.materialmotion)
@@ -264,6 +264,7 @@ dependencies {
     implementation(libs.compose.webview)
     implementation(libs.compose.grid)
     implementation(libs.reorderable)
+    implementation(libs.bundles.markdown)
 
     // Logging
     implementation(libs.logcat)
@@ -276,8 +277,12 @@ dependencies {
     // Shizuku
     implementation(libs.bundles.shizuku)
 
+    // String similarity
+    implementation(libs.stringSimilarity)
+
     // Tests
     testImplementation(libs.bundles.test)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     // For detecting memory leaks; see https://square.github.io/leakcanary/
     // debugImplementation(libs.leakcanary.android)
@@ -286,9 +291,6 @@ dependencies {
     testImplementation(kotlinx.coroutines.test)
 
     // SY -->
-    // Text distance (EH)
-    implementation(sylibs.simularity)
-
     // Firebase (EH)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
@@ -308,17 +310,12 @@ dependencies {
     // Koin
     implementation(sylibs.koin.core)
     implementation(sylibs.koin.android)
+
+    // ZXing Android Embedded
+    implementation(sylibs.zxing.android.embedded)
 }
 
 androidComponents {
-    beforeVariants { variantBuilder ->
-        // Disables standardBenchmark
-        if (variantBuilder.buildType == "benchmark") {
-            variantBuilder.enable = variantBuilder.productFlavors.containsAll(
-                listOf("default" to "dev"),
-            )
-        }
-    }
     onVariants(selector().withFlavor("default" to "standard")) {
         // Only excluding in standard flavor because this breaks
         // Layout Inspector's Compose tree

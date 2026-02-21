@@ -20,7 +20,6 @@ import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
 import kotlinx.collections.immutable.persistentListOf
 import mihon.domain.extensionrepo.interactor.GetExtensionRepoCount
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.domain.UnsortedPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -49,7 +48,6 @@ object SettingsBrowseScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val hideFeedTab by remember { Injekt.get<UiPreferences>().hideFeedTab().asState(scope) }
         val uiPreferences = remember { Injekt.get<UiPreferences>() }
-        val unsortedPreferences = remember { Injekt.get<UnsortedPreferences>() }
         // SY <--
         return listOf(
             // SY -->
@@ -77,7 +75,7 @@ object SettingsBrowseScreen : SearchableSettings {
                         subtitle = stringResource(SYMR.strings.pref_source_navigation_summery),
                     ),
                     Preference.PreferenceItem.SwitchPreference(
-                        preference = unsortedPreferences.allowLocalSourceHiddenFolders(),
+                        preference = sourcePreferences.allowLocalSourceHiddenFolders(),
                         title = stringResource(SYMR.strings.pref_local_source_hidden_folders),
                         subtitle = stringResource(SYMR.strings.pref_local_source_hidden_folders_summery),
                     ),

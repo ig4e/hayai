@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -47,7 +46,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastMap
@@ -71,6 +69,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
+import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.english.EightMuses
@@ -89,6 +88,7 @@ import exh.source.isEhBasedManga
 import exh.ui.metadata.adapters.EHentaiDescription
 import exh.ui.metadata.adapters.EightMusesDescription
 import exh.ui.metadata.adapters.HBrowseDescription
+import exh.ui.metadata.adapters.LanraragiDescription
 import exh.ui.metadata.adapters.MangaDexDescription
 import exh.ui.metadata.adapters.NHentaiDescription
 import exh.ui.metadata.adapters.PururinDescription
@@ -144,6 +144,7 @@ fun MangaScreen(
     onEditCategoryClicked: (() -> Unit)?,
     onEditFetchIntervalClicked: (() -> Unit)?,
     onMigrateClicked: (() -> Unit)?,
+    onEditNotesClicked: () -> Unit,
     // SY -->
     onMetadataViewerClicked: () -> Unit,
     onEditInfoClicked: () -> Unit,
@@ -203,6 +204,7 @@ fun MangaScreen(
             onEditCategoryClicked = onEditCategoryClicked,
             onEditIntervalClicked = onEditFetchIntervalClicked,
             onMigrateClicked = onMigrateClicked,
+            onEditNotesClicked = onEditNotesClicked,
             // SY -->
             onMetadataViewerClicked = onMetadataViewerClicked,
             onEditInfoClicked = onEditInfoClicked,
@@ -249,6 +251,7 @@ fun MangaScreen(
             onEditCategoryClicked = onEditCategoryClicked,
             onEditIntervalClicked = onEditFetchIntervalClicked,
             onMigrateClicked = onMigrateClicked,
+            onEditNotesClicked = onEditNotesClicked,
             // SY -->
             onMetadataViewerClicked = onMetadataViewerClicked,
             onEditInfoClicked = onEditInfoClicked,
@@ -305,6 +308,7 @@ private fun MangaScreenSmallImpl(
     onEditCategoryClicked: (() -> Unit)?,
     onEditIntervalClicked: (() -> Unit)?,
     onMigrateClicked: (() -> Unit)?,
+    onEditNotesClicked: () -> Unit,
     // SY -->
     onMetadataViewerClicked: () -> Unit,
     onEditInfoClicked: () -> Unit,
@@ -347,13 +351,9 @@ private fun MangaScreenSmallImpl(
     }
     // SY <--
 
-    BackHandler(onBack = {
-        if (isAnySelected) {
-            onAllChapterSelected(false)
-        } else {
-            navigateUp()
-        }
-    })
+    BackHandler(enabled = isAnySelected) {
+        onAllChapterSelected(false)
+    }
 
     Scaffold(
         topBar = {
@@ -384,12 +384,12 @@ private fun MangaScreenSmallImpl(
                 onClickEditCategory = onEditCategoryClicked,
                 onClickRefresh = onRefresh,
                 onClickMigrate = onMigrateClicked,
+                onClickEditNotes = onEditNotesClicked,
                 // SY -->
                 onClickEditInfo = onEditInfoClicked.takeIf { state.manga.favorite },
                 onClickRecommend = onRecommendClicked.takeIf { state.showRecommendationsInOverflow },
                 onClickMergedSettings = onMergedSettingsClicked.takeIf { state.manga.source == MERGED_SOURCE_ID },
                 onClickMerge = onMergeClicked.takeIf { state.showMergeInOverflow },
-                onWebViewClicked = onWebViewClicked,
                 // SY <--
                 actionModeCounter = selectedChapterCount,
                 onCancelActionMode = { onAllChapterSelected(false) },
@@ -487,32 +487,18 @@ private fun MangaScreenSmallImpl(
                             nextUpdate = nextUpdate,
                             isUserIntervalMode = state.manga.fetchInterval < 0,
                             onAddToLibraryClicked = onAddToLibraryClicked,
+                            onWebViewClicked = onWebViewClicked,
+                            onWebViewLongClicked = onWebViewLongClicked,
                             onTrackingClicked = onTrackingClicked,
                             onEditIntervalClicked = onEditIntervalClicked,
                             onEditCategory = onEditCategoryClicked,
                             // SY -->
                             onMergeClicked = onMergeClicked.takeUnless { state.showMergeInOverflow },
-                            onRecommendClicked = onRecommendClicked.takeUnless { state.showRecommendationsInOverflow },
                             // SY <--
                         )
                     }
 
                     // SY -->
-                    // Add merge with another button if needed (recommendations moved to action row)
-                    if (state.showMergeWithAnother) {
-                        item(
-                            key = MangaScreenItem.INFO_BUTTONS,
-                            contentType = MangaScreenItem.INFO_BUTTONS,
-                        ) {
-                            MangaInfoButtons(
-                                showRecommendsButton = false,
-                                showMergeWithAnotherButton = true,
-                                onRecommendClicked = onRecommendClicked,
-                                onMergeWithAnotherClicked = onMergeWithAnotherClicked,
-                            )
-                        }
-                    }
-
                     if (metadataDescription != null) {
                         item(
                             key = MangaScreenItem.METADATA_INFO,
@@ -536,15 +522,32 @@ private fun MangaScreenSmallImpl(
                             defaultExpandState = state.isFromSource,
                             description = state.manga.description,
                             tagsProvider = { state.manga.genre },
+                            notes = state.manga.notes,
                             onTagSearch = onTagSearch,
                             onCopyTagToClipboard = onCopyTagToClipboard,
+                            onEditNotes = onEditNotesClicked,
                             // SY -->
                             doSearch = onSearch,
                             searchMetadataChips = remember(state.meta, state.source.id, state.manga.genre) {
-                                SearchMetadataChips(state.meta, state.source, state.manga.genre)
+                                SearchMetadataChips(state.meta, state.source.id, state.manga.genre)
                             },
                             // SY <--
                         )
+                    }
+
+                    // SY -->
+                    if (!state.showRecommendationsInOverflow || state.showMergeWithAnother) {
+                        item(
+                            key = MangaScreenItem.INFO_BUTTONS,
+                            contentType = MangaScreenItem.INFO_BUTTONS,
+                        ) {
+                            MangaInfoButtons(
+                                showRecommendsButton = !state.showRecommendationsInOverflow,
+                                showMergeWithAnotherButton = state.showMergeWithAnother,
+                                onRecommendClicked = onRecommendClicked,
+                                onMergeWithAnotherClicked = onMergeWithAnotherClicked,
+                            )
+                        }
                     }
 
                     if (state.pagePreviewsState !is PagePreviewState.Unused && previewsRowCount > 0) {
@@ -557,6 +560,7 @@ private fun MangaScreenSmallImpl(
                             rowCount = previewsRowCount,
                         )
                     }
+                    // SY <--
 
                     item(
                         key = MangaScreenItem.CHAPTER_HEADER,
@@ -627,6 +631,7 @@ fun MangaScreenLargeImpl(
     onEditCategoryClicked: (() -> Unit)?,
     onEditIntervalClicked: (() -> Unit)?,
     onMigrateClicked: (() -> Unit)?,
+    onEditNotesClicked: () -> Unit,
     // SY -->
     onMetadataViewerClicked: () -> Unit,
     onEditInfoClicked: () -> Unit,
@@ -673,13 +678,9 @@ fun MangaScreenLargeImpl(
 
     val chapterListState = rememberLazyListState()
 
-    BackHandler(onBack = {
-        if (isAnySelected) {
-            onAllChapterSelected(false)
-        } else {
-            navigateUp()
-        }
-    })
+    BackHandler(enabled = isAnySelected) {
+        onAllChapterSelected(false)
+    }
 
     Scaffold(
         topBar = {
@@ -697,12 +698,12 @@ fun MangaScreenLargeImpl(
                 onClickEditCategory = onEditCategoryClicked,
                 onClickRefresh = onRefresh,
                 onClickMigrate = onMigrateClicked,
+                onClickEditNotes = onEditNotesClicked,
                 // SY -->
                 onClickEditInfo = onEditInfoClicked.takeIf { state.manga.favorite },
                 onClickRecommend = onRecommendClicked.takeIf { state.showRecommendationsInOverflow },
                 onClickMergedSettings = onMergedSettingsClicked.takeIf { state.manga.source == MERGED_SOURCE_ID },
                 onClickMerge = onMergeClicked.takeIf { state.showMergeInOverflow },
-                onWebViewClicked = onWebViewClicked,
                 // SY <--
                 onCancelActionMode = { onAllChapterSelected(false) },
                 actionModeCounter = selectedChapterCount,
@@ -780,76 +781,71 @@ fun MangaScreenLargeImpl(
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = contentPadding.calculateBottomPadding()),
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            MangaInfoBox(
-                                isTabletUi = true,
-                                appBarPadding = contentPadding.calculateTopPadding(),
-                                manga = state.manga,
-                                sourceName = remember { state.source.getNameForMangaInfo(state.mergedData?.sources) },
-                                isStubSource = remember { state.source is StubSource },
-                                onCoverClick = onCoverClicked,
-                                doSearch = onSearch,
-                            )
-                            MangaActionRow(
-                                favorite = state.manga.favorite,
-                                trackingCount = state.trackingCount,
-                                nextUpdate = nextUpdate,
-                                isUserIntervalMode = state.manga.fetchInterval < 0,
-                                onAddToLibraryClicked = onAddToLibraryClicked,
-                                onTrackingClicked = onTrackingClicked,
-                                onEditIntervalClicked = onEditIntervalClicked,
-                                onEditCategory = onEditCategoryClicked,
-                                // SY -->
-                                onMergeClicked = onMergeClicked.takeUnless { state.showMergeInOverflow },
-                                onRecommendClicked = onRecommendClicked.takeUnless { state.showRecommendationsInOverflow },
-                                // SY <--
-                            )
-
+                        MangaInfoBox(
+                            isTabletUi = true,
+                            appBarPadding = contentPadding.calculateTopPadding(),
+                            manga = state.manga,
+                            sourceName = remember { state.source.getNameForMangaInfo(state.mergedData?.sources) },
+                            isStubSource = remember { state.source is StubSource },
+                            onCoverClick = onCoverClicked,
+                            doSearch = onSearch,
+                        )
+                        MangaActionRow(
+                            favorite = state.manga.favorite,
+                            trackingCount = state.trackingCount,
+                            nextUpdate = nextUpdate,
+                            isUserIntervalMode = state.manga.fetchInterval < 0,
+                            onAddToLibraryClicked = onAddToLibraryClicked,
+                            onWebViewClicked = onWebViewClicked,
+                            onWebViewLongClicked = onWebViewLongClicked,
+                            onTrackingClicked = onTrackingClicked,
+                            onEditIntervalClicked = onEditIntervalClicked,
+                            onEditCategory = onEditCategoryClicked,
                             // SY -->
-                            // Add merge with another button if needed (recommendations moved to action row)
-                            if (state.showMergeWithAnother) {
-                                MangaInfoButtons(
-                                    showRecommendsButton = false,
-                                    showMergeWithAnotherButton = true,
-                                    onRecommendClicked = onRecommendClicked,
-                                    onMergeWithAnotherClicked = onMergeWithAnotherClicked,
-                                )
-                            }
-
-                            if (metadataDescription != null) {
-                                metadataDescription(
-                                    state,
-                                    onMetadataViewerClicked,
-                                ) {
-                                    onSearch(it, false)
-                                }
-                            }
+                            onMergeClicked = onMergeClicked.takeUnless { state.showMergeInOverflow },
                             // SY <--
-                            ExpandableMangaDescription(
-                                defaultExpandState = true,
-                                description = state.manga.description,
-                                tagsProvider = { state.manga.genre },
-                                onTagSearch = onTagSearch,
-                                onCopyTagToClipboard = onCopyTagToClipboard,
-                                // SY -->
-                                doSearch = onSearch,
-                                searchMetadataChips = remember(state.meta, state.source.id, state.manga.genre) {
-                                    SearchMetadataChips(state.meta, state.source, state.manga.genre)
-                                },
-                                // SY <--
-                            )
-
-                            // SY -->
-                            if (state.pagePreviewsState !is PagePreviewState.Unused && previewsRowCount > 0) {
-                                PagePreviews(
-                                    pagePreviewState = state.pagePreviewsState,
-                                    onOpenPage = onOpenPagePreview,
-                                    onMorePreviewsClicked = onMorePreviewsClicked,
-                                    rowCount = previewsRowCount,
-                                )
-                            }
-                            // SY <--
+                        )
+                        // SY -->
+                        metadataDescription?.invoke(
+                            state,
+                            onMetadataViewerClicked,
+                        ) {
+                            onSearch(it, false)
                         }
+                        // SY <--
+                        ExpandableMangaDescription(
+                            defaultExpandState = true,
+                            description = state.manga.description,
+                            tagsProvider = { state.manga.genre },
+                            notes = state.manga.notes,
+                            onTagSearch = onTagSearch,
+                            onCopyTagToClipboard = onCopyTagToClipboard,
+                            onEditNotes = onEditNotesClicked,
+                            // SY -->
+                            doSearch = onSearch,
+                            searchMetadataChips = remember(state.meta, state.source.id, state.manga.genre) {
+                                SearchMetadataChips(state.meta, state.source.id, state.manga.genre)
+                            },
+                            // SY <--
+                        )
+                        // SY -->
+                        if (!state.showRecommendationsInOverflow || state.showMergeWithAnother) {
+                            MangaInfoButtons(
+                                showRecommendsButton = !state.showRecommendationsInOverflow,
+                                showMergeWithAnotherButton = state.showMergeWithAnother,
+                                onRecommendClicked = onRecommendClicked,
+                                onMergeWithAnotherClicked = onMergeWithAnotherClicked,
+                            )
+                        }
+                        if (state.pagePreviewsState !is PagePreviewState.Unused && previewsRowCount > 0) {
+                            PagePreviews(
+                                pagePreviewState = state.pagePreviewsState,
+                                onOpenPage = onOpenPagePreview,
+                                onMorePreviewsClicked = onMorePreviewsClicked,
+                                rowCount = previewsRowCount,
+                            )
+                        }
+                        // SY <--
                     }
                 },
                 endContent = {
@@ -1094,6 +1090,9 @@ fun metadataDescription(source: Source): MetadataDescriptionComposable? {
             }
             is Tsumino -> { state, openMetadataViewer, _ ->
                 TsuminoDescription(state, openMetadataViewer)
+            }
+            is Lanraragi -> { state, openMetadataViewer, _ ->
+                LanraragiDescription(state, openMetadataViewer)
             }
             else -> null
         }

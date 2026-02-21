@@ -50,8 +50,7 @@ class MetadataViewScreen(private val mangaId: Long, private val sourceId: Long) 
                 )
             },
         ) { paddingValues ->
-            when
-                (
+            when (
                 @Suppress("NAME_SHADOWING")
                 val state = state
             ) {

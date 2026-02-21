@@ -18,8 +18,17 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
+import androidx.compose.material.icons.rounded.DisabledByDefault
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,6 +37,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,7 +47,6 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -45,16 +54,13 @@ import dev.icerock.moko.resources.StringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.toggle
-import tachiyomi.presentation.core.components.material.Checkbox
-import tachiyomi.presentation.core.components.material.CustomDropdownMenu
-import tachiyomi.presentation.core.components.material.CustomLabelTextField
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.Slider
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.collectAsState
-import tachiyomi.presentation.core.util.plus
+import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 object SettingsItemsPaddings {
     val Horizontal = 24.dp
@@ -174,7 +180,7 @@ fun SliderItem(
     label: String,
     onChange: (Int) -> Unit,
     steps: Int = with(valueRange) { (last - first) - 1 },
-    valueText: String = value.toString(),
+    valueString: String = value.toString(),
     labelStyle: TextStyle = MaterialTheme.typography.bodyMedium,
     pillColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
@@ -182,10 +188,10 @@ fun SliderItem(
         value = value,
         valueRange = valueRange,
         steps = steps,
-        label = label,
-        valueText = valueText,
+        title = label,
+        valueString = valueString,
         onChange = onChange,
-        labelStyle = labelStyle,
+        titleStyle = labelStyle,
         pillColor = pillColor,
         modifier = Modifier.padding(
             horizontal = SettingsItemsPaddings.Horizontal,
@@ -198,12 +204,14 @@ fun SliderItem(
 fun BaseSliderItem(
     value: Int,
     valueRange: IntProgression,
-    label: String,
+    title: String,
     onChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     steps: Int = with(valueRange) { (last - first) - 1 },
-    valueText: String = value.toString(),
-    labelStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+    valueString: String = value.toString(),
+    titleStyle: TextStyle = MaterialTheme.typography.titleLarge,
+    subtitleStyle: TextStyle = MaterialTheme.typography.bodySmall,
     pillColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
     val haptic = LocalHapticFeedback.current
@@ -217,13 +225,21 @@ fun BaseSliderItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         ) {
-            Text(
-                text = label,
-                style = labelStyle,
-                modifier = Modifier.weight(1f),
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = titleStyle,
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = subtitleStyle,
+                        modifier = Modifier.secondaryItemAlpha(),
+                    )
+                }
+            }
             Pill(
-                text = valueText,
+                text = valueString,
                 style = MaterialTheme.typography.bodyMedium,
                 color = pillColor,
             )
@@ -247,12 +263,16 @@ fun SliderItemPreview() {
     MaterialTheme(if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
         var value by remember { mutableIntStateOf(0) }
         Surface {
-            SliderItem(
+            BaseSliderItem(
                 value = value,
                 valueRange = 0..10,
-                label = "Item per row",
-                valueText = if (value == 0) "Auto" else value.toString(),
+                title = "Item per row",
+                valueString = if (value == 0) "Auto" else value.toString(),
                 onChange = { value = it },
+                modifier = Modifier.padding(
+                    horizontal = SettingsItemsPaddings.Horizontal,
+                    vertical = SettingsItemsPaddings.Vertical,
+                ),
             )
         }
     }
@@ -265,18 +285,53 @@ fun SelectItem(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
 ) {
-    CustomDropdownMenu(
-        items = options.toList(),
-        selectedIndex = selectedIndex,
-        onItemSelected = onSelect,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = SettingsItemsPaddings.Horizontal,
-                vertical = SettingsItemsPaddings.Vertical,
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+    ) {
+        OutlinedTextField(
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+                .padding(
+                    horizontal = SettingsItemsPaddings.Horizontal,
+                    vertical = SettingsItemsPaddings.Vertical,
+                ),
+            label = { Text(text = label) },
+            value = options[selectedIndex].toString(),
+            onValueChange = {},
+            enabled = false,
+            readOnly = true,
+            singleLine = true,
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(
+                    expanded = expanded,
+                )
+            },
+            colors = ExposedDropdownMenuDefaults.textFieldColors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
             ),
-        label = label,
-    )
+        )
+
+        ExposedDropdownMenu(
+            modifier = Modifier.exposedDropdownSize(),
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            options.forEachIndexed { index, text ->
+                DropdownMenuItem(
+                    text = { Text(text.toString()) },
+                    onClick = {
+                        onSelect(index)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -284,7 +339,7 @@ fun TriStateItem(
     label: String,
     state: TriState,
     enabled: Boolean = true,
-    onClick: ((TriState) -> Unit)? = null,
+    onClick: ((TriState) -> Unit)?,
 ) {
     Row(
         modifier = Modifier
@@ -308,26 +363,22 @@ fun TriStateItem(
     ) {
         val stateAlpha = if (enabled && onClick != null) 1f else DISABLED_ALPHA
 
-        tachiyomi.presentation.core.components.material.TriStateCheckbox(
-            state = when (state) {
-                TriState.DISABLED -> ToggleableState.Off
-                TriState.ENABLED_IS -> ToggleableState.On
-                TriState.ENABLED_NOT -> ToggleableState.Indeterminate
+        Icon(
+            imageVector = when (state) {
+                TriState.DISABLED -> Icons.Rounded.CheckBoxOutlineBlank
+                TriState.ENABLED_IS -> Icons.Rounded.CheckBox
+                TriState.ENABLED_NOT -> Icons.Rounded.DisabledByDefault
             },
-            onClick = if (onClick != null) {
-                {
-                    when (state) {
-                        TriState.DISABLED -> onClick(TriState.ENABLED_IS)
-                        TriState.ENABLED_IS -> onClick(TriState.ENABLED_NOT)
-                        TriState.ENABLED_NOT -> onClick(TriState.DISABLED)
-                    }
-                }
+            contentDescription = null,
+            tint = if (!enabled || state == TriState.DISABLED) {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = stateAlpha)
             } else {
-                null
+                when (onClick) {
+                    null -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+                    else -> MaterialTheme.colorScheme.primary
+                }
             },
-            enabled = enabled,
         )
-
         Text(
             text = label,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = stateAlpha),
@@ -338,7 +389,7 @@ fun TriStateItem(
 
 @Composable
 fun TextItem(label: String, value: String, onChange: (String) -> Unit) {
-    CustomLabelTextField(
+    OutlinedTextField(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = 4.dp),

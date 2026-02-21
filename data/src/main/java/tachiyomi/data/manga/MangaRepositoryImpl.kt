@@ -11,6 +11,7 @@ import tachiyomi.data.UpdateStrategyColumnAdapter
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
+import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.repository.MangaRepository
 import java.time.LocalDate
 import java.time.ZoneId
@@ -73,9 +74,9 @@ class MangaRepositoryImpl(
         return handler.subscribeToList { mangasQueries.getFavoriteBySourceId(sourceId, MangaMapper::mapManga) }
     }
 
-    override suspend fun getDuplicateLibraryManga(id: Long, title: String): List<Manga> {
+    override suspend fun getDuplicateLibraryManga(id: Long, title: String): List<MangaWithChapterCount> {
         return handler.awaitList {
-            mangasQueries.getDuplicateLibraryManga(title, id, MangaMapper::mapManga)
+            mangasQueries.getDuplicateLibraryManga(id, title, MangaMapper::mapMangaWithChapterCount)
         }
     }
 
@@ -105,39 +106,6 @@ class MangaRepositoryImpl(
         }
     }
 
-    override suspend fun insert(manga: Manga): Long? {
-        return handler.awaitOneOrNullExecutable(inTransaction = true) {
-            // SY -->
-            if (mangasQueries.getIdByUrlAndSource(manga.url, manga.source).executeAsOneOrNull() != null) {
-                return@awaitOneOrNullExecutable mangasQueries.getIdByUrlAndSource(manga.url, manga.source)
-            }
-            // SY <--
-            mangasQueries.insert(
-                source = manga.source,
-                url = manga.url,
-                artist = manga.artist,
-                author = manga.author,
-                description = manga.description,
-                genre = manga.genre,
-                title = manga.title,
-                status = manga.status,
-                thumbnailUrl = manga.thumbnailUrl,
-                favorite = manga.favorite,
-                lastUpdate = manga.lastUpdate,
-                nextUpdate = manga.nextUpdate,
-                calculateInterval = manga.fetchInterval.toLong(),
-                initialized = manga.initialized,
-                viewerFlags = manga.viewerFlags,
-                chapterFlags = manga.chapterFlags,
-                coverLastModified = manga.coverLastModified,
-                dateAdded = manga.dateAdded,
-                updateStrategy = manga.updateStrategy,
-                version = manga.version,
-            )
-            mangasQueries.selectLastInsertedRowId()
-        }
-    }
-
     override suspend fun update(update: MangaUpdate): Boolean {
         return try {
             partialUpdate(update)
@@ -155,6 +123,44 @@ class MangaRepositoryImpl(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             false
+        }
+    }
+
+    override suspend fun insertNetworkManga(manga: List<Manga>): List<Manga> {
+        return handler.await(inTransaction = true) {
+            manga.map {
+                mangasQueries.insertNetworkManga(
+                    source = it.source,
+                    url = it.url,
+                    // SY -->
+                    artist = it.ogArtist,
+                    author = it.ogAuthor,
+                    description = it.ogDescription,
+                    genre = it.ogGenre,
+                    title = it.ogTitle,
+                    status = it.ogStatus,
+                    thumbnailUrl = it.ogThumbnailUrl,
+                    // SY <--
+                    favorite = it.favorite,
+                    lastUpdate = it.lastUpdate,
+                    nextUpdate = it.nextUpdate,
+                    calculateInterval = it.fetchInterval.toLong(),
+                    initialized = it.initialized,
+                    viewerFlags = it.viewerFlags,
+                    chapterFlags = it.chapterFlags,
+                    coverLastModified = it.coverLastModified,
+                    dateAdded = it.dateAdded,
+                    updateStrategy = it.updateStrategy,
+                    version = it.version,
+                    // SY -->
+                    updateTitle = it.ogTitle.isNotBlank(),
+                    updateCover = !it.ogThumbnailUrl.isNullOrBlank(),
+                    // SY <--
+                    updateDetails = it.initialized,
+                    mapper = MangaMapper::mapManga,
+                )
+                    .executeAsOne()
+            }
         }
     }
 
@@ -184,6 +190,7 @@ class MangaRepositoryImpl(
                     updateStrategy = value.updateStrategy?.let(UpdateStrategyColumnAdapter::encode),
                     version = value.version,
                     isSyncing = 0,
+                    notes = value.notes,
                 )
             }
         }

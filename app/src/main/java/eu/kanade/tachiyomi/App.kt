@@ -19,6 +19,7 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
+import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.allowRgb565
 import coil3.request.crossfade
@@ -135,7 +136,8 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         // SY <--
 
         setupExhLogging() // EXH logging
-        LogcatLogger.install(XLogLogcatLogger()) // SY Redirect Logcat to XLog
+        LogcatLogger.install()
+        LogcatLogger.loggers += XLogLogcatLogger() // SY Redirect Logcat to XLog
 
         setupNotificationChannels()
 
@@ -160,7 +162,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                         val pendingIntent = PendingIntent.getBroadcast(
                             this@App,
                             0,
-                            Intent(ACTION_DISABLE_INCOGNITO_MODE),
+                            Intent(ACTION_DISABLE_INCOGNITO_MODE).setPackage(BuildConfig.APPLICATION_ID),
                             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
                         )
                         setContentIntent(pendingIntent)
@@ -266,6 +268,12 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 // SY <--
             }
 
+            memoryCache(
+                MemoryCache.Builder()
+                    .maxSizePercent(context)
+                    .build(),
+            )
+
             crossfade((300 * this@App.animatorDurationScale).toInt())
             allowRgb565(DeviceUtil.isLowRamDevice(this@App))
             if (networkPreferences.verboseLogging().get()) logger(DebugLogger())
@@ -298,8 +306,8 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 // Override the value passed as X-Requested-With in WebView requests
                 val stackTrace = Looper.getMainLooper().thread.stackTrace
                 val isChromiumCall = stackTrace.any { trace ->
-                    trace.className.equals("org.chromium.base.BuildInfo", ignoreCase = true) &&
-                        setOf("getAll", "getPackageName", "<init>").any { trace.methodName.equals(it, ignoreCase = true) }
+                    trace.className.lowercase() in setOf("org.chromium.base.buildinfo", "org.chromium.base.apkinfo") &&
+                        trace.methodName.lowercase() in setOf("getall", "getpackagename", "<init>")
                 }
 
                 if (isChromiumCall) return WebViewUtil.spoofedPackageName(applicationContext)
@@ -348,7 +356,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                             return super.generateFileName(
                                 logLevel,
                                 timestamp,
-                            ) + "-${BuildConfig.BUILD_TYPE}.log"
+                            ) + "-${BuildConfig.BUILD_TYPE}.txt"
                         }
                     }
                     flattener { timeMillis, level, tag, message ->

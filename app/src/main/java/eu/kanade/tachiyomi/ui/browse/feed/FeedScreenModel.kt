@@ -7,7 +7,6 @@ import androidx.compose.ui.util.fastAny
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.model.toDomainManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.browse.FeedItemUI
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -31,6 +30,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
@@ -251,9 +251,7 @@ open class FeedScreenModel(
 
                     val result = withIOContext {
                         itemUI.copy(
-                            results = page.map {
-                                networkToLocalManga.await(it.toDomainManga(itemUI.source!!.id))
-                            },
+                            results = networkToLocalManga(page.map { it.toDomainManga(itemUI.source!!.id) }),
                         )
                     }
 

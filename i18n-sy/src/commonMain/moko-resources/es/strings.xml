@@ -6,7 +6,7 @@
     <string name="action_edit_info">Editar información</string>
     <string name="entry_type_manhwa">Manhwa</string>
     <string name="entry_type_manhua">Manhua</string>
-    <string name="entry_type_comic">Cómico</string>
+    <string name="entry_type_comic">Historieta o cómic</string>
     <string name="pref_category_eh">E-Hentai</string>
     <string name="pref_category_mangadex">MangaDex</string>
     <string name="pref_ehentai_summary">Inicio de sesión en E/ExHentai, sincronización de galería</string>
@@ -141,7 +141,7 @@
     <string name="bandwidth_hero">Bandwidth Hero ( Requiere un servidor proxy )</string>
     <string name="wsrv">wsrv.nl</string>
     <string name="data_saver_server_summary">Pom aqui la URl del Servidor Proxy de Bandwidth Hero</string>
-    <string name="clear_db_exclude_read">Mantenga las entradas con capitulos leidos</string>
+    <string name="clear_db_exclude_read">Conservar obras con capítulos leídos</string>
     <string name="bandwidth_data_saver_server">Servidor Proxy de Bandwidth Hero</string>
     <string name="log_minimal">Minimo</string>
     <string name="log_extra">Extra</string>
@@ -628,4 +628,8 @@
     <string name="rec_hide_library_entries">Ocultar elementos que ya estén en la biblioteca</string>
     <string name="pref_tracker_resolve_using_source_metadata_summary">Encuentra el título automáticamente si la fuente ya enlaza con el servicio de seguimiento. De momento solo funciona en MangaDex</string>
     <string name="pref_tracker_resolve_using_source_metadata">Elegir títulos a través de los metadatos de la fuente</string>
+    <string name="scan_qr_code">Escanear un código QR</string>
+    <string name="final_chapter">Capítulo final</string>
+    <string name="file_extension">Extensión de archivo</string>
+    <string name="base_url">URL base</string>
 </resources>

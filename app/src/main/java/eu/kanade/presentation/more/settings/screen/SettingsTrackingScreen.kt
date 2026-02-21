@@ -30,8 +30,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -60,11 +63,10 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
-import tachiyomi.presentation.core.components.material.CustomTextField
+import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import tachiyomi.presentation.core.components.material.padding
 
 object SettingsTrackingScreen : SearchableSettings {
 
@@ -228,21 +230,26 @@ object SettingsTrackingScreen : SearchableSettings {
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CustomTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = username.text,
-                        onValueChange = { username = TextFieldValue(it) },
-                        labelText = stringResource(uNameStringRes),
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentType = ContentType.Username + ContentType.EmailAddress },
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text(text = stringResource(uNameStringRes)) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         singleLine = true,
+                        isError = inputError && !processing,
                     )
 
                     var hidePassword by remember { mutableStateOf(true) }
-                    CustomTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = password.text,
-                        onValueChange = { password = TextFieldValue(it) },
-                        labelText = stringResource(MR.strings.password),
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentType = ContentType.Password },
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text(text = stringResource(MR.strings.password)) },
                         trailingIcon = {
                             IconButton(onClick = { hidePassword = !hidePassword }) {
                                 Icon(
@@ -265,6 +272,7 @@ object SettingsTrackingScreen : SearchableSettings {
                             imeAction = ImeAction.Done,
                         ),
                         singleLine = true,
+                        isError = inputError && !processing,
                     )
                 }
             },
@@ -287,7 +295,7 @@ object SettingsTrackingScreen : SearchableSettings {
                         }
                     },
                 ) {
-                    val id = if (processing) MR.strings.loading else MR.strings.login
+                    val id = if (processing) MR.strings.logging_in else MR.strings.login
                     Text(text = stringResource(id))
                 }
             },
