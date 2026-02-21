@@ -1,5 +1,5 @@
 name: 🐞 Issue report
-description: Report an issue in TachiyomiSY
+description: Report an issue in Hayai
 labels: [Bug]
 body:
 
@@ -48,10 +48,10 @@ body:
         You can upload the crash log file as an attachment, or paste the crash logs in plain text if needed.
 
   - type: input
-    id: tachiyomisy-version
+    id: hayai-version
     attributes:
-      label: TachiyomiSY version
-      description: You can find your TachiyomiSY version in **More → About**.
+      label: Hayai version
+      description: You can find your Hayai version in **More → About**.
       placeholder: |
         Example: "1.11.0"
     validations:
@@ -96,7 +96,7 @@ body:
           required: true
         - label: I have gone through the [FAQ](https://mihon.app/docs/faq/general) and [troubleshooting guide](https://mihon.app/docs/guides/troubleshooting/).
           required: true
-        - label: I have updated the app to version **[1.11.0](https://github.com/jobobby04/tachiyomisy/releases/latest)**.
+        - label: I have updated the app to version **[1.0.6](https://github.com/ig4e/hayai/releases/latest)**.
           required: true
         - label: I have filled out all of the requested information in this form, including specific version numbers.
           required: true

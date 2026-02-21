@@ -564,7 +564,7 @@
     <string name="gallery_updater_stats_time">\nGalerien, die in den letzten Zeiträumen geprüft wurden:\n- Stunde: %1$d\n- 6 Stunden: %2$d\n- 12 Stunden: %3$d\n- Tag: %4$d\n- 2 Tage: %5$d\n- Woche: %6$d\n- Monat: %7$d\n- Jahr: %8$d</string>
     <string name="gallery_updater_stats_text">Der Updater hat zuletzt %1$s ausgeführt und %2$d der %3$d Galerien geprüft, die zur Prüfung bereit waren.</string>
     <string name="pref_archive_reader_mode_summary">Art und Weise, wie Bilder innerhalb von Archiven wie CBZ oder CBR geladen werden</string>
-    <string name="redundant_extension_message">Diese Erweiterung ist redundant und wird in dieser Version von Tachiyomi nicht verwendet.</string>
+    <string name="redundant_extension_message">Diese Erweiterung ist redundant und wird in dieser Version von Hayai nicht verwendet.</string>
     <string name="delete_tag_confirmation">Möchten Sie den Tag %s löschen?</string>
     <string name="favorites_sync_done_errors_message">Während des Synchronisierungsvorgangs sind Fehler aufgetreten, die ignoriert wurden:\n%1$s</string>
     <string name="favorites_sync_gallery_multiple_categories_error">Galerie %1$d ist in mehreren Kategorien!</string>
@@ -604,4 +604,25 @@
     <string name="disable_favorites_uploading_summary">Favoriten werden nur von ExHentai heruntergeladen. Alle Änderungen an den Favoriten in der App werden nicht hochgeladen. Verhindert den versehentlichen Verlust von Favoriten auf ExHentai. Beachten Sie, dass entfernte Favoriten weiterhin heruntergeladen werden (wenn Sie einen Favoriten auf ExHentai entfernen, wird er auch in der App entfernt).</string>
     <string name="action_add_tags_message">Wichtig! Tags müssen exakt sein, es gibt keine Teilübereinstimmungen, Sie können nicht netorare verwenden, um female:netorare oder ähnliches herauszufiltern!\nDer Stil für Namespace-Tags ist\n„female: sole female“\nohne Anführungszeichen!\nDas Hinzufügen mehrerer Varianten desselben Tags wird unterstützt, Sie können also „tag: netorare“ für NHentai und „female: netorare“ für E-Hentai verwenden!</string>
     <string name="favorites_sync_notes_message"><![CDATA[1. Änderungen an Kategorienamen in der App werden <b>NICHT</b> synchronisiert! Bitte <i>ändern Sie stattdessen die Kategorienamen auf ExHentai</i>. Die Kategorienamen werden bei jeder Synchronisierung von den ExHentai-Servern kopiert.<br><br>2. Die Favoritenkategorien auf ExHentai entsprechen den <b>ersten 10 Kategorien in der App</b> (ausgenommen die Kategorie \'Standard\'). <i>Galerien in anderen Kategorien werden <b>NICHT</b> synchronisiert!</i><br><br>3. <font color=\'red\'><b>STELLEN SIE SICHER, DASS SIE WÄHREND DER SYNCHRONISATION EINE STABILE INTERNETVERBINDUNG HABEN!</b></font> Wenn die Internetverbindung während der Synchronisierung der App unterbrochen wird, bleiben Ihre Favoriten möglicherweise in einem <i>teilweise synchronisierten Zustand</i>.<br><br>4. Lassen Sie die App geöffnet, während die Favoriten synchronisiert werden. Android schließt manchmal Apps, die im Hintergrund laufen, und das kann problematisch sein, wenn es passiert, während die App synchronisiert wird.<br><br>5. <b>Legen Sie Favoriten NICHT in mehrere Kategorien</b> (die App unterstützt dies). Dies kann den Synchronisierungsalgorithmus verwirren, da ExHentai jedem Favoriten nur eine Kategorie zulässt.<br><br>Dieses Dialogfeld wird nur einmal angezeigt. Sie können diese Hinweise erneut lesen, indem Sie zu \'Einstellungen > E-Hentai > Synchronisierungshinweise für Favoriten anzeigen\' gehen.]]></string>
+
+    <string name="pref_tracker_resolve_using_source_metadata">Wählen Sie Einträge anhand der Quellmetadaten aus</string>
+    <string name="pref_tracker_resolve_using_source_metadata_summary">Wählt automatisch den passenden Titel aus, wenn die Quelle Links zu Trackern bereitstellt. Wird derzeit von MangaDex unterstützt</string>
+    <string name="force_preload_ahead">Vorspannung vorantreiben</string>
+    <string name="force_preload_ahead_summary">Laden Sie unabhängig von der aktuellen Leseposition immer den nächsten Seitensatz vor, um ein reibungsloseres Lesen zu gewährleisten</string>
+    <string name="az_recommends_short">Empf</string>
+    <string name="rec_search">Finden Sie allgemeine Empfehlungen</string>
+    <string name="rec_hide_library_entries">Verstecken Sie Ergebnisse, die sich bereits in Ihrer Bibliothek befinden</string>
+    <string name="rec_services_to_search">Empfehlungsdienste zur Suche</string>
+    <string name="rec_group_source">Quellenempfehlungen</string>
+    <string name="rec_group_tracker">Tracker-Empfehlungen</string>
+    <string name="rec_common_recommendations">Allgemeine Empfehlungen</string>
+    <string name="rec_search_short">Finden Sie Empfehlungen</string>
+    <string name="rec_no_results">Keine Empfehlungen gefunden</string>
+    <string name="rec_error_title">Die Suche ist fehlgeschlagen</string>
+    <string name="rec_error_string">Beim Suchvorgang ist ein Fehler aufgetreten: %1$s</string>
+    <string name="rec_processing_state">Eintrag %1$d von %2$d wird bearbeitet</string>
+    <string name="rec_collecting">Empfehlungen sammeln</string>
+    <string name="rec_initializing">Initialisierung</string>
+    <string name="force_preload_ahead">Vorspannung vorantreiben</string>
+    <string name="force_preload_ahead_summary">Laden Sie unabhängig von der aktuellen Leseposition immer den nächsten Seitensatz vor, um ein reibungsloseres Lesen zu gewährleisten</string>
 </resources>

@@ -411,6 +411,9 @@
                 <data
                     android:host="mangadex-auth"
                     android:scheme="tachiyomisy" />
+                <data
+                    android:host="mangadex-auth"
+                    android:scheme="hayai" />
             </intent-filter>
         </activity>
     </application>

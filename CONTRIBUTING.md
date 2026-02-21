@@ -9,7 +9,7 @@ Thanks for your interest in contributing to Tachiyomi!
 
 Pull requests are welcome!
 
-If you're interested in taking on [an open issue](https://github.com/jobobby04/TachiyomiSY/issues), please comment on it so others are aware.
+If you're interested in taking on [an open issue](https://github.com/ig4e/hayai/issues), please comment on it so others are aware.
 You do not need to ask for permission nor an assignment.
 
 ## Prerequisites

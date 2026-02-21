@@ -23,6 +23,8 @@ object MdConstants {
     object Login {
         const val redirectUri = "tachiyomisy://mangadex-auth"
         const val clientId = "tachiyomisy"
+        const val hayaiRedirectUri = "hayai://mangadex-auth"
+        const val hayaiClientId = "hayai"
         const val authorizationCode = "authorization_code"
         const val refreshToken = "refresh_token"
 
