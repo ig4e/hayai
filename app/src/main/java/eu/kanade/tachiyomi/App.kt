@@ -93,17 +93,12 @@ import uy.kohesive.injekt.injectLazy
 import java.security.Security
 import java.text.SimpleDateFormat
 import java.util.Locale
-import mihon.domain.extensionrepo.interactor.CreateExtensionRepo
-import kotlinx.coroutines.launch
-import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
-import kotlinx.coroutines.GlobalScope
 
 class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory {
 
     private val basePreferences: BasePreferences by injectLazy()
     private val privacyPreferences: PrivacyPreferences by injectLazy()
     private val networkPreferences: NetworkPreferences by injectLazy()
-    private val appUpdateChecker: AppUpdateChecker by injectLazy()
 
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 
@@ -211,21 +206,6 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         }
 
         initializeMigrator()
-
-        // SY -->
-        // Check for updates
-        if (BuildConfig.INCLUDE_UPDATER) {
-            scope.launch {
-                try {
-                    appUpdateChecker.checkForUpdate(this@App)
-                } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Failed to check for updates" }
-                }
-            }
-        }
-
-        setupExtensionRepo()
-        // SY <--
     }
 
     private fun initializeMigrator() {
@@ -418,20 +398,6 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             }
         }
     }
-
-    // SY -->
-    private fun setupExtensionRepo() {
-        ProcessLifecycleOwner.get().lifecycleScope.launch {
-            try {
-                val createExtensionRepo = Injekt.get<CreateExtensionRepo>()
-                val keiyoushiRepoUrl = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json"
-                createExtensionRepo.await(keiyoushiRepoUrl)
-            } catch (e: Exception) {
-                // Silently fail if repo already exists or there's another issue
-            }
-        }
-    }
-    // SY <--
 }
 
 private const val ACTION_DISABLE_INCOGNITO_MODE = "tachi.action.DISABLE_INCOGNITO_MODE"

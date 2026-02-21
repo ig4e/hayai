@@ -64,7 +64,6 @@ import exh.source.MERGED_SOURCE_ID
 import exh.source.getMainSource
 import exh.ui.ifSourcesLoaded
 import exh.ui.metadata.MetadataViewScreen
-import exh.ui.metadata.MangaMetadataScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.flow.launchIn
@@ -481,7 +480,7 @@ class MangaScreen(
     // SY -->
 
     private fun openMetadataViewer(navigator: Navigator, manga: Manga) {
-        navigator.push(exh.ui.metadata.MangaMetadataScreen(manga.id, manga.source))
+        navigator.push(MetadataViewScreen(manga.id, manga.source))
     }
 
     private fun openMergedMangaWebview(context: Context, navigator: Navigator, mergedMangaData: MergedMangaData) {

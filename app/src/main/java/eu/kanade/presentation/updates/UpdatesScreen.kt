@@ -32,7 +32,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
-import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -152,42 +151,39 @@ private fun UpdatesAppBar(
         modifier = modifier,
         title = stringResource(MR.strings.label_recent_updates),
         actions = {
-            if (actionModeCounter > 0) {
-                // Action mode
-                AppBarActions(
-                    persistentListOf(
-                        AppBar.Action(
-                            title = stringResource(MR.strings.action_select_all),
-                            icon = Icons.Outlined.SelectAll,
-                            onClick = onSelectAll,
-                        ),
-                        AppBar.Action(
-                            title = stringResource(MR.strings.action_select_inverse),
-                            icon = Icons.Outlined.FlipToBack,
-                            onClick = onInvertSelection,
-                        ),
+            AppBarActions(
+                persistentListOf(
+                    AppBar.Action(
+                        title = stringResource(MR.strings.action_view_upcoming),
+                        icon = Icons.Outlined.CalendarMonth,
+                        onClick = onCalendarClicked,
                     ),
-                )
-            } else {
-                // Normal mode
-                AppBarActions(
-                    persistentListOf(
-                        AppBar.Action(
-                            title = stringResource(MR.strings.action_view_upcoming),
-                            icon = Icons.Outlined.CalendarMonth,
-                            onClick = onCalendarClicked,
-                        ),
-                        AppBar.Action(
-                            title = stringResource(MR.strings.action_update_library),
-                            icon = Icons.Outlined.Refresh,
-                            onClick = onUpdateLibrary,
-                        ),
+                    AppBar.Action(
+                        title = stringResource(MR.strings.action_update_library),
+                        icon = Icons.Outlined.Refresh,
+                        onClick = onUpdateLibrary,
                     ),
-                )
-            }
+                ),
+            )
         },
-        isActionMode = actionModeCounter > 0,
+        actionModeCounter = actionModeCounter,
         onCancelActionMode = onCancelActionMode,
+        actionModeActions = {
+            AppBarActions(
+                persistentListOf(
+                    AppBar.Action(
+                        title = stringResource(MR.strings.action_select_all),
+                        icon = Icons.Outlined.SelectAll,
+                        onClick = onSelectAll,
+                    ),
+                    AppBar.Action(
+                        title = stringResource(MR.strings.action_select_inverse),
+                        icon = Icons.Outlined.FlipToBack,
+                        onClick = onInvertSelection,
+                    ),
+                ),
+            )
+        },
         scrollBehavior = scrollBehavior,
     )
 }

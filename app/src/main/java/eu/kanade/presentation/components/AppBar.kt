@@ -63,39 +63,69 @@ const val SEARCH_DEBOUNCE_MILLIS = 250L
 @Composable
 fun AppBar(
     title: String?,
+
     modifier: Modifier = Modifier,
+    backgroundColor: Color? = null,
+    // Text
+    subtitle: String? = null,
+    // Up button
     navigateUp: (() -> Unit)? = null,
     navigationIcon: ImageVector? = null,
+    // Menu
     actions: @Composable RowScope.() -> Unit = {},
-    scrollBehavior: TopAppBarScrollBehavior? = null,
-    backgroundColor: Color? = null,
-    isActionMode: Boolean = false,
+    // Action mode
+    actionModeCounter: Int = 0,
     onCancelActionMode: () -> Unit = {},
+    actionModeActions: @Composable RowScope.() -> Unit = {},
+
+    scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
+    val isActionMode by remember(actionModeCounter) {
+        derivedStateOf { actionModeCounter > 0 }
+    }
+
     AppBar(
         modifier = modifier,
-        titleContent = { AppBarTitle(title) },
+        backgroundColor = backgroundColor,
+        titleContent = {
+            if (isActionMode) {
+                AppBarTitle(actionModeCounter.toString())
+            } else {
+                AppBarTitle(title, subtitle = subtitle)
+            }
+        },
         navigateUp = navigateUp,
         navigationIcon = navigationIcon,
-        actions = actions,
-        scrollBehavior = scrollBehavior,
-        backgroundColor = backgroundColor,
+        actions = {
+            if (isActionMode) {
+                actionModeActions()
+            } else {
+                actions()
+            }
+        },
         isActionMode = isActionMode,
         onCancelActionMode = onCancelActionMode,
+        scrollBehavior = scrollBehavior,
     )
 }
 
 @Composable
 fun AppBar(
+    // Title
     titleContent: @Composable () -> Unit,
+
     modifier: Modifier = Modifier,
+    backgroundColor: Color? = null,
+    // Up button
     navigateUp: (() -> Unit)? = null,
     navigationIcon: ImageVector? = null,
+    // Menu
     actions: @Composable RowScope.() -> Unit = {},
-    scrollBehavior: TopAppBarScrollBehavior? = null,
-    backgroundColor: Color? = null,
+    // Action mode
     isActionMode: Boolean = false,
     onCancelActionMode: () -> Unit = {},
+
+    scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
     Column(
         modifier = modifier,
@@ -121,9 +151,8 @@ fun AppBar(
             actions = actions,
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = backgroundColor ?: MaterialTheme.colorScheme.surfaceColorAtElevation(
-                    elevation = if (isActionMode) 1.dp else 0.dp,
+                    elevation = if (isActionMode) 3.dp else 0.dp,
                 ),
-                scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
             ),
             scrollBehavior = scrollBehavior,
         )

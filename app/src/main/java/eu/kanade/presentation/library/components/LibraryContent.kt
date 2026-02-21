@@ -66,7 +66,7 @@ fun LibraryContent(
                     pagerState.scrollToPage(categories.size - 1)
                 }
             }
-            LibraryCategoryTabs(
+            LibraryTabs(
                 categories = categories,
                 pagerState = pagerState,
                 getItemCountForCategory = getItemCountForCategory,

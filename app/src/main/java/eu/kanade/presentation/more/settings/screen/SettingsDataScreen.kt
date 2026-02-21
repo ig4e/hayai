@@ -7,25 +7,21 @@ import android.net.Uri
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MultiChoiceSegmentedButtonRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -44,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -97,7 +92,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import tachiyomi.presentation.core.components.material.Checkbox
 
 object SettingsDataScreen : SearchableSettings {
 
@@ -238,64 +232,38 @@ object SettingsDataScreen : SearchableSettings {
                 ) {
                     BasePreferenceWidget(
                         subcomponent = {
-                            Column(
+                            MultiChoiceSegmentedButtonRow(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .height(intrinsicSize = IntrinsicSize.Min)
                                     .padding(horizontal = PrefsHorizontalPadding),
                             ) {
-                                Text(
-                                    text = stringResource(MR.strings.backup_info),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = 12.dp),
-                                )
-
-                                MultiChoiceSegmentedButtonRow(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(intrinsicSize = IntrinsicSize.Min),
+                                SegmentedButton(
+                                    modifier = Modifier.fillMaxHeight(),
+                                    checked = false,
+                                    onCheckedChange = { navigator.push(CreateBackupScreen()) },
+                                    shape = SegmentedButtonDefaults.itemShape(0, 2),
                                 ) {
-                                    SegmentedButton(
-                                        modifier = Modifier.fillMaxHeight(),
-                                        checked = false,
-                                        onCheckedChange = { navigator.push(CreateBackupScreen()) },
-                                        shape = SegmentedButtonDefaults.itemShape(0, 2),
-                                        colors = SegmentedButtonDefaults.colors(
-                                            activeContainerColor = MaterialTheme.colorScheme.primary,
-                                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                                        ),
-                                    ) {
-                                        Text(
-                                            text = stringResource(MR.strings.pref_create_backup),
-                                            style = MaterialTheme.typography.labelLarge,
-                                        )
-                                    }
-                                    SegmentedButton(
-                                        modifier = Modifier.fillMaxHeight(),
-                                        checked = false,
-                                        onCheckedChange = {
-                                            if (!BackupRestoreJob.isRunning(context)) {
-                                                if (DeviceUtil.isMiui && DeviceUtil.isMiuiOptimizationDisabled()) {
-                                                    context.toast(MR.strings.restore_miui_warning)
-                                                }
-
-                                                // no need to catch because it's wrapped with a chooser
-                                                chooseBackup.launch("*/*")
-                                            } else {
-                                                context.toast(MR.strings.restore_in_progress)
+                                    Text(stringResource(MR.strings.pref_create_backup))
+                                }
+                                SegmentedButton(
+                                    modifier = Modifier.fillMaxHeight(),
+                                    checked = false,
+                                    onCheckedChange = {
+                                        if (!BackupRestoreJob.isRunning(context)) {
+                                            if (DeviceUtil.isMiui && DeviceUtil.isMiuiOptimizationDisabled()) {
+                                                context.toast(MR.strings.restore_miui_warning)
                                             }
-                                        },
-                                        shape = SegmentedButtonDefaults.itemShape(1, 2),
-                                        colors = SegmentedButtonDefaults.colors(
-                                            activeContainerColor = MaterialTheme.colorScheme.primary,
-                                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                                        ),
-                                    ) {
-                                        Text(
-                                            text = stringResource(MR.strings.pref_restore_backup),
-                                            style = MaterialTheme.typography.labelLarge,
-                                        )
-                                    }
+
+                                            // no need to catch because it's wrapped with a chooser
+                                            chooseBackup.launch("*/*")
+                                        } else {
+                                            context.toast(MR.strings.restore_in_progress)
+                                        }
+                                    },
+                                    shape = SegmentedButtonDefaults.itemShape(1, 2),
+                                ) {
+                                    Text(stringResource(MR.strings.pref_restore_backup))
                                 }
                             }
                         },
@@ -303,27 +271,6 @@ object SettingsDataScreen : SearchableSettings {
                 },
 
                 // Automatic backups
-                Preference.PreferenceItem.CustomPreference(
-                    title = stringResource(MR.strings.pref_backup_interval),
-                ) {
-                    BasePreferenceWidget(
-                        subcomponent = {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = PrefsHorizontalPadding),
-                            ) {
-                                Text(
-                                    text = stringResource(MR.strings.backup_info),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = 8.dp),
-                                )
-                            }
-                        },
-                    )
-                },
-
                 Preference.PreferenceItem.ListPreference(
                     preference = backupPreferences.backupInterval(),
                     entries = persistentMapOf(
@@ -341,7 +288,8 @@ object SettingsDataScreen : SearchableSettings {
                     },
                 ),
                 Preference.PreferenceItem.InfoPreference(
-                    stringResource(MR.strings.last_auto_backup_info, relativeTimeSpanString(lastAutoBackup)),
+                    stringResource(MR.strings.backup_info) + "\n\n" +
+                        stringResource(MR.strings.last_auto_backup_info, relativeTimeSpanString(lastAutoBackup)),
                 ),
             ),
         )
@@ -367,32 +315,12 @@ object SettingsDataScreen : SearchableSettings {
             title = stringResource(MR.strings.pref_storage_usage),
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.CustomPreference(
-                    title = "", // Empty string instead of null
+                    title = stringResource(MR.strings.pref_storage_usage),
                 ) {
                     BasePreferenceWidget(
                         subcomponent = {
-                            Spacer(modifier = Modifier.height(8.dp))
                             StorageInfo(
                                 modifier = Modifier.padding(horizontal = PrefsHorizontalPadding),
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                        },
-                    )
-                },
-
-                // Cache section with improved visual separation
-                Preference.PreferenceItem.CustomPreference(
-                    title = stringResource(MR.strings.pref_cache_management),
-                ) {
-                    BasePreferenceWidget(
-                        subcomponent = {
-                            Text(
-                                text = stringResource(MR.strings.pref_cache_management_info),
-                                modifier = Modifier
-                                    .padding(horizontal = PrefsHorizontalPadding)
-                                    .padding(bottom = 8.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         },
                     )
@@ -499,30 +427,8 @@ object SettingsDataScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.export),
             preferenceItems = persistentListOf(
-                Preference.PreferenceItem.CustomPreference(
-                    title = stringResource(MR.strings.export),
-                ) {
-                    BasePreferenceWidget(
-                        subcomponent = {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = PrefsHorizontalPadding),
-                            ) {
-                                Text(
-                                    text = stringResource(MR.strings.export_as_csv),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = 8.dp),
-                                )
-                            }
-                        },
-                    )
-                },
-
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.library_list),
-                    subtitle = stringResource(MR.strings.export_as_csv),
                     onClick = { showDialog = true },
                 ),
             ),
@@ -542,30 +448,12 @@ object SettingsDataScreen : SearchableSettings {
         AlertDialog(
             onDismissRequest = onDismissRequest,
             title = {
-                Text(
-                    text = stringResource(MR.strings.migration_dialog_what_to_include),
-                    style = MaterialTheme.typography.titleLarge,
-                )
+                Text(text = stringResource(MR.strings.migration_dialog_what_to_include))
             },
             text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(MR.strings.export_as_csv),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        tachiyomi.presentation.core.components.material.Checkbox(
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
                             checked = titleSelected,
                             onCheckedChange = { checked ->
                                 titleSelected = checked
@@ -574,58 +462,26 @@ object SettingsDataScreen : SearchableSettings {
                                     artistSelected = false
                                 }
                             },
-                            modifier = Modifier.padding(end = 16.dp),
                         )
-                        Text(
-                            text = stringResource(MR.strings.title),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                        Text(text = stringResource(MR.strings.title))
                     }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .padding(start = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        tachiyomi.presentation.core.components.material.Checkbox(
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
                             checked = authorSelected,
                             onCheckedChange = { authorSelected = it },
                             enabled = titleSelected,
-                            modifier = Modifier.padding(end = 16.dp),
                         )
-                        Text(
-                            text = stringResource(MR.strings.author),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (titleSelected)
-                                MaterialTheme.colorScheme.onSurface
-                            else
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                        )
+                        Text(text = stringResource(MR.strings.author))
                     }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .padding(start = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        tachiyomi.presentation.core.components.material.Checkbox(
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
                             checked = artistSelected,
                             onCheckedChange = { artistSelected = it },
                             enabled = titleSelected,
-                            modifier = Modifier.padding(end = 16.dp),
                         )
-                        Text(
-                            text = stringResource(MR.strings.artist),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (titleSelected)
-                                MaterialTheme.colorScheme.onSurface
-                            else
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                        )
+                        Text(text = stringResource(MR.strings.artist))
                     }
                 }
             },
@@ -641,31 +497,15 @@ object SettingsDataScreen : SearchableSettings {
                         )
                         onDismissRequest()
                     },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary,
-                    ),
                 ) {
-                    Text(
-                        text = stringResource(MR.strings.action_save),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                    Text(text = stringResource(MR.strings.action_save))
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = onDismissRequest,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                ) {
-                    Text(
-                        text = stringResource(MR.strings.action_cancel),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                TextButton(onClick = onDismissRequest) {
+                    Text(text = stringResource(MR.strings.action_cancel))
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
         )
     }
 

@@ -102,7 +102,6 @@ import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
-import tachiyomi.domain.download.service.DownloadPreferences
 
 object SettingsAdvancedScreen : SearchableSettings {
 
@@ -173,7 +172,8 @@ object SettingsAdvancedScreen : SearchableSettings {
             getDownloadsGroup(downloadPreferences = downloadPreferences),
             getReaderGroup(basePreferences = basePreferences),
             getExtensionsGroup(basePreferences = basePreferences),
-            getDownloaderGroup(),
+            // SY -->
+            // getDownloaderGroup(),
             getDataSaverGroup(),
             getDeveloperToolsGroup(),
             // SY <--
@@ -582,7 +582,6 @@ object SettingsAdvancedScreen : SearchableSettings {
     private fun getDownloaderGroup(): Preference.PreferenceGroup {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
-        val downloadPreferences = remember { Injekt.get<DownloadPreferences>() }
         var dialogOpen by remember { mutableStateOf(false) }
         if (dialogOpen) {
             CleanupDownloadsDialog(
@@ -594,73 +593,63 @@ object SettingsAdvancedScreen : SearchableSettings {
                     job = scope.launchNonCancellable {
                         val mangaList = Injekt.get<GetAllManga>().await()
                         val downloadManager: DownloadManager = Injekt.get()
-                        val sourceManager: SourceManager = Injekt.get()
                         var foldersCleared = 0
+                        Injekt.get<SourceManager>().getOnlineSources().forEach { source ->
+                            val mangaFolders = downloadManager.getMangaFolders(source)
+                            val sourceManga = mangaList
+                                .asSequence()
+                                .filter { it.source == source.id }
+                                .map { it to DiskUtil.buildValidFilename(it.ogTitle) }
+                                .toList()
 
-                        mangaList.forEach { manga ->
-                            val source = sourceManager.get(manga.source)
-                            if (source != null) {
-                                if (!manga.favorite && removeNonFavorite) {
-                                    downloadManager.deleteManga(manga, source)
-                                    foldersCleared++ // Increment counter after deletion
+                            mangaFolders.forEach mangaFolder@{ mangaFolder ->
+                                val manga =
+                                    sourceManga.find { (_, folderName) ->
+                                        folderName == mangaFolder.name
+                                    }?.first
+                                if (manga == null) {
+                                    // download is orphaned delete it
+                                    foldersCleared += 1 + (
+                                        mangaFolder.listFiles()
+                                            .orEmpty().size
+                                        )
+                                    mangaFolder.delete()
                                 } else {
-                                    val chapters = Injekt.get<GetChaptersByMangaId>().await(manga.id)
-
-                                    if (removeRead) {
-                                        val readChapters = chapters.filter { it.read }
-                                        if (readChapters.isNotEmpty()) {
-                                            downloadManager.deleteChapters(readChapters, manga, source)
-                                            foldersCleared += readChapters.size
-                                        }
-                                    }
+                                    val chapterList = Injekt.get<GetChaptersByMangaId>().await(manga.id)
+                                    foldersCleared += downloadManager.cleanupChapters(
+                                        chapterList,
+                                        manga,
+                                        source,
+                                        removeRead,
+                                        removeNonFavorite,
+                                    )
                                 }
                             }
                         }
-
                         withUIContext {
-                            context.toast(
-                                context.resources.getString(
-                                    R.string.cleanup_completed,
-                                    foldersCleared,
-                                ),
-                            )
+                            val cleanupString =
+                                if (foldersCleared == 0) {
+                                    context.stringResource(SYMR.strings.no_folders_to_cleanup)
+                                } else {
+                                    context.pluralStringResource(
+                                        SYMR.plurals.cleanup_done,
+                                        foldersCleared,
+                                        foldersCleared,
+                                    )
+                                }
+                            context.toast(cleanupString, Toast.LENGTH_LONG)
                         }
                     }
                 },
             )
         }
-
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.label_download),
+            title = stringResource(MR.strings.download_notifier_downloader_title),
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(SYMR.strings.clean_up_downloaded_chapters),
                     subtitle = stringResource(SYMR.strings.delete_unused_chapters),
                     onClick = { dialogOpen = true },
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = downloadPreferences.numberOfDownloaders(),
-                    title = stringResource(MR.strings.pref_download_threads),
-                    subtitle = stringResource(MR.strings.concurrent_downloads_per_source) + " - " + stringResource(MR.strings.affects_chapter_download_speed),
-                    entries = (1..10).associateWith { it.toString() }.toImmutableMap(),
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = downloadPreferences.numberOfPageDownloaders(),
-                    title = stringResource(MR.strings.pref_download_threads_per_source),
-                    subtitle = stringResource(MR.strings.concurrent_page_downloads_per_source) + " - " + stringResource(MR.strings.affects_page_download_speed),
-                    entries = listOf(2, 4, 6, 8, 10, 12, 16, 20)
-                        .associateWith { it.toString() }
-                        .toImmutableMap(),
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = downloadPreferences.numberOfConcurrentSources(),
-                    title = stringResource(MR.strings.pref_concurrent_sources),
-                    subtitle = stringResource(MR.strings.concurrent_sources_summary),
-                    entries = (1..10).associateWith { it.toString() }.toImmutableMap(),
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.download_settings_info),
-                    subtitle = stringResource(MR.strings.download_settings_info_summary),
                 ),
             ),
         )
