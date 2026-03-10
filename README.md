@@ -1,16 +1,16 @@
-| Release Builds | Mihon Support Server |
+| Release Builds | Hayai Community |
 |----------|----------|
 | [![stable release](https://img.shields.io/github/release/ig4e/hayai.svg?maxAge=3600&label=download)](https://github.com/ig4e/hayai/releases/latest) | [![Discord](https://img.shields.io/discord/1195734228319617024.svg?label=discord&labelColor=7289da&color=2c2f33&style=flat)](https://discord.gg/mihon) |
 
 
 # ![app icon](./.github/readme-images/app-icon.png)Hayai
-Mihon is a free and open source manga reader for Android 6.0 and above. Hayai is a fork focused on usability and features while staying close to upstream so updates are easier to adopt.
+Hayai is a free and open source manga reader for Android 6.0 and above. It is a Mihon-based fork focused on usability and features while staying close to upstream so updates are easier to adopt.
 
 ![screenshots of app](./.github/readme-images/screens.png)
 
 ## Features
 
-Features of Mihon(original) include:
+Core features inherited from upstream include:
 * Online reading from a variety of sources
 * Local reading of downloaded content
 * A configurable reader with multiple viewers, reading directions and other settings.
@@ -80,7 +80,7 @@ Please make sure to read the full guidelines. Your issue may be closed without w
 
 <details><summary>Issues</summary>
 
-1. **Before reporting a new issue, take a look at the [FAQ](https://mihon.app/docs/faq/general), the [changelog](https://github.com/ig4e/hayai/releases) and the already opened [issues](https://github.com/ig4e/hayai/issues).**
+1. **Before reporting a new issue, review the [README](https://github.com/ig4e/hayai#faq), the [changelog](https://github.com/ig4e/hayai/releases), and the already opened [issues](https://github.com/ig4e/hayai/issues).**
 2. If you are unsure, ask here: [![Discord](https://img.shields.io/discord/1195734228319617024.svg)](https://discord.gg/mihon)
 
 </details>
@@ -119,5 +119,5 @@ See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
 ## FAQ
 
-[See our website.](https://mihon.app/)
-You can also reach out to us on [Discord](https://discord.gg/mihon).
+Project updates live on [GitHub](https://github.com/ig4e/hayai).
+You can also reach out on [Discord](https://discord.gg/mihon).

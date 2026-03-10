@@ -27,7 +27,7 @@ data class Release(
 
         return assets.find { it.contains("hayai$apkVariant.apk") }
             ?: assets.find { it.contains("hayai.apk") }
-            ?: assets.find { it.contains("TachiyomiSY$apkVariant-") }
+            ?: assets.find { it.contains("hayai$apkVariant-") }
             ?: assets[0]
     }
 

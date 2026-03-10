@@ -27,4 +27,21 @@ enum class AppTheme(val titleRes: StringResource?) {
     // SY -->
     PURE_RED(null),
     // SY <--
+    ;
+
+    fun normalized(): AppTheme = when (this) {
+        DARK_BLUE,
+        HOT_PINK,
+        BLUE,
+        PURE_RED,
+        -> DEFAULT
+        else -> this
+    }
+
+    val isSelectable: Boolean
+        get() = titleRes != null && normalized() == this
+
+    companion object {
+        val selectableEntries: List<AppTheme> = entries.filter(AppTheme::isSelectable)
+    }
 }

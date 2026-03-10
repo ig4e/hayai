@@ -161,11 +161,13 @@ data class ComicInfo(
     @XmlSerialName("Categories", "http://www.w3.org/2001/XMLSchema", "ty")
     data class CategoriesTachiyomi(@XmlValue(true) val value: String = "")
 
+    // Keep the historical XML element name for backwards-compatible ComicInfo exports/imports.
     @Serializable
     @XmlSerialName("SourceMihon", "http://www.w3.org/2001/XMLSchema", "mh")
     data class SourceMihon(@XmlValue(true) val value: String = "")
 
     // SY -->
+    // Keep the historical XML element name for backwards-compatible Hayai/SY ComicInfo padding.
     @Serializable
     @XmlSerialName("PaddingTachiyomiSY", "http://www.w3.org/2001/XMLSchema", "tysy")
     data class PaddingTachiyomiSY(@XmlValue(true) val value: String = "")

@@ -1,6 +1,9 @@
 name: CI
 on: [pull_request]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -13,44 +16,22 @@ jobs:
 
     steps:
       - name: Clone repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: 17
           distribution: temurin
 
       - name: Set up gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Build app
-        run: ./gradlew clean assembleDevDebug --stacktrace
-
-      - name: Debug APK location
-        id: find_apk
-        run: |
-          ls -la app/build/outputs/
-          ls -la app/build/outputs/apk/ || echo "apk directory not found"
-          echo "Looking for APK files:"
-          APK_PATH=$(find app/build -name "*.apk" | head -n 1)
-          echo "Found APK: $APK_PATH"
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-
-          # Print APK path patterns to help diagnose issues
-          echo "Expected APK path patterns based on build.gradle:"
-          echo "app/build/outputs/apk/dev/debug/app-dev-debug.apk"
-          echo "app/build/outputs/apk/debug/app-debug.apk"
-
-          mkdir -p app/build/outputs/apk/dev/debug/
-          touch app/build/outputs/apk/dev/debug/placeholder.txt
+        run: ./gradlew clean assembleFdroidDebug --stacktrace
 
       - name: Upload APK
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: hayai-${{ github.sha }}.apk
-          path: |
-            ${{ steps.find_apk.outputs.apk_path }}
-            app/build/outputs/apk/dev/debug/*-debug.apk
-            app/build/outputs/apk/**/debug/*-debug.apk
-        if: always() # Try to upload even if the find command failed
+          path: app/build/outputs/apk/fdroid/debug/*.apk

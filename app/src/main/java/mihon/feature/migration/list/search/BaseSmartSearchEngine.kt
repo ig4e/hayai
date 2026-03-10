@@ -4,7 +4,9 @@ import com.aallam.similarity.NormalizedLevenshtein
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 typealias SearchAction<T> = suspend (String) -> List<T>
 
@@ -13,6 +15,8 @@ abstract class BaseSmartSearchEngine<T>(
     private val eligibleThreshold: Double = MIN_ELIGIBLE_THRESHOLD,
 ) {
     private val normalizedLevenshtein = NormalizedLevenshtein()
+    private val cleanedTitleCache = ConcurrentHashMap<String, String>()
+    private val searchResultsCache = ConcurrentHashMap<String, List<T>>()
 
     protected abstract fun getTitle(result: T): String
 
@@ -23,12 +27,16 @@ abstract class BaseSmartSearchEngine<T>(
     }
 
     protected suspend fun deepSearch(searchAction: SearchAction<T>, title: String): T? {
-        val cleanedTitle = cleanDeepSearchTitle(title)
+        val cleanedTitle = cleanedTitleCache.getOrPut(title) { cleanDeepSearchTitle(title) }
 
         val queries = getDeepSearchQueries(cleanedTitle)
+        val limitedQueries = if (cleanedTitle.length > 10) queries.take(3) else queries
 
-        return baseSearch(searchAction, queries) {
-            val cleanedMangaTitle = cleanDeepSearchTitle(getTitle(it))
+        return baseSearch(searchAction, limitedQueries) {
+            val titleForResult = getTitle(it)
+            val cleanedMangaTitle = cleanedTitleCache.getOrPut(titleForResult) {
+                cleanDeepSearchTitle(titleForResult)
+            }
             normalizedLevenshtein.similarity(cleanedTitle, cleanedMangaTitle)
         }
     }
@@ -38,6 +46,8 @@ abstract class BaseSmartSearchEngine<T>(
         queries: List<String>,
         calculateDistance: (T) -> Double,
     ): T? {
+        if (queries.isEmpty()) return null
+
         val eligibleManga = supervisorScope {
             queries.map { query ->
                 async(Dispatchers.Default) {
@@ -47,23 +57,33 @@ abstract class BaseSmartSearchEngine<T>(
                         query
                     }
 
-                    val candidates = searchAction(builtQuery)
-                    candidates
-                        .map {
-                            val distance = if (queries.size > 1 || candidates.size > 1) {
-                                calculateDistance(it)
-                            } else {
-                                1.0
+                    val candidates = searchResultsCache.getOrPut(builtQuery) {
+                        searchAction(builtQuery)
+                    }
+
+                    if (candidates.isEmpty()) {
+                        return@async emptyList()
+                    }
+
+                    withContext(Dispatchers.Default) {
+                        candidates
+                            .map {
+                                val distance = if (queries.size > 1 || candidates.size > 1) {
+                                    calculateDistance(it)
+                                } else {
+                                    1.0
+                                }
+                                SearchEntry(it, distance)
                             }
-                            SearchEntry(it, distance)
-                        }
-                        .filter { it.distance >= eligibleThreshold }
+                            .filter { it.distance >= eligibleThreshold }
+                    }
                 }
             }
                 .flatMap { it.await() }
         }
 
-        return eligibleManga.maxByOrNull { it.distance }?.entry
+        return eligibleManga.firstOrNull { it.distance >= 0.95 }?.entry
+            ?: eligibleManga.maxByOrNull { it.distance }?.entry
     }
 
     private fun cleanDeepSearchTitle(title: String): String {
@@ -136,7 +156,17 @@ abstract class BaseSmartSearchEngine<T>(
 
         return searchQueries
             .map { it.joinToString(" ").trim() }
+            .filter { it.isNotBlank() }
             .distinct()
+    }
+
+    open fun clearCaches() {
+        if (cleanedTitleCache.size > 1000) {
+            cleanedTitleCache.clear()
+        }
+        if (searchResultsCache.size > 200) {
+            searchResultsCache.clear()
+        }
     }
 
     companion object {

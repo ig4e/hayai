@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.library
 
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
+import eu.kanade.tachiyomi.util.lang.containsFuzzy
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
@@ -27,14 +28,14 @@ data class LibraryItem(
         if (constraint.startsWith("id:", true)) {
             return id == constraint.substringAfter("id:").toLongOrNull()
         }
-        return libraryManga.manga.title.contains(constraint, true) ||
-            (libraryManga.manga.author?.contains(constraint, true) ?: false) ||
-            (libraryManga.manga.artist?.contains(constraint, true) ?: false) ||
-            (libraryManga.manga.description?.contains(constraint, true) ?: false) ||
+        return libraryManga.manga.title.containsFuzzy(constraint) ||
+            (libraryManga.manga.author?.containsFuzzy(constraint) ?: false) ||
+            (libraryManga.manga.artist?.containsFuzzy(constraint) ?: false) ||
+            (libraryManga.manga.description?.containsFuzzy(constraint) ?: false) ||
             constraint.split(",").map { it.trim() }.all { subconstraint ->
                 checkNegatableConstraint(subconstraint) {
-                    sourceName.contains(it, true) ||
-                        (libraryManga.manga.genre?.any { genre -> genre.equals(it, true) } ?: false)
+                    sourceName.containsFuzzy(it) ||
+                        (libraryManga.manga.genre?.any { genre -> genre.containsFuzzy(it) } ?: false)
                 }
             }
     }

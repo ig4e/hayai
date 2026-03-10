@@ -111,6 +111,7 @@ fun getComicInfo(
         ComicInfoPublishingStatus.toComicInfoValue(manga.status),
     ),
     categories = categories?.let { ComicInfo.CategoriesTachiyomi(it.joinToString()) },
+    // Preserve existing ComicInfo element names so exported archives stay readable by older builds.
     source = ComicInfo.SourceMihon(sourceName),
     // SY -->
     padding = CbzCrypto.createComicInfoPadding()?.let { ComicInfo.PaddingTachiyomiSY(it) },

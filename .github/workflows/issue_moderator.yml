@@ -32,20 +32,20 @@ jobs:
                 "type": "both",
                 "regex": "^(?!.*myanimelist.*).*(aniyomi|anime).*$",
                 "ignoreCase": true,
-                "message": "Tachiyomi does not support anime, and has no plans to support anime. In addition Tachiyomi is not affiliated with Aniyomi https://github.com/jmir1/aniyomi"
+                "message": "Hayai does not support anime and is not affiliated with Aniyomi: https://github.com/jmir1/aniyomi"
               },
               {
                 "type": "both",
                 "regex": ".*(?:fail(?:ed|ure|s)?|can\\s*(?:no|')?t|(?:not|un).*able|(?<!n[o']?t )blocked by|error) (?:to )?(?:get past|by ?pass|penetrate)?.*cloud ?fl?are.*",
                 "ignoreCase": true,
                 "labels": ["Cloudflare protected"],
-                "message": "Refer to the **Solving Cloudflare issues** section at https://mihon.app/docs/guides/troubleshooting/#cloudflare. If it doesn't work, migrate to other sources or wait until they lower their protection."
+                "message": "This is usually a site-side Cloudflare problem rather than an app bug. Try another source, wait for the site to lower protection, or test again later."
               },
               {
                 "type": "both",
                 "regex": "^.*(myanimelist|mal).*$",
                 "ignoreCase": true,
-                "message": "For issues with linking MyAnimeList, please follow these steps:\n1. Update Mihon to version 0.16.4 or newer\n2. Change your default User-Agent (`More → Settings → Advanced → Default user agent string`)\n3. Close and restart Mihon\n4. Attempt to link MyAnimeList again\n\nIf you had MyAnimeList linked before, try to unlink it first before trying these steps."
+                "message": "For MyAnimeList linking problems:\n1. Update Hayai to the latest release\n2. Change your default User-Agent (`More → Settings → Advanced → Default user agent string`)\n3. Close and restart Hayai\n4. Try linking MyAnimeList again\n\nIf MyAnimeList was linked before, unlink it first and then retry."
               }
             ]
           auto-close-ignore-label: do-not-autoclose

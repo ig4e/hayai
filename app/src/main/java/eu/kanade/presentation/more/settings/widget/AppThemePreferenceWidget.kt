@@ -72,9 +72,10 @@ private fun AppThemesList(
     onItemClick: (AppTheme) -> Unit,
 ) {
     val context = LocalContext.current
+    val normalizedCurrentTheme = remember(currentTheme) { currentTheme.normalized() }
     val appThemes = remember {
-        AppTheme.entries
-            .filterNot { it.titleRes == null || (it == AppTheme.MONET && !DeviceUtil.isDynamicColorAvailable) }
+        AppTheme.selectableEntries
+            .filterNot { it == AppTheme.MONET && !DeviceUtil.isDynamicColorAvailable }
     }
     LazyRow(
         contentPadding = PaddingValues(horizontal = PrefsHorizontalPadding),
@@ -94,7 +95,7 @@ private fun AppThemesList(
                     amoled = amoled,
                 ) {
                     AppThemePreviewItem(
-                        selected = currentTheme == appTheme,
+                        selected = normalizedCurrentTheme == appTheme,
                         onClick = {
                             onItemClick(appTheme)
                             (context as? Activity)?.let { ActivityCompat.recreate(it) }
@@ -105,7 +106,7 @@ private fun AppThemesList(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = stringResource(appTheme.titleRes!!),
+                    text = stringResource(checkNotNull(appTheme.titleRes)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .secondaryItemAlpha(),

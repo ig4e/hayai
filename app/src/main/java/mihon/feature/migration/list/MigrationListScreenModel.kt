@@ -43,6 +43,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.concurrent.ConcurrentHashMap
 
 class MigrationListScreenModel(
     mangaIds: Collection<Long>,
@@ -58,6 +59,7 @@ class MigrationListScreenModel(
 ) : StateScreenModel<MigrationListScreenModel.State>(State()) {
 
     private val smartSearchEngine = SmartSourceSearchEngine(extraSearchQuery)
+    private val sourceSearchCache = ConcurrentHashMap<String, Pair<Manga, ChapterInfo>?>()
 
     // SY -->
     private val throttleManager = ThrottleManager()
@@ -119,69 +121,75 @@ class MigrationListScreenModel(
         // SY -->
         throttleManager.resetThrottle()
         // SY <--
-        val prioritizeByChapters = preferences.migrationPrioritizeByChapters().get()
-        val deepSearchMode = preferences.migrationDeepSearchMode().get()
+        try {
+            val prioritizeByChapters = preferences.migrationPrioritizeByChapters().get()
+            val deepSearchMode = preferences.migrationDeepSearchMode().get()
 
-        val sources = preferences.migrationSources().get()
-            .mapNotNull { sourceManager.get(it) as? CatalogueSource }
+            val sources = preferences.migrationSources().get()
+                .mapNotNull { sourceManager.get(it) as? CatalogueSource }
 
-        for (manga in mangas) {
-            if (!currentCoroutineContext().isActive) break
-            if (manga.manga.id !in state.value.mangaIds) continue
-            if (manga.searchResult.value != SearchResult.Searching) continue
-            if (!manga.migrationScope.isActive) continue
+            for (manga in mangas) {
+                if (!currentCoroutineContext().isActive) break
+                if (manga.manga.id !in state.value.mangaIds) continue
+                if (manga.searchResult.value != SearchResult.Searching) continue
+                if (!manga.migrationScope.isActive) continue
 
-            val result = try {
-                manga.migrationScope.async {
-                    if (prioritizeByChapters) {
-                        val sourceSemaphore = Semaphore(5)
-                        sources.map { source ->
-                            async innerAsync@{
-                                sourceSemaphore.withPermit {
-                                    val result = searchSource(manga.manga, source, deepSearchMode)
-                                    if (result == null || result.second.chapterCount == 0) return@innerAsync null
-                                    result
+                val result = try {
+                    manga.migrationScope.async {
+                        if (prioritizeByChapters) {
+                            val sourceSemaphore = Semaphore(5)
+                            sources.map { source ->
+                                async innerAsync@{
+                                    sourceSemaphore.withPermit {
+                                        val result = searchSource(manga.manga, source, deepSearchMode)
+                                        if (result == null || result.second.chapterCount == 0) return@innerAsync null
+                                        result
+                                    }
                                 }
                             }
+                                .mapNotNull { it.await() }
+                                .maxByOrNull { it.second.latestChapter ?: 0.0 }
+                        } else {
+                            sources.forEach { source ->
+                                val result = searchSource(manga.manga, source, deepSearchMode)
+                                if (result != null) return@async result
+                            }
+                            null
                         }
-                            .mapNotNull { it.await() }
-                            .maxByOrNull { it.second.latestChapter ?: 0.0 }
-                    } else {
-                        sources.forEach { source ->
-                            val result = searchSource(manga.manga, source, deepSearchMode)
-                            if (result != null) return@async result
-                        }
-                        null
+                    }
+                        .await()
+                } catch (_: CancellationException) {
+                    continue
+                }
+
+                if (result != null && result.first.thumbnailUrl == null) {
+                    try {
+                        val newManga = sourceManager.getOrStub(result.first.source).getMangaDetails(result.first.toSManga())
+                        updateManga.awaitUpdateFromSource(result.first, newManga, true)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
                     }
                 }
-                    .await()
-            } catch (_: CancellationException) {
-                continue
-            }
 
-            if (result != null && result.first.thumbnailUrl == null) {
-                try {
-                    val newManga = sourceManager.getOrStub(result.first.source).getMangaDetails(result.first.toSManga())
-                    updateManga.awaitUpdateFromSource(result.first, newManga, true)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
+                manga.searchResult.value = result?.first?.toSuccessSearchResult() ?: SearchResult.NotFound
+
+                if (result == null && hideUnmatched) {
+                    removeManga(manga)
                 }
-            }
+                if (result != null &&
+                    hideWithoutUpdates &&
+                    (result.second.latestChapter ?: 0.0) <= (manga.latestChapter ?: 0.0)
+                ) {
+                    removeManga(manga)
+                }
 
-            manga.searchResult.value = result?.first?.toSuccessSearchResult() ?: SearchResult.NotFound
-
-            if (result == null && hideUnmatched) {
-                removeManga(manga)
+                smartSearchEngine.clearCaches()
+                updateMigrationProgress()
             }
-            if (result != null &&
-                hideWithoutUpdates &&
-                (result.second.latestChapter ?: 0.0) <= (manga.latestChapter ?: 0.0)
-            ) {
-                removeManga(manga)
-            }
-
-            updateMigrationProgress()
+        } finally {
+            sourceSearchCache.clear()
+            smartSearchEngine.clearCaches()
         }
     }
 
@@ -190,6 +198,17 @@ class MigrationListScreenModel(
         source: CatalogueSource,
         deepSearchMode: Boolean,
     ): Pair<Manga, ChapterInfo>? {
+        val cacheKey = buildString {
+            append(manga.id)
+            append('|')
+            append(manga.title)
+            append('|')
+            append(source.id)
+            append('|')
+            append(deepSearchMode)
+        }
+        sourceSearchCache[cacheKey]?.let { return it }
+
         return try {
             val searchResult = if (deepSearchMode) {
                 smartSearchEngine.deepSearch(source, manga.title)
@@ -197,7 +216,10 @@ class MigrationListScreenModel(
                 smartSearchEngine.regularSearch(source, manga.title)
             }
 
-            if (searchResult == null || (searchResult.url == manga.url && source.id == manga.source)) return null
+            if (searchResult == null || (searchResult.url == manga.url && source.id == manga.source)) {
+                sourceSearchCache[cacheKey] = null
+                return null
+            }
 
             val localManga = networkToLocalManga(searchResult)
             try {
@@ -212,10 +234,13 @@ class MigrationListScreenModel(
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e)
             }
-            localManga to getChapterInfo(localManga.id)
+            (localManga to getChapterInfo(localManga.id)).also {
+                sourceSearchCache[cacheKey] = it
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
+            sourceSearchCache[cacheKey] = null
             null
         }
     }

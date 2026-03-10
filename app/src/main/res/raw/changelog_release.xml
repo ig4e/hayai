@@ -1,24 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
-    <changelogversion versionName="1.0.2" changeDate="April 15, 2025">
-        <changelogtext>Added automatic installation notifications and update handling</changelogtext>
-        <changelogtext>Enhanced migration process and search functionality</changelogtext>
-        <changelogtext>Improved Category Dialog with search capability</changelogtext>
-        <changelogtext>Enhanced fuzzy search across Extensions and Library</changelogtext>
-        <changelogtext>New Manga Metadata Screen</changelogtext>
-        <changelogtext>Improved UI components and navigation</changelogtext>
-        <changelogtext>Updated onboarding flow</changelogtext>
-        <changelogtext>Bug fixes and performance improvements</changelogtext>
-    </changelogversion>
-    <changelogversion versionName="1.0.1" changeDate="March 29,2025">
-        <changelogtext>UI enhancements and theme improvements</changelogtext>
-        <changelogtext>Removed several color schemes and improved existing ones</changelogtext>
-        <changelogtext>Faster library updates</changelogtext>
-        <changelogtext>Better animations</changelogtext>
-        <changelogtext>Bug fixes and performance improvements</changelogtext>
-    </changelogversion>
-    <changelogversion versionName="1.0.0" changeDate="March 29,2025">
-        <changelogtext>Welcome to my first full release of Hayai!</changelogtext>
-        <changelogtext>I hope you enjoy your stay, many improvements are planned!</changelogtext>
+    <changelogversion versionName="1.12.0" changeDate="March 10, 2026">
+        <changelogtext>Restored the richer Hayai manga metadata screen on top of the current metadata model.</changelogtext>
+        <changelogtext>Reintroduced the Compose manga editor with tracker autofill, grouped fields, and reset actions.</changelogtext>
+        <changelogtext>Recovered the redesigned onboarding flow and normalized more Hayai branding paths.</changelogtext>
+        <changelogtext>Improved fuzzy search across the library, categories, and migration flows.</changelogtext>
+        <changelogtext>Moved automatic app update checks into a single startup policy and cleaned release asset selection.</changelogtext>
+        <changelogtext>Cleaned remaining fork regressions in About, workflows, issue templates, and theme selection.</changelogtext>
     </changelogversion>
 </changelog>

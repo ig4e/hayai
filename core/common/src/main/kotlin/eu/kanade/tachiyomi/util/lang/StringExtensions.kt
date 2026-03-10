@@ -1,3 +1,5 @@
+@file:JvmName("StringExtensionsKt")
+
 package eu.kanade.tachiyomi.util.lang
 
 import androidx.core.text.parseAsHtml
@@ -88,46 +90,105 @@ fun containsFuzzy(
     flags: Int = 0,
     defaultValue: Any? = null
 ): Boolean {
-    if (query.isEmpty()) return true
-    if (text.isEmpty()) return false
+    if (query.isBlank()) return true
+    if (text.isBlank()) return false
 
-    val sourceText = if (ignoreCase) text.lowercase() else text
-    val searchText = if (ignoreCase) query.lowercase() else query
+    val sourceText = text.normalizeForFuzzySearch(ignoreCase)
+    val searchText = query.normalizeForFuzzySearch(ignoreCase)
 
-    // If the query is longer than source, instant fail
-    if (searchText.length > sourceText.length) return false
+    if (searchText.isEmpty() || sourceText.contains(searchText)) return true
 
-    // For very short queries (1-2 chars), require exact substring match
-    if (searchText.length <= 2) {
-        return sourceText.contains(searchText)
-    }
+    val sourceTokens = sourceText.tokenizeForFuzzySearch()
+    val queryTokens = searchText.tokenizeForFuzzySearch()
 
-    var score = 0
-    var consecutiveMatches = 0
-    var maxConsecutiveMatches = 0
-    var sourceIndex = 0
-    var searchIndex = 0
-
-    while (sourceIndex < sourceText.length && searchIndex < searchText.length) {
-        if (sourceText[sourceIndex] == searchText[searchIndex]) {
-            score++
-            searchIndex++
-            consecutiveMatches++
-            maxConsecutiveMatches = maxOf(maxConsecutiveMatches, consecutiveMatches)
-        } else {
-            consecutiveMatches = 0
+    if (queryTokens.isNotEmpty()) {
+        val allTokensMatch = queryTokens.all { queryToken ->
+            val tokenSimilarityThreshold = minSimilarity.coerceAtMost(0.45f)
+            sourceTokens.any { sourceToken ->
+                sourceToken.contains(queryToken) ||
+                    fuzzySubsequenceSimilarity(sourceToken, queryToken) >= tokenSimilarityThreshold
+            }
         }
-        sourceIndex++
+        if (allTokensMatch) return true
     }
 
-    // Calculate match quality metrics
-    val matched = searchIndex == searchText.length
-    if (!matched) return false
+    val compactSource = sourceTokens.joinToString(separator = "")
+    val compactQuery = queryTokens.joinToString(separator = "").ifEmpty { searchText.replace(" ", "") }
 
-    // Calculate similarity score (0.0-1.0)
-    val basicScore = score.toFloat() / searchText.length
-    val consecutiveBonus = maxConsecutiveMatches.toFloat() / searchText.length
-    val similarity = (basicScore * 0.5f) + (consecutiveBonus * 0.5f)
+    if (compactQuery.isEmpty()) return true
+    if (compactSource.contains(compactQuery)) return true
 
-    return similarity >= minSimilarity
+    val initials = sourceTokens.mapNotNull { it.firstOrNull() }.joinToString(separator = "")
+    if (initials.startsWith(compactQuery) || initials.contains(compactQuery)) return true
+
+    return fuzzySubsequenceSimilarity(compactSource, compactQuery) >= minSimilarity
+}
+
+@JvmName("containsFuzzyString")
+@JvmOverloads
+fun String.containsFuzzy(
+    query: String,
+    ignoreCase: Boolean = true,
+    minSimilarity: Float = 0.8f,
+): Boolean {
+    return containsFuzzy(
+        text = this,
+        query = query,
+        ignoreCase = ignoreCase,
+        minSimilarity = minSimilarity,
+    )
+}
+
+private fun String.normalizeForFuzzySearch(ignoreCase: Boolean): String {
+    val normalized = if (ignoreCase) lowercase() else this
+    return buildString(normalized.length) {
+        normalized.forEach { char ->
+            append(
+                when {
+                    char.isLetterOrDigit() -> char
+                    else -> ' '
+                },
+            )
+        }
+    }.replace(Regex("\\s+"), " ").trim()
+}
+
+private fun String.tokenizeForFuzzySearch(): List<String> {
+    return split(' ').filter { it.isNotBlank() }
+}
+
+private fun fuzzySubsequenceSimilarity(text: String, query: String): Float {
+    if (query.isEmpty()) return 1f
+    if (text.isEmpty() || query.length > text.length) return 0f
+
+    if (query.length <= 2) {
+        return if (text.contains(query)) 1f else 0f
+    }
+
+    var searchIndex = 0
+    var longestRun = 0
+    var currentRun = 0
+    var firstMatchIndex = -1
+    var lastMatchIndex = -1
+
+    text.forEachIndexed { index, char ->
+        if (searchIndex < query.length && char == query[searchIndex]) {
+            if (firstMatchIndex == -1) {
+                firstMatchIndex = index
+            }
+            lastMatchIndex = index
+            searchIndex++
+            currentRun++
+            longestRun = maxOf(longestRun, currentRun)
+        } else if (currentRun > 0) {
+            currentRun = 0
+        }
+    }
+
+    if (searchIndex != query.length) return 0f
+
+    val window = (lastMatchIndex - firstMatchIndex + 1).coerceAtLeast(query.length)
+    val density = query.length.toFloat() / window.toFloat()
+    val continuity = longestRun.toFloat() / query.length.toFloat()
+    return (density * 0.55f) + (continuity * 0.45f)
 }

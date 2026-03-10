@@ -28,7 +28,7 @@ fun LogoHeader() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
-            painter = painterResource(R.drawable.ic_tachi),
+            painter = painterResource(R.drawable.ic_hayai),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier

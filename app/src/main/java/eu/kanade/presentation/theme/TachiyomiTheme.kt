@@ -55,6 +55,7 @@ private fun BaseTachiyomiTheme(
 ) {
     MaterialTheme(
         colorScheme = getThemeColorScheme(appTheme, isAmoled),
+        typography = HayaiTypography,
         content = content,
     )
 }
@@ -65,10 +66,11 @@ private fun getThemeColorScheme(
     appTheme: AppTheme,
     isAmoled: Boolean,
 ): ColorScheme {
-    val colorScheme = if (appTheme == AppTheme.MONET) {
+    val normalizedTheme = appTheme.normalized()
+    val colorScheme = if (normalizedTheme == AppTheme.MONET) {
         MonetColorScheme(LocalContext.current)
     } else {
-        colorSchemes.getOrDefault(appTheme, TachiyomiColorScheme)
+        colorSchemes.getOrDefault(normalizedTheme, TachiyomiColorScheme)
     }
     return colorScheme.getColorScheme(
         isSystemInDarkTheme(),

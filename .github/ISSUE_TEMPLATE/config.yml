@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: ❌ Help with Extensions
-    url: https://mihon.app/docs/faq/browse/extensions
+    url: https://github.com/ig4e/hayai#issues-feature-requests-and-contributing
     about: For extension-related questions/issues
-  - name: 🖥️ Mihon website
-    url: https://mihon.app/
-    about: Guides, troubleshooting, and answers to common questions
+  - name: 🖥️ Hayai repository
+    url: https://github.com/ig4e/hayai
+    about: Releases, issues, and project information

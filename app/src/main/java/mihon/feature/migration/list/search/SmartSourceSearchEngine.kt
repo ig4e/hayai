@@ -7,7 +7,7 @@ import tachiyomi.domain.manga.model.Manga
 
 class SmartSourceSearchEngine(extraSearchParams: String?) : BaseSmartSearchEngine<SManga>(extraSearchParams) {
 
-    override fun getTitle(result: SManga) = result.title
+    override fun getTitle(result: SManga) = result.originalTitle.ifBlank { result.title }
 
     suspend fun regularSearch(source: CatalogueSource, title: String): Manga? {
         return regularSearch(makeSearchAction(source), title).let {
@@ -23,5 +23,9 @@ class SmartSourceSearchEngine(extraSearchParams: String?) : BaseSmartSearchEngin
 
     private fun makeSearchAction(source: CatalogueSource): SearchAction<SManga> = { query ->
         source.getSearchManga(1, query, source.getFilterList()).mangas
+    }
+
+    override fun clearCaches() {
+        super.clearCaches()
     }
 }

@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - "release"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,6 +34,13 @@ jobs:
 
       - name: Set up gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Read app version
+        id: app_version
+        shell: bash
+        run: |
+          version_name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
 
       # SY -->
       - name: Write google-services.json
@@ -91,8 +102,8 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.run_number }}
-          name: hayai
+          tag_name: v${{ steps.app_version.outputs.version_name }}
+          name: Hayai v${{ steps.app_version.outputs.version_name }}
           body: |
             ---
 
@@ -115,5 +126,7 @@ jobs:
             hayai-x86_64.apk
           draft: true
           prerelease: false
+          append_body: false
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

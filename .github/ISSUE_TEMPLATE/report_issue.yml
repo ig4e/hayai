@@ -94,11 +94,11 @@ body:
           required: true
         - label: I have written a short but informative title.
           required: true
-        - label: I have gone through the [FAQ](https://mihon.app/docs/faq/general) and [troubleshooting guide](https://mihon.app/docs/guides/troubleshooting/).
+        - label: I have checked the [README](https://github.com/ig4e/hayai#faq), [latest release notes](https://github.com/ig4e/hayai/releases), and existing issues before opening this report.
           required: true
-        - label: I have updated the app to version **[1.0.6](https://github.com/ig4e/hayai/releases/latest)**.
+        - label: I have updated the app to version **[1.12.0](https://github.com/ig4e/hayai/releases/latest)**.
           required: true
         - label: I have filled out all of the requested information in this form, including specific version numbers.
           required: true
-        - label: I understand that **Mihon does not have or fix any extensions**, and I **will not receive help** for any issues related to sources or extensions.
+        - label: I understand that Hayai does not provide source support, and I will not receive help for issues caused by third-party extensions or sites.
           required: true

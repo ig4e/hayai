@@ -49,6 +49,7 @@ import eu.kanade.tachiyomi.data.coil.PagePreviewKeyer
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
+import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.di.AppModule
 import eu.kanade.tachiyomi.di.InjektKoinBridge
 import eu.kanade.tachiyomi.di.PreferenceModule
@@ -73,6 +74,7 @@ import exh.syDebugVersion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import logcat.LogPriority
 import logcat.LogcatLogger
 import mihon.core.firebase.FirebaseConfig
@@ -203,6 +205,15 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         val syncTriggerOpt = syncPreferences.getSyncTriggerOptions()
         if (syncPreferences.isSyncEnabled() && syncTriggerOpt.syncOnAppStart) {
             SyncDataJob.startNow(this@App)
+        }
+        if (BuildConfig.INCLUDE_UPDATER) {
+            scope.launch {
+                try {
+                    AppUpdateChecker().checkForUpdate(this@App)
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e) { "Failed to check for app updates on startup" }
+                }
+            }
         }
 
         initializeMigrator()

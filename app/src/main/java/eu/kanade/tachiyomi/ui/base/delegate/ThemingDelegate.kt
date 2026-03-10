@@ -13,7 +13,7 @@ interface ThemingDelegate {
     companion object {
         fun getThemeResIds(appTheme: AppTheme, isAmoled: Boolean): List<Int> {
             return buildList(2) {
-                add(themeResources.getOrDefault(appTheme, R.style.Theme_Tachiyomi))
+                add(themeResources.getOrDefault(appTheme.normalized(), R.style.Theme_Tachiyomi))
                 if (isAmoled) add(R.style.ThemeOverlay_Tachiyomi_Amoled)
             }
         }

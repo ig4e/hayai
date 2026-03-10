@@ -1,27 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="false">
-    <changelogversion changeDate="March 29, 2025" versionName="1.0.1">
-        <changelogtext>UI enhancements and theme improvements</changelogtext>
-        <changelogtext>Removed redundant color schemes: GreenApple, Lavender, MidnightDusk, Nord, Strawberry, Tako, TealTurqoise, TidalWave, and YinYang</changelogtext>
-        <changelogtext>Enhanced remaining color schemes</changelogtext>
-        <changelogtext>Faster library updates for improved performance</changelogtext>
-        <changelogtext>Improved animations throughout the app</changelogtext>
-        <changelogtext>Bug fixes and performance improvements</changelogtext>
-    </changelogversion>
-    <changelogversion changeDate="April 15, 2025" versionName="1.0.2">
-        <changelogtext>Added automatic installation notifications and update handling</changelogtext>
-        <changelogtext>Enhanced migration process with improved error handling</changelogtext>
-        <changelogtext>Improved Category Dialog with new search capability</changelogtext>
-        <changelogtext>Enhanced fuzzy search implementation across Extensions and Library</changelogtext>
-        <changelogtext>Improved URL encoding in DataSaver implementations</changelogtext>
-        <changelogtext>Implemented new Manga Metadata Screen with detailed information</changelogtext>
-        <changelogtext>Enhanced EditMangaDialog UI and functionality</changelogtext>
-        <changelogtext>Updated onboarding flow with clearer instructions</changelogtext>
-        <changelogtext>Improved navigation components with better scaling</changelogtext>
-        <changelogtext>Unified text fields with new CustomTextField component</changelogtext>
-        <changelogtext>Added new drawable resources and updated existing icons</changelogtext>
-        <changelogtext>Removed obsolete GitHub Actions workflows</changelogtext>
-        <changelogtext>Various bug fixes and performance improvements</changelogtext>
+    <changelogversion changeDate="March 10, 2026" versionName="r-current">
+        <changelogtext>Forward-ported the missing Hayai fork features onto the current upstream base.</changelogtext>
+        <changelogtext>Restored metadata, Edit Manga, onboarding, and migration search improvements.</changelogtext>
+        <changelogtext>Normalized startup update checks, release asset naming, and Hayai package identity.</changelogtext>
+        <changelogtext>Cleaned theme fallback behavior and removed stale resources left behind by earlier rollbacks.</changelogtext>
+        <changelogtext>Updated workflows, issue templates, and About surfaces to reflect Hayai instead of upstream branding.</changelogtext>
     </changelogversion>
     <!--
 
