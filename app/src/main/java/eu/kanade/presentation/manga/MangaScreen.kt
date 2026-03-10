@@ -983,7 +983,7 @@ private fun LazyListScope.sharedChapterItems(
                         item.chapter.name
                     },
                     date = item.chapter.dateUpload
-                        .takeIf { it > 0L }
+                        .takeIf { it != 0L }
                         ?.let {
                             // SY -->
                             if (manga.isEhBasedManga()) {

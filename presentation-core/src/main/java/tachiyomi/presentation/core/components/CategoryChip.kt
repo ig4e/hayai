@@ -2,6 +2,7 @@ package tachiyomi.presentation.core.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -44,7 +45,7 @@ fun CategoryChip(
         if (selected) {
             MaterialTheme.colorScheme.onPrimary
         } else {
-            MaterialTheme.colorScheme.onSurface
+            MaterialTheme.colorScheme.onSurfaceVariant
         },
         label = "textColor",
     )
@@ -72,6 +73,11 @@ fun CategoryChip(
         shape = RoundedCornerShape(24.dp),
         modifier = modifier
             .padding(horizontal = 6.dp, vertical = 2.dp)
+            .border(
+                width = if (selected) 0.dp else 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(24.dp),
+            )
             .clickable(onClick = onClick),
     ) {
         Row(

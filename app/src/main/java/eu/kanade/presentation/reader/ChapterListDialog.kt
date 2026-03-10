@@ -87,7 +87,7 @@ fun ChapterListDialog(
                 MangaChapterListItem(
                     title = chapterItem.chapter.name,
                     date = chapterItem.chapter.dateUpload
-                        .takeIf { it > 0L }
+                        .takeIf { it != 0L }
                         ?.let {
                             // SY -->
                             if (manga?.isEhBasedManga() == true) {

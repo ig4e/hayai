@@ -28,12 +28,34 @@ class UpdatesRepositoryImpl(
         }
     }
 
-    override fun subscribeAll(after: Long, limit: Long): Flow<List<UpdatesWithRelations>> {
+    override fun subscribeAll(
+        after: Long,
+        limit: Long,
+        unread: Boolean?,
+        started: Boolean?,
+        bookmarked: Boolean?,
+        hideExcludedScanlators: Boolean,
+    ): Flow<List<UpdatesWithRelations>> {
         return databaseHandler.subscribeToList {
-            updatesViewQueries.getRecentUpdates(after, limit, ::mapUpdatesWithRelations)
+            updatesViewQueries.getRecentUpdatesWithFilters(
+                after = after,
+                read = unread,
+                started = started.asSqlBoolean(),
+                bookmarked = bookmarked,
+                hideExcludedScanlators = if (hideExcludedScanlators) 1L else 0L,
+                limit = limit,
+                mapper = ::mapUpdatesWithRelations,
+            )
         }.map {
             databaseHandler.awaitListExecutable {
-                (databaseHandler as AndroidDatabaseHandler).getUpdatesQuery(after, limit)
+                (databaseHandler as AndroidDatabaseHandler).getUpdatesQuery(
+                    after = after,
+                    limit = limit,
+                    unread = unread,
+                    started = started,
+                    bookmarked = bookmarked,
+                    hideExcludedScanlators = hideExcludedScanlators,
+                )
             }
                 .map(::mapUpdatesView)
         }
@@ -70,6 +92,7 @@ class UpdatesRepositoryImpl(
         coverLastModified: Long,
         dateUpload: Long,
         dateFetch: Long,
+        excludedScanlator: String?,
     ): UpdatesWithRelations = UpdatesWithRelations(
         mangaId = mangaId,
         // SY -->
@@ -114,5 +137,13 @@ class UpdatesRepositoryImpl(
                 lastModified = updatesView.coverLastModified,
             ),
         )
+    }
+}
+
+private fun Boolean?.asSqlBoolean(): Long? {
+    return when (this) {
+        true -> 1L
+        false -> 0L
+        null -> null
     }
 }

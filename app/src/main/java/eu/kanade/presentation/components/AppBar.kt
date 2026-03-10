@@ -3,8 +3,11 @@ package eu.kanade.presentation.components
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,10 +22,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.TooltipDefaults.rememberTooltipPositionProvider
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -40,6 +45,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
@@ -151,7 +157,10 @@ fun AppBar(
             actions = actions,
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = backgroundColor ?: MaterialTheme.colorScheme.surfaceColorAtElevation(
-                    elevation = if (isActionMode) 3.dp else 0.dp,
+                    elevation = if (isActionMode) 3.dp else 1.dp,
+                ),
+                scrolledContainerColor = backgroundColor ?: MaterialTheme.colorScheme.surfaceColorAtElevation(
+                    elevation = if (isActionMode) 4.dp else 3.dp,
                 ),
             ),
             scrollBehavior = scrollBehavior,
@@ -195,7 +204,7 @@ fun AppBarActions(
 
     actions.filterIsInstance<AppBar.Action>().map {
         TooltipBox(
-            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+            positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
             tooltip = {
                 PlainTooltip {
                     Text(it.title)
@@ -220,7 +229,7 @@ fun AppBarActions(
     val overflowActions = actions.filterIsInstance<AppBar.OverflowAction>()
     if (overflowActions.isNotEmpty()) {
         TooltipBox(
-            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+            positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
             tooltip = {
                 PlainTooltip {
                     Text(stringResource(MR.strings.action_menu_overflow_description))
@@ -316,26 +325,12 @@ fun SearchToolbar(
                 visualTransformation = visualTransformation,
                 interactionSource = interactionSource,
                 decorationBox = { innerTextField ->
-                    TextFieldDefaults.DecorationBox(
-                        value = searchQuery,
+                    SearchToolbarField(
+                        query = searchQuery,
                         innerTextField = innerTextField,
-                        enabled = true,
-                        singleLine = true,
                         visualTransformation = visualTransformation,
                         interactionSource = interactionSource,
-                        placeholder = {
-                            Text(
-                                modifier = Modifier.secondaryItemAlpha(),
-                                text = (placeholderText ?: stringResource(MR.strings.action_search_hint)),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Normal,
-                                ),
-                            )
-                        },
-                        container = {},
+                        placeholderText = placeholderText ?: stringResource(MR.strings.action_search_hint),
                     )
                 },
             )
@@ -349,7 +344,7 @@ fun SearchToolbar(
                     // Don't show search action
                 } else if (searchQuery == null) {
                     TooltipBox(
-                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                        positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
                         tooltip = {
                             PlainTooltip {
                                 Text(stringResource(MR.strings.action_search))
@@ -369,7 +364,7 @@ fun SearchToolbar(
                     }
                 } else if (searchQuery.isNotEmpty()) {
                     TooltipBox(
-                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                        positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
                         tooltip = {
                             PlainTooltip {
                                 Text(stringResource(MR.strings.action_reset))
@@ -398,6 +393,61 @@ fun SearchToolbar(
         isActionMode = false,
         scrollBehavior = scrollBehavior,
     )
+}
+
+@Composable
+private fun SearchToolbarField(
+    query: String,
+    innerTextField: @Composable () -> Unit,
+    visualTransformation: VisualTransformation,
+    interactionSource: MutableInteractionSource,
+    placeholderText: String,
+    shape: Shape = MaterialTheme.shapes.extraLarge,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = 8.dp),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 1.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = 10.dp),
+            )
+            TextFieldDefaults.DecorationBox(
+                value = query,
+                innerTextField = innerTextField,
+                enabled = true,
+                singleLine = true,
+                visualTransformation = visualTransformation,
+                interactionSource = interactionSource,
+                placeholder = {
+                    Text(
+                        modifier = Modifier.secondaryItemAlpha(),
+                        text = placeholderText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Normal,
+                        ),
+                    )
+                },
+                container = {},
+            )
+        }
+    }
 }
 
 @Composable

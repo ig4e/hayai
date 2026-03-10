@@ -2,7 +2,7 @@ package eu.kanade.presentation.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.platform.LocalContext
@@ -53,7 +53,7 @@ private fun BaseTachiyomiTheme(
     isAmoled: Boolean,
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
+    MaterialExpressiveTheme(
         colorScheme = getThemeColorScheme(appTheme, isAmoled),
         typography = HayaiTypography,
         content = content,
@@ -75,6 +75,7 @@ private fun getThemeColorScheme(
     return colorScheme.getColorScheme(
         isSystemInDarkTheme(),
         isAmoled,
+        overrideDarkSurfaceContainers = normalizedTheme != AppTheme.MONET,
     )
 }
 

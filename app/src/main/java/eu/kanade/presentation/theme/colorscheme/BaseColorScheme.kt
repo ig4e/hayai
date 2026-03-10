@@ -14,10 +14,27 @@ internal abstract class BaseColorScheme {
     private val surfaceContainerHigh = Color(0xFF0A0A0A)
     private val surfaceContainerHighest = Color(0xFF121212)
 
-    fun getColorScheme(isDark: Boolean, isAmoled: Boolean): ColorScheme {
+    fun getColorScheme(
+        isDark: Boolean,
+        isAmoled: Boolean,
+        overrideDarkSurfaceContainers: Boolean = true,
+    ): ColorScheme {
         if (!isDark) return lightScheme
 
-        if (!isAmoled) return darkScheme
+        if (!isAmoled) {
+            return if (overrideDarkSurfaceContainers) {
+                darkScheme.copy(
+                    surfaceVariant = surfaceContainer,
+                    surfaceContainerLowest = surfaceContainer,
+                    surfaceContainerLow = surfaceContainer,
+                    surfaceContainer = surfaceContainer,
+                    surfaceContainerHigh = surfaceContainerHigh,
+                    surfaceContainerHighest = surfaceContainerHighest,
+                )
+            } else {
+                darkScheme
+            }
+        }
 
         return darkScheme.copy(
             background = Color.Black,

@@ -303,12 +303,18 @@ object SettingsDataScreen : SearchableSettings {
 
         val chapterCache = remember { Injekt.get<ChapterCache>() }
         var cacheReadableSizeSema by remember { mutableIntStateOf(0) }
-        val cacheReadableSize = remember(cacheReadableSizeSema) { chapterCache.readableSize }
+        var cacheReadableSize by remember { mutableStateOf(context.stringResource(MR.strings.loading)) }
+        LaunchedEffect(cacheReadableSizeSema) {
+            cacheReadableSize = chapterCache.getReadableSize()
+        }
 
         // SY -->
         val pagePreviewCache = remember { Injekt.get<PagePreviewCache>() }
         var pagePreviewReadableSizeSema by remember { mutableIntStateOf(0) }
-        val pagePreviewReadableSize = remember(pagePreviewReadableSizeSema) { pagePreviewCache.readableSize }
+        var pagePreviewReadableSize by remember { mutableStateOf(context.stringResource(MR.strings.loading)) }
+        LaunchedEffect(pagePreviewReadableSizeSema) {
+            pagePreviewReadableSize = pagePreviewCache.getReadableSize()
+        }
         // SY <--
 
         return Preference.PreferenceGroup(

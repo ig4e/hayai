@@ -84,6 +84,7 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.chapter.interactor.GetBookmarkedChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.GetMergedChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
@@ -122,6 +123,7 @@ class LibraryScreenModel(
     private val getCategories: GetCategories = Injekt.get(),
     private val getTracksPerManga: GetTracksPerManga = Injekt.get(),
     private val getNextChapters: GetNextChapters = Injekt.get(),
+    private val getBookmarkedChaptersByMangaId: GetBookmarkedChaptersByMangaId = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val setReadStatus: SetReadStatus = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
@@ -405,9 +407,7 @@ class LibraryScreenModel(
         val filterFnTracking: (LibraryItem) -> Boolean = tracking@{ item ->
             if (isNotLoggedInAnyTrack || trackFiltersIsIgnored) return@tracking true
 
-            val mangaTracks = trackMap
-                .mapValues { entry -> entry.value.map { it.trackerId } }[item.id]
-                .orEmpty()
+            val mangaTracks = trackMap[item.id].orEmpty().map { it.trackerId }
 
             val isExcluded = excludedTracks.isNotEmpty() && mangaTracks.fastAny { it in excludedTracks }
             val isIncluded = includedTracks.isEmpty() || mangaTracks.fastAny { it in includedTracks }
@@ -744,6 +744,11 @@ class LibraryScreenModel(
             DownloadAction.NEXT_10_CHAPTERS -> 10
             DownloadAction.NEXT_25_CHAPTERS -> 25
             DownloadAction.UNREAD_CHAPTERS -> null
+            DownloadAction.BOOKMARKED_CHAPTERS -> {
+                downloadBookmarkedChapters()
+                clearSelection()
+                return
+            }
         }
         clearSelection()
         screenModelScope.launchNonCancellable {
@@ -789,6 +794,27 @@ class LibraryScreenModel(
                             )
                     }
                     .let { if (amount != null) it.take(amount) else it }
+
+                downloadManager.downloadChapters(manga, chapters)
+            }
+        }
+    }
+
+    private fun downloadBookmarkedChapters() {
+        val mangas = state.value.selectedManga
+        screenModelScope.launchNonCancellable {
+            mangas.forEach { manga ->
+                val chapters = getBookmarkedChaptersByMangaId.await(manga.id)
+                    .fastFilterNot { chapter ->
+                        downloadManager.getQueuedDownloadOrNull(chapter.id) != null ||
+                            downloadManager.isChapterDownloaded(
+                                chapter.name,
+                                chapter.scanlator,
+                                chapter.url,
+                                manga.ogTitle,
+                                manga.source,
+                            )
+                    }
 
                 downloadManager.downloadChapters(manga, chapters)
             }
@@ -1038,6 +1064,7 @@ class LibraryScreenModel(
     ): Boolean {
         val manga = libraryManga.manga
         val sourceIdString = manga.source.takeUnless { it == LocalSource.ID }?.toString()
+        val sourceQueryAlias = manga.source.takeIf { it == LocalSource.ID }?.let { "src:local" }
         val genre = if (checkGenre) manga.genre.orEmpty() else emptyList()
         val context = Injekt.get<Application>()
         return queries.all { queryComponent ->
@@ -1045,12 +1072,13 @@ class LibraryScreenModel(
                 false -> when (queryComponent) {
                     is Text -> {
                         val query = queryComponent.asQuery()
-                        manga.title.containsFuzzy(query) ||
+                            manga.title.containsFuzzy(query) ||
                             (manga.author?.containsFuzzy(query) == true) ||
                             (manga.artist?.containsFuzzy(query) == true) ||
                             (manga.description?.containsFuzzy(query) == true) ||
                             (source?.name?.containsFuzzy(query) == true) ||
-                            (sourceIdString != null && sourceIdString == query) ||
+                            (sourceIdString != null && (sourceIdString == query || "src:$sourceIdString".equals(query, true))) ||
+                            (sourceQueryAlias != null && sourceQueryAlias.equals(query, true)) ||
                             (
                                 loggedInTrackServices.isNotEmpty() &&
                                     tracks != null &&
@@ -1086,7 +1114,8 @@ class LibraryScreenModel(
                                     (manga.artist?.containsFuzzy(query) != true) &&
                                     (manga.description?.containsFuzzy(query) != true) &&
                                     (source?.name?.containsFuzzy(query) != true) &&
-                                    (sourceIdString != null && sourceIdString != query) &&
+                                    (sourceIdString == null || (sourceIdString != query && !"src:$sourceIdString".equals(query, true))) &&
+                                    (sourceQueryAlias == null || !sourceQueryAlias.equals(query, true)) &&
                                     (
                                         loggedInTrackServices.isEmpty() ||
                                             tracks == null ||

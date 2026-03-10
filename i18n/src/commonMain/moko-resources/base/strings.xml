@@ -54,6 +54,7 @@
     <string name="action_filter">Filter</string>
     <string name="action_set_interval">Set interval</string>
     <string name="action_filter_bookmarked">Bookmarked</string>
+    <string name="action_filter_excluded_scanlators">Hide excluded scanlators</string>
     <string name="action_filter_tracked">Tracked</string>
     <string name="action_filter_unread">Unread</string>
     <string name="action_filter_interval_custom">Customized update frequency</string>
@@ -779,6 +780,7 @@
     <string name="sort_by_upload_date">By upload date</string>
     <string name="manga_download">Download</string>
     <string name="download_unread">Unread</string>
+    <string name="download_bookmarked">Bookmarked</string>
     <string name="custom_cover">Custom cover</string>
     <string name="manga_cover">Cover</string>
     <string name="cover_saved">Cover saved</string>

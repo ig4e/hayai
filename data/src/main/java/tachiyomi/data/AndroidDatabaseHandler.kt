@@ -114,6 +114,13 @@ class AndroidDatabaseHandler(
     // SY -->
     fun getLibraryQuery(condition: String = "M.favorite = 1") = LibraryQuery(driver, condition)
 
-    fun getUpdatesQuery(after: Long, limit: Long) = UpdatesQuery(driver, after, limit)
+    fun getUpdatesQuery(
+        after: Long,
+        limit: Long,
+        unread: Boolean?,
+        started: Boolean?,
+        bookmarked: Boolean?,
+        hideExcludedScanlators: Boolean,
+    ) = UpdatesQuery(driver, after, limit, unread, started, bookmarked, hideExcludedScanlators)
     // SY <--
 }

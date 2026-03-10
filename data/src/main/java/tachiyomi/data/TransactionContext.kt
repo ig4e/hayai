@@ -5,6 +5,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.asContextElement
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.concurrent.RejectedExecutionException
 import kotlin.concurrent.atomics.AtomicInt
@@ -16,6 +18,9 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
+
+// Serialize top-level transaction entry so SQLDelight query threads aren't exhausted while waiting.
+private val transactionMutex = Mutex()
 
 /**
  * Returns the transaction dispatcher if we are on a transaction, or the database dispatchers.
@@ -39,20 +44,37 @@ internal suspend fun AndroidDatabaseHandler.getCurrentDatabaseContext(): Corouti
  * The dispatcher used to execute the given [block] will utilize threads from SQLDelight's query executor.
  */
 internal suspend fun <T> AndroidDatabaseHandler.withTransaction(block: suspend () -> T): T {
-    // Use inherited transaction context if available, this allows nested suspending transactions.
-    val transactionContext =
-        coroutineContext[TransactionElement]?.transactionDispatcher ?: createTransactionContext()
-    return withContext(transactionContext) {
-        val transactionElement = coroutineContext[TransactionElement]!!
-        transactionElement.acquire()
-        try {
-            db.transactionWithResult {
-                runBlocking(transactionContext) {
-                    block()
+    val transactionElement = coroutineContext[TransactionElement]
+
+    if (transactionElement != null) {
+        return withContext(transactionElement.transactionDispatcher) {
+            transactionElement.acquire()
+            try {
+                db.transactionWithResult {
+                    runBlocking(transactionElement.transactionDispatcher) {
+                        block()
+                    }
                 }
+            } finally {
+                transactionElement.release()
             }
-        } finally {
-            transactionElement.release()
+        }
+    }
+
+    return transactionMutex.withLock {
+        val transactionContext = createTransactionContext()
+        withContext(transactionContext) {
+            val element = coroutineContext[TransactionElement]!!
+            element.acquire()
+            try {
+                db.transactionWithResult {
+                    runBlocking(transactionContext) {
+                        block()
+                    }
+                }
+            } finally {
+                element.release()
+            }
         }
     }
 }

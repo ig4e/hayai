@@ -4,8 +4,11 @@ import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.util.lang.containsFuzzy
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.source.local.LocalSource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+
+private const val LOCAL_SOURCE_ID_ALIAS = "local"
 
 data class LibraryItem(
     val libraryManga: LibraryManga,
@@ -27,6 +30,13 @@ data class LibraryItem(
         val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo() }
         if (constraint.startsWith("id:", true)) {
             return id == constraint.substringAfter("id:").toLongOrNull()
+        } else if (constraint.startsWith("src:", true)) {
+            val querySource = constraint.substringAfter("src:")
+            return if (querySource.equals(LOCAL_SOURCE_ID_ALIAS, ignoreCase = true)) {
+                libraryManga.manga.source == LocalSource.ID
+            } else {
+                libraryManga.manga.source == querySource.toLongOrNull()
+            }
         }
         return libraryManga.manga.title.containsFuzzy(constraint) ||
             (libraryManga.manga.author?.containsFuzzy(constraint) ?: false) ||

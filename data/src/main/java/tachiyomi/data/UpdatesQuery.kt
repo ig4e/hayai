@@ -24,10 +24,19 @@ private val mapper = { cursor: SqlCursor ->
         cursor.getLong(12)!!,
         cursor.getLong(13)!!,
         cursor.getLong(14)!!,
+        cursor.getString(15),
     )
 }
 
-class UpdatesQuery(val driver: SqlDriver, val after: Long, val limit: Long) : ExecutableQuery<UpdatesView>(mapper) {
+class UpdatesQuery(
+    val driver: SqlDriver,
+    val after: Long,
+    val limit: Long,
+    val unread: Boolean?,
+    val started: Boolean?,
+    val bookmarked: Boolean?,
+    val hideExcludedScanlators: Boolean,
+) : ExecutableQuery<UpdatesView>(mapper) {
     override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
         return driver.executeQuery(
             null,
@@ -47,12 +56,24 @@ class UpdatesQuery(val driver: SqlDriver, val after: Long, val limit: Long) : Ex
                 mangas.thumbnail_url AS thumbnailUrl,
                 mangas.cover_last_modified AS coverLastModified,
                 chapters.date_upload AS dateUpload,
-                chapters.date_fetch AS datefetch
+                chapters.date_fetch AS datefetch,
+                excluded_scanlators.scanlator AS excludedScanlator
             FROM mangas JOIN chapters
             ON mangas._id = chapters.manga_id
+            LEFT JOIN excluded_scanlators
+            ON mangas._id = excluded_scanlators.manga_id
+            AND chapters.scanlator = excluded_scanlators.scanlator
             WHERE favorite = 1 AND source <> $MERGED_SOURCE_ID
             AND date_fetch > date_added
             AND dateUpload > :after
+            AND (:read IS NULL OR read = :read)
+            AND (
+                :started IS NULL
+                OR (:started = 1 AND last_page_read > 0 AND read = 0)
+                OR (:started = 0 AND last_page_read = 0 AND read = 0)
+            )
+            AND (:bookmarked IS NULL OR bookmark = :bookmarked)
+            AND (excludedScanlator IS NULL OR :hideExcludedScanlators = 0)
             UNION
             SELECT
                 mangas._id AS mangaId,
@@ -69,7 +90,8 @@ class UpdatesQuery(val driver: SqlDriver, val after: Long, val limit: Long) : Ex
                 mangas.thumbnail_url AS thumbnailUrl,
                 mangas.cover_last_modified AS coverLastModified,
                 chapters.date_upload AS dateUpload,
-                chapters.date_fetch AS datefetch
+                chapters.date_fetch AS datefetch,
+                excluded_scanlators.scanlator AS excludedScanlator
             FROM mangas
             LEFT JOIN (
                 SELECT merged.manga_id,merged.merge_id
@@ -79,20 +101,43 @@ class UpdatesQuery(val driver: SqlDriver, val after: Long, val limit: Long) : Ex
             ON ME.merge_id = mangas._id
             JOIN chapters
             ON ME.manga_id = chapters.manga_id
+            LEFT JOIN excluded_scanlators
+            ON mangas._id = excluded_scanlators.manga_id
+            AND chapters.scanlator = excluded_scanlators.scanlator
             WHERE favorite = 1 AND source = $MERGED_SOURCE_ID
             AND date_fetch > date_added
             AND dateUpload > :after
+            AND (:read IS NULL OR read = :read)
+            AND (
+                :started IS NULL
+                OR (:started = 1 AND last_page_read > 0 AND read = 0)
+                OR (:started = 0 AND last_page_read = 0 AND read = 0)
+            )
+            AND (:bookmarked IS NULL OR bookmark = :bookmarked)
+            AND (excludedScanlator IS NULL OR :hideExcludedScanlators = 0)
             ORDER BY datefetch DESC
             LIMIT :limit;
             """.trimIndent(),
             mapper,
-            2,
+            6,
             binders = {
                 bindLong(0, after)
-                bindLong(1, limit)
+                bindLong(1, unread.asSqlBoolean())
+                bindLong(2, started.asSqlBoolean())
+                bindLong(3, bookmarked.asSqlBoolean())
+                bindLong(4, if (hideExcludedScanlators) 1L else 0L)
+                bindLong(5, limit)
             },
         )
     }
 
     override fun toString(): String = "LibraryQuery.sq:get"
+}
+
+private fun Boolean?.asSqlBoolean(): Long? {
+    return when (this) {
+        true -> 1L
+        false -> 0L
+        null -> null
+    }
 }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -103,6 +104,12 @@ fun RowScope.NavigationBarItem(
         }
     }
 
+    val labelAlpha by animateFloatAsState(
+        targetValue = if (selected || alwaysShowLabel) 1f else 0f,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "LabelAlpha",
+    )
+
     val styledLabel: @Composable (() -> Unit)? = label?.let {
         @Composable {
             val textColor by animateColorAsState(
@@ -119,6 +126,7 @@ fun RowScope.NavigationBarItem(
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
+                        .scale(if (selected) 1f else 0.96f)
                         .fillMaxWidth(),
                 ) {
                     CompositionLocalProvider(
@@ -143,6 +151,19 @@ fun RowScope.NavigationBarItem(
             .fillMaxHeight(),
         contentAlignment = Alignment.Center,
     ) {
-        styledIcon()
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            styledIcon()
+            if (styledLabel != null && labelAlpha > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .scale(labelAlpha),
+                ) {
+                    styledLabel()
+                }
+            }
+        }
     }
 }

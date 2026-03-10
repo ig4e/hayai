@@ -1,17 +1,17 @@
 [versions]
 aboutlib_version = "13.2.1"
 leakcanary = "2.14"
-moko = "0.25.2"
+moko = "0.26.0"
 okhttp_version = "5.3.2"
 shizuku_version = "13.1.5"
 sqldelight = "2.2.1"
 sqlite = "2.6.2"
 voyager = "1.1.0-beta03"
-spotless = "8.1.0"
+spotless = "8.2.1"
 ktlint-core = "1.8.0"
-firebase-bom = "34.7.0"
-markdown = "0.39.0"
-junit = "6.0.1"
+firebase-bom = "34.9.0"
+markdown = "0.39.2"
+junit = "6.0.3"
 
 [libraries]
 desugar = "com.android.tools:desugar_jdk_libs:2.1.5"
@@ -29,7 +29,7 @@ conscrypt-android = "org.conscrypt:conscrypt-android:2.5.3"
 
 quickjs-android = { group = "com.github.zhanghai.quickjs-java", name = "quickjs-android", version = "547f5b1597" }
 
-jsoup = "org.jsoup:jsoup:1.21.2"
+jsoup = "org.jsoup:jsoup:1.22.1"
 
 disklrucache = "com.jakewharton:disklrucache:2.0.2"
 unifile = "com.github.tachiyomiorg:unifile:e0def6b3dc"
@@ -57,6 +57,7 @@ natural-comparator = "com.github.gpanther:java-nat-sort:natural-comparator-1.1"
 richeditor-compose = "com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc13"
 
 material = "com.google.android.material:material:1.12.0"
+materialKolor = "com.materialkolor:material-kolor:5.0.0-alpha06"
 flexible-adapter-core = "com.github.arkon.FlexibleAdapter:flexible-adapter:c8013533"
 photoview = "com.github.chrisbanes:PhotoView:2.3.0"
 directionalviewpager = "com.github.tachiyomiorg:DirectionalViewPager:1.0.0"
@@ -90,8 +91,8 @@ sqldelight-dialects-sql = { module = "app.cash.sqldelight:sqlite-3-38-dialect", 
 
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
-kotest-assertions = "io.kotest:kotest-assertions-core:6.0.7"
-mockk = "io.mockk:mockk:1.14.7"
+kotest-assertions = "io.kotest:kotest-assertions-core:6.1.3"
+mockk = "io.mockk:mockk:1.14.9"
 
 voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
 voyager-screenmodel = { module = "cafe.adriel.voyager:voyager-screenmodel", version.ref = "voyager" }

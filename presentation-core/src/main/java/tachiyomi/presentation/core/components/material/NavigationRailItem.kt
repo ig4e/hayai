@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +43,12 @@ fun NavigationRailItem(
     badgeCount: Int? = null,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
+    val labelAlpha by animateFloatAsState(
+        targetValue = if (selected || alwaysShowLabel) 1f else 0f,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "LabelAlpha",
+    )
+
     Box(
         modifier = modifier
             .clickable(
@@ -105,6 +112,28 @@ fun NavigationRailItem(
                     ) {
                         icon()
                     }
+                }
+            }
+        }
+
+        if (label != null && labelAlpha > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(top = 64.dp)
+                    .scale(labelAlpha),
+            ) {
+                val textColor by animateColorAsState(
+                    targetValue = if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    animationSpec = tween(durationMillis = 300),
+                    label = "LabelColor",
+                )
+                CompositionLocalProvider(LocalContentColor provides textColor) {
+                    label()
                 }
             }
         }

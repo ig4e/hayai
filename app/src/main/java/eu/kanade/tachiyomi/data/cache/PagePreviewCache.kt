@@ -6,6 +6,8 @@ import com.jakewharton.disklrucache.DiskLruCache
 import eu.kanade.tachiyomi.source.PagePreviewPage
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.saveTo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import okio.Source
@@ -51,17 +53,9 @@ class PagePreviewCache(private val context: Context) {
     private val cacheDir: File
         get() = diskCache.directory
 
-    /**
-     * Returns real size of directory.
-     */
-    private val realSize: Long
-        get() = DiskUtil.getDirectorySize(cacheDir)
-
-    /**
-     * Returns real size of directory in human readable format.
-     */
-    val readableSize: String
-        get() = Formatter.formatFileSize(context, realSize)
+    suspend fun getReadableSize(): String = withContext(Dispatchers.IO) {
+        Formatter.formatFileSize(context, DiskUtil.getDirectorySize(cacheDir))
+    }
 
     // --> EH
     // Cache size is in MB
