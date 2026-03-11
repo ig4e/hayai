@@ -2,11 +2,15 @@ package eu.kanade.tachiyomi.ui.more
 
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,7 +43,8 @@ internal fun RecentsRootContent(
     onClickHistoryCover: (Long) -> Unit,
     onClickHistory: (Long, Long) -> Unit,
     onClickHistoryFavorite: (Long) -> Unit,
-    onDeleteHistory: (HistoryWithRelations) -> Unit,
+    onDeleteHistory: (HistoryWithRelations, Boolean) -> Unit,
+    onClearHistory: () -> Unit,
     onClickUpdateCover: (Long) -> Unit,
     onClickUpdate: (Long, Long) -> Unit,
     onOpenStats: () -> Unit,
@@ -48,6 +53,7 @@ internal fun RecentsRootContent(
     var searchQuery by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     var showDownloadQueue by rememberSaveable { mutableStateOf(false) }
+    var showClearHistoryDialog by rememberSaveable { mutableStateOf(false) }
     val normalizedQuery = remember(searchQuery) {
         searchQuery
             ?.trim()
@@ -87,6 +93,28 @@ internal fun RecentsRootContent(
                 },
             )
         }
+    }
+
+    if (showClearHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            text = { Text(text = stringResource(MR.strings.clear_history_confirmation)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearHistoryDialog = false
+                        onClearHistory()
+                    },
+                ) {
+                    Text(text = stringResource(MR.strings.action_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryDialog = false }) {
+                    Text(text = stringResource(MR.strings.action_cancel))
+                }
+            },
+        )
     }
 
     TabbedScreen(
@@ -153,6 +181,11 @@ internal fun RecentsRootContent(
                 title = stringResource(MR.strings.action_settings),
                 icon = Icons.Outlined.Settings,
                 onClick = onOpenSettings,
+            ),
+            AppBar.Action(
+                title = stringResource(MR.strings.pref_clear_history),
+                icon = Icons.Outlined.DeleteSweep,
+                onClick = { showClearHistoryDialog = true },
             ),
         ),
     )

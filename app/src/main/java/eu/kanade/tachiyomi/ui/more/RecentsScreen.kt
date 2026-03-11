@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.more
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
@@ -14,6 +15,9 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel
+import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.flow.collectLatest
+import tachiyomi.i18n.MR
 
 class RecentsScreen : Screen() {
 
@@ -35,7 +39,14 @@ class RecentsScreen : Screen() {
                 context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId))
             },
             onClickHistoryFavorite = historyScreenModel::addFavorite,
-            onDeleteHistory = historyScreenModel::removeFromHistory,
+            onDeleteHistory = { history, removeEverything ->
+                if (removeEverything) {
+                    historyScreenModel.removeAllFromHistory(history.mangaId)
+                } else {
+                    historyScreenModel.removeFromHistory(history)
+                }
+            },
+            onClearHistory = historyScreenModel::removeAllHistory,
             onClickUpdateCover = { navigator.push(MangaScreen(it)) },
             onClickUpdate = { mangaId, chapterId ->
                 context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId))
@@ -43,5 +54,13 @@ class RecentsScreen : Screen() {
             onOpenStats = { navigator.push(StatsScreen()) },
             onOpenSettings = { navigator.push(SettingsScreen()) },
         )
+
+        LaunchedEffect(historyScreenModel) {
+            historyScreenModel.events.collectLatest { event ->
+                if (event is HistoryScreenModel.Event.HistoryCleared) {
+                    context.toast(MR.strings.clear_history_completed)
+                }
+            }
+        }
     }
 }

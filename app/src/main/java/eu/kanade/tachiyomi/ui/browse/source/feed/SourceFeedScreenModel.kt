@@ -44,6 +44,8 @@ import tachiyomi.domain.source.interactor.DeleteFeedSavedSearchById
 import tachiyomi.domain.source.interactor.GetFeedSavedSearchBySourceId
 import tachiyomi.domain.source.interactor.GetSavedSearchBySourceIdFeed
 import tachiyomi.domain.source.interactor.InsertFeedSavedSearch
+import tachiyomi.domain.source.interactor.GetRemoteManga
+import tachiyomi.domain.source.interactor.InsertSavedSearch
 import tachiyomi.domain.source.model.EXHSavedSearch
 import tachiyomi.domain.source.model.FeedSavedSearch
 import tachiyomi.domain.source.model.SavedSearch
@@ -67,6 +69,7 @@ open class SourceFeedScreenModel(
     private val countFeedSavedSearchBySourceId: CountFeedSavedSearchBySourceId = Injekt.get(),
     private val insertFeedSavedSearch: InsertFeedSavedSearch = Injekt.get(),
     private val deleteFeedSavedSearchById: DeleteFeedSavedSearchById = Injekt.get(),
+    private val insertSavedSearch: InsertSavedSearch = Injekt.get(),
     private val getExhSavedSearch: GetExhSavedSearch = Injekt.get(),
 ) : StateScreenModel<SourceFeedState>(SourceFeedState()) {
 
@@ -103,6 +106,12 @@ open class SourceFeedScreenModel(
 
     fun setFilters(filters: FilterList) {
         mutableState.update { it.copy(filters = filters) }
+    }
+
+    fun resetFilters() {
+        if (source !is CatalogueSource) return
+
+        mutableState.update { it.copy(filters = source.getFilterList()) }
     }
 
     private suspend fun hasTooManyFeeds(): Boolean {
@@ -284,6 +293,36 @@ open class SourceFeedScreenModel(
         }
     }
 
+    fun onSaveSearch() {
+        screenModelScope.launchIO {
+            val names = state.value.savedSearches.map { it.name }.toImmutableList()
+            mutableState.update { it.copy(dialog = Dialog.CreateSavedSearch(names)) }
+        }
+    }
+
+    fun saveSearch(name: String) {
+        if (source !is CatalogueSource) return
+        screenModelScope.launchNonCancellable {
+            val query = state.value.searchQuery
+                ?.takeUnless {
+                    it.isBlank() || it == GetRemoteManga.QUERY_POPULAR || it == GetRemoteManga.QUERY_LATEST
+                }
+                ?.trim()
+            val filterList = state.value.filters.ifEmpty { source.getFilterList() }
+            insertSavedSearch.await(
+                SavedSearch(
+                    id = -1,
+                    source = source.id,
+                    name = name.trim(),
+                    query = query,
+                    filtersJson = runCatching {
+                        filterSerializer.serialize(filterList).ifEmpty { null }?.let { Json.encodeToString(it) }
+                    }.getOrNull(),
+                ),
+            )
+        }
+    }
+
     fun search(query: String?) {
         mutableState.update { it.copy(searchQuery = query) }
     }
@@ -308,6 +347,7 @@ open class SourceFeedScreenModel(
         data object Filter : Dialog()
         data class DeleteFeed(val feed: FeedSavedSearch) : Dialog()
         data class AddFeed(val feedId: Long, val name: String) : Dialog()
+        data class CreateSavedSearch(val currentSavedSearches: ImmutableList<String>) : Dialog()
     }
 
     override fun onDispose() {

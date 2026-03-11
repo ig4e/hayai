@@ -17,7 +17,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.core.util.insertSeparators
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.history.HistoryUiModel
+import eu.kanade.presentation.history.components.HistoryDeleteDialog
 import eu.kanade.presentation.history.components.HistoryItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.util.lang.toLocalDate
@@ -44,12 +48,23 @@ fun RecentsScreen(
     onClickHistoryCover: (Long) -> Unit,
     onClickHistory: (Long, Long) -> Unit,
     onClickHistoryFavorite: (Long) -> Unit,
-    onDeleteHistory: (HistoryWithRelations) -> Unit,
+    onDeleteHistory: (HistoryWithRelations, Boolean) -> Unit,
     onClickUpdateCover: (Long) -> Unit,
     onClickUpdate: (Long, Long) -> Unit,
 ) {
     val allItems = remember(historyItems, updateItems) {
         buildRecentsCombinedUiModels(historyItems, updateItems)
+    }
+    var pendingDeleteHistory by remember { mutableStateOf<HistoryWithRelations?>(null) }
+
+    val deleteHistory = pendingDeleteHistory
+    if (deleteHistory != null) {
+        HistoryDeleteDialog(
+            onDismissRequest = { pendingDeleteHistory = null },
+            onDelete = { removeEverything ->
+                onDeleteHistory(deleteHistory, removeEverything)
+            },
+        )
     }
 
     ScrollbarLazyColumn(
@@ -94,7 +109,7 @@ fun RecentsScreen(
                                     item.item.item.chapterId,
                                 )
                             },
-                            onClickDelete = { onDeleteHistory(item.item.item) },
+                            onClickDelete = { pendingDeleteHistory = item.item.item },
                             onClickFavorite = { onClickHistoryFavorite(item.item.item.mangaId) },
                         )
                     }
@@ -117,8 +132,20 @@ fun RecentsHistoryScreen(
     onClickHistoryCover: (Long) -> Unit,
     onClickHistory: (Long, Long) -> Unit,
     onClickHistoryFavorite: (Long) -> Unit,
-    onDeleteHistory: (HistoryWithRelations) -> Unit,
+    onDeleteHistory: (HistoryWithRelations, Boolean) -> Unit,
 ) {
+    var pendingDeleteHistory by remember { mutableStateOf<HistoryWithRelations?>(null) }
+
+    val deleteHistory = pendingDeleteHistory
+    if (deleteHistory != null) {
+        HistoryDeleteDialog(
+            onDismissRequest = { pendingDeleteHistory = null },
+            onDelete = { removeEverything ->
+                onDeleteHistory(deleteHistory, removeEverything)
+            },
+        )
+    }
+
     ScrollbarLazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -136,7 +163,7 @@ fun RecentsHistoryScreen(
                             history = item.item,
                             onClickCover = { onClickHistoryCover(item.item.mangaId) },
                             onClickResume = { onClickHistory(item.item.mangaId, item.item.chapterId) },
-                            onClickDelete = { onDeleteHistory(item.item) },
+                            onClickDelete = { pendingDeleteHistory = item.item },
                             onClickFavorite = { onClickHistoryFavorite(item.item.mangaId) },
                         )
                     }

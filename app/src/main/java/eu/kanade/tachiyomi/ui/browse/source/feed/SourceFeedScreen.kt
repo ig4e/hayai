@@ -12,6 +12,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.SourceFeedScreen
 import eu.kanade.presentation.browse.components.SourceFeedAddDialog
 import eu.kanade.presentation.browse.components.SourceFeedDeleteDialog
+import eu.kanade.presentation.browse.components.SavedSearchCreateDialog
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
@@ -82,7 +83,7 @@ class SourceFeedScreen(val sourceId: Long) : Screen() {
                 SourceFilterDialog(
                     onDismissRequest = onDismissRequest,
                     filters = state.filters,
-                    onReset = {},
+                    onReset = screenModel::resetFilters,
                     onFilter = {
                         screenModel.onFilter { query, filters ->
                             onBrowseClick(
@@ -95,7 +96,7 @@ class SourceFeedScreen(val sourceId: Long) : Screen() {
                     },
                     onUpdate = screenModel::setFilters,
                     startExpanded = screenModel.startExpanded,
-                    onSave = {},
+                    onSave = screenModel::onSaveSearch,
                     savedSearches = state.savedSearches,
                     onSavedSearch = { search ->
                         screenModel.onSavedSearch(
@@ -141,6 +142,11 @@ class SourceFeedScreen(val sourceId: Long) : Screen() {
                     },
                 )
             }
+            is SourceFeedScreenModel.Dialog.CreateSavedSearch -> SavedSearchCreateDialog(
+                onDismissRequest = onDismissRequest,
+                currentSavedSearches = dialog.currentSavedSearches,
+                saveSearch = screenModel::saveSearch,
+            )
             null -> Unit
         }
 

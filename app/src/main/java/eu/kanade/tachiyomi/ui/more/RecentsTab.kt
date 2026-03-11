@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
@@ -71,7 +72,14 @@ data object RecentsTab : Tab {
                 context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId))
             },
             onClickHistoryFavorite = historyScreenModel::addFavorite,
-            onDeleteHistory = historyScreenModel::removeFromHistory,
+            onDeleteHistory = { history, removeEverything ->
+                if (removeEverything) {
+                    historyScreenModel.removeAllFromHistory(history.mangaId)
+                } else {
+                    historyScreenModel.removeFromHistory(history)
+                }
+            },
+            onClearHistory = historyScreenModel::removeAllHistory,
             onClickUpdateCover = { navigator.push(MangaScreen(it)) },
             onClickUpdate = { mangaId, chapterId ->
                 context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId))
@@ -83,6 +91,14 @@ data object RecentsTab : Tab {
         LaunchedEffect(Unit) {
             showDownloadsChannel.receiveAsFlow().collectLatest {
                 navigator.push(DownloadQueueScreen)
+            }
+        }
+
+        LaunchedEffect(historyScreenModel) {
+            historyScreenModel.events.collectLatest { event ->
+                if (event is HistoryScreenModel.Event.HistoryCleared) {
+                    context.toast(MR.strings.clear_history_completed)
+                }
             }
         }
     }
