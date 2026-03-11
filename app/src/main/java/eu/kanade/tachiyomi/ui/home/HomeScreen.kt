@@ -155,10 +155,7 @@ object HomeScreen : Screen() {
                     openTabEvent.receiveAsFlow().collectLatest {
                         tabNavigator.current = when (it) {
                             is Tab.Library -> LibraryTab
-                            is Tab.Recents,
-                            Tab.Updates,
-                            Tab.History,
-                            -> RecentsTab
+                            is Tab.Recents -> RecentsTab
                             is Tab.Browse -> {
                                 if (it.toExtensions) {
                                     BrowseTab.showExtension()
@@ -172,6 +169,12 @@ object HomeScreen : Screen() {
                         }
                         if (it is Tab.Recents && it.openDownloads) {
                             RecentsTab.showDownloads()
+                        }
+                        if (it is Tab.Recents && it.startPage == Tab.Recents.StartPage.UPDATES) {
+                            RecentsTab.openUpdates()
+                        }
+                        if (it is Tab.Recents && it.startPage == Tab.Recents.StartPage.HISTORY) {
+                            RecentsTab.openHistory()
                         }
                     }
                 }
@@ -346,9 +349,16 @@ object HomeScreen : Screen() {
 
     sealed interface Tab {
         data class Library(val mangaIdToOpen: Long? = null) : Tab
-        data class Recents(val openDownloads: Boolean = false) : Tab
-        data object Updates : Tab
-        data object History : Tab
+        data class Recents(
+            val openDownloads: Boolean = false,
+            val startPage: StartPage = StartPage.ALL,
+        ) : Tab {
+            enum class StartPage {
+                ALL,
+                HISTORY,
+                UPDATES,
+            }
+        }
         data class Browse(val toExtensions: Boolean = false) : Tab
     }
 }

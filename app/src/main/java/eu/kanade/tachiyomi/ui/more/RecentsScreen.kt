@@ -51,9 +51,32 @@ class RecentsScreen : Screen() {
             onClickUpdate = { mangaId, chapterId ->
                 context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId))
             },
+            onUpdateSelected = updatesScreenModel::toggleSelection,
+            onUpdateSwipeRead = { item, read ->
+                updatesScreenModel.markUpdatesRead(listOf(item), read)
+            },
+            onUpdateSwipeDownload = { item, action ->
+                updatesScreenModel.downloadChapters(listOf(item), action)
+            },
+            onDownloadUpdates = updatesScreenModel::downloadChapters,
+            onMultiBookmarkUpdates = updatesScreenModel::bookmarkUpdates,
+            onMultiMarkAsReadUpdates = updatesScreenModel::markUpdatesRead,
+            onMultiDeleteUpdates = updatesScreenModel::showConfirmDeleteChapters,
             onOpenStats = { navigator.push(StatsScreen()) },
             onOpenSettings = { navigator.push(SettingsScreen()) },
         )
+
+        when (val dialog = updatesState.dialog) {
+            is UpdatesScreenModel.Dialog.DeleteConfirmation -> {
+                eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog(
+                    onDismissRequest = { updatesScreenModel.setDialog(null) },
+                    onConfirm = { updatesScreenModel.deleteChapters(dialog.toDelete) },
+                )
+            }
+            UpdatesScreenModel.Dialog.FilterSheet,
+            null,
+            -> Unit
+        }
 
         LaunchedEffect(historyScreenModel) {
             historyScreenModel.events.collectLatest { event ->
