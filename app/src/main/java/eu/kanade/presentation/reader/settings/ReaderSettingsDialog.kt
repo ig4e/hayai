@@ -24,6 +24,11 @@ import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,6 +39,7 @@ fun ReaderSettingsDialog(
     onDismissRequest: () -> Unit,
     onShowMenus: () -> Unit,
     onHideMenus: () -> Unit,
+    onOpenSettings: () -> Unit,
     screenModel: ReaderSettingsScreenModel,
 ) {
     val viewer by screenModel.viewerFlow.collectAsState()
@@ -80,11 +86,24 @@ fun ReaderSettingsDialog(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     tonalElevation = 1.dp,
                 ) {
-                    Text(
-                        text = tabTitles[page],
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                    )
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = tabTitles[page],
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = stringResource(MR.strings.action_settings),
+                            )
+                        }
+                    }
                 }
 
                 when (page) {

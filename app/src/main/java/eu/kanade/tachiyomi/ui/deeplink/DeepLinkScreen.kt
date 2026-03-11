@@ -13,6 +13,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import eu.kanade.presentation.more.settings.screen.SettingsReaderScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -27,6 +28,11 @@ class DeepLinkScreen(
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
+
+        if (query == TYPE_READER_SETTINGS) {
+            navigator.replace(SettingsReaderScreen)
+            return
+        }
 
         val screenModel = rememberScreenModel {
             DeepLinkScreenModel(query = query)
@@ -68,5 +74,9 @@ class DeepLinkScreen(
                 }
             }
         }
+    }
+
+    companion object {
+        const val TYPE_READER_SETTINGS = "reader_settings"
     }
 }

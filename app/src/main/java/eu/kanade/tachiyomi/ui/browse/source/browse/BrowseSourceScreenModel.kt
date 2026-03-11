@@ -146,7 +146,7 @@ open class BrowseSourceScreenModel(
         }
 
         if (!getIncognitoState.await(source.id)) {
-            sourcePreferences.lastUsedSource().set(source.id)
+            sourcePreferences.recordUsedSource(source.id)
         }
 
         // SY -->

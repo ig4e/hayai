@@ -26,6 +26,7 @@ import eu.kanade.presentation.more.RecentsUpdatesScreen
 import eu.kanade.tachiyomi.ui.download.DownloadQueuePane
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import kotlinx.collections.immutable.persistentListOf
+import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -38,6 +39,7 @@ internal fun RecentsRootContent(
     onClickHistoryCover: (Long) -> Unit,
     onClickHistory: (Long, Long) -> Unit,
     onClickHistoryFavorite: (Long) -> Unit,
+    onDeleteHistory: (HistoryWithRelations) -> Unit,
     onClickUpdateCover: (Long) -> Unit,
     onClickUpdate: (Long, Long) -> Unit,
     onOpenStats: () -> Unit,
@@ -103,6 +105,7 @@ internal fun RecentsRootContent(
                     onClickHistoryCover = onClickHistoryCover,
                     onClickHistory = onClickHistory,
                     onClickHistoryFavorite = onClickHistoryFavorite,
+                    onDeleteHistory = onDeleteHistory,
                     onClickUpdateCover = onClickUpdateCover,
                     onClickUpdate = onClickUpdate,
                 )
@@ -118,6 +121,7 @@ internal fun RecentsRootContent(
                     onClickHistoryCover = onClickHistoryCover,
                     onClickHistory = onClickHistory,
                     onClickHistoryFavorite = onClickHistoryFavorite,
+                    onDeleteHistory = onDeleteHistory,
                 )
             },
             TabContent(

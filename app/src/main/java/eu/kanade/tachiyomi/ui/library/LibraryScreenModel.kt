@@ -19,6 +19,7 @@ import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.sync.SyncPreferences
+import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
@@ -1411,6 +1412,48 @@ class LibraryScreenModel(
                         flags = 0,
                     )
                 }
+            }
+
+            LibraryGroup.BY_AUTHOR -> {
+                groupBy { it.libraryManga.manga.author }
+                    .mapKeys {
+                        val author = it.key.orEmpty().ifBlank { context.stringResource(MR.strings.unknown) }
+                        Category(
+                            id = author.hashCode().toLong(),
+                            name = author,
+                            order = 0,
+                            flags = 0,
+                        )
+                    }
+            }
+
+            LibraryGroup.BY_LANGUAGE -> {
+                groupBy { sourceManager.getOrStub(it.libraryManga.manga.source).lang }
+                    .mapKeys {
+                        val lang = it.key.orEmpty().ifBlank { context.stringResource(MR.strings.unknown) }
+                        Category(
+                            id = lang.hashCode().toLong(),
+                            name = LocaleHelper.getDisplayName(lang),
+                            order = 0,
+                            flags = 0,
+                        )
+                    }
+            }
+
+            LibraryGroup.BY_TAG -> {
+                flatMap { item ->
+                    item.libraryManga.manga.genre.orEmpty().map { tag -> tag to item }
+                }
+                    .groupBy({ it.first }, { it.second })
+                    .mapKeys {
+                        val tag = it.key.ifBlank { context.stringResource(MR.strings.unknown) }
+                        Category(
+                            id = tag.hashCode().toLong(),
+                            name = tag,
+                            order = 0,
+                            flags = 0,
+                        )
+                    }
             }
 
             else -> emptyMap()

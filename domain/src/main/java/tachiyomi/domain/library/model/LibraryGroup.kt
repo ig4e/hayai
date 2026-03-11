@@ -11,6 +11,9 @@ object LibraryGroup {
     const val BY_STATUS = 2
     const val BY_TRACK_STATUS = 3
     const val UNGROUPED = 4
+    const val BY_AUTHOR = 5
+    const val BY_LANGUAGE = 6
+    const val BY_TAG = 7
 
     fun groupTypeStringRes(type: Int, hasCategories: Boolean = true): StringResource {
         return when (type) {
@@ -18,6 +21,9 @@ object LibraryGroup {
             BY_SOURCE -> MR.strings.label_sources
             BY_TRACK_STATUS -> SYMR.strings.tracking_status
             UNGROUPED -> SYMR.strings.ungrouped
+            BY_AUTHOR -> MR.strings.author
+            BY_LANGUAGE -> MR.strings.language
+            BY_TAG -> MR.strings.label_tags
             else -> if (hasCategories) MR.strings.categories else SYMR.strings.ungrouped
         }
     }

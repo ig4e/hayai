@@ -29,6 +29,7 @@ import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.presentation.history.components.HistoryItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.util.lang.toLocalDate
+import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ListGroupHeader
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
@@ -43,6 +44,7 @@ fun RecentsScreen(
     onClickHistoryCover: (Long) -> Unit,
     onClickHistory: (Long, Long) -> Unit,
     onClickHistoryFavorite: (Long) -> Unit,
+    onDeleteHistory: (HistoryWithRelations) -> Unit,
     onClickUpdateCover: (Long) -> Unit,
     onClickUpdate: (Long, Long) -> Unit,
 ) {
@@ -92,7 +94,7 @@ fun RecentsScreen(
                                     item.item.item.chapterId,
                                 )
                             },
-                            onClickDelete = {},
+                            onClickDelete = { onDeleteHistory(item.item.item) },
                             onClickFavorite = { onClickHistoryFavorite(item.item.item.mangaId) },
                         )
                     }
@@ -115,6 +117,7 @@ fun RecentsHistoryScreen(
     onClickHistoryCover: (Long) -> Unit,
     onClickHistory: (Long, Long) -> Unit,
     onClickHistoryFavorite: (Long) -> Unit,
+    onDeleteHistory: (HistoryWithRelations) -> Unit,
 ) {
     ScrollbarLazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -133,7 +136,7 @@ fun RecentsHistoryScreen(
                             history = item.item,
                             onClickCover = { onClickHistoryCover(item.item.mangaId) },
                             onClickResume = { onClickHistory(item.item.mangaId, item.item.chapterId) },
-                            onClickDelete = {},
+                            onClickDelete = { onDeleteHistory(item.item) },
                             onClickFavorite = { onClickHistoryFavorite(item.item.mangaId) },
                         )
                     }

@@ -1,6 +1,7 @@
 package eu.kanade.domain.ui
 
 import android.os.Build
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
@@ -8,6 +9,7 @@ import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.isDynamicColorAvailable
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
+import tachiyomi.i18n.MR
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -44,6 +46,34 @@ class UiPreferences(
 
     fun imagesInDescription() = preferenceStore.getBoolean("pref_render_images_description", true)
 
+    fun startingTab() = preferenceStore.getInt("starting_tab", 0)
+
+    fun backToStart() = preferenceStore.getBoolean("back_to_start", true)
+
+    fun showSeriesInShortcuts() = preferenceStore.getBoolean("show_series_shortcuts", true)
+
+    fun showSourcesInShortcuts() = preferenceStore.getBoolean("show_sources_shortcuts", true)
+
+    fun openChapterInShortcuts() = preferenceStore.getBoolean("open_chapter_shortcuts", true)
+
+    fun shouldAutoUpdate() = preferenceStore.getInt("should_auto_update", 1) // Default to Wi-Fi only (1)
+
+    fun appLanguage() = preferenceStore.getString("app_language", "")
+
+    fun longTapRecentsNavBehaviour() = preferenceStore.getEnum("pref_recents_long_tap", LongTapRecents.DEFAULT)
+
+    enum class LongTapRecents(val titleResId: StringResource) {
+        DEFAULT(tachiyomi.i18n.MR.strings.recents_long_tap_default),
+        LAST_READ(tachiyomi.i18n.MR.strings.recents_long_tap_last_read),
+    }
+
+    fun longTapBrowseNavBehaviour() = preferenceStore.getEnum("pref_browser_long_tap", LongTapBrowse.DEFAULT)
+
+    enum class LongTapBrowse(val titleResId: StringResource) {
+        DEFAULT(tachiyomi.i18n.MR.strings.browse_long_tap_default),
+        SEARCH(tachiyomi.i18n.MR.strings.browse_long_tap_search),
+    }
+
     // SY -->
 
     fun expandFilters() = preferenceStore.getBoolean("eh_expand_filters", false)
@@ -71,6 +101,10 @@ class UiPreferences(
     fun floatingSearchBars() = preferenceStore.getBoolean("pref_floating_search_bars", true)
 
     fun coverThemedMangaDetails() = preferenceStore.getBoolean("pref_cover_themed_manga_details", true)
+
+    fun hideBottomNavOnScroll() = preferenceStore.getBoolean("hide_bottom_nav_on_scroll", true)
+
+    fun enableSourceSwipeAction() = preferenceStore.getBoolean("enable_source_swipe_action", true)
 
     fun dynamicShortcuts() = preferenceStore.getBoolean("pref_dynamic_shortcuts", true)
 

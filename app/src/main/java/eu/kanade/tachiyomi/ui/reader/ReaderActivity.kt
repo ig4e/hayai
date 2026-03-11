@@ -360,6 +360,14 @@ class ReaderActivity : BaseActivity() {
                     onDismissRequest = onDismissRequest,
                     onShowMenus = { setMenuVisibility(true) },
                     onHideMenus = { setMenuVisibility(false) },
+                    onOpenSettings = {
+                        val intent = Intent(this@ReaderActivity, MainActivity::class.java).apply {
+                            action = MainActivity.SHORTCUT_READER_SETTINGS
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        }
+                        startActivity(intent)
+                        onDismissRequest()
+                    },
                     screenModel = settingsScreenModel,
                 )
             }
@@ -948,9 +956,13 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun shareChapter() {
-        assistUrl?.let {
-            val intent = it.toUri().toShareIntent(this, type = "text/plain")
-            startActivity(intent)
+        try {
+            assistUrl?.let {
+                val intent = it.toUri().toShareIntent(this, type = "text/plain")
+                startActivity(intent)
+            }
+        } catch (e: Exception) {
+            toast(e.message)
         }
     }
 

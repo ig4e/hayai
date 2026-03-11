@@ -1,11 +1,15 @@
 package eu.kanade.tachiyomi.ui.browse.migration.sources
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -13,6 +17,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.MigrateSourceScreen
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
+import eu.kanade.presentation.util.Screen as VoyagerScreen
 import eu.kanade.tachiyomi.ui.browse.migration.manga.MigrateMangaScreen
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -25,6 +30,10 @@ import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
+/**
+ * Extension function to provide migration tab content.
+ * Used within the Browse tab pager.
+ */
 @Composable
 fun Screen.migrateSourceTab(): TabContent {
     val uriHandler = LocalUriHandler.current
@@ -54,7 +63,6 @@ fun Screen.migrateSourceTab(): TabContent {
                 onToggleSortingMode = screenModel::toggleSortingMode,
                 // SY -->
                 onClickAll = { source ->
-                    // TODO: Jay wtf, need to clean this up sometime
                     @OptIn(DelicateCoroutinesApi::class)
                     launchIO {
                         val manga = Injekt.get<GetFavorites>().await()
@@ -73,4 +81,19 @@ fun Screen.migrateSourceTab(): TabContent {
             )
         },
     )
+}
+
+/**
+ * A dedicated screen for source migration, allowing it to be pushed onto the navigator.
+ */
+object MigrationSourcesScreen : VoyagerScreen() {
+    @Composable
+    override fun Content() {
+        val tab = migrateSourceTab()
+        val snackbarHostState = remember { SnackbarHostState() }
+        tab.content(
+            PaddingValues(0.dp),
+            snackbarHostState,
+        )
+    }
 }

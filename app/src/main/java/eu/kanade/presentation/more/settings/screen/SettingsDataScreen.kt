@@ -73,6 +73,7 @@ import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import logcat.LogPriority
@@ -206,6 +207,7 @@ object SettingsDataScreen : SearchableSettings {
         val navigator = LocalNavigator.currentOrThrow
 
         val lastAutoBackup by backupPreferences.lastAutoBackupTimestamp().collectAsState()
+        val backupInterval by backupPreferences.backupInterval().collectAsState()
 
         val chooseBackup = rememberLauncherForActivityResult(
             object : ActivityResultContracts.GetContent() {
@@ -286,6 +288,12 @@ object SettingsDataScreen : SearchableSettings {
                         BackupCreateJob.setupTask(context, it)
                         true
                     },
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = backupPreferences.numberOfBackups(),
+                    entries = (1..5).associateWith { it.toString() }.toImmutableMap(),
+                    title = stringResource(MR.strings.pref_backup_slots),
+                    enabled = backupInterval > 0,
                 ),
                 Preference.PreferenceItem.InfoPreference(
                     stringResource(MR.strings.backup_info) + "\n\n" +

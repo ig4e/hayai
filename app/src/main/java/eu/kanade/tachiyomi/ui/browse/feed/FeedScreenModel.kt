@@ -7,6 +7,7 @@ import androidx.compose.ui.util.fastAny
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.browse.FeedItemUI
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -57,6 +58,7 @@ import tachiyomi.domain.manga.model.Manga as DomainManga
 open class FeedScreenModel(
     val sourceManager: SourceManager = Injekt.get(),
     val sourcePreferences: SourcePreferences = Injekt.get(),
+    val getIncognitoState: GetIncognitoState = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),

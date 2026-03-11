@@ -401,9 +401,13 @@ object SettingsSecurityScreen : SearchableSettings {
 
 private val LockAfterValues = persistentListOf(
     0, // Always
-    1,
     2,
     5,
     10,
+    20,
+    30,
+    60,
+    90,
+    120,
     -1, // Never
 )

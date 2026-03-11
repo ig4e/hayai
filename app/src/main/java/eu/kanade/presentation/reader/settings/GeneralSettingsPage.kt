@@ -7,8 +7,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import eu.kanade.domain.manga.model.readerOrientation
+import eu.kanade.domain.manga.model.readingMode
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
@@ -18,6 +23,7 @@ import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import androidx.compose.runtime.collectAsState as collectFlowAsState
 
 private val themes = listOf(
     MR.strings.black_background to 1,
@@ -34,19 +40,31 @@ private val flashColors = listOf(
 
 @Composable
 internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsScreenModel) {
+    val manga by screenModel.mangaFlow.collectFlowAsState()
+
+    val readingMode = remember(manga) { ReadingMode.fromPreference(manga?.readingMode?.toInt()) }
+    SettingsChipRow(MR.strings.pref_category_reading_mode) {
+        ReadingMode.entries.map {
+            FilterChip(
+                selected = it == readingMode,
+                onClick = { screenModel.onChangeReadingMode(it) },
+                label = { Text(stringResource(it.stringRes)) },
+            )
+        }
+    }
+
+    val orientation = remember(manga) { ReaderOrientation.fromPreference(manga?.readerOrientation?.toInt()) }
+    SettingsChipRow(MR.strings.rotation_type) {
+        ReaderOrientation.entries.map {
+            FilterChip(
+                selected = it == orientation,
+                onClick = { screenModel.onChangeOrientation(it) },
+                label = { Text(stringResource(it.stringRes)) },
+            )
+        }
+    }
+
     val readerTheme by screenModel.preferences.readerTheme().collectAsState()
-
-    val flashPageState by screenModel.preferences.flashOnPageChange().collectAsState()
-
-    val flashMillisPref = screenModel.preferences.flashDurationMillis()
-    val flashMillis by flashMillisPref.collectAsState()
-
-    val flashIntervalPref = screenModel.preferences.flashPageInterval()
-    val flashInterval by flashIntervalPref.collectAsState()
-
-    val flashColorPref = screenModel.preferences.flashColor()
-    val flashColor by flashColorPref.collectAsState()
-
     SettingsChipRow(MR.strings.pref_reader_theme) {
         themes.map { (labelRes, value) ->
             FilterChip(
@@ -60,6 +78,29 @@ internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsScreenModel) {
     CheckboxItem(
         label = stringResource(MR.strings.pref_show_page_number),
         pref = screenModel.preferences.showPageNumber(),
+    )
+
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_fullscreen),
+        pref = screenModel.preferences.fullscreen(),
+    )
+
+    val isFullscreen by screenModel.preferences.fullscreen().collectAsState()
+    if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_cutout_short),
+            pref = screenModel.preferences.drawUnderCutout(),
+        )
+    }
+
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_keep_screen_on),
+        pref = screenModel.preferences.keepScreenOn(),
+    )
+
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_always_show_chapter_transition),
+        pref = screenModel.preferences.alwaysShowChapterTransition(),
     )
 
     CheckboxItem(
@@ -93,44 +134,25 @@ internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsScreenModel) {
     // SY <--
 
     CheckboxItem(
-        label = stringResource(MR.strings.pref_fullscreen),
-        pref = screenModel.preferences.fullscreen(),
-    )
-
-    val isFullscreen by screenModel.preferences.fullscreen().collectAsState()
-    if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {
-        CheckboxItem(
-            label = stringResource(MR.strings.pref_cutout_short),
-            pref = screenModel.preferences.drawUnderCutout(),
-        )
-    }
-
-    CheckboxItem(
-        label = stringResource(MR.strings.pref_keep_screen_on),
-        pref = screenModel.preferences.keepScreenOn(),
-    )
-
-    CheckboxItem(
         label = stringResource(MR.strings.pref_read_with_long_tap),
         pref = screenModel.preferences.readWithLongTap(),
     )
 
-    CheckboxItem(
-        label = stringResource(MR.strings.pref_always_show_chapter_transition),
-        pref = screenModel.preferences.alwaysShowChapterTransition(),
-    )
-
-    // SY -->
-    /*CheckboxItem(
-        label = stringResource(MR.strings.pref_page_transitions),
-        pref = screenModel.preferences.pageTransitions(),
-    ) SY <-- */
-
+    val flashPageState by screenModel.preferences.flashOnPageChange().collectAsState()
     CheckboxItem(
         label = stringResource(MR.strings.pref_flash_page),
         pref = screenModel.preferences.flashOnPageChange(),
     )
     if (flashPageState) {
+        val flashMillisPref = screenModel.preferences.flashDurationMillis()
+        val flashMillis by flashMillisPref.collectAsState()
+
+        val flashIntervalPref = screenModel.preferences.flashPageInterval()
+        val flashInterval by flashIntervalPref.collectAsState()
+
+        val flashColorPref = screenModel.preferences.flashColor()
+        val flashColor by flashColorPref.collectAsState()
+
         SliderItem(
             value = flashMillis / ReaderPreferences.MILLI_CONVERSION,
             valueRange = 1..15,

@@ -36,6 +36,12 @@ class LibraryPreferences(
 
     fun useStaggeredGrid() = preferenceStore.getBoolean("use_staggered_grid", false)
 
+    fun removeArticles() = preferenceStore.getBoolean("remove_articles", false)
+
+    fun showLibrarySearchSuggestions() = preferenceStore.getBoolean("show_library_search_suggestions", false)
+
+    fun librarySearchSuggestion() = preferenceStore.getString("library_search_suggestion", "")
+
     fun lastUpdatedTimestamp() = preferenceStore.getLong(Preference.appStateKey("library_update_last_timestamp"), 0L)
     fun autoUpdateInterval() = preferenceStore.getInt("pref_library_update_interval_key", 0)
 
@@ -56,6 +62,8 @@ class LibraryPreferences(
     )
 
     fun autoUpdateMetadata() = preferenceStore.getBoolean("auto_update_metadata", false)
+
+    fun autoUpdateCovers() = preferenceStore.getBoolean("auto_update_covers", false)
 
     fun showContinueReadingButton() = preferenceStore.getBoolean(
         "display_continue_reading_button",
@@ -189,6 +197,8 @@ class LibraryPreferences(
     }
 
     fun autoClearChapterCache() = preferenceStore.getBoolean("auto_clear_chapter_cache", false)
+
+    fun isChapterSwipeEnabled() = preferenceStore.getBoolean("pref_chapter_swipe", true)
 
     // endregion
 

@@ -225,6 +225,16 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
         }
     }
 
+    suspend fun updatingScoring(): Pair<Boolean, Throwable?> {
+        return try {
+            val (_, scoreType) = api.getCurrentUser()
+            scorePreference.set(scoreType)
+            true to null
+        } catch (e: Throwable) {
+            false to e
+        }
+    }
+
     override fun logout() {
         super.logout()
         trackPreferences.trackToken(this).delete()

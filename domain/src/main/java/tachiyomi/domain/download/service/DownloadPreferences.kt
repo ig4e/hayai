@@ -15,6 +15,10 @@ class DownloadPreferences(
 
     fun splitTallImages() = preferenceStore.getBoolean("split_tall_images", true)
 
+    fun downloadWithId() = preferenceStore.getBoolean("download_with_id", false)
+
+    fun deleteRemovedChapters() = preferenceStore.getInt("delete_removed_chapters", 0)
+
     fun autoDownloadWhileReading() = preferenceStore.getInt("auto_download_while_reading", 0)
 
     fun removeAfterReadSlots() = preferenceStore.getInt("remove_after_read_slots", -1)

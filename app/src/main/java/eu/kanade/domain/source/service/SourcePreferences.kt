@@ -33,6 +33,37 @@ class SourcePreferences(
         -1,
     )
 
+    fun lastUsedSources() = preferenceStore.getStringSet("last_used_sources", emptySet())
+
+    fun recordUsedSource(sourceId: Long) {
+        if (sourceId <= 0) return
+
+        val entries = lastUsedSources().get().toMutableSet()
+        entries.removeAll { entry ->
+            entry.substringBefore(':').toLongOrNull() == sourceId
+        }
+        entries.add("$sourceId:${System.currentTimeMillis()}")
+
+        val sanitized = entries
+            .mapNotNull { entry ->
+                val split = entry.split(":")
+                val id = split.getOrNull(0)?.toLongOrNull()
+                val timestamp = split.getOrNull(1)?.toLongOrNull()
+                if (id != null && timestamp != null) {
+                    id to timestamp
+                } else {
+                    null
+                }
+            }
+            .sortedByDescending { (_, timestamp) -> timestamp }
+            .take(2)
+            .map { (id, timestamp) -> "$id:$timestamp" }
+            .toSet()
+
+        lastUsedSources().set(sanitized)
+        lastUsedSource().set(sourceId)
+    }
+
     fun showNsfwSource() = preferenceStore.getBoolean("show_nsfw_source", true)
 
     fun migrationSortingMode() = preferenceStore.getEnum("pref_migration_sorting", SetMigrateSorting.Mode.ALPHABETICAL)
@@ -52,6 +83,8 @@ class SourcePreferences(
         Preference.appStateKey("trusted_extensions"),
         emptySet(),
     )
+
+    fun onlySearchPinned() = preferenceStore.getBoolean("only_search_pinned", false)
 
     fun globalSearchFilterState() = preferenceStore.getBoolean(
         Preference.appStateKey("has_filters_toggle_state"),
@@ -102,6 +135,8 @@ class SourcePreferences(
 
     fun recommendationSearchFlags() = preferenceStore.getInt("rec_search_flags", Int.MAX_VALUE)
     // SY <--
+
+    fun skipPreMigration() = preferenceStore.getBoolean("skip_pre_migration", false)
 
     fun migrationSources() = preferenceStore.getLongArray("migration_sources", emptyList())
 

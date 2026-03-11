@@ -71,6 +71,7 @@ data object RecentsTab : Tab {
                 context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId))
             },
             onClickHistoryFavorite = historyScreenModel::addFavorite,
+            onDeleteHistory = historyScreenModel::removeFromHistory,
             onClickUpdateCover = { navigator.push(MangaScreen(it)) },
             onClickUpdate = { mangaId, chapterId ->
                 context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId))

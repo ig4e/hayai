@@ -97,6 +97,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import logcat.LogPriority
@@ -345,7 +346,12 @@ class MainActivity : BaseActivity() {
         }
         // SY -->
 
-        uiPreferences.dynamicShortcuts().changes()
+        merge(
+            uiPreferences.dynamicShortcuts().changes(),
+            uiPreferences.showSeriesInShortcuts().changes(),
+            uiPreferences.showSourcesInShortcuts().changes(),
+            uiPreferences.openChapterInShortcuts().changes(),
+        )
             .drop(1)
             .onEach {
                 lifecycleScope.launchIO {
@@ -466,10 +472,21 @@ class MainActivity : BaseActivity() {
             Constants.SHORTCUT_UPDATES -> HomeScreen.Tab.Updates
             Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.History
             Constants.SHORTCUT_SOURCES -> HomeScreen.Tab.Browse(false)
+            Constants.SHORTCUT_SOURCE -> {
+                val sourceId = intent.extras?.getLong(Constants.SOURCE_EXTRA) ?: return false
+                navigator.popUntilRoot()
+                navigator.push(BrowseSourceScreen(sourceId = sourceId, listingQuery = null))
+                HomeScreen.Tab.Browse(false)
+            }
             Constants.SHORTCUT_EXTENSIONS -> HomeScreen.Tab.Browse(true)
             Constants.SHORTCUT_DOWNLOADS -> {
                 navigator.popUntilRoot()
                 HomeScreen.Tab.Recents(openDownloads = true)
+            }
+            SHORTCUT_READER_SETTINGS -> {
+                navigator.popUntilRoot()
+                navigator.push(DeepLinkScreen(DeepLinkScreen.TYPE_READER_SETTINGS))
+                null
             }
             Intent.ACTION_SEARCH, Intent.ACTION_SEND, "com.google.android.gms.actions.SEARCH_ACTION" -> {
                 // If the intent match the "standard" Android search intent
@@ -530,6 +547,7 @@ class MainActivity : BaseActivity() {
         val INTENT_SEARCH = "${BuildConfig.APPLICATION_ID}.SEARCH"
         const val INTENT_SEARCH_QUERY = "query"
         const val INTENT_SEARCH_FILTER = "filter"
+        val SHORTCUT_READER_SETTINGS = "${BuildConfig.APPLICATION_ID}.READER_SETTINGS"
     }
 }
 

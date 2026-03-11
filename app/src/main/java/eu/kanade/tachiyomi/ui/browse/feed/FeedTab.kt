@@ -64,7 +64,9 @@ fun Screen.feedTab(): TabContent {
                 state = state,
                 contentPadding = contentPadding,
                 onClickSavedSearch = { savedSearch, source ->
-                    screenModel.sourcePreferences.lastUsedSource().set(savedSearch.source)
+                    if (!screenModel.getIncognitoState.await(source.id)) {
+                        screenModel.sourcePreferences.recordUsedSource(savedSearch.source)
+                    }
                     navigator.push(
                         BrowseSourceScreen(
                             source.id,
@@ -74,7 +76,9 @@ fun Screen.feedTab(): TabContent {
                     )
                 },
                 onClickSource = { source ->
-                    screenModel.sourcePreferences.lastUsedSource().set(source.id)
+                    if (!screenModel.getIncognitoState.await(source.id)) {
+                        screenModel.sourcePreferences.recordUsedSource(source.id)
+                    }
                     navigator.push(
                         BrowseSourceScreen(
                             source.id,

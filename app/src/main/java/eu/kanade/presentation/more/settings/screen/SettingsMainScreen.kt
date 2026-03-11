@@ -15,20 +15,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
-import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -57,14 +54,9 @@ import eu.kanade.presentation.more.settings.screen.about.AboutScreen
 import eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
-import eu.kanade.tachiyomi.ui.category.CategoryScreen
-import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
-import eu.kanade.tachiyomi.ui.more.RecentsScreen
-import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import exh.assets.EhAssets
 import exh.assets.ehassets.EhLogo
 import exh.assets.ehassets.MangadexLogo
-import exh.ui.batchadd.BatchAddScreen
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
@@ -316,44 +308,14 @@ object SettingsMainScreen : Screen() {
 
     private val settingsGroups = listOf(
         Group(
-            titleRes = MR.strings.pref_category_general,
+            titleRes = MR.strings.label_settings,
             items = listOf(
                 Item(
-                    titleRes = MR.strings.label_recents,
-                    subtitleRes = MR.strings.label_recent_updates,
-                    formatSubtitle = { stringResource(MR.strings.label_recent_manga) },
-                    icon = Icons.Outlined.NewReleases,
-                    screen = RecentsScreen(),
+                    titleRes = MR.strings.pref_category_general,
+                    subtitleRes = MR.strings.pressing_back_to_start,
+                    icon = Icons.Outlined.Tune,
+                    screen = SettingsGeneralScreen,
                 ),
-                Item(
-                    titleRes = MR.strings.label_download_queue,
-                    subtitleRes = MR.strings.pref_downloads_summary,
-                    icon = Icons.Outlined.GetApp,
-                    screen = DownloadQueueScreen,
-                ),
-                Item(
-                    titleRes = MR.strings.categories,
-                    subtitleRes = MR.strings.pref_library_summary,
-                    icon = Icons.AutoMirrored.Outlined.Label,
-                    screen = CategoryScreen(),
-                ),
-                Item(
-                    titleRes = MR.strings.label_stats,
-                    subtitleRes = MR.strings.label_reading_experience,
-                    icon = Icons.Outlined.QueryStats,
-                    screen = StatsScreen(),
-                ),
-                Item(
-                    titleRes = SYMR.strings.eh_batch_add,
-                    subtitleRes = SYMR.strings.batch_add,
-                    icon = Icons.AutoMirrored.Outlined.PlaylistAdd,
-                    screen = BatchAddScreen(),
-                ),
-            ),
-        ),
-        Group(
-            titleRes = MR.strings.label_app_preferences,
-            items = listOf(
                 Item(
                     titleRes = MR.strings.pref_category_appearance,
                     subtitleRes = MR.strings.pref_appearance_summary,
@@ -367,23 +329,6 @@ object SettingsMainScreen : Screen() {
                     screen = SettingsLibraryScreen,
                 ),
                 Item(
-                    titleRes = MR.strings.browse,
-                    subtitleRes = MR.strings.pref_browse_summary,
-                    icon = Icons.Outlined.Explore,
-                    screen = SettingsBrowseScreen,
-                ),
-                Item(
-                    titleRes = MR.strings.pref_category_security,
-                    subtitleRes = MR.strings.pref_security_summary,
-                    icon = Icons.Outlined.Security,
-                    screen = SettingsSecurityScreen,
-                ),
-            ),
-        ),
-        Group(
-            titleRes = MR.strings.label_reading_experience,
-            items = listOf(
-                Item(
                     titleRes = MR.strings.pref_category_reader,
                     subtitleRes = MR.strings.pref_reader_summary,
                     icon = Icons.AutoMirrored.Outlined.ChromeReaderMode,
@@ -396,36 +341,29 @@ object SettingsMainScreen : Screen() {
                     screen = SettingsDownloadScreen,
                 ),
                 Item(
+                    titleRes = MR.strings.browse,
+                    subtitleRes = MR.strings.pref_browse_summary,
+                    icon = Icons.Outlined.Explore,
+                    screen = SettingsBrowseScreen,
+                ),
+                Item(
                     titleRes = MR.strings.pref_category_tracking,
                     subtitleRes = MR.strings.pref_tracking_summary,
                     icon = Icons.Outlined.Sync,
                     screen = SettingsTrackingScreen,
                 ),
-            ),
-        ),
-        Group(
-            titleRes = MR.strings.label_services_and_data,
-            items = listOf(
                 Item(
                     titleRes = MR.strings.label_data_storage,
                     subtitleRes = MR.strings.pref_backup_summary,
                     icon = Icons.Outlined.Storage,
                     screen = SettingsDataScreen,
                 ),
-                // SY -->
                 Item(
-                    titleRes = SYMR.strings.pref_category_eh,
-                    subtitleRes = SYMR.strings.pref_ehentai_summary,
-                    icon = EhAssets.EhLogo,
-                    screen = SettingsEhScreen,
+                    titleRes = MR.strings.pref_category_security,
+                    subtitleRes = MR.strings.pref_security_summary,
+                    icon = Icons.Outlined.Security,
+                    screen = SettingsSecurityScreen,
                 ),
-                Item(
-                    titleRes = SYMR.strings.pref_category_mangadex,
-                    subtitleRes = SYMR.strings.pref_mangadex_summary,
-                    icon = EhAssets.MangadexLogo,
-                    screen = SettingsMangadexScreen,
-                ),
-                // SY <--
                 Item(
                     titleRes = MR.strings.pref_category_advanced,
                     subtitleRes = MR.strings.pref_advanced_summary,
@@ -440,6 +378,23 @@ object SettingsMainScreen : Screen() {
                     },
                     icon = Icons.Outlined.Info,
                     screen = AboutScreen,
+                ),
+            ),
+        ),
+        Group(
+            titleRes = MR.strings.services,
+            items = listOf(
+                Item(
+                    titleRes = SYMR.strings.pref_category_eh,
+                    subtitleRes = SYMR.strings.pref_ehentai_summary,
+                    icon = EhAssets.EhLogo,
+                    screen = SettingsEhScreen,
+                ),
+                Item(
+                    titleRes = SYMR.strings.pref_category_mangadex,
+                    subtitleRes = SYMR.strings.pref_mangadex_summary,
+                    icon = EhAssets.MangadexLogo,
+                    screen = SettingsMangadexScreen,
                 ),
             ),
         ),
