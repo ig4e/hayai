@@ -217,7 +217,8 @@ class ReaderViewModel @JvmOverloads constructor(
         // SY <--
 
         val selectedChapter = chapters.find { it.id == chapterId }
-            ?: error("Requested chapter of id $chapterId not found in chapter list")
+            ?: chapters.firstOrNull()
+            ?: throw IllegalStateException("No chapters available for manga ${manga.id}")
 
         val chaptersForReader = when {
             (readerPreferences.skipRead().get() || readerPreferences.skipFiltered().get()) -> {
@@ -409,7 +410,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
                     loadChapter(
                         loader!!,
-                        chapterList.first { chapterId == it.chapter.id },
+                        chapterList.firstOrNull { chapterId == it.chapter.id } ?: chapterList.first(),
                         /* SY --> */page, /* SY <-- */
                     )
                     Result.success(true)

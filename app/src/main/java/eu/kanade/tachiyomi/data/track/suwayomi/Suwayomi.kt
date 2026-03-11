@@ -66,7 +66,14 @@ class Suwayomi(id: Long) : BaseTracker(id, "Suwayomi"), EnhancedTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
-        TODO("Not yet implemented")
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return emptyList()
+
+        val mangaId = normalizedQuery.toLongOrNull()
+            ?: normalizedQuery.substringAfterLast('/', "").toLongOrNull()
+            ?: return emptyList()
+
+        return listOf(api.getTrackSearch(mangaId))
     }
 
     override suspend fun refresh(track: Track): Track {

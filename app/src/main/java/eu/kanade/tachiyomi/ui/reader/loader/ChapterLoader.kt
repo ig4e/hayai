@@ -104,10 +104,11 @@ class ChapterLoader(
             source is MergedSource -> {
                 val mangaReference = mergedReferences.firstOrNull {
                     it.mangaId == chapter.chapter.manga_id
-                } ?: error("Merge reference null")
+                } ?: throw Exception(context.stringResource(MR.strings.loader_not_implemented_error))
                 val source = sourceManager.get(mangaReference.mangaSourceId)
-                    ?: error("Source ${mangaReference.mangaSourceId} was null")
-                val manga = mergedManga[chapter.chapter.manga_id] ?: error("Manga for merged chapter was null")
+                    ?: throw Exception(context.stringResource(MR.strings.source_not_installed, mangaReference.mangaSourceId.toString()))
+                val manga = mergedManga[chapter.chapter.manga_id]
+                    ?: throw Exception(context.stringResource(MR.strings.loader_not_implemented_error))
                 val isMergedMangaDownloaded = downloadManager.isChapterDownloaded(
                     chapterName = chapter.chapter.name,
                     chapterScanlator = chapter.chapter.scanlator,
@@ -132,7 +133,7 @@ class ChapterLoader(
                             is Format.Epub -> EpubPageLoader(format.file.archiveReader(context))
                         }
                     }
-                    else -> error(context.stringResource(MR.strings.loader_not_implemented_error))
+                    else -> throw Exception(context.stringResource(MR.strings.loader_not_implemented_error))
                 }
             }
             // SY <--
@@ -151,8 +152,8 @@ class ChapterLoader(
                 }
             }
             source is HttpSource -> HttpPageLoader(chapter, source)
-            source is StubSource -> error(context.stringResource(MR.strings.source_not_installed, source.toString()))
-            else -> error(context.stringResource(MR.strings.loader_not_implemented_error))
+            source is StubSource -> throw Exception(context.stringResource(MR.strings.source_not_installed, source.toString()))
+            else -> throw Exception(context.stringResource(MR.strings.loader_not_implemented_error))
         }
     }
 }

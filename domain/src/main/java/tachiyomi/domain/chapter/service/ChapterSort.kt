@@ -28,6 +28,9 @@ fun getChapterSort(
             true -> { c1, c2 -> c2.name.compareToWithCollator(c1.name) }
             false -> { c1, c2 -> c1.name.compareToWithCollator(c2.name) }
         }
-        else -> throw NotImplementedError("Invalid chapter sorting method: ${manga.sorting}")
+        else -> when (sortDescending) {
+            true -> { c1, c2 -> c2.chapterNumber.compareTo(c1.chapterNumber) }
+            false -> { c1, c2 -> c1.chapterNumber.compareTo(c2.chapterNumber) }
+        }
     }
 }

@@ -71,12 +71,12 @@ class MangaCoverFetcher(
         }
 
         // diskCacheKey is thumbnail_url
-        if (url == null) error("No cover specified")
+        if (url == null) throw IOException("No cover specified")
         return when (getResourceType(url)) {
             Type.File -> fileLoader(File(url.substringAfter("file://")))
             Type.URI -> fileUriLoader(url)
             Type.URL -> httpLoader()
-            null -> error("Invalid image")
+            null -> throw IOException("Invalid image")
         }
     }
 
@@ -93,10 +93,11 @@ class MangaCoverFetcher(
     }
 
     private fun fileUriLoader(uri: String): FetchResult {
-        val source = UniFile.fromUri(options.context, uri.toUri())!!
-            .openInputStream()
-            .source()
-            .buffer()
+        val uniFile = UniFile.fromUri(options.context, uri.toUri())
+            ?: throw IOException("Unable to resolve image uri: $uri")
+        val inputStream = uniFile.openInputStream()
+            ?: throw IOException("Unable to open image uri: $uri")
+        val source = inputStream.source().buffer()
         return SourceFetchResult(
             source = ImageSource(source = source, fileSystem = FileSystem.SYSTEM),
             mimeType = "image/*",
@@ -107,7 +108,7 @@ class MangaCoverFetcher(
     private suspend fun httpLoader(): FetchResult {
         // Only cache separately if it's a library item
         val libraryCoverCacheFile = if (isLibraryManga) {
-            coverFileLazy.value ?: error("No cover specified")
+            coverFileLazy.value ?: throw IOException("No cover specified")
         } else {
             null
         }

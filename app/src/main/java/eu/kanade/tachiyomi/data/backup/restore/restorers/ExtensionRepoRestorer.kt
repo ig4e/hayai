@@ -22,9 +22,9 @@ class ExtensionRepoRestorer(
         val shaExists = existingReposBySHA[backupRepo.signingKeyFingerprint]
 
         if (urlExists != null && urlExists.signingKeyFingerprint != backupRepo.signingKeyFingerprint) {
-            error("Already Exists with different signing key fingerprint")
+            return
         } else if (shaExists != null) {
-            error("${shaExists.name} has the same signing key fingerprint")
+            return
         } else {
             handler.await {
                 extension_reposQueries.insert(

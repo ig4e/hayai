@@ -70,7 +70,14 @@ class Komga(id: Long) : BaseTracker(id, "Komga"), EnhancedTracker {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
-        TODO("Not yet implemented: search")
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return emptyList()
+
+        val trackingUrl = normalizedQuery
+            .takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+            ?: return emptyList()
+
+        return listOf(api.getTrackSearch(trackingUrl))
     }
 
     override suspend fun refresh(track: Track): Track {

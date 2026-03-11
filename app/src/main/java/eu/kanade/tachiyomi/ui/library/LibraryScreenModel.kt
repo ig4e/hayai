@@ -563,7 +563,7 @@ class LibraryScreenModel(
                 }
 
                 LibrarySort.Type.Random -> {
-                    error("Why Are We Still Here? Just To Suffer?")
+                    0
                 }
                 // SY -->
                 LibrarySort.Type.TagList -> {
