@@ -231,10 +231,8 @@ open class SourceFeedScreenModel(
             val allDefault = state.value.filters == source.getFilterList()
             dismissDialog()
             if (allDefault) {
-                onBrowseClick(
-                    state.value.searchQuery?.nullIfBlank(),
-                    null,
-                )
+                val query = state.value.searchQuery?.nullIfBlank() ?: GetRemoteManga.QUERY_POPULAR
+                onBrowseClick(query, null)
             } else {
                 onBrowseClick(
                     state.value.searchQuery?.nullIfBlank(),
@@ -261,9 +259,17 @@ open class SourceFeedScreenModel(
             val allDefault = search.filterList != null && search.filterList == source.getFilterList()
             dismissDialog()
 
-            if (!allDefault) {
+            val query = state.value.searchQuery?.nullIfBlank()
+                ?: search.query?.nullIfBlank()
+
+            if (allDefault) {
                 onBrowseClick(
-                    state.value.searchQuery?.nullIfBlank(),
+                    query ?: GetRemoteManga.QUERY_POPULAR,
+                    search.id,
+                )
+            } else {
+                onBrowseClick(
+                    query,
                     search.id,
                 )
             }

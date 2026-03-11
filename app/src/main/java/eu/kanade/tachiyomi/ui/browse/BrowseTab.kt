@@ -135,7 +135,7 @@ data object BrowseTab : Tab {
                 ),
             ),
         )
-        LaunchedEffect(Unit) {
+        LaunchedEffect(extensionIndex) {
             switchToExtensionTabChannel.receiveAsFlow()
                 .collectLatest {
                     if (extensionIndex >= 0) {
