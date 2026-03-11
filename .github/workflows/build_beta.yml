@@ -42,6 +42,13 @@ jobs:
           version_name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
 
+      - name: Write google-services.json
+        uses: DamianReeves/write-file-action@v1.3
+        with:
+          path: app/google-services.json
+          contents: ${{ secrets.GOOGLE_SERVICES_TEXT_BETA }}
+          write-mode: overwrite
+
       - name: Build beta app
         run: ./gradlew assembleBetaRelease
 
