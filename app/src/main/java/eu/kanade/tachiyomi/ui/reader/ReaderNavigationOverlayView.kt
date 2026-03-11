@@ -21,13 +21,25 @@ class ReaderNavigationOverlayView(context: Context, attributeSet: AttributeSet) 
     private var viewPropertyAnimator: ViewPropertyAnimator? = null
 
     private var navigation: ViewerNavigation? = null
+    var isLTR = true
 
     fun setNavigation(navigation: ViewerNavigation, showOnStart: Boolean) {
-        val firstLaunch = this.navigation == null
+        if (!showOnStart && (this.navigation == null || this.navigation === navigation)) {
+            if (this.navigation == null) {
+                this.navigation = navigation
+                isVisible = false
+            }
+            return
+        }
+
         this.navigation = navigation
+        showNavigationAgain()
+    }
+
+    fun showNavigationAgain() {
         invalidate()
 
-        if (isVisible || (!showOnStart && firstLaunch) || navigation is DisabledNavigation) {
+        if (isVisible || navigation is DisabledNavigation) {
             return
         }
 
@@ -64,10 +76,11 @@ class ReaderNavigationOverlayView(context: Context, attributeSet: AttributeSet) 
 
         navigation?.getRegions()?.forEach { region ->
             val rect = region.rectF
+            val directionalRegion = region.type.directionalRegion(isLTR)
 
             // Scale rect from 1f,1f to screen width and height
             canvas.withScale(width.toFloat(), height.toFloat()) {
-                regionPaint.color = region.type.color
+                regionPaint.color = directionalRegion.color
                 drawRect(rect, regionPaint)
             }
 
@@ -80,8 +93,8 @@ class ReaderNavigationOverlayView(context: Context, attributeSet: AttributeSet) 
                 // Calculate center of rect height on screen
                 val y = height * (abs(rect.top - rect.bottom) / 2)
 
-                drawText(context.stringResource(region.type.nameRes), x, y, textBorderPaint)
-                drawText(context.stringResource(region.type.nameRes), x, y, textPaint)
+                drawText(context.stringResource(directionalRegion.nameRes), x, y, textBorderPaint)
+                drawText(context.stringResource(directionalRegion.nameRes), x, y, textPaint)
             }
         }
     }

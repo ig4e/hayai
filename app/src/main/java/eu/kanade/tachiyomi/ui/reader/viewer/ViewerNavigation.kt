@@ -16,6 +16,14 @@ abstract class ViewerNavigation {
         data object NEXT : NavigationRegion(MR.strings.nav_zone_next, Color.argb(0xCC, 0x84, 0xE2, 0x96))
         data object LEFT : NavigationRegion(MR.strings.nav_zone_left, Color.argb(0xCC, 0x7D, 0x11, 0x28))
         data object RIGHT : NavigationRegion(MR.strings.nav_zone_right, Color.argb(0xCC, 0xA6, 0xCF, 0xD5))
+
+        fun directionalRegion(isLtr: Boolean): NavigationRegion {
+            return if (this == LEFT || this == RIGHT) {
+                if (if (isLtr) this == RIGHT else this == LEFT) NEXT else PREV
+            } else {
+                this
+            }
+        }
     }
 
     data class Region(
