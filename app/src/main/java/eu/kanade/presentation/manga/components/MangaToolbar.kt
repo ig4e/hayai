@@ -37,6 +37,8 @@ fun MangaToolbar(
     onClickDownload: ((DownloadAction) -> Unit)?,
     onClickEditCategory: (() -> Unit)?,
     onClickRefresh: () -> Unit,
+    onClickMarkAllAsRead: (() -> Unit)?,
+    onClickMarkAllAsUnread: (() -> Unit)?,
     onClickMigrate: (() -> Unit)?,
     onClickEditNotes: () -> Unit,
     // SY -->
@@ -126,6 +128,22 @@ fun MangaToolbar(
                             onClick = onClickRefresh,
                         ),
                     )
+                    if (onClickMarkAllAsRead != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_mark_as_read),
+                                onClick = onClickMarkAllAsRead,
+                            ),
+                        )
+                    }
+                    if (onClickMarkAllAsUnread != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_mark_as_unread),
+                                onClick = onClickMarkAllAsUnread,
+                            ),
+                        )
+                    }
                     if (onClickEditCategory != null) {
                         add(
                             AppBar.OverflowAction(
