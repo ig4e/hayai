@@ -43,11 +43,13 @@ import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -119,12 +121,18 @@ fun MangaInfoBox(
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
+    val coverThemedHeader = Injekt.get<UiPreferences>().coverThemedMangaDetails().get()
     Box(modifier = modifier) {
         // Backdrop
         val backdropGradientColors = listOf(
             Color.Transparent,
-            MaterialTheme.colorScheme.background,
+            if (coverThemedHeader) {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            } else {
+                MaterialTheme.colorScheme.background
+            },
         )
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
@@ -141,30 +149,43 @@ fun MangaInfoBox(
                         brush = Brush.verticalGradient(colors = backdropGradientColors),
                     )
                 }
-                .blur(4.dp)
-                .alpha(0.2f),
+                .blur(if (coverThemedHeader) 10.dp else 4.dp)
+                .alpha(if (coverThemedHeader) 0.38f else 0.2f),
         )
 
         // Manga & source info
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-            if (!isTabletUi) {
-                MangaAndSourceTitlesSmall(
-                    appBarPadding = appBarPadding,
-                    manga = manga,
-                    sourceName = sourceName,
-                    isStubSource = isStubSource,
-                    onCoverClick = onCoverClick,
-                    doSearch = doSearch,
-                )
-            } else {
-                MangaAndSourceTitlesLarge(
-                    appBarPadding = appBarPadding,
-                    manga = manga,
-                    sourceName = sourceName,
-                    isStubSource = isStubSource,
-                    onCoverClick = onCoverClick,
-                    doSearch = doSearch,
-                )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (!isTabletUi) {
+                    MangaAndSourceTitlesSmall(
+                        appBarPadding = appBarPadding,
+                        manga = manga,
+                        sourceName = sourceName,
+                        isStubSource = isStubSource,
+                        onCoverClick = onCoverClick,
+                        doSearch = doSearch,
+                    )
+                } else {
+                    MangaAndSourceTitlesLarge(
+                        appBarPadding = appBarPadding,
+                        manga = manga,
+                        sourceName = sourceName,
+                        isStubSource = isStubSource,
+                        onCoverClick = onCoverClick,
+                        doSearch = doSearch,
+                    )
+                }
+                if (footer != null) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp, bottom = 12.dp),
+                    ) {
+                        footer()
+                    }
+                }
             }
         }
     }
@@ -199,7 +220,19 @@ fun MangaActionRow(
         }
     }
 
-    Row(modifier = modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp)) {
+    Surface(
+        modifier = modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp,
+    ) {
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
         MangaActionButton(
             title = if (favorite) {
                 stringResource(MR.strings.in_library)
@@ -254,6 +287,7 @@ fun MangaActionRow(
             )
         }
         // SY <--
+        }
     }
 }
 
@@ -278,28 +312,62 @@ fun ExpandableMangaDescription(
         }
         val desc =
             description.takeIf { !it.isNullOrBlank() } ?: stringResource(MR.strings.description_placeholder)
+        val tags = tagsProvider()
+        var showMenu by remember { mutableStateOf(false) }
+        var tagSelected by remember { mutableStateOf("") }
 
-        MangaSummary(
-            description = desc,
-            expanded = expanded,
-            notes = notes,
-            onEditNotesClicked = onEditNotes,
+        Surface(
             modifier = Modifier
                 .padding(top = 8.dp)
                 .padding(horizontal = 16.dp)
-                .clickableNoIndication { onExpanded(!expanded) },
-        )
-        val tags = tagsProvider()
-        if (!tags.isNullOrEmpty()) {
-            Box(
+                .padding(bottom = 12.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 1.dp,
+        ) {
+            Column(
                 modifier = Modifier
-                    .padding(top = 8.dp)
-                    .padding(vertical = 12.dp)
                     .animateContentSize(animationSpec = spring())
                     .fillMaxWidth(),
             ) {
-                var showMenu by remember { mutableStateOf(false) }
-                var tagSelected by remember { mutableStateOf("") }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(MR.strings.label_details),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    TextButton(onClick = { onExpanded(!expanded) }) {
+                        Text(
+                            text = stringResource(
+                                if (expanded) MR.strings.manga_info_collapse else MR.strings.manga_info_expand,
+                            ),
+                        )
+                    }
+                }
+                MangaSummary(
+                    description = desc,
+                    expanded = expanded,
+                    notes = notes,
+                    onEditNotesClicked = onEditNotes,
+                    modifier = Modifier
+                        .clickableNoIndication { onExpanded(!expanded) }
+                        .padding(start = 16.dp, end = 16.dp, bottom = if (tags.isNullOrEmpty()) 12.dp else 8.dp),
+                )
+
+                if (tags.isNullOrEmpty()) {
+                    return@Surface
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                )
                 DropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
@@ -329,19 +397,19 @@ fun ExpandableMangaDescription(
                     )
                 }
                 if (expanded) {
-                    // SY -->
                     if (searchMetadataChips != null) {
-                        NamespaceTags(
-                            tags = searchMetadataChips,
-                            onClick = {
-                                tagSelected = it
-                                showMenu = true
-                            },
-                        )
+                        Box(modifier = Modifier.padding(vertical = 12.dp)) {
+                            NamespaceTags(
+                                tags = searchMetadataChips,
+                                onClick = {
+                                    tagSelected = it
+                                    showMenu = true
+                                },
+                            )
+                        }
                     } else {
-                        // SY <--
                         FlowRow(
-                            modifier = Modifier.padding(horizontal = 16.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
                         ) {
                             tags.forEach {
@@ -358,7 +426,10 @@ fun ExpandableMangaDescription(
                     }
                 } else {
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = MaterialTheme.padding.medium),
+                        contentPadding = PaddingValues(
+                            horizontal = MaterialTheme.padding.medium,
+                            vertical = MaterialTheme.padding.medium,
+                        ),
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
                     ) {
                         items(items = tags) {
@@ -740,32 +811,41 @@ private fun MangaSummary(
 private val DefaultTagChipModifier = Modifier.padding(vertical = 4.dp)
 
 @Composable
-private fun RowScope.MangaActionButton(
+private fun MangaActionButton(
     title: String,
     icon: ImageVector,
     color: Color,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.weight(1f),
-        onLongClick = onLongClick,
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = title,
-                color = color,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-            )
+        TextButton(
+            onClick = onClick,
+            modifier = Modifier.sizeIn(minWidth = 88.dp),
+            onLongClick = onLongClick,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = title,
+                    color = color,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }

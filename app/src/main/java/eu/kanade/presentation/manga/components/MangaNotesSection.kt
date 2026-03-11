@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,49 +34,57 @@ fun MangaNotesSection(
     modifier: Modifier = Modifier,
 ) {
     if (content.isBlank()) return
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp,
     ) {
-        MangaNotesDisplay(
-            content = content,
-            modifier = modifier.fillMaxWidth(),
-        )
-        if (expanded) {
-            Button(
-                onClick = onEditNotes,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-                    verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            MangaNotesDisplay(
+                content = content,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (expanded) {
+                Button(
+                    onClick = onEditNotes,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.EditNote,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(16.dp),
-                    )
-                    Text(
-                        stringResource(MR.strings.action_edit_notes),
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.EditNote,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            stringResource(MR.strings.action_edit_notes),
+                        )
+                    }
                 }
             }
-        }
 
-        HorizontalDivider(
-            modifier = Modifier
-                .padding(
-                    top = if (expanded) 0.dp else 12.dp,
-                    bottom = if (expanded) 16.dp else 12.dp,
-                ),
-        )
+            HorizontalDivider(
+                modifier = Modifier
+                    .padding(
+                        top = if (expanded) 0.dp else 12.dp,
+                        bottom = if (expanded) 16.dp else 12.dp,
+                    ),
+            )
+        }
     }
 }
 

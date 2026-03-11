@@ -32,7 +32,7 @@ fun BrowseSourceList(
     onMangaLongClick: (Manga) -> Unit,
 ) {
     LazyColumn(
-        contentPadding = contentPadding + PaddingValues(vertical = 8.dp),
+        contentPadding = contentPadding + PaddingValues(horizontal = 4.dp, vertical = 8.dp),
     ) {
         item {
             if (mangaList.loadState.prepend is LoadState.Loading) {

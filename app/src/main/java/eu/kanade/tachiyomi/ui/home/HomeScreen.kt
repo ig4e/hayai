@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastForEach
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -41,12 +43,9 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
-import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
-import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
-import eu.kanade.tachiyomi.ui.more.MoreTab
-import eu.kanade.tachiyomi.ui.updates.UpdatesTab
+import eu.kanade.tachiyomi.ui.more.RecentsTab
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -77,10 +76,8 @@ object HomeScreen : Screen() {
 
     private val TABS = listOf(
         LibraryTab,
-        UpdatesTab,
-        HistoryTab,
+        RecentsTab,
         BrowseTab,
-        MoreTab,
     )
 
     @Composable
@@ -103,15 +100,7 @@ object HomeScreen : Screen() {
                 Scaffold(
                     startBar = {
                         if (isTabletUi()) {
-                            NavigationRail {
-                                TABS
-                                    // SY -->
-                                    .fastFilter { it.isEnabled() }
-                                    // SY <--
-                                    .fastForEach {
-                                        NavigationRailItem(it/* SY --> */, alwaysShowLabel/* SY <-- */)
-                                    }
-                            }
+                            FloatingNavigationRail(alwaysShowLabel)
                         }
                     },
                     bottomBar = {
@@ -124,15 +113,7 @@ object HomeScreen : Screen() {
                                 enter = expandVertically(),
                                 exit = shrinkVertically(),
                             ) {
-                                NavigationBar {
-                                    TABS
-                                        // SY -->
-                                        .fastFilter { it.isEnabled() }
-                                        // SY <--
-                                        .fastForEach {
-                                            NavigationBarItem(it/* SY --> */, alwaysShowLabel/* SY <-- */)
-                                        }
-                                }
+                                FloatingNavigationBar(alwaysShowLabel)
                             }
                         }
                     },
@@ -174,23 +155,23 @@ object HomeScreen : Screen() {
                     openTabEvent.receiveAsFlow().collectLatest {
                         tabNavigator.current = when (it) {
                             is Tab.Library -> LibraryTab
-                            Tab.Updates -> UpdatesTab
-                            Tab.History -> HistoryTab
+                            is Tab.Recents,
+                            Tab.Updates,
+                            Tab.History,
+                            -> RecentsTab
                             is Tab.Browse -> {
                                 if (it.toExtensions) {
                                     BrowseTab.showExtension()
                                 }
                                 BrowseTab
                             }
-
-                            is Tab.More -> MoreTab
                         }
 
                         if (it is Tab.Library && it.mangaIdToOpen != null) {
                             navigator.push(MangaScreen(it.mangaIdToOpen))
                         }
-                        if (it is Tab.More && it.toDownloads) {
-                            navigator.push(DownloadQueueScreen)
+                        if (it is Tab.Recents && it.openDownloads) {
+                            RecentsTab.showDownloads()
                         }
                     }
                 }
@@ -230,6 +211,24 @@ object HomeScreen : Screen() {
     }
 
     @Composable
+    private fun FloatingNavigationBar(alwaysShowLabel: Boolean) {
+        Surface(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 2.dp,
+        ) {
+            NavigationBar {
+                TABS
+                    .fastFilter { it.isEnabled() }
+                    .fastForEach {
+                        NavigationBarItem(it, alwaysShowLabel)
+                    }
+            }
+        }
+    }
+
+    @Composable
     fun NavigationRailItem(tab: eu.kanade.presentation.util.Tab/* SY --> */, alwaysShowLabel: Boolean/* SY <-- */) {
         val tabNavigator = LocalTabNavigator.current
         val navigator = LocalNavigator.currentOrThrow
@@ -258,11 +257,29 @@ object HomeScreen : Screen() {
     }
 
     @Composable
+    private fun FloatingNavigationRail(alwaysShowLabel: Boolean) {
+        Surface(
+            modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 2.dp,
+        ) {
+            NavigationRail {
+                TABS
+                    .fastFilter { it.isEnabled() }
+                    .fastForEach {
+                        NavigationRailItem(it, alwaysShowLabel)
+                    }
+            }
+        }
+    }
+
+    @Composable
     private fun NavigationIconItem(tab: eu.kanade.presentation.util.Tab) {
         BadgedBox(
             badge = {
                 when {
-                    tab is UpdatesTab -> {
+                    tab is RecentsTab -> {
                         val count by produceState(initialValue = 0) {
                             val pref = Injekt.get<LibraryPreferences>()
                             combine(
@@ -329,9 +346,9 @@ object HomeScreen : Screen() {
 
     sealed interface Tab {
         data class Library(val mangaIdToOpen: Long? = null) : Tab
+        data class Recents(val openDownloads: Boolean = false) : Tab
         data object Updates : Tab
         data object History : Tab
         data class Browse(val toExtensions: Boolean = false) : Tab
-        data class More(val toDownloads: Boolean) : Tab
     }
 }

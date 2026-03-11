@@ -57,15 +57,22 @@ fun DeleteLibraryMangaDialog(
         },
         text = {
             Column {
-                list.forEach { state ->
+                val removeFromLibraryChecked = list.firstOrNull()?.isChecked == true
+                list.forEachIndexed { index, state ->
+                    val isDownloadedOption = index == 1
+                    val checked = if (isDownloadedOption && removeFromLibraryChecked) true else state.isChecked
                     LabeledCheckbox(
                         label = stringResource(state.value),
-                        checked = state.isChecked,
+                        checked = checked,
+                        enabled = !(isDownloadedOption && removeFromLibraryChecked),
                         onCheckedChange = {
                             val index = list.indexOf(state)
                             if (index != -1) {
                                 val mutableList = list.toMutableList()
                                 mutableList[index] = state.next() as CheckboxState.State<StringResource>
+                                if (index == 0 && mutableList.size > 1 && mutableList[0].isChecked) {
+                                    mutableList[1] = CheckboxState.State.Checked(mutableList[1].value)
+                                }
                                 list = mutableList.toList()
                             }
                         },

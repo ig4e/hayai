@@ -2,6 +2,7 @@ package eu.kanade.presentation.more.settings
 
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.MaterialTheme
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.AppBar
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -15,6 +16,7 @@ fun PreferenceScaffold(
     itemsProvider: @Composable () -> List<Preference>,
 ) {
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         topBar = {
             AppBar(
                 title = stringResource(titleRes),

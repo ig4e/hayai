@@ -95,6 +95,7 @@ import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.isNightMode
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toShareIntent
+import eu.kanade.tachiyomi.util.system.DynamicShortcutManager
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import exh.source.isEhBasedSource
@@ -178,6 +179,13 @@ class ReaderActivity : BaseActivity() {
     private var menuToggleToast: Toast? = null
     private var readingModeToast: Toast? = null
     private val displayRefreshHost = DisplayRefreshHost()
+
+    override fun onStop() {
+        super.onStop()
+        lifecycleScope.launchIO {
+            DynamicShortcutManager(this@ReaderActivity).refreshContinueReadingShortcut()
+        }
+    }
 
     private val windowInsetsController by lazy { WindowInsetsControllerCompat(window, window.decorView) }
 
@@ -619,8 +627,8 @@ class ReaderActivity : BaseActivity() {
             chapterTitle = state.currentChapter?.chapter?.name,
             navigateUp = onBackPressedDispatcher::onBackPressed,
             onClickTopAppBar = ::openMangaScreen,
-            // bookmarked = state.bookmarked,
-            // onToggleBookmarked = viewModel::toggleChapterBookmark,
+            bookmarked = state.bookmarked,
+            onToggleBookmarked = viewModel::toggleChapterBookmark,
             onOpenInWebView = ::openChapterInWebView.takeIf { isHttpSource },
             onOpenInBrowser = ::openChapterInBrowser.takeIf { isHttpSource },
             onShare = ::shareChapter.takeIf { isHttpSource },
@@ -818,9 +826,17 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun setDoublePageMode(viewer: PagerViewer) {
-        val currentOrientation = resources.configuration.orientation
-        viewer.config.doublePages = currentOrientation == Configuration.ORIENTATION_LANDSCAPE
+        viewer.config.doublePages = shouldUseCombinedTwoPageMode()
         viewModel.setDoublePages(viewer.config.doublePages)
+    }
+
+    private fun shouldUseCombinedTwoPageMode(): Boolean {
+        if (!readerPreferences.combinedTwoPageReader().get()) {
+            return resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        }
+
+        return resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
+            resources.configuration.smallestScreenWidthDp >= 600
     }
 
     private fun shiftDoublePages() {
@@ -1317,13 +1333,24 @@ class ReaderActivity : BaseActivity() {
                             when (readerPreferences.pageLayout().get()) {
                                 PagerConfig.PageLayout.DOUBLE_PAGES -> true
                                 PagerConfig.PageLayout.AUTOMATIC ->
-                                    resources.configuration.orientation ==
-                                        Configuration.ORIENTATION_LANDSCAPE
+                                    shouldUseCombinedTwoPageMode()
 
                                 else -> false
                             },
                         true,
                     )
+                }
+                .launchIn(lifecycleScope)
+
+            readerPreferences.combinedTwoPageReader().changes()
+                .drop(1)
+                .onEach {
+                    if (
+                        viewModel.state.value.viewer is PagerViewer &&
+                        readerPreferences.pageLayout().get() == PagerConfig.PageLayout.AUTOMATIC
+                    ) {
+                        reloadChapters(shouldUseCombinedTwoPageMode(), true)
+                    }
                 }
                 .launchIn(lifecycleScope)
             // SY <--

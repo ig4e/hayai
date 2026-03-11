@@ -5,16 +5,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.manga.components.MarkdownRender
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
@@ -45,10 +48,20 @@ fun NewUpdateScreen(
                 .fillMaxWidth()
                 .padding(vertical = MaterialTheme.padding.large),
         ) {
-            MarkdownRender(
-                content = changelogInfo,
-                flavour = GFMFlavourDescriptor(),
-            )
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 1.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                ) {
+                    MarkdownRender(
+                        content = changelogInfo,
+                        flavour = GFMFlavourDescriptor(),
+                    )
+                }
+            }
 
             TextButton(
                 onClick = onOpenInBrowser,

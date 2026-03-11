@@ -3,21 +3,22 @@ package eu.kanade.presentation.manga.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +41,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import tachiyomi.i18n.sy.SYMR
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 
@@ -70,7 +72,7 @@ fun MangaMetadataPage(
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
                         Icon(
-                            imageVector = Icons.Outlined.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(tachiyomi.i18n.MR.strings.action_webview_back),
                         )
                     }
@@ -79,7 +81,9 @@ fun MangaMetadataPage(
         },
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 top = paddingValues.calculateTopPadding() + 8.dp,
@@ -159,8 +163,8 @@ fun MangaMetadataPage(
             searchMetadataChips?.takeIf { it.tags.isNotEmpty() }?.let { tags ->
                 item {
                     MetadataSectionCard(
-                        title = "Tags",
-                        icon = Icons.Outlined.Person,
+                        title = stringResource(MR.strings.label_tags),
+                        icon = Icons.Outlined.LocalOffer,
                     ) {
                         NamespaceTags(tags = tags, onClick = {})
                     }
@@ -180,6 +184,7 @@ private fun MetadataHeaderCard(
     val context = LocalContext.current
     Surface(
         shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 2.dp,
     ) {
         Row(
@@ -189,7 +194,7 @@ private fun MetadataHeaderCard(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Box(
-                modifier = Modifier.size(width = 96.dp, height = 136.dp),
+                modifier = Modifier.size(width = 104.dp, height = 148.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 AsyncImage(
@@ -215,7 +220,7 @@ private fun MetadataHeaderCard(
                 )
                 Text(
                     text = sourceName,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 uploader?.takeIf { it.isNotBlank() }?.let {
@@ -243,6 +248,7 @@ private fun MetadataSectionCard(
 ) {
     Surface(
         shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 1.dp,
     ) {
         Column(

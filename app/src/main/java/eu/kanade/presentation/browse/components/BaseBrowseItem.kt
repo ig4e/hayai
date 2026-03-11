@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import tachiyomi.presentation.core.components.material.padding
 
 @Composable
@@ -19,17 +22,27 @@ fun BaseBrowseItem(
     action: @Composable RowScope.() -> Unit = {},
     content: @Composable RowScope.() -> Unit = {},
 ) {
-    Row(
-        modifier = modifier
-            .combinedClickable(
-                onClick = onClickItem,
-                onLongClick = onLongClickItem,
-            )
-            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        modifier = modifier.padding(horizontal = MaterialTheme.padding.medium, vertical = 4.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
     ) {
-        icon()
-        content()
-        action()
+        Row(
+            modifier = Modifier
+                .clip(MaterialTheme.shapes.extraLarge)
+                .combinedClickable(
+                    onClick = onClickItem,
+                    onLongClick = onLongClickItem,
+                )
+                .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(modifier = Modifier.padding(start = MaterialTheme.padding.extraSmall)) {
+                icon()
+            }
+            content()
+            action()
+        }
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -45,6 +46,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -56,6 +58,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.kanade.domain.ui.UiPreferences
 import kotlinx.collections.immutable.ImmutableList
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -63,6 +66,8 @@ import tachiyomi.presentation.core.util.clearFocusOnSoftKeyboardHide
 import tachiyomi.presentation.core.util.runOnEnterKeyPressed
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 import tachiyomi.presentation.core.util.showSoftKeyboard
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 const val SEARCH_DEBOUNCE_MILLIS = 250L
 
@@ -133,38 +138,53 @@ fun AppBar(
 
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
+    val uiPreferences = Injekt.get<UiPreferences>()
+    val expandedAppBars = uiPreferences.expandedAppBars().get()
+    val surfacePadding = if (expandedAppBars) {
+        Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+    } else {
+        Modifier
+    }
+    val appBarShape = if (expandedAppBars) MaterialTheme.shapes.extraLarge else RectangleShape
+    val appBarContainerColor = backgroundColor ?: MaterialTheme.colorScheme.surfaceColorAtElevation(
+        elevation = if (isActionMode) 4.dp else if (expandedAppBars) 3.dp else 1.dp,
+    )
+
     Column(
-        modifier = modifier,
+        modifier = modifier.then(surfacePadding),
     ) {
-        TopAppBar(
-            navigationIcon = {
-                if (isActionMode) {
-                    IconButton(onClick = onCancelActionMode) {
-                        Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = stringResource(MR.strings.action_cancel),
-                        )
-                    }
-                } else {
-                    navigateUp?.let {
-                        IconButton(onClick = it) {
-                            UpIcon(navigationIcon = navigationIcon)
+        Surface(
+            shape = appBarShape,
+            color = appBarContainerColor,
+            tonalElevation = if (expandedAppBars) 2.dp else 0.dp,
+        ) {
+            TopAppBar(
+                navigationIcon = {
+                    if (isActionMode) {
+                        IconButton(onClick = onCancelActionMode) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = stringResource(MR.strings.action_cancel),
+                            )
+                        }
+                    } else {
+                        navigateUp?.let {
+                            IconButton(onClick = it) {
+                                UpIcon(navigationIcon = navigationIcon)
+                            }
                         }
                     }
-                }
-            },
-            title = titleContent,
-            actions = actions,
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = backgroundColor ?: MaterialTheme.colorScheme.surfaceColorAtElevation(
-                    elevation = if (isActionMode) 3.dp else 1.dp,
+                },
+                title = titleContent,
+                actions = actions,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
                 ),
-                scrolledContainerColor = backgroundColor ?: MaterialTheme.colorScheme.surfaceColorAtElevation(
-                    elevation = if (isActionMode) 4.dp else 3.dp,
-                ),
-            ),
-            scrollBehavior = scrollBehavior,
-        )
+                scrollBehavior = scrollBehavior,
+                windowInsets = WindowInsets(0),
+            )
+        }
     }
 }
 
@@ -174,12 +194,18 @@ fun AppBarTitle(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
 ) {
+    val expandedAppBars = Injekt.get<UiPreferences>().expandedAppBars().get()
     Column(modifier = modifier) {
         title?.let {
             Text(
                 text = it,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                style = if (expandedAppBars) {
+                    MaterialTheme.typography.headlineSmall
+                } else {
+                    MaterialTheme.typography.titleLarge
+                },
             )
         }
         subtitle?.let {
@@ -287,6 +313,8 @@ fun SearchToolbar(
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
     val focusRequester = remember { FocusRequester() }
+    val uiPreferences = Injekt.get<UiPreferences>()
+    val floatingSearchBars = uiPreferences.floatingSearchBars().get()
 
     AppBar(
         modifier = modifier,
@@ -331,6 +359,7 @@ fun SearchToolbar(
                         visualTransformation = visualTransformation,
                         interactionSource = interactionSource,
                         placeholderText = placeholderText ?: stringResource(MR.strings.action_search_hint),
+                        floating = floatingSearchBars,
                     )
                 },
             )
@@ -403,21 +432,35 @@ private fun SearchToolbarField(
     interactionSource: MutableInteractionSource,
     placeholderText: String,
     shape: Shape = MaterialTheme.shapes.extraLarge,
+    floating: Boolean = true,
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(end = 8.dp),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            .padding(
+                start = if (floating) 4.dp else 0.dp,
+                end = if (floating) 12.dp else 8.dp,
+                top = if (floating) 2.dp else 0.dp,
+                bottom = if (floating) 2.dp else 0.dp,
+            ),
+        shape = if (floating) MaterialTheme.shapes.extraLarge else shape,
+        color = if (floating) {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
         contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 1.dp,
+        tonalElevation = if (floating) 3.dp else 1.dp,
+        shadowElevation = if (floating) 1.dp else 0.dp,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                .padding(
+                    horizontal = if (floating) 16.dp else 14.dp,
+                    vertical = if (floating) 10.dp else 8.dp,
+                ),
         ) {
             Icon(
                 imageVector = Icons.Outlined.Search,

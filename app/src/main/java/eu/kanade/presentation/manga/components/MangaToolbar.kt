@@ -66,9 +66,11 @@ fun MangaToolbar(
             }
         },
         modifier = modifier,
-        backgroundColor = MaterialTheme.colorScheme
-            .surfaceColorAtElevation(3.dp)
-            .copy(alpha = if (isActionMode) 1f else backgroundAlphaProvider()),
+        backgroundColor = if (isActionMode) {
+            MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = backgroundAlphaProvider())
+        },
         navigateUp = navigateUp,
         actions = {
             var downloadExpanded by remember { mutableStateOf(false) }

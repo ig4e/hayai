@@ -35,6 +35,10 @@ class ReaderPreferences(
 
     fun showReadingMode() = preferenceStore.getBoolean("pref_show_reading_mode", true)
 
+    fun expandedReaderControls() = preferenceStore.getBoolean("pref_expanded_reader_controls", true)
+
+    fun combinedTwoPageReader() = preferenceStore.getBoolean("pref_combined_two_page_reader", true)
+
     fun fullscreen() = preferenceStore.getBoolean("fullscreen", true)
 
     fun drawUnderCutout() = preferenceStore.getBoolean("cutout_short", true)

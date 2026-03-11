@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,42 +46,51 @@ internal fun BasePreferenceWidget(
 ) {
     val highlighted = LocalPreferenceHighlighted.current
     val minHeight = LocalPreferenceMinHeight.current
-    Row(
+    Surface(
         modifier = modifier
-            .highlightBackground(highlighted)
-            .sizeIn(minHeight = minHeight)
-            .clickable(enabled = onClick != null, onClick = { onClick?.invoke() })
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp,
     ) {
-        if (icon != null) {
-            Box(
-                modifier = Modifier.padding(start = PrefsHorizontalPadding, end = 8.dp),
-                content = { icon() },
-            )
-        }
-        Column(
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(vertical = PrefsVerticalPadding),
+                .highlightBackground(highlighted)
+                .sizeIn(minHeight = minHeight)
+                .clickable(enabled = onClick != null, onClick = { onClick?.invoke() })
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!title.isNullOrBlank()) {
-                Text(
-                    modifier = Modifier.padding(horizontal = PrefsHorizontalPadding),
-                    text = title,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 2,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontSize = TitleFontSize,
+            if (icon != null) {
+                Box(
+                    modifier = Modifier.padding(start = PrefsHorizontalPadding, end = 8.dp),
+                    content = { icon() },
                 )
             }
-            subcomponent?.invoke(this)
-        }
-        if (widget != null) {
-            Box(
-                modifier = Modifier.padding(end = PrefsHorizontalPadding),
-                content = { widget() },
-            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = PrefsVerticalPadding),
+            ) {
+                if (!title.isNullOrBlank()) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = PrefsHorizontalPadding),
+                        text = title,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontSize = TitleFontSize,
+                    )
+                }
+                subcomponent?.invoke(this)
+            }
+            if (widget != null) {
+                Box(
+                    modifier = Modifier.padding(end = PrefsHorizontalPadding),
+                    content = { widget() },
+                )
+            }
         }
     }
 }

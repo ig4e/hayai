@@ -34,6 +34,7 @@ fun LibraryPager(
     hasActiveFilters: Boolean,
     selection: Set<Long>,
     searchQuery: String?,
+    useStaggeredGrid: Boolean,
     onGlobalSearchClicked: () -> Unit,
     getCategoryForPage: (Int) -> Category,
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
@@ -102,6 +103,7 @@ fun LibraryPager(
                     onLongClick = onLongClickManga,
                     onClickContinueReading = onClickContinueReading,
                     searchQuery = searchQuery,
+                    useStaggeredGrid = useStaggeredGrid,
                     onGlobalSearchClicked = onGlobalSearchClicked,
                 )
             }
@@ -115,6 +117,7 @@ fun LibraryPager(
                     onLongClick = onLongClickManga,
                     onClickContinueReading = onClickContinueReading,
                     searchQuery = searchQuery,
+                    useStaggeredGrid = useStaggeredGrid,
                     onGlobalSearchClicked = onGlobalSearchClicked,
                 )
             }
@@ -123,7 +126,7 @@ fun LibraryPager(
 }
 
 @Composable
-private fun LibraryPagerEmptyScreen(
+internal fun LibraryPagerEmptyScreen(
     searchQuery: String?,
     hasActiveFilters: Boolean,
     contentPadding: PaddingValues,

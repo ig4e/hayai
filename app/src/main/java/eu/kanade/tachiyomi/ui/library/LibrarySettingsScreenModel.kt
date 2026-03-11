@@ -67,5 +67,12 @@ class LibrarySettingsScreenModel(
             libraryPreferences.groupLibraryBy().set(grouping)
         }
     }
+
+    fun toggleCategorySections() {
+        val pref = libraryPreferences.categorySections()
+        screenModelScope.launchIO {
+            pref.set(!pref.get())
+        }
+    }
     // SY <--
 }

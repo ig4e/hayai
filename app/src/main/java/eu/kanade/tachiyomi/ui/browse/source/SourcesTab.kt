@@ -2,11 +2,13 @@ package eu.kanade.tachiyomi.ui.browse.source
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -38,6 +40,7 @@ fun Screen.sourcesTab(
     val navigator = LocalNavigator.currentOrThrow
     val screenModel = rememberScreenModel { SourcesScreenModel(smartSearchConfig = smartSearchConfig) }
     val state by screenModel.state.collectAsState()
+    var searchQuery by rememberSaveable { mutableStateOf<String?>(null) }
 
     return TabContent(
         // SY -->
@@ -45,25 +48,22 @@ fun Screen.sourcesTab(
             true -> MR.strings.label_sources
             false -> SYMR.strings.find_in_another_source
         },
-        actions = persistentListOf(
-            AppBar.Action(
-                title = stringResource(MR.strings.action_global_search),
-                icon = Icons.Outlined.TravelExplore,
-                onClick = { navigator.push(GlobalSearchScreen(smartSearchConfig?.origTitle ?: "")) },
-            ),
-        ).let {
-            when (smartSearchConfig) {
-                null -> {
-                    it.add(
-                        AppBar.Action(
-                            title = stringResource(MR.strings.action_filter),
-                            icon = CustomIcons.Filter,
-                            onClick = { navigator.push(SourcesFilterScreen()) },
-                        ),
-                    )
-                }
-                else -> it
-            }
+        searchEnabled = smartSearchConfig == null,
+        searchQuery = searchQuery,
+        onChangeSearchQuery = { searchQuery = it },
+        onSearch = { query ->
+            navigator.push(GlobalSearchScreen(query))
+        },
+        actions = if (smartSearchConfig == null) {
+            persistentListOf(
+                AppBar.Action(
+                    title = stringResource(MR.strings.action_filter),
+                    icon = CustomIcons.Filter,
+                    onClick = { navigator.push(SourcesFilterScreen()) },
+                ),
+            )
+        } else {
+            persistentListOf()
         },
         // SY <--
         content = { contentPadding, snackbarHostState ->

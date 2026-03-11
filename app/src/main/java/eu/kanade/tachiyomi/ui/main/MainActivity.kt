@@ -54,6 +54,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.google.firebase.Firebase
 import com.google.firebase.analytics.analytics
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.presentation.components.AppStateBanners
 import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
@@ -78,6 +79,7 @@ import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.util.system.dpToPx
+import eu.kanade.tachiyomi.util.system.DynamicShortcutManager
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
 import eu.kanade.tachiyomi.util.system.isPreviewBuildType
 import eu.kanade.tachiyomi.util.view.setComposeContent
@@ -112,6 +114,7 @@ class MainActivity : BaseActivity() {
 
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val preferences: BasePreferences by injectLazy()
+    private val uiPreferences: UiPreferences by injectLazy()
 
     // SY -->
     private val exhPreferences: ExhPreferences by injectLazy()
@@ -218,6 +221,10 @@ class MainActivity : BaseActivity() {
 
                         // SY -->
                         initWhenIdle {
+                            lifecycleScope.launchIO {
+                                DynamicShortcutManager(this@MainActivity).refreshContinueReadingShortcut()
+                            }
+
                             // Upload settings
                             if (exhPreferences.enableExhentai().get() &&
                                 exhPreferences.exhShowSettingsUploadWarning().get()
@@ -337,6 +344,15 @@ class MainActivity : BaseActivity() {
             BlacklistedSources.HIDDEN_SOURCES += EXH_SOURCE_ID
         }
         // SY -->
+
+        uiPreferences.dynamicShortcuts().changes()
+            .drop(1)
+            .onEach {
+                lifecycleScope.launchIO {
+                    DynamicShortcutManager(this@MainActivity).refreshContinueReadingShortcut()
+                }
+            }
+            .launchIn(lifecycleScope)
     }
 
     override fun onProvideAssistContent(outContent: AssistContent) {
@@ -453,7 +469,7 @@ class MainActivity : BaseActivity() {
             Constants.SHORTCUT_EXTENSIONS -> HomeScreen.Tab.Browse(true)
             Constants.SHORTCUT_DOWNLOADS -> {
                 navigator.popUntilRoot()
-                HomeScreen.Tab.More(toDownloads = true)
+                HomeScreen.Tab.Recents(openDownloads = true)
             }
             Intent.ACTION_SEARCH, Intent.ACTION_SEND, "com.google.android.gms.actions.SEARCH_ACTION" -> {
                 // If the intent match the "standard" Android search intent

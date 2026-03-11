@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,27 +37,20 @@ fun BrowseCategoryTabs(
     Column(
         modifier = Modifier.zIndex(1f),
     ) {
-        // Scrolling row of category chips
         LazyRow(
             state = listState,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp)
+                .padding(horizontal = 8.dp, vertical = 8.dp),
         ) {
             itemsIndexed(tabs) { index, tab ->
                 CategoryChip(
                     text = stringResource(tab.titleRes),
                     count = tab.badgeNumber,
                     selected = currentPageIndex == index,
-                    onClick = { onTabItemClick(index) }
+                    onClick = { onTabItemClick(index) },
                 )
             }
         }
-
-        // Bottom divider
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-            thickness = 1.dp
-        )
     }
 }

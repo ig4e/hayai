@@ -66,6 +66,14 @@ class UiPreferences(
 
     fun showNavHistory() = preferenceStore.getBoolean("pref_show_history_button", true)
 
+    fun expandedAppBars() = preferenceStore.getBoolean("pref_expanded_app_bars", true)
+
+    fun floatingSearchBars() = preferenceStore.getBoolean("pref_floating_search_bars", true)
+
+    fun coverThemedMangaDetails() = preferenceStore.getBoolean("pref_cover_themed_manga_details", true)
+
+    fun dynamicShortcuts() = preferenceStore.getBoolean("pref_dynamic_shortcuts", true)
+
     // SY <--
 
     companion object {

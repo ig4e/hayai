@@ -62,6 +62,16 @@ internal fun ColumnScope.GeneralPage(screenModel: ReaderSettingsScreenModel) {
         pref = screenModel.preferences.showPageNumber(),
     )
 
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_expanded_reader_controls),
+        pref = screenModel.preferences.expandedReaderControls(),
+    )
+
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_combined_two_page_reader),
+        pref = screenModel.preferences.combinedTwoPageReader(),
+    )
+
     // SY -->
     val forceHorizontalSeekbar by screenModel.preferences.forceHorizontalSeekbar().collectAsState()
     CheckboxItem(

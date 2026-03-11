@@ -18,6 +18,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -43,9 +44,12 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Slider
 import tachiyomi.presentation.core.i18n.stringResource
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 @Composable
 fun ChapterNavigator(
@@ -78,6 +82,7 @@ fun ChapterNavigator(
     }
     // SY <--
     val isTabletUi = isTabletUi()
+    val expandedControls = Injekt.get<ReaderPreferences>().expandedReaderControls().get()
     val horizontalPadding = if (isTabletUi) 24.dp else 8.dp
     val layoutDirection = if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
     val haptic = LocalHapticFeedback.current
@@ -114,39 +119,43 @@ fun ChapterNavigator(
 
             if (totalPages > 1) {
                 CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(backgroundColor)
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(if (expandedControls) 28.dp else 24.dp),
+                        color = backgroundColor,
+                        tonalElevation = if (expandedControls) 1.dp else 0.dp,
                     ) {
-                        // SY -->
-                        Text(text = currentPageText)
-                        // SY <--
+                        Row(
+                            modifier = Modifier.padding(
+                                horizontal = if (expandedControls) 18.dp else 16.dp,
+                                vertical = if (expandedControls) 6.dp else 0.dp,
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(text = currentPageText)
 
-                        val interactionSource = remember { MutableInteractionSource() }
-                        val sliderDragged by interactionSource.collectIsDraggedAsState()
-                        LaunchedEffect(currentPage) {
-                            if (sliderDragged) {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val interactionSource = remember { MutableInteractionSource() }
+                            val sliderDragged by interactionSource.collectIsDraggedAsState()
+                            LaunchedEffect(currentPage) {
+                                if (sliderDragged) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
                             }
-                        }
-                        Slider(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp),
-                            value = currentPage,
-                            valueRange = 1..totalPages,
-                            onValueChange = f@{
-                                if (it == currentPage) return@f
-                                onPageIndexChange(it - 1)
-                            },
-                            interactionSource = interactionSource,
-                        )
+                            Slider(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp),
+                                value = currentPage,
+                                valueRange = 1..totalPages,
+                                onValueChange = f@{
+                                    if (it == currentPage) return@f
+                                    onPageIndexChange(it - 1)
+                                },
+                                interactionSource = interactionSource,
+                            )
 
-                        Text(text = totalPages.toString())
+                            Text(text = totalPages.toString())
+                        }
                     }
                 }
             } else {
@@ -183,6 +192,7 @@ fun ChapterNavigatorVert(
     onPageIndexChange: (Int) -> Unit,
 ) {
     val isTabletUi = isTabletUi()
+    val expandedControls = Injekt.get<ReaderPreferences>().expandedReaderControls().get()
     val verticalPadding = if (isTabletUi) 24.dp else 8.dp
 
     val haptic = LocalHapticFeedback.current
@@ -215,56 +225,57 @@ fun ChapterNavigatorVert(
         }
 
         if (totalPages > 1) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(backgroundColor)
-                    .padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(if (expandedControls) 28.dp else 24.dp),
+                color = backgroundColor,
+                tonalElevation = if (expandedControls) 1.dp else 0.dp,
             ) {
-                // SY -->
-                Text(text = currentPageText)
-                // SY <--
+                Column(
+                    modifier = Modifier.padding(vertical = if (expandedControls) 18.dp else 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(text = currentPageText)
 
-                val interactionSource = remember { MutableInteractionSource() }
-                val sliderDragged by interactionSource.collectIsDraggedAsState()
-                LaunchedEffect(currentPage) {
-                    if (sliderDragged) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val sliderDragged by interactionSource.collectIsDraggedAsState()
+                    LaunchedEffect(currentPage) {
+                        if (sliderDragged) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
                     }
-                }
-                Slider(
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                        .graphicsLayer {
-                            rotationZ = 90f
-                            transformOrigin = TransformOrigin(0f, 0f)
-                        }
-                        .layout { measurable, constraints ->
-                            val placeable = measurable.measure(
-                                Constraints(
-                                    minWidth = constraints.minHeight,
-                                    maxWidth = constraints.maxHeight,
-                                    minHeight = constraints.minWidth,
-                                    maxHeight = constraints.maxWidth,
-                                ),
-                            )
-                            layout(placeable.height, placeable.width) {
-                                placeable.place(0, -placeable.height)
+                    Slider(
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .graphicsLayer {
+                                rotationZ = 90f
+                                transformOrigin = TransformOrigin(0f, 0f)
                             }
-                        }
-                        .weight(1f),
-                    value = currentPage,
-                    valueRange = 1..totalPages,
-                    onValueChange = f@{
-                        if (it == currentPage) return@f
-                        onPageIndexChange(it - 1)
-                    },
-                    interactionSource = interactionSource,
-                )
+                            .layout { measurable, constraints ->
+                                val placeable = measurable.measure(
+                                    Constraints(
+                                        minWidth = constraints.minHeight,
+                                        maxWidth = constraints.maxHeight,
+                                        minHeight = constraints.minWidth,
+                                        maxHeight = constraints.maxWidth,
+                                    ),
+                                )
+                                layout(placeable.height, placeable.width) {
+                                    placeable.place(0, -placeable.height)
+                                }
+                            }
+                            .weight(1f),
+                        value = currentPage,
+                        valueRange = 1..totalPages,
+                        onValueChange = f@{
+                            if (it == currentPage) return@f
+                            onPageIndexChange(it - 1)
+                        },
+                        interactionSource = interactionSource,
+                    )
 
-                Text(text = totalPages.toString())
+                    Text(text = totalPages.toString())
+                }
             }
         } else {
             Spacer(Modifier.weight(1f))

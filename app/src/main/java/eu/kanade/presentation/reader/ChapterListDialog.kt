@@ -1,10 +1,16 @@
 package eu.kanade.presentation.reader
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,6 +32,9 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -33,6 +42,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import tachiyomi.presentation.core.i18n.pluralStringResource
 
 @Composable
 fun ChapterListDialog(
@@ -52,10 +62,41 @@ fun ChapterListDialog(
     AdaptiveSheet(
         onDismissRequest = onDismissRequest,
     ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MaterialTheme.padding.medium, vertical = 12.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 1.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            ) {
+                Text(
+                    text = stringResource(MR.strings.chapters),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = pluralStringResource(MR.plurals.manga_num_chapters, chapters.size, chapters.size),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                chapters.firstOrNull { it.isCurrent }?.chapter?.name?.let { currentChapter ->
+                    Text(
+                        text = currentChapter,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
+        }
+
         LazyColumn(
             state = state,
             modifier = Modifier.heightIn(min = 200.dp, max = 500.dp),
-            contentPadding = PaddingValues(vertical = 16.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
         ) {
             items(
                 items = chapters,
@@ -89,7 +130,6 @@ fun ChapterListDialog(
                     date = chapterItem.chapter.dateUpload
                         .takeIf { it != 0L }
                         ?.let {
-                            // SY -->
                             if (manga?.isEhBasedManga() == true) {
                                 MetadataUtil.EX_DATE_FORMAT
                                     .format(ZonedDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault()))
@@ -99,20 +139,19 @@ fun ChapterListDialog(
                                     ZoneId.systemDefault(),
                                 ).toRelativeString(context, dateRelativeTime, chapterItem.dateFormat)
                             }
-                            // SY <--
                         },
                     readProgress = null,
                     scanlator = chapterItem.chapter.scanlator,
                     sourceName = null,
                     read = chapterItem.chapter.read,
                     bookmark = chapterItem.chapter.bookmark,
-                    selected = false,
+                    selected = chapterItem.isCurrent,
                     downloadIndicatorEnabled = false,
                     downloadStateProvider = { downloadState },
                     downloadProgressProvider = { progress },
                     chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.ToggleBookmark,
                     chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.ToggleBookmark,
-                    onLongClick = { /*TODO*/ },
+                    onLongClick = { },
                     onClick = { onClickChapter(chapterItem.chapter) },
                     onDownloadClick = null,
                     onChapterSwipe = {

@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,9 +39,20 @@ import eu.kanade.tachiyomi.ui.manga.PagePreviewState
 import exh.util.floor
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+
+@Composable
+private fun PagePreviewHeader() {
+    Text(
+        text = stringResource(MR.strings.label_page_previews),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
 
 @Composable
 private fun PagePreviewLoading(
@@ -51,6 +63,7 @@ private fun PagePreviewLoading(
         modifier = Modifier
             .height(60.dp)
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)
             .onGloballyPositioned {
                 setMaxWidth(with(density) { it.size.width.toDp() })
             },
@@ -65,19 +78,28 @@ private fun PagePreviewRow(
     onOpenPage: (Int) -> Unit,
     items: ImmutableList<PagePreview>,
 ) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp,
     ) {
-        items.forEach { page ->
-            PagePreview(
-                modifier = Modifier.weight(1F),
-                page = page,
-                onOpenPage = onOpenPage,
-            )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+        ) {
+            items.forEach { page ->
+                PagePreview(
+                    modifier = Modifier.weight(1F),
+                    page = page,
+                    onOpenPage = onOpenPage,
+                )
+            }
         }
     }
 }
@@ -87,7 +109,9 @@ private fun PagePreviewMore(
     onMorePreviewsClicked: () -> Unit,
 ) {
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         TextButton(onClick = onMorePreviewsClicked) {
@@ -107,6 +131,7 @@ fun PagePreviews(
         var maxWidth by remember {
             mutableStateOf(Dp.Hairline)
         }
+        PagePreviewHeader()
         when {
             pagePreviewState is PagePreviewState.Loading || maxWidth == Dp.Hairline -> {
                 PagePreviewLoading(setMaxWidth = { maxWidth = it })
@@ -135,6 +160,12 @@ fun LazyListScope.PagePreviewItems(
     setMaxWidth: (Dp) -> Unit,
     rowCount: Int,
 ) {
+    item(
+        key = MangaScreenItem.CHAPTER_PREVIEW_HEADER,
+        contentType = MangaScreenItem.CHAPTER_PREVIEW_HEADER,
+    ) {
+        PagePreviewHeader()
+    }
     when {
         pagePreviewState is PagePreviewState.Loading || maxWidth == Dp.Hairline -> {
             item(
@@ -175,7 +206,7 @@ fun PagePreview(
 ) {
     Column(
         modifier
-            .clip(MaterialTheme.shapes.small)
+            .clip(MaterialTheme.shapes.large)
             .clickable { onOpenPage(page.index - 1) },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
@@ -201,7 +232,7 @@ fun PagePreview(
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.small),
+                            .clip(MaterialTheme.shapes.large),
                         contentScale = ContentScale.FillWidth,
                     )
                 }

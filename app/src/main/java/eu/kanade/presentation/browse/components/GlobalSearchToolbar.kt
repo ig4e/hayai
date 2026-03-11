@@ -19,6 +19,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.VerticalDivider
@@ -68,63 +69,71 @@ fun GlobalSearchToolbar(
             }
         }
 
-        Row(
+        Surface(
             modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = MaterialTheme.padding.small),
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                .fillMaxWidth()
+                .padding(horizontal = MaterialTheme.padding.small, vertical = MaterialTheme.padding.extraSmall),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = MaterialTheme.shapes.extraLarge,
         ) {
-            // TODO: make this UX better; it only applies when triggering a new search
-            if (!hideSourceFilter) {
-                FilterChip(
-                    selected = sourceFilter == SourceFilter.PinnedOnly,
-                    onClick = { onChangeSearchFilter(SourceFilter.PinnedOnly) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.PushPin,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(FilterChipDefaults.IconSize),
-                        )
-                    },
-                    label = {
-                        Text(text = stringResource(MR.strings.pinned_sources))
-                    },
-                )
-                FilterChip(
-                    selected = sourceFilter == SourceFilter.All,
-                    onClick = { onChangeSearchFilter(SourceFilter.All) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.DoneAll,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(FilterChipDefaults.IconSize),
-                        )
-                    },
-                    label = {
-                        Text(text = stringResource(MR.strings.all))
-                    },
-                )
-
-                VerticalDivider()
-            }
-
-            FilterChip(
-                selected = onlyShowHasResults,
-                onClick = { onToggleResults() },
-                leadingIcon = {
-                    Icon(
-                        imageVector = CustomIcons.Filter,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(FilterChipDefaults.IconSize),
+            Row(
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = MaterialTheme.padding.small, vertical = MaterialTheme.padding.small),
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+            ) {
+                // TODO: make this UX better; it only applies when triggering a new search
+                if (!hideSourceFilter) {
+                    FilterChip(
+                        selected = sourceFilter == SourceFilter.PinnedOnly,
+                        onClick = { onChangeSearchFilter(SourceFilter.PinnedOnly) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.PushPin,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(FilterChipDefaults.IconSize),
+                            )
+                        },
+                        label = {
+                            Text(text = stringResource(MR.strings.pinned_sources))
+                        },
                     )
-                },
-                label = {
-                    Text(text = stringResource(MR.strings.has_results))
-                },
-            )
+                    FilterChip(
+                        selected = sourceFilter == SourceFilter.All,
+                        onClick = { onChangeSearchFilter(SourceFilter.All) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.DoneAll,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(FilterChipDefaults.IconSize),
+                            )
+                        },
+                        label = {
+                            Text(text = stringResource(MR.strings.all))
+                        },
+                    )
+
+                    VerticalDivider()
+                }
+
+                FilterChip(
+                    selected = onlyShowHasResults,
+                    onClick = { onToggleResults() },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = CustomIcons.Filter,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(FilterChipDefaults.IconSize),
+                        )
+                    },
+                    label = {
+                        Text(text = stringResource(MR.strings.has_results))
+                    },
+                )
+            }
         }
 
         HorizontalDivider()

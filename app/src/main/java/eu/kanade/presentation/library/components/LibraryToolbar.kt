@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,6 +49,7 @@ fun LibraryToolbar(
     onClickGlobalUpdate: () -> Unit,
     onClickOpenRandomManga: () -> Unit,
     onClickSyncNow: () -> Unit,
+    onClickSettings: () -> Unit,
     // SY -->
     onClickSyncExh: (() -> Unit)?,
     isSyncEnabled: Boolean,
@@ -72,6 +74,7 @@ fun LibraryToolbar(
         onClickGlobalUpdate = onClickGlobalUpdate,
         onClickOpenRandomManga = onClickOpenRandomManga,
         onClickSyncNow = onClickSyncNow,
+        onClickSettings = onClickSettings,
         // SY -->
         onClickSyncExh = onClickSyncExh,
         isSyncEnabled = isSyncEnabled,
@@ -91,6 +94,7 @@ private fun LibraryRegularToolbar(
     onClickGlobalUpdate: () -> Unit,
     onClickOpenRandomManga: () -> Unit,
     onClickSyncNow: () -> Unit,
+    onClickSettings: () -> Unit,
     // SY -->
     onClickSyncExh: (() -> Unit)?,
     isSyncEnabled: Boolean,
@@ -140,6 +144,11 @@ private fun LibraryRegularToolbar(
                         icon = CustomIcons.Filter,
                         iconTint = filterTint,
                         onClick = onClickFilter,
+                    ),
+                    AppBar.Action(
+                        title = stringResource(MR.strings.action_settings),
+                        icon = Icons.Outlined.Settings,
+                        onClick = onClickSettings,
                     ),
                     AppBar.OverflowAction(
                         title = stringResource(MR.strings.action_update_library),

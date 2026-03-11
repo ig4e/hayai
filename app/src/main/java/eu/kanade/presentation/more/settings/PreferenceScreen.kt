@@ -54,7 +54,9 @@ fun PreferenceScreen(
 
                     item {
                         Column {
-                            PreferenceGroupHeader(title = preference.title)
+                            PreferenceGroupHeader(
+                                title = preference.title,
+                            )
                         }
                     }
                     items(preference.preferenceItems) { item ->
@@ -65,7 +67,7 @@ fun PreferenceScreen(
                     }
                     item {
                         if (i < items.lastIndex) {
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }

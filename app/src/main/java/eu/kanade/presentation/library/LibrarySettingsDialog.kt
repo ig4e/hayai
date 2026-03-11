@@ -321,6 +321,11 @@ private fun ColumnScope.DisplayPage(
             onChange = columnPreference::set,
             pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
+
+        CheckboxItem(
+            label = stringResource(MR.strings.action_display_use_staggered_grid),
+            pref = screenModel.libraryPreferences.useStaggeredGrid(),
+        )
     }
 
     HeadingItem(MR.strings.overlay_header)
@@ -353,6 +358,10 @@ private fun ColumnScope.DisplayPage(
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_number_of_items),
         pref = screenModel.libraryPreferences.categoryNumberOfItems(),
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.action_display_show_categories_as_sections),
+        pref = screenModel.libraryPreferences.categorySections(),
     )
 }
 

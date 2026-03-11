@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -34,12 +35,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.reader.components.ChapterNavigator
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import kotlinx.collections.immutable.ImmutableSet
 import tachiyomi.presentation.core.components.material.padding
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 private val readerBarsSlideAnimationSpec = tween<IntOffset>(200)
 private val readerBarsFadeAnimationSpec = tween<Float>(150)
@@ -76,8 +80,8 @@ fun ReaderAppBars(
     chapterTitle: String?,
     navigateUp: () -> Unit,
     onClickTopAppBar: () -> Unit,
-    // bookmarked: Boolean,
-    // onToggleBookmarked: () -> Unit,
+    bookmarked: Boolean,
+    onToggleBookmarked: () -> Unit,
     onOpenInWebView: (() -> Unit)?,
     onOpenInBrowser: (() -> Unit)?,
     onShare: (() -> Unit)?,
@@ -123,6 +127,7 @@ fun ReaderAppBars(
     // SY <--
 ) {
     val isRtl = viewer is R2LPagerViewer
+    val expandedControls = Injekt.get<ReaderPreferences>().expandedReaderControls().get()
     val backgroundColor = MaterialTheme.colorScheme
         .surfaceColorAtElevation(3.dp)
         .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
@@ -202,19 +207,31 @@ fun ReaderAppBars(
                 exit = slideOutVertically(
                     targetOffsetY = { -it },
                     animationSpec = readerBarsSlideAnimationSpec,
-                ) + fadeOut(animationSpec = readerBarsFadeAnimationSpec),
+            ) + fadeOut(animationSpec = readerBarsFadeAnimationSpec),
             ) {
                 // SY -->
                 Column {
                     // SY <--
-                    ReaderTopBar(
+                    Surface(
                         modifier = Modifier
-                            .background(backgroundColor)
+                            .padding(horizontal = if (expandedControls) 12.dp else 0.dp, vertical = if (expandedControls) 8.dp else 0.dp)
                             .clickable(onClick = onClickTopAppBar),
-                        mangaTitle = mangaTitle,
-                        chapterTitle = chapterTitle,
-                        navigateUp = navigateUp,
-                    )
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = backgroundColor,
+                        tonalElevation = if (expandedControls) 2.dp else 0.dp,
+                    ) {
+                        ReaderTopBar(
+                            modifier = Modifier,
+                            mangaTitle = mangaTitle,
+                            chapterTitle = chapterTitle,
+                            navigateUp = navigateUp,
+                            bookmarked = bookmarked,
+                            onToggleBookmarked = onToggleBookmarked,
+                            onOpenInWebView = onOpenInWebView,
+                            onOpenInBrowser = onOpenInBrowser,
+                            onShare = onShare,
+                        )
+                    }
                     // SY -->
                     ExhUtils(
                         isVisible = isExhToolsVisible,
@@ -291,8 +308,10 @@ fun ReaderAppBars(
                         // SY <--
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(backgroundColor)
-                            .padding(horizontal = MaterialTheme.padding.small)
+                            .padding(
+                                horizontal = if (expandedControls) MaterialTheme.padding.medium else MaterialTheme.padding.small,
+                                vertical = if (expandedControls) 8.dp else 0.dp,
+                            )
                             .windowInsetsPadding(WindowInsets.navigationBars),
                     )
                 }

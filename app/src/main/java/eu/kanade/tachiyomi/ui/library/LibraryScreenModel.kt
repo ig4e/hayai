@@ -268,16 +268,28 @@ class LibraryScreenModel(
         }
 
         combine(
-            libraryPreferences.categoryTabs().changes(),
-            libraryPreferences.categoryNumberOfItems().changes(),
-            libraryPreferences.showContinueReadingButton().changes(),
-        ) { a, b, c -> arrayOf(a, b, c) }
-            .onEach { (showCategoryTabs, showMangaCount, showMangaContinueButton) ->
+            combine(
+                libraryPreferences.categoryTabs().changes(),
+                libraryPreferences.categoryNumberOfItems().changes(),
+                libraryPreferences.showContinueReadingButton().changes(),
+                libraryPreferences.categorySections().changes(),
+            ) { showCategoryTabs, showMangaCount, showMangaContinueButton, useCategorySections ->
+                CategoryDisplaySettings(
+                    showCategoryTabs = showCategoryTabs,
+                    showMangaCount = showMangaCount,
+                    showMangaContinueButton = showMangaContinueButton,
+                    useCategorySections = useCategorySections,
+                )
+            },
+            libraryPreferences.collapsedCategorySections().changes(),
+        ) { settings, collapsedCategorySections ->
                 mutableState.update { state ->
                     state.copy(
-                        showCategoryTabs = showCategoryTabs,
-                        showMangaCount = showMangaCount,
-                        showMangaContinueButton = showMangaContinueButton,
+                        showCategoryTabs = settings.showCategoryTabs,
+                        showMangaCount = settings.showMangaCount,
+                        showMangaContinueButton = settings.showMangaContinueButton,
+                        useCategorySections = settings.useCategorySections,
+                        collapsedCategories = collapsedCategorySections,
                     )
                 }
             }
@@ -1251,6 +1263,15 @@ class LibraryScreenModel(
         libraryPreferences.lastUsedCategory().set(newIndex)
     }
 
+    fun toggleCategorySection(category: Category) {
+        val key = state.value.getCategorySectionKey(category)
+        val collapsed = libraryPreferences.collapsedCategorySections().get().toMutableSet()
+        if (!collapsed.add(key)) {
+            collapsed.remove(key)
+        }
+        libraryPreferences.collapsedCategorySections().set(collapsed)
+    }
+
     fun openChangeCategoryDialog() {
         screenModelScope.launchIO {
             // Create a copy of selected manga
@@ -1449,6 +1470,14 @@ class LibraryScreenModel(
     )
 
     @Immutable
+    private data class CategoryDisplaySettings(
+        val showCategoryTabs: Boolean,
+        val showMangaCount: Boolean,
+        val showMangaContinueButton: Boolean,
+        val useCategorySections: Boolean,
+    )
+
+    @Immutable
     data class LibraryData(
         val isInitialized: Boolean = false,
         val showSystemCategory: Boolean = false,
@@ -1470,6 +1499,8 @@ class LibraryScreenModel(
         val showCategoryTabs: Boolean = false,
         val showMangaCount: Boolean = false,
         val showMangaContinueButton: Boolean = false,
+        val useCategorySections: Boolean = false,
+        val collapsedCategories: Set<String> = emptySet(),
         val dialog: Dialog? = null,
         val libraryData: LibraryData = LibraryData(),
         private val activeCategoryIndex: Int = 0,
@@ -1534,11 +1565,23 @@ class LibraryScreenModel(
             return if (showMangaCount || !searchQuery.isNullOrEmpty()) groupedFavorites[category]?.size else null
         }
 
+        fun getCategorySectionKey(category: Category): String {
+            return "$groupType:${category.id}"
+        }
+
+        fun isCategoryCollapsed(category: Category): Boolean {
+            return getCategorySectionKey(category) in collapsedCategories
+        }
+
         fun getToolbarTitle(
             defaultTitle: String,
             defaultCategoryTitle: String,
             page: Int,
         ): LibraryToolbarTitle {
+            if (useCategorySections) {
+                val count = if (showMangaCount) libraryData.favorites.size else null
+                return LibraryToolbarTitle(defaultTitle, count)
+            }
             val category = displayedCategories.getOrNull(page) ?: return LibraryToolbarTitle(defaultTitle)
             val categoryName = category.let {
                 if (it.isSystemCategory) defaultCategoryTitle else it.name

@@ -171,6 +171,26 @@ object SettingsAppearanceScreen : SearchableSettings {
                     preference = uiPreferences.imagesInDescription(),
                     title = stringResource(MR.strings.pref_display_images_description),
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.expandedAppBars(),
+                    title = stringResource(MR.strings.pref_expanded_app_bars),
+                    subtitle = stringResource(MR.strings.pref_expanded_app_bars_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.floatingSearchBars(),
+                    title = stringResource(MR.strings.pref_floating_search_bars),
+                    subtitle = stringResource(MR.strings.pref_floating_search_bars_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.coverThemedMangaDetails(),
+                    title = stringResource(MR.strings.pref_cover_themed_manga_details),
+                    subtitle = stringResource(MR.strings.pref_cover_themed_manga_details_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.dynamicShortcuts(),
+                    title = stringResource(MR.strings.pref_dynamic_shortcuts),
+                    subtitle = stringResource(MR.strings.pref_dynamic_shortcuts_summary),
+                ),
             ),
         )
     }
@@ -224,14 +244,6 @@ object SettingsAppearanceScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             stringResource(SYMR.strings.pref_category_navbar),
             preferenceItems = persistentListOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = uiPreferences.showNavUpdates(),
-                    title = stringResource(SYMR.strings.pref_hide_updates_button),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = uiPreferences.showNavHistory(),
-                    title = stringResource(SYMR.strings.pref_hide_history_button),
-                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = uiPreferences.bottomBarLabels(),
                     title = stringResource(SYMR.strings.pref_show_bottom_bar_labels),

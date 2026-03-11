@@ -20,8 +20,25 @@ internal fun LibraryCompactGrid(
     onLongClick: (LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
     searchQuery: String?,
+    useStaggeredGrid: Boolean,
     onGlobalSearchClicked: () -> Unit,
 ) {
+    if (useStaggeredGrid) {
+        LibraryCompactStaggeredGrid(
+            items = items,
+            showTitle = showTitle,
+            columns = columns,
+            contentPadding = contentPadding,
+            selection = selection,
+            onClick = onClick,
+            onLongClick = onLongClick,
+            onClickContinueReading = onClickContinueReading,
+            searchQuery = searchQuery,
+            onGlobalSearchClicked = onGlobalSearchClicked,
+        )
+        return
+    }
+
     LazyLibraryGrid(
         modifier = Modifier.fillMaxSize(),
         columns = columns,

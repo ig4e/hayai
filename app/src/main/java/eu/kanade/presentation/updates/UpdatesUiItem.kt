@@ -4,6 +4,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -12,12 +13,14 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,15 +56,25 @@ internal fun LazyListScope.updatesLastUpdatedItem(
     lastUpdated: Long,
 ) {
     item(key = "updates-lastUpdated") {
-        Box(
+        Surface(
             modifier = Modifier
                 .animateItem(fadeInSpec = null, fadeOutSpec = null)
                 .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 1.dp,
         ) {
-            Text(
-                text = stringResource(MR.strings.updates_last_update_info, relativeTimeSpanString(lastUpdated)),
-                fontStyle = FontStyle.Italic,
-            )
+            Box(
+                modifier = Modifier.padding(
+                    horizontal = MaterialTheme.padding.medium,
+                    vertical = MaterialTheme.padding.small,
+                ),
+            ) {
+                Text(
+                    text = stringResource(MR.strings.updates_last_update_info, relativeTimeSpanString(lastUpdated)),
+                    fontStyle = FontStyle.Italic,
+                )
+            }
         }
     }
 }
@@ -141,23 +154,16 @@ internal fun LazyListScope.updatesUiItems(
 }
 
 @Composable
-private fun UpdatesUiItem(
-    update: UpdatesWithRelations,
+private fun UpdatesRowSurface(
     selected: Boolean,
-    readProgress: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onClickCover: (() -> Unit)?,
-    onDownloadChapter: ((ChapterDownloadAction) -> Unit)?,
-    // Download Indicator
-    downloadStateProvider: () -> Download.State,
-    downloadProgressProvider: () -> Int,
     modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
-    val textAlpha = if (update.read) DISABLED_ALPHA else 1f
 
-    Row(
+    Surface(
         modifier = modifier
             .selectedBackground(selected)
             .combinedClickable(
@@ -167,13 +173,49 @@ private fun UpdatesUiItem(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 },
             )
-            .height(56.dp)
-            .padding(horizontal = MaterialTheme.padding.medium),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.extraSmall),
+        shape = RoundedCornerShape(22.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        tonalElevation = if (selected) 2.dp else 1.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .height(72.dp)
+                .padding(horizontal = MaterialTheme.padding.medium),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun UpdatesUiItem(
+    update: UpdatesWithRelations,
+    selected: Boolean,
+    readProgress: String?,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onClickCover: (() -> Unit)?,
+    onDownloadChapter: ((ChapterDownloadAction) -> Unit)?,
+    downloadStateProvider: () -> Download.State,
+    downloadProgressProvider: () -> Int,
+    modifier: Modifier = Modifier,
+) {
+    val textAlpha = if (update.read) DISABLED_ALPHA else 1f
+
+    UpdatesRowSurface(
+        selected = selected,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier,
     ) {
         MangaCover.Square(
             modifier = Modifier
-                .padding(vertical = 6.dp)
+                .padding(vertical = 8.dp)
                 .fillMaxHeight(),
             data = update.coverData,
             onClick = onClickCover,
@@ -187,7 +229,7 @@ private fun UpdatesUiItem(
             Text(
                 text = update.mangaTitle,
                 maxLines = 1,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = LocalContentColor.current.copy(alpha = textAlpha),
                 overflow = TextOverflow.Ellipsis,
             )
@@ -221,8 +263,7 @@ private fun UpdatesUiItem(
                     color = LocalContentColor.current.copy(alpha = textAlpha),
                     overflow = TextOverflow.Ellipsis,
                     onTextLayout = { textHeight = it.size.height },
-                    modifier = Modifier
-                        .weight(weight = 1f, fill = false),
+                    modifier = Modifier.weight(weight = 1f, fill = false),
                 )
                 if (readProgress != null) {
                     DotSeparatorText()

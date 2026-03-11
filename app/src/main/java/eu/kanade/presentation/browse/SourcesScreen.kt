@@ -117,16 +117,16 @@ private fun SourceHeader(
 ) {
     val context = LocalContext.current
     Text(
-        // SY -->
         text = if (!isCategory) {
             LocaleHelper.getSourceDisplayName(language, context)
         } else {
             language
         },
-        // SY <--
         modifier = modifier
+            .fillMaxWidth()
             .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
-        style = MaterialTheme.typography.header,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
     )
 }
 

@@ -34,6 +34,8 @@ class LibraryPreferences(
 
     fun landscapeColumns() = preferenceStore.getInt("pref_library_columns_landscape_key", 0)
 
+    fun useStaggeredGrid() = preferenceStore.getBoolean("use_staggered_grid", false)
+
     fun lastUpdatedTimestamp() = preferenceStore.getLong(Preference.appStateKey("library_update_last_timestamp"), 0L)
     fun autoUpdateInterval() = preferenceStore.getInt("pref_library_update_interval_key", 0)
 
@@ -129,6 +131,10 @@ class LibraryPreferences(
     fun categoryTabs() = preferenceStore.getBoolean("display_category_tabs", true)
 
     fun categoryNumberOfItems() = preferenceStore.getBoolean("display_number_of_items", false)
+
+    fun categorySections() = preferenceStore.getBoolean("display_category_sections", true)
+
+    fun collapsedCategorySections() = preferenceStore.getStringSet("collapsed_category_sections", emptySet())
 
     fun categorizedDisplaySettings() = preferenceStore.getBoolean("categorized_display", false)
 

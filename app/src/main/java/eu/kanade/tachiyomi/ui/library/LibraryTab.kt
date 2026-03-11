@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,6 +50,7 @@ import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.util.system.toast
 import exh.favorites.FavoritesSyncStatus
 import exh.recs.RecommendsScreen
@@ -74,6 +77,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.source.local.isLocal
 
 data object LibraryTab : Tab {
@@ -104,6 +108,7 @@ data object LibraryTab : Tab {
         val screenModel = rememberScreenModel { LibraryScreenModel() }
         val settingsScreenModel = rememberScreenModel { LibrarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
+        val useStaggeredGrid by settingsScreenModel.libraryPreferences.useStaggeredGrid().collectAsState()
 
         val snackbarHostState = remember { SnackbarHostState() }
 
@@ -168,6 +173,7 @@ data object LibraryTab : Tab {
                             context.toast(SYMR.strings.sync_in_progress)
                         }
                     },
+                    onClickSettings = { navigator.push(SettingsScreen()) },
                     // SY -->
                     onClickSyncExh = screenModel::openFavoritesSyncDialog.takeIf { state.showSyncExh },
                     isSyncEnabled = state.isSyncEnabled,
@@ -241,7 +247,9 @@ data object LibraryTab : Tab {
                         contentPadding = contentPadding,
                         currentPage = state.coercedActiveCategoryIndex,
                         hasActiveFilters = state.hasActiveFilters,
-                        showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
+                        showPageTabs = !state.useCategorySections && (state.showCategoryTabs || !state.searchQuery.isNullOrEmpty()),
+                        useCategorySections = state.useCategorySections,
+                        useStaggeredGrid = useStaggeredGrid,
                         onChangeCurrentPage = screenModel::updateActiveCategoryIndex,
                         onClickManga = { navigator.push(MangaScreen(it)) },
                         onContinueReadingClicked = { it: LibraryManga ->
@@ -262,10 +270,12 @@ data object LibraryTab : Tab {
                             screenModel.toggleRangeSelection(category, manga)
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         },
+                        onToggleCategorySection = screenModel::toggleCategorySection,
                         onRefresh = { onClickRefresh(state.activeCategory) },
                         onGlobalSearchClicked = {
                             navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
                         },
+                        isCategoryCollapsed = state::isCategoryCollapsed,
                         getItemCountForCategory = { state.getItemCountForCategory(it) },
                         getDisplayMode = { screenModel.getDisplayMode() },
                         getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
@@ -308,8 +318,22 @@ data object LibraryTab : Tab {
                     containsLocalManga = dialog.manga.any(Manga::isLocal),
                     onDismissRequest = onDismissRequest,
                     onConfirm = { deleteManga, deleteChapter ->
-                        screenModel.removeMangas(dialog.manga, deleteManga, deleteChapter)
                         screenModel.clearSelection()
+                        val effectiveDeleteChapters = deleteChapter || deleteManga
+                        if (deleteManga) {
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = context.stringResource(MR.strings.manga_removed_library_with_chapters),
+                                    actionLabel = context.stringResource(MR.strings.action_undo),
+                                    duration = SnackbarDuration.Long,
+                                )
+                                if (result != SnackbarResult.ActionPerformed) {
+                                    screenModel.removeMangas(dialog.manga, deleteManga, effectiveDeleteChapters)
+                                }
+                            }
+                        } else {
+                            screenModel.removeMangas(dialog.manga, deleteManga, effectiveDeleteChapters)
+                        }
                     },
                 )
             }

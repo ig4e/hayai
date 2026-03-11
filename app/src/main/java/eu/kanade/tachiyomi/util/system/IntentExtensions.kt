@@ -17,19 +17,24 @@ fun Uri.toShareIntent(context: Context, type: String = "image/*", message: Strin
         when (uri.scheme) {
             "http", "https" -> {
                 putExtra(Intent.EXTRA_TEXT, uri.toString())
+                putExtra(Intent.EXTRA_SUBJECT, message ?: uri.toString())
             }
             "content" -> {
                 message?.let { putExtra(Intent.EXTRA_TEXT, it) }
                 putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, message ?: context.stringResource(MR.strings.action_share))
             }
         }
         clipData = ClipData.newRawUri(null, uri)
+        putExtra(Intent.EXTRA_TITLE, message ?: context.stringResource(MR.strings.action_share))
         setType(type)
-        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
     }
 
     return Intent.createChooser(shareIntent, context.stringResource(MR.strings.action_share)).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 }
 

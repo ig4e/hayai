@@ -28,6 +28,7 @@
     <string name="label_recent_updates">Updates</string>
     <string name="label_upcoming">Upcoming</string>
     <string name="label_recent_manga">History</string>
+    <string name="label_recents">Recents</string>
     <string name="label_sources">Sources</string>
     <string name="label_backup">Backup and restore</string>
     <string name="label_data_storage">Data and storage</string>
@@ -39,6 +40,14 @@
     <string name="label_default">Default</string>
     <string name="label_warning">Warning</string>
     <string name="label_auto">Auto</string>
+    <string name="label_tags">Tags</string>
+    <string name="label_app_preferences">App preferences</string>
+    <string name="label_reading_experience">Reading experience</string>
+    <string name="label_services_and_data">Services and data</string>
+    <string name="label_customize_hayai">Customize Hayai</string>
+    <string name="label_customize_hayai_summary">Themes, reading behavior, downloads, services, and advanced controls.</string>
+    <string name="label_e_ink">E-Ink</string>
+    <string name="shortcut_continue_reading">Continue reading</string>
 
     <!-- Shared labels -->
     <string name="label_started">Started</string>
@@ -108,6 +117,7 @@
     <string name="action_remove_everything">Remove everything</string>
     <string name="action_start">Start</string>
     <string name="action_resume">Resume</string>
+    <string name="action_view_all">View all</string>
     <string name="action_open_in_browser">Open in browser</string>
     <string name="action_show_manga">Show entry</string>
     <string name="action_copy_to_clipboard">Copy to clipboard</string>
@@ -128,6 +138,8 @@
     <string name="action_display_language_badge">Language</string>
     <string name="action_display_show_tabs">Show category tabs</string>
     <string name="action_display_show_number_of_items">Show number of items</string>
+    <string name="action_display_show_categories_as_sections">Show categories as sections</string>
+    <string name="action_display_use_staggered_grid">Use staggered grid</string>
     <string name="action_display_show_continue_reading_button">Continue reading button</string>
     <string name="action_disable">Disable</string>
     <string name="action_pin">Pin</string>
@@ -270,6 +282,14 @@
     <string name="pref_relative_format_summary">\"%1$s\" instead of \"%2$s\"</string>
     <string name="pref_date_format">Date format</string>
     <string name="pref_display_images_description">Render images in manga descriptions</string>
+    <string name="pref_expanded_app_bars">Expanded app bars</string>
+    <string name="pref_expanded_app_bars_summary">Use larger floating top app bars throughout the app</string>
+    <string name="pref_floating_search_bars">Floating search bars</string>
+    <string name="pref_floating_search_bars_summary">Use elevated search fields in supported screens</string>
+    <string name="pref_cover_themed_manga_details">Cover themed manga details</string>
+    <string name="pref_cover_themed_manga_details_summary">Strengthen manga header theming using the manga cover backdrop</string>
+    <string name="pref_dynamic_shortcuts">Dynamic shortcuts</string>
+    <string name="pref_dynamic_shortcuts_summary">Show a homescreen shortcut for the last series you were reading</string>
 
     <string name="pref_manage_notifications">Manage notifications</string>
     <string name="pref_app_language">App language</string>
@@ -423,8 +443,11 @@
     <string name="pref_flash_style_white_black">White and Black</string>
     <string name="pref_double_tap_anim_speed">Double tap animation speed</string>
     <string name="pref_show_page_number">Show page number</string>
+    <string name="pref_expanded_reader_controls">Expanded reader controls</string>
     <string name="pref_show_reading_mode">Show reading mode</string>
     <string name="pref_show_reading_mode_summary">Briefly show current mode when reader is opened</string>
+    <string name="pref_combined_two_page_reader">Combined two-page tablet mode</string>
+    <string name="pref_combined_two_page_reader_summary">Automatically combine consecutive pages on tablets and large layouts</string>
     <string name="pref_hardware_bitmap_threshold">Custom hardware bitmap threshold</string>
     <string name="pref_hardware_bitmap_threshold_default">Default (%d)</string>
     <string name="pref_hardware_bitmap_threshold_summary">If reader loads a blank image incrementally reduce the threshold.\nSelected: %s</string>
@@ -751,6 +774,7 @@
     <string name="possible_duplicates_summary">You have entries in your library with a similar name.\n\nSelect an entry to migrate or add anyway.</string>
     <string name="manga_added_library">Added to library</string>
     <string name="manga_removed_library">Removed from library</string>
+    <string name="manga_removed_library_with_chapters">Removes from library and deletes downloaded chapters</string>
     <string name="manga_info_expand">More</string>
     <string name="manga_info_collapse">Less</string>
     <string name="delete_downloads_for_manga">Delete downloaded chapters?</string>
@@ -920,6 +944,10 @@
     <string name="label_titles_in_global_update">In global update</string>
     <string name="label_total_chapters">Total</string>
     <string name="label_read_chapters">Read</string>
+    <string name="label_actions">Actions</string>
+    <string name="label_details">Details</string>
+    <string name="label_extras">Extras</string>
+    <string name="label_page_previews">Page previews</string>
     <string name="label_tracker_section">Trackers</string>
     <string name="label_tracked_titles">Tracked entries</string>
     <string name="label_mean_score">Mean score</string>

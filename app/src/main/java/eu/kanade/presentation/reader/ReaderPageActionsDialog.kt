@@ -2,6 +2,7 @@ package eu.kanade.presentation.reader
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,64 +42,72 @@ fun ReaderPageActionsDialog(
     // SY <--
 ) {
     var showSetCoverDialog by remember { mutableStateOf(false) }
-    // SY -->
     var useExtraPage by remember { mutableStateOf(false) }
-    // SY <--
 
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
         Column(modifier = Modifier.padding(vertical = 16.dp)) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MaterialTheme.padding.medium)
+                    .padding(bottom = MaterialTheme.padding.small),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                tonalElevation = 1.dp,
+            ) {
+                Text(
+                    text = stringResource(MR.strings.pref_reader_actions),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                )
+            }
+
             Row(
+                modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             ) {
                 ActionButton(
                     modifier = Modifier.weight(1f),
                     title = stringResource(
-                        // SY -->
                         if (hasExtraPage) {
                             SYMR.strings.action_set_first_page_cover
                         } else {
                             MR.strings.set_as_cover
                         },
-                        // SY <--
                     ),
                     icon = Icons.Outlined.Photo,
-                    onClick = { showSetCoverDialog = true },
+                    onClick = {
+                        useExtraPage = false
+                        showSetCoverDialog = true
+                    },
                 )
                 ActionButton(
                     modifier = Modifier.weight(1f),
                     title = stringResource(
-                        // SY -->
                         if (hasExtraPage) {
                             SYMR.strings.action_copy_first_page
                         } else {
                             MR.strings.action_copy_to_clipboard
                         },
-                        // SY <--
                     ),
                     icon = Icons.Outlined.ContentCopy,
                     onClick = {
-                        // SY -->
                         onShare(true, false)
-                        // SY <--
                         onDismissRequest()
                     },
                 )
                 ActionButton(
                     modifier = Modifier.weight(1f),
                     title = stringResource(
-                        // SY -->
                         if (hasExtraPage) {
                             SYMR.strings.action_share_first_page
                         } else {
                             MR.strings.action_share
                         },
-                        // SY <--
                     ),
                     icon = Icons.Outlined.Share,
                     onClick = {
-                        // SY -->
                         onShare(false, false)
-                        // SY <--
                         onDismissRequest()
                     },
                 )
@@ -105,25 +115,22 @@ fun ReaderPageActionsDialog(
                 ActionButton(
                     modifier = Modifier.weight(1f),
                     title = stringResource(
-                        // SY -->
                         if (hasExtraPage) {
                             SYMR.strings.action_save_first_page
                         } else {
                             MR.strings.action_save
                         },
-                        // SY <--
                     ),
                     icon = Icons.Outlined.Save,
                     onClick = {
-                        // SY -->
                         onSave(false)
-                        // SY <--
                         onDismissRequest()
                     },
                 )
             }
             if (hasExtraPage) {
                 Row(
+                    modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                 ) {
                     ActionButton(
@@ -131,6 +138,7 @@ fun ReaderPageActionsDialog(
                         title = stringResource(SYMR.strings.action_set_second_page_cover),
                         icon = Icons.Outlined.Photo,
                         onClick = {
+                            useExtraPage = true
                             showSetCoverDialog = true
                         },
                     )
@@ -163,6 +171,7 @@ fun ReaderPageActionsDialog(
                     )
                 }
                 Row(
+                    modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                 ) {
                     ActionButton(
@@ -200,13 +209,14 @@ fun ReaderPageActionsDialog(
     if (showSetCoverDialog) {
         SetCoverDialog(
             onConfirm = {
-                // SY -->
                 onSetAsCover(useExtraPage)
                 showSetCoverDialog = false
                 useExtraPage = false
-                // SY <--
             },
-            onDismiss = { showSetCoverDialog = false },
+            onDismiss = {
+                showSetCoverDialog = false
+                useExtraPage = false
+            },
         )
     }
 }

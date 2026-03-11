@@ -52,7 +52,7 @@ private val defaultContent: @Composable RowScope.(Source, String?) -> Unit = { s
             text = source.name,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.titleMedium,
         )
         if (sourceLangString != null) {
             Text(

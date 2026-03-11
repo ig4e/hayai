@@ -3,6 +3,8 @@ package eu.kanade.presentation.manga.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,25 +21,44 @@ fun MangaInfoButtons(
     onMergeWithAnotherClicked: () -> Unit,
 ) {
     if (showRecommendsButton || showMergeWithAnotherButton) {
-        Column(Modifier.fillMaxWidth()) {
-            if (showMergeWithAnotherButton) {
-                Button(
-                    onClick = onMergeWithAnotherClicked,
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                ) {
-                    Text(stringResource(SYMR.strings.merge_with_another_source))
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 1.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+            ) {
+                Text(
+                    text = stringResource(tachiyomi.i18n.MR.strings.label_extras),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+                if (showMergeWithAnotherButton) {
+                    Button(
+                        onClick = onMergeWithAnotherClicked,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        Text(stringResource(SYMR.strings.merge_with_another_source))
+                    }
                 }
-            }
-            if (showRecommendsButton) {
-                Button(
-                    onClick = onRecommendClicked,
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                ) {
-                    Text(stringResource(SYMR.strings.az_recommends))
+                if (showRecommendsButton) {
+                    Button(
+                        onClick = onRecommendClicked,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        Text(stringResource(SYMR.strings.az_recommends))
+                    }
                 }
             }
         }
