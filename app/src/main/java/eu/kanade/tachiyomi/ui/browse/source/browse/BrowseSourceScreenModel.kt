@@ -258,14 +258,28 @@ open class BrowseSourceScreenModel(
         // SY <--
         val input = state.value.listing as? Listing.Search
             ?: Listing.Search(query = null, filters = source.getFilterList())
+        val resolvedQuery = query ?: input.query
+        val resolvedFilters = filters ?: input.filters
+
+        val fallbackListing = when (state.value.listing) {
+            Listing.Latest -> Listing.Latest
+            else -> Listing.Popular
+        }
+        val nextListing = when {
+            resolvedQuery == GetRemoteManga.QUERY_POPULAR -> Listing.Popular
+            resolvedQuery == GetRemoteManga.QUERY_LATEST -> Listing.Latest
+            resolvedQuery.isNullOrBlank() && resolvedFilters == source.getFilterList() -> fallbackListing
+            else -> Listing.Search(
+                query = resolvedQuery,
+                filters = resolvedFilters,
+            )
+        }
+        val nextToolbarQuery = (nextListing as? Listing.Search)?.query
 
         mutableState.update {
             it.copy(
-                listing = input.copy(
-                    query = query ?: input.query,
-                    filters = filters ?: input.filters,
-                ),
-                toolbarQuery = query ?: input.query,
+                listing = nextListing,
+                toolbarQuery = nextToolbarQuery,
             )
         }
     }
