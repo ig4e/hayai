@@ -148,10 +148,14 @@ Open validation items:
 - dark and amoled comparison
 - reader and manga-details side-by-side comparison
 - settings screen side-by-side screenshot comparison against Yokai (main + general)
+- final integrated-`master` screenshot sweep after A-E merge (not yet captured in this pass)
 
 Latest compile validation:
 - 2026-03-12: `.\gradlew.bat :app:compileDevDebugKotlin '-Pkotlin.incremental=false' --console=plain` (PASS)
 - 2026-03-12: `JAVA_HOME='C:\Program Files\Android\Android Studio\jbr' ANDROID_HOME='C:\Users\ahmed\AppData\Local\Android\Sdk' .\gradlew.bat :app:compileDevDebugKotlin '-Pkotlin.incremental=false' --console=plain` (PASS)
+
+Final master integration (A-E):
+- 2026-03-12: integrated worktree outputs are present on `master` (`browse`, `recents`, `reader`, `shortcuts/share`, `manga details` commits in current `master` history), with no remaining merge conflicts in working tree.
 
 ## Intentional divergences
 
