@@ -1,3 +1,6 @@
+This is a WIP fork from Tachiyomi SY, Originaly made for personal use
+
+
 | Release Builds | Hayai Community |
 |----------|----------|
 | [![stable release](https://img.shields.io/github/release/ig4e/hayai.svg?maxAge=3600&label=download)](https://github.com/ig4e/hayai/releases/latest) | [![Discord](https://img.shields.io/discord/1195734228319617024.svg?label=discord&labelColor=7289da&color=2c2f33&style=flat)](https://discord.gg/mihon) |
