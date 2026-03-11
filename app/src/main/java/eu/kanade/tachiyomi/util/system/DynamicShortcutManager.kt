@@ -80,7 +80,7 @@ class DynamicShortcutManager(
                     val split = entry.split(":")
                     val sourceId = split.getOrNull(0)?.toLongOrNull()
                     val timestamp = split.getOrNull(1)?.toLongOrNull()
-                    if (sourceId != null && timestamp != null) {
+                    if (sourceId != null && sourceId > 0 && timestamp != null) {
                         sourceId to timestamp
                     } else {
                         null
@@ -153,9 +153,10 @@ class DynamicShortcutManager(
 
     private suspend fun buildMangaShortcut(history: HistoryWithRelations): ShortcutInfoCompat? {
         val entryIntent = getEntryIntent(history)
+        val title = history.title.ifBlank { context.stringResource(MR.strings.manga) }
         return ShortcutInfoCompat.Builder(context, "manga-${history.mangaId}")
-            .setShortLabel(history.title)
-            .setLongLabel(history.title)
+            .setShortLabel(title)
+            .setLongLabel(title)
             .setIcon(IconCompat.createWithResource(context, R.drawable.ic_book_24dp))
             .setIntent(
                 Intent(context, MainActivity::class.java).apply {
@@ -174,10 +175,13 @@ class DynamicShortcutManager(
             .build()
     }
 
-    private fun buildSourceShortcut(source: Source): ShortcutInfoCompat {
+    private fun buildSourceShortcut(source: Source): ShortcutInfoCompat? {
+        if (source.id <= 0L) return null
+
+        val label = source.name.ifBlank { source.id.toString() }
         return ShortcutInfoCompat.Builder(context, "source-${source.id}")
-            .setShortLabel(source.name)
-            .setLongLabel(source.name)
+            .setShortLabel(label)
+            .setLongLabel(label)
             .setIcon(IconCompat.createWithResource(context, R.drawable.sc_extensions_48dp))
             .setIntent(
                 Intent(context, MainActivity::class.java).apply {

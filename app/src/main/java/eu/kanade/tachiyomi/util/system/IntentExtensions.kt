@@ -14,21 +14,30 @@ fun Uri.toShareIntent(context: Context, type: String = "image/*", message: Strin
     val uri = this
 
     val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        val chooserTitle = message ?: context.stringResource(MR.strings.action_share)
         when (uri.scheme) {
             "http", "https" -> {
                 putExtra(Intent.EXTRA_TEXT, uri.toString())
                 putExtra(Intent.EXTRA_SUBJECT, message ?: uri.toString())
+                putExtra(Intent.EXTRA_TITLE, chooserTitle)
+                setType("text/plain")
             }
-            "content" -> {
+            "content", "file" -> {
                 message?.let { putExtra(Intent.EXTRA_TEXT, it) }
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, message ?: context.stringResource(MR.strings.action_share))
+                putExtra(Intent.EXTRA_SUBJECT, chooserTitle)
+                putExtra(Intent.EXTRA_TITLE, chooserTitle)
+                setType(type)
+                clipData = ClipData.newRawUri(null, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            else -> {
+                putExtra(Intent.EXTRA_TEXT, message ?: uri.toString())
+                putExtra(Intent.EXTRA_SUBJECT, chooserTitle)
+                putExtra(Intent.EXTRA_TITLE, chooserTitle)
+                setType("text/plain")
             }
         }
-        clipData = ClipData.newRawUri(null, uri)
-        putExtra(Intent.EXTRA_TITLE, message ?: context.stringResource(MR.strings.action_share))
-        setType(type)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
     }
 

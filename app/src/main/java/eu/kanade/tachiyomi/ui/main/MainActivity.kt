@@ -465,7 +465,7 @@ class MainActivity : BaseActivity() {
         val tabToOpen = when (intent.action) {
             Constants.SHORTCUT_LIBRARY -> HomeScreen.Tab.Library()
             Constants.SHORTCUT_MANGA -> {
-                val idToOpen = intent.extras?.getLong(Constants.MANGA_EXTRA) ?: return false
+                val idToOpen = intent.extras?.getLong(Constants.MANGA_EXTRA)?.takeIf { it > 0 } ?: return markReadyAndReturn(false)
                 navigator.popUntilRoot()
                 HomeScreen.Tab.Library(idToOpen)
             }
@@ -473,7 +473,7 @@ class MainActivity : BaseActivity() {
             Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.History
             Constants.SHORTCUT_SOURCES -> HomeScreen.Tab.Browse(false)
             Constants.SHORTCUT_SOURCE -> {
-                val sourceId = intent.extras?.getLong(Constants.SOURCE_EXTRA) ?: return false
+                val sourceId = intent.extras?.getLong(Constants.SOURCE_EXTRA)?.takeIf { it > 0 } ?: return markReadyAndReturn(false)
                 navigator.popUntilRoot()
                 navigator.push(BrowseSourceScreen(sourceId = sourceId, listingQuery = null))
                 HomeScreen.Tab.Browse(false)
@@ -493,15 +493,16 @@ class MainActivity : BaseActivity() {
                 // or the Google-specific search intent (triggered by saying or typing "search *query* on *Tachiyomi*" in Google Search/Google Assistant)
 
                 // Get the search query provided in extras, and if not null, perform a global search with it.
-                val query = intent.getStringExtra(SearchManager.QUERY) ?: intent.getStringExtra(Intent.EXTRA_TEXT)
-                if (!query.isNullOrEmpty()) {
+                val query = intent.getStringExtra(SearchManager.QUERY)
+                    ?: intent.getStringExtra(Intent.EXTRA_TEXT)
+                if (!query.isNullOrBlank()) {
                     navigator.popUntilRoot()
-                    navigator.push(DeepLinkScreen(query))
+                    navigator.push(DeepLinkScreen(query.trim()))
                 }
                 null
             }
             INTENT_SEARCH -> {
-                val query = intent.getStringExtra(INTENT_SEARCH_QUERY)
+                val query = intent.getStringExtra(INTENT_SEARCH_QUERY)?.trim()
                 if (!query.isNullOrEmpty()) {
                     val filter = intent.getStringExtra(INTENT_SEARCH_FILTER)
                     navigator.popUntilRoot()
@@ -511,7 +512,7 @@ class MainActivity : BaseActivity() {
             }
             Intent.ACTION_VIEW -> {
                 // Handling opening of backup files
-                if (intent.data.toString().endsWith(".tachibk")) {
+                if (intent.data?.toString()?.endsWith(".tachibk", ignoreCase = true) == true) {
                     navigator.popUntilRoot()
                     navigator.push(RestoreBackupScreen(intent.data.toString()))
                 }
@@ -524,15 +525,19 @@ class MainActivity : BaseActivity() {
                 }
                 null
             }
-            else -> return false
+            else -> return markReadyAndReturn(false)
         }
 
         if (tabToOpen != null) {
             lifecycleScope.launch { HomeScreen.openTab(tabToOpen) }
         }
 
+        return markReadyAndReturn(true)
+    }
+
+    private fun markReadyAndReturn(result: Boolean): Boolean {
         ready = true
-        return true
+        return result
     }
 
     // SY -->
