@@ -132,6 +132,8 @@ fun MangaScreen(
 
     onFilterButtonClicked: () -> Unit,
     onRefresh: () -> Unit,
+    onMarkAllAsReadClicked: () -> Unit,
+    onMarkAllAsUnreadClicked: () -> Unit,
     onContinueReading: () -> Unit,
     onSearch: (query: String, global: Boolean) -> Unit,
 
@@ -196,6 +198,8 @@ fun MangaScreen(
             onCopyTagToClipboard = onCopyTagToClipboard,
             onFilterClicked = onFilterButtonClicked,
             onRefresh = onRefresh,
+            onMarkAllAsReadClicked = onMarkAllAsReadClicked,
+            onMarkAllAsUnreadClicked = onMarkAllAsUnreadClicked,
             onContinueReading = onContinueReading,
             onSearch = onSearch,
             onCoverClicked = onCoverClicked,
@@ -243,6 +247,8 @@ fun MangaScreen(
             onCopyTagToClipboard = onCopyTagToClipboard,
             onFilterButtonClicked = onFilterButtonClicked,
             onRefresh = onRefresh,
+            onMarkAllAsReadClicked = onMarkAllAsReadClicked,
+            onMarkAllAsUnreadClicked = onMarkAllAsUnreadClicked,
             onContinueReading = onContinueReading,
             onSearch = onSearch,
             onCoverClicked = onCoverClicked,
@@ -296,6 +302,8 @@ private fun MangaScreenSmallImpl(
 
     onFilterClicked: () -> Unit,
     onRefresh: () -> Unit,
+    onMarkAllAsReadClicked: () -> Unit,
+    onMarkAllAsUnreadClicked: () -> Unit,
     onContinueReading: () -> Unit,
     onSearch: (query: String, global: Boolean) -> Unit,
 
@@ -385,6 +393,8 @@ private fun MangaScreenSmallImpl(
                 onClickDownload = onDownloadActionClicked,
                 onClickEditCategory = onEditCategoryClicked,
                 onClickRefresh = onRefresh,
+                onClickMarkAllAsRead = onMarkAllAsReadClicked.takeIf { hasUnreadChapters },
+                onClickMarkAllAsUnread = onMarkAllAsUnreadClicked.takeIf { hasReadChapters },
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
                 // SY -->
@@ -604,6 +614,8 @@ fun MangaScreenLargeImpl(
 
     onFilterButtonClicked: () -> Unit,
     onRefresh: () -> Unit,
+    onMarkAllAsReadClicked: () -> Unit,
+    onMarkAllAsUnreadClicked: () -> Unit,
     onContinueReading: () -> Unit,
     onSearch: (query: String, global: Boolean) -> Unit,
 
@@ -684,6 +696,8 @@ fun MangaScreenLargeImpl(
                 onClickDownload = onDownloadActionClicked,
                 onClickEditCategory = onEditCategoryClicked,
                 onClickRefresh = onRefresh,
+                onClickMarkAllAsRead = onMarkAllAsReadClicked.takeIf { hasUnreadChapters },
+                onClickMarkAllAsUnread = onMarkAllAsUnreadClicked.takeIf { hasReadChapters },
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
                 // SY -->
