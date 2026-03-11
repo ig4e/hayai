@@ -13,12 +13,15 @@ class ReleaseServiceImpl(
     private val json: Json,
 ) : ReleaseService {
 
-    override suspend fun latest(repository: String): Release {
+    override suspend fun latest(repository: String, releaseTagPrefix: String, prerelease: Boolean): Release {
         return with(json) {
             networkService.client
-                .newCall(GET("https://api.github.com/repos/$repository/releases/latest"))
+                .newCall(GET("https://api.github.com/repos/$repository/releases"))
                 .awaitSuccess()
-                .parseAs<GithubRelease>()
+                .parseAs<List<GithubRelease>>()
+                .first { release ->
+                    release.version.startsWith(releaseTagPrefix) && release.prerelease == prerelease
+                }
                 .let(releaseMapper)
         }
     }

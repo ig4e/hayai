@@ -42,7 +42,7 @@ class GetApplicationReleaseTest {
             listOf("http://example.com/assets"),
         )
 
-        coEvery { releaseService.latest(any()) } returns release
+        coEvery { releaseService.latest(any(), any(), any()) } returns release
 
         val result = getApplicationRelease.await(
             GetApplicationRelease.Arguments(
@@ -50,6 +50,8 @@ class GetApplicationReleaseTest {
                 commitCount = 1000,
                 versionName = "",
                 repository = "test",
+                releaseTagPrefix = "preview-",
+                prerelease = true,
                 syDebugVersion = "100",
             ),
         )
@@ -71,13 +73,15 @@ class GetApplicationReleaseTest {
             listOf("http://example.com/assets"),
         )
 
-        coEvery { releaseService.latest(any()) } returns release
+        coEvery { releaseService.latest(any(), any(), any()) } returns release
 
         val result = getApplicationRelease.await(
             GetApplicationRelease.Arguments(
                 isPreview = false,
                 commitCount = 0,
                 versionName = "v1.0.0",
+                releaseTagPrefix = "v",
+                prerelease = false,
                 syDebugVersion = "0",
                 repository = "test",
             ),
@@ -100,13 +104,15 @@ class GetApplicationReleaseTest {
             listOf("http://example.com/assets"),
         )
 
-        coEvery { releaseService.latest(any()) } returns release
+        coEvery { releaseService.latest(any(), any(), any()) } returns release
 
         val result = getApplicationRelease.await(
             GetApplicationRelease.Arguments(
                 isPreview = false,
                 commitCount = 0,
                 versionName = "v2.0.0",
+                releaseTagPrefix = "v",
+                prerelease = false,
                 syDebugVersion = "0",
                 repository = "test",
             ),
@@ -127,19 +133,21 @@ class GetApplicationReleaseTest {
             listOf("http://example.com/assets"),
         )
 
-        coEvery { releaseService.latest(any()) } returns release
+        coEvery { releaseService.latest(any(), any(), any()) } returns release
 
         val result = getApplicationRelease.await(
             GetApplicationRelease.Arguments(
                 isPreview = false,
                 commitCount = 0,
                 versionName = "v2.0.0",
+                releaseTagPrefix = "v",
+                prerelease = false,
                 syDebugVersion = "0",
                 repository = "test",
             ),
         )
 
-        coVerify(exactly = 0) { releaseService.latest(any()) }
+        coVerify(exactly = 0) { releaseService.latest(any(), any(), any()) }
         result shouldBe GetApplicationRelease.Result.NoNewUpdate
     }
 }

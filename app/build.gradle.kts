@@ -38,6 +38,9 @@ android {
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
         buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLastCommitTime = false)}\"")
         buildConfigField("boolean", "INCLUDE_UPDATER", "false")
+        buildConfigField("boolean", "IS_BETA", "false")
+        buildConfigField("String", "RELEASE_TAG_PREFIX", "\"v\"")
+        buildConfigField("boolean", "RELEASE_PRERELEASE", "false")
 
         ndk {
             abiFilters += supportedAbis
@@ -95,6 +98,15 @@ android {
     productFlavors {
         create("standard") {
             buildConfigField("boolean", "INCLUDE_UPDATER", "true")
+            dimension = "default"
+        }
+        create("beta") {
+            applicationIdSuffix = ".beta"
+            buildConfigField("boolean", "INCLUDE_UPDATER", "true")
+            buildConfigField("boolean", "IS_BETA", "true")
+            buildConfigField("String", "RELEASE_TAG_PREFIX", "\"beta-v\"")
+            buildConfigField("boolean", "RELEASE_PRERELEASE", "true")
+            resValue("string", "app_name", "Hayai Beta")
             dimension = "default"
         }
         create("fdroid") {

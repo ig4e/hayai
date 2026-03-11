@@ -34,6 +34,7 @@ import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.lang.toDateTimestampString
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import eu.kanade.tachiyomi.util.system.isBetaFlavor
 import eu.kanade.tachiyomi.util.system.isPreviewBuildType
 import eu.kanade.tachiyomi.util.system.toast
 import exh.syDebugVersion
@@ -264,9 +265,9 @@ object AboutScreen : Screen() {
                     }
                 }
             }
-            // SY <--
+            // SY <-- 
             else -> {
-                "Stable ${BuildConfig.VERSION_NAME}".let {
+                "${if (isBetaFlavor) "Beta" else "Stable"} ${BuildConfig.VERSION_NAME}".let {
                     if (withBuildDate) {
                         "$it (${getFormattedBuildTime()})"
                     } else {

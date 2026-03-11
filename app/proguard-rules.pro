@@ -13,6 +13,8 @@
 -keep,allowoptimization class okhttp3.** { public protected *; }
 -keep,allowoptimization class okio.** { public protected *; }
 -keep,allowoptimization class org.jsoup.** { public protected *; }
+-dontwarn com.google.re2j.Matcher
+-dontwarn com.google.re2j.Pattern
 -keep,allowoptimization class rx.** { public protected *; }
 -keep,allowoptimization class app.cash.quickjs.** { public protected *; }
 -keep,allowoptimization class uy.kohesive.injekt.** { public protected *; }

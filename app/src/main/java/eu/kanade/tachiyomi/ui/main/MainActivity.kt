@@ -511,7 +511,7 @@ class MainActivity : BaseActivity() {
     // SY <--
 
     companion object {
-        const val INTENT_SEARCH = "dev.ahmedmohamed.hayai.SEARCH"
+        val INTENT_SEARCH = "${BuildConfig.APPLICATION_ID}.SEARCH"
         const val INTENT_SEARCH_QUERY = "query"
         const val INTENT_SEARCH_FILTER = "filter"
     }

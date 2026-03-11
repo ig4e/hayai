@@ -6,6 +6,9 @@ import exh.syDebugVersion
 val isDevFlavor: Boolean
     get() = BuildConfig.FLAVOR == "dev"
 
+val isBetaFlavor: Boolean
+    get() = BuildConfig.IS_BETA
+
 val isPreviewBuildType: Boolean
     get() = BuildConfig.BUILD_TYPE == "release" /* SY --> */ && syDebugVersion != "0" /* SY <-- */
 

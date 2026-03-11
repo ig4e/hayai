@@ -31,6 +31,8 @@ class AppUpdateChecker {
                     BuildConfig.COMMIT_COUNT.toInt(),
                     BuildConfig.VERSION_NAME,
                     GITHUB_REPO,
+                    BuildConfig.RELEASE_TAG_PREFIX,
+                    BuildConfig.RELEASE_PRERELEASE,
                     // SY -->
                     syDebugVersion,
                     // SY <--
