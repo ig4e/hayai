@@ -56,6 +56,9 @@ import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.ui.manga.track.TrackerMetadataCandidate
+import eu.kanade.tachiyomi.ui.manga.track.loadTrackerMetadataCandidates
+import eu.kanade.tachiyomi.ui.manga.track.toFormState
 import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.toast
 import exh.util.dropBlank
@@ -95,7 +98,7 @@ fun EditMangaDialog(
     val trackerManager = remember { Injekt.get<TrackerManager>() }
 
     var showTrackerSelectionDialog by remember { mutableStateOf(false) }
-    var tracks by remember { mutableStateOf(emptyList<Pair<Track, Tracker>>()) }
+    var tracks by remember { mutableStateOf(emptyList<TrackerMetadataCandidate>()) }
 
     var titleText by remember { mutableStateOf(if (manga.title != manga.ogTitle) manga.title else "") }
     var authorText by remember { mutableStateOf(if (manga.author != manga.ogAuthor) manga.author.orEmpty() else "") }
@@ -137,31 +140,31 @@ fun EditMangaDialog(
         resetTags()
     }
 
-    suspend fun autofillFromTracker(track: Track, tracker: Tracker) {
-        try {
-            val trackerMangaMetadata = tracker.getMangaMetadata(track)
-
-            trackerMangaMetadata?.title?.takeIf { it.isNotBlank() }?.let { titleText = it }
-            trackerMangaMetadata?.authors?.takeIf { it.isNotBlank() }?.let { authorText = it }
-            trackerMangaMetadata?.artists?.takeIf { it.isNotBlank() }?.let { artistText = it }
-            trackerMangaMetadata?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let { thumbnailUrlText = it }
-            trackerMangaMetadata?.description?.takeIf { it.isNotBlank() }?.let { descriptionText = it }
-        } catch (e: Throwable) {
-            tracker.logcat(LogPriority.ERROR, e)
-            context.toast(
-                context.stringResource(
-                    MR.strings.track_error,
-                    tracker.name,
-                    e.message ?: "",
-                ),
-            )
-        }
+    fun autofillFromTracker(candidate: TrackerMetadataCandidate) {
+        val trackerMangaMetadata = candidate.metadata.toFormState()
+        trackerMangaMetadata.title.takeIf { it.isNotBlank() }?.let { titleText = it }
+        trackerMangaMetadata.author.takeIf { it.isNotBlank() }?.let { authorText = it }
+        trackerMangaMetadata.artist.takeIf { it.isNotBlank() }?.let { artistText = it }
+        trackerMangaMetadata.thumbnailUrl.takeIf { it.isNotBlank() }?.let { thumbnailUrlText = it }
+        trackerMangaMetadata.description.takeIf { it.isNotBlank() }?.let { descriptionText = it }
     }
 
     suspend fun getTrackers() {
-        tracks = getTracks.await(manga.id)
-            .mapNotNull { track -> track to (trackerManager.get(track.trackerId) ?: return@mapNotNull null) }
-            .filterNot { (_, tracker) -> tracker is EnhancedTracker }
+        tracks = loadTrackerMetadataCandidates(
+            mangaId = manga.id,
+            getTracks = getTracks,
+            trackerManager = trackerManager,
+            onError = { tracker, e ->
+                tracker.logcat(LogPriority.ERROR, e)
+                context.toast(
+                    context.stringResource(
+                        MR.strings.track_error,
+                        tracker.name,
+                        e.message ?: "",
+                    ),
+                )
+            },
+        ).filterNot { it.tracker is EnhancedTracker }
 
         if (tracks.isEmpty()) {
             context.toast(context.stringResource(SYMR.strings.entry_not_tracked))
@@ -173,7 +176,7 @@ fun EditMangaDialog(
             return
         }
 
-        autofillFromTracker(tracks.first().first, tracks.first().second)
+        autofillFromTracker(tracks.first())
     }
 
     AlertDialog(
@@ -394,10 +397,8 @@ fun EditMangaDialog(
         TrackerSelectDialog(
             tracks = tracks,
             onDismissRequest = { showTrackerSelectionDialog = false },
-            onTrackerSelect = { tracker, track ->
-                scope.launch {
-                    autofillFromTracker(track, tracker)
-                }
+            onTrackerSelect = { candidate ->
+                autofillFromTracker(candidate)
                 showTrackerSelectionDialog = false
             },
         )
@@ -563,9 +564,9 @@ private fun TagChipGroup(
 
 @Composable
 private fun TrackerSelectDialog(
-    tracks: List<Pair<Track, Tracker>>,
+    tracks: List<TrackerMetadataCandidate>,
     onDismissRequest: () -> Unit,
-    onTrackerSelect: (Tracker, Track) -> Unit,
+    onTrackerSelect: (TrackerMetadataCandidate) -> Unit,
 ) {
     AlertDialog(
         modifier = Modifier.fillMaxWidth(),
@@ -584,10 +585,10 @@ private fun TrackerSelectDialog(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                tracks.forEach { (track, tracker) ->
+                tracks.forEach { candidate ->
                     TrackLogoIcon(
-                        tracker,
-                        onClick = { onTrackerSelect(tracker, track) },
+                        candidate.tracker,
+                        onClick = { onTrackerSelect(candidate) },
                     )
                 }
             }

@@ -28,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -178,7 +179,7 @@ data class TrackInfoDialogHomeScreen(
                     },
                     onNewSearch = {
                         if (it.tracker is EnhancedTracker) {
-                            screenModel.registerEnhancedTracking(it)
+                            screenModel.registerEnhancedTracking(navigator, it)
                         } else {
                             // SY -->
                             screenModel.newSearch(navigator, it, mangaTitle)
@@ -186,6 +187,7 @@ data class TrackInfoDialogHomeScreen(
                         }
                     },
                     onOpenInBrowser = { openTrackerInBrowser(context, it) },
+                    onEnrichData = { screenModel.openEnrichment(navigator, it.tracker.id) },
                     onRemoved = {
                         navigator.push(
                             TrackerRemoveScreen(
@@ -226,6 +228,7 @@ data class TrackInfoDialogHomeScreen(
         /* SY --> */
         private val trackerManager: TrackerManager = Injekt.get(),
         private val trackPreferences: TrackPreferences = Injekt.get(),
+        private val context: Application = Injekt.get(),
         /* SY <-- */
     ) : StateScreenModel<Model.State>(State()) {
 
@@ -243,13 +246,14 @@ data class TrackInfoDialogHomeScreen(
             }
         }
 
-        fun registerEnhancedTracking(item: TrackItem) {
+        fun registerEnhancedTracking(navigator: Navigator, item: TrackItem) {
             item.tracker as EnhancedTracker
             screenModelScope.launchNonCancellable {
                 val manga = Injekt.get<GetManga>().await(mangaId) ?: return@launchNonCancellable
                 try {
                     val matchResult = item.tracker.match(manga) ?: throw Exception()
                     item.tracker.register(matchResult, mangaId)
+                    openEnrichment(navigator, item.tracker.id)
                 } catch (_: Exception) {
                     withUIContext { Injekt.get<Application>().toast(MR.strings.error_no_match) }
                 }
@@ -271,6 +275,7 @@ data class TrackInfoDialogHomeScreen(
                         mutableState.update { it.copy(isLoading = false) }
 
                         if (success) {
+                            openEnrichment(navigator, item.tracker.id)
                             // Return on success
                             return@launchNonCancellable
                         }
@@ -326,6 +331,43 @@ data class TrackInfoDialogHomeScreen(
                 }
             }
             return false
+        }
+
+        fun openEnrichment(navigator: Navigator, preferredTrackerId: Long? = null) {
+            screenModelScope.launchNonCancellable {
+                val candidates = loadTrackerMetadataCandidates(
+                    mangaId = mangaId,
+                    getTracks = getTracks,
+                    trackerManager = trackerManager,
+                    onError = { tracker, e ->
+                        logcat(LogPriority.ERROR, e) { "Failed to load tracker metadata candidate" }
+                        withUIContext {
+                            context.toast(
+                                context.stringResource(
+                                    MR.strings.track_error,
+                                    tracker.name,
+                                    e.message.orEmpty(),
+                                ),
+                            )
+                        }
+                    },
+                )
+                val shouldOpen = if (preferredTrackerId == null) {
+                    candidates.isNotEmpty()
+                } else {
+                    candidates.any { it.tracker.id == preferredTrackerId }
+                }
+                if (shouldOpen) {
+                    withUIContext {
+                        navigator.push(
+                            TrackerMetadataEnrichmentScreen(
+                                mangaId = mangaId,
+                                preferredTrackerId = preferredTrackerId,
+                            ),
+                        )
+                    }
+                }
+            }
         }
         // SY <--
 
@@ -758,6 +800,7 @@ data class TrackerSearchScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val scope = rememberCoroutineScope()
         val screenModel = rememberScreenModel {
             Model(
                 mangaId = mangaId,
@@ -779,8 +822,18 @@ data class TrackerSearchScreen(
             onConfirmSelection = f@{ private: Boolean ->
                 val selected = state.selected ?: return@f
                 selected.private = private
-                screenModel.registerTracking(selected)
-                navigator.pop()
+                scope.launch {
+                    val trackerId = screenModel.registerTracking(selected)
+                    navigator.pop()
+                    if (trackerId != null) {
+                        navigator.push(
+                            TrackerMetadataEnrichmentScreen(
+                                mangaId = mangaId,
+                                preferredTrackerId = trackerId,
+                            ),
+                        )
+                    }
+                }
             },
             onDismissRequest = navigator::pop,
             supportsPrivateTracking = screenModel.supportsPrivateTracking,
@@ -792,6 +845,8 @@ data class TrackerSearchScreen(
         private val currentUrl: String? = null,
         initialQuery: String,
         private val tracker: Tracker,
+        private val getTracks: GetTracks = Injekt.get(),
+        private val trackerManager: TrackerManager = Injekt.get(),
     ) : StateScreenModel<Model.State>(State()) {
 
         val supportsPrivateTracking = tracker.supportsPrivateTracking
@@ -825,8 +880,15 @@ data class TrackerSearchScreen(
             }
         }
 
-        fun registerTracking(item: TrackSearch) {
-            screenModelScope.launchNonCancellable { tracker.register(item, mangaId) }
+        suspend fun registerTracking(item: TrackSearch): Long? {
+            tracker.register(item, mangaId)
+            return loadTrackerMetadataCandidates(
+                mangaId = mangaId,
+                getTracks = getTracks,
+                trackerManager = trackerManager,
+            ).firstOrNull { it.tracker.id == tracker.id }
+                ?.tracker
+                ?.id
         }
 
         fun updateSelection(selected: TrackSearch) {

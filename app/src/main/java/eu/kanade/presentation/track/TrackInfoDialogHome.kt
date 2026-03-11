@@ -59,6 +59,7 @@ import eu.kanade.tachiyomi.ui.manga.track.TrackItem
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.i18n.stringResource
 import java.time.format.DateTimeFormatter
 
@@ -73,6 +74,7 @@ fun TrackInfoDialogHome(
     onEndDateEdit: (TrackItem) -> Unit,
     onNewSearch: (TrackItem) -> Unit,
     onOpenInBrowser: (TrackItem) -> Unit,
+    onEnrichData: (TrackItem) -> Unit,
     onRemoved: (TrackItem) -> Unit,
     onCopyLink: (TrackItem) -> Unit,
     onTogglePrivate: (TrackItem) -> Unit,
@@ -120,6 +122,7 @@ fun TrackInfoDialogHome(
                         .takeIf { supportsReadingDates },
                     onNewSearch = { onNewSearch(item) },
                     onOpenInBrowser = { onOpenInBrowser(item) },
+                    onEnrichData = { onEnrichData(item) },
                     onRemoved = { onRemoved(item) },
                     onCopyLink = { onCopyLink(item) },
                     private = item.track.private,
@@ -152,6 +155,7 @@ private fun TrackInfoItem(
     onEndDateClick: (() -> Unit)?,
     onNewSearch: () -> Unit,
     onOpenInBrowser: () -> Unit,
+    onEnrichData: () -> Unit,
     onRemoved: () -> Unit,
     onCopyLink: () -> Unit,
     private: Boolean,
@@ -209,6 +213,7 @@ private fun TrackInfoItem(
             VerticalDivider()
             TrackInfoItemMenu(
                 onOpenInBrowser = onOpenInBrowser,
+                onEnrichData = onEnrichData,
                 onRemoved = onRemoved,
                 onCopyLink = onCopyLink,
                 private = private,
@@ -321,6 +326,7 @@ private fun TrackInfoItemEmpty(
 @Composable
 private fun TrackInfoItemMenu(
     onOpenInBrowser: () -> Unit,
+    onEnrichData: () -> Unit,
     onRemoved: () -> Unit,
     onCopyLink: () -> Unit,
     private: Boolean,
@@ -349,6 +355,13 @@ private fun TrackInfoItemMenu(
                 text = { Text(stringResource(MR.strings.action_copy_link)) },
                 onClick = {
                     onCopyLink()
+                    expanded = false
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(SYMR.strings.fill_from_tracker)) },
+                onClick = {
+                    onEnrichData()
                     expanded = false
                 },
             )
@@ -394,3 +407,6 @@ private fun TrackInfoDialogHomePreviews(
         }
     }
 }
+
+
+
