@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="true">
     <changelogversion versionName="1.12.1" changeDate="March 11, 2026">
-        <changelogtext>Added a dedicated beta release channel with its own package name so stable and beta can be installed side by side.</changelogtext>
-        <changelogtext>Connected stable and beta release automation to separate Firebase app configs in GitHub Actions.</changelogtext>
-        <changelogtext>Made in-app release checks follow stable and beta tags independently.</changelogtext>
-        <changelogtext>Fixed package-scoped search intents and beta shortcuts so release-specific actions resolve correctly.</changelogtext>
-        <changelogtext>Hardened release minification rules to avoid Jsoup optional dependency failures during signed release builds.</changelogtext>
+        <changelogtext>Added an Updates filter together with UI, theme, and async cache size tweaks.</changelogtext>
+        <changelogtext>Added tracker metadata enrichment support.</changelogtext>
+        <changelogtext>Added a dedicated beta release workflow and separate installable beta package.</changelogtext>
+        <changelogtext>Connected stable and beta release builds to their matching Firebase app configs.</changelogtext>
+        <changelogtext>Updated the 1.12.1 release metadata and changelog surfaces.</changelogtext>
     </changelogversion>
     <changelogversion versionName="1.12.0" changeDate="March 10, 2026">
         <changelogtext>Restored the richer Hayai manga metadata screen on top of the current metadata model.</changelogtext>

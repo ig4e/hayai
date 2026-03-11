@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="false">
     <changelogversion changeDate="March 11, 2026" versionName="r-current">
-        <changelogtext>Added a separate beta release track with its own installable package name and updater path.</changelogtext>
-        <changelogtext>Linked stable and beta GitHub Actions builds to matching Firebase app configs.</changelogtext>
-        <changelogtext>Normalized release-specific search intents, shortcuts, and asset routing.</changelogtext>
-        <changelogtext>Hardened release packaging so beta and stable signed builds use the same minification fixes.</changelogtext>
-        <changelogtext>Cleaned stale workflow secret references and finished the 1.12.1 release metadata update.</changelogtext>
+        <changelogtext>Added an Updates filter together with UI, theme, and async cache size tweaks.</changelogtext>
+        <changelogtext>Added tracker metadata enrichment support.</changelogtext>
+        <changelogtext>Added a dedicated beta release workflow and separate installable beta package.</changelogtext>
+        <changelogtext>Linked stable and beta release builds to their matching Firebase app configs.</changelogtext>
+        <changelogtext>Updated the 1.12.1 release metadata and changelog surfaces.</changelogtext>
     </changelogversion>
     <!--
 
