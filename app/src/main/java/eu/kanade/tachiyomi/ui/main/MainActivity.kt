@@ -469,8 +469,8 @@ class MainActivity : BaseActivity() {
                 navigator.popUntilRoot()
                 HomeScreen.Tab.Library(idToOpen)
             }
-            Constants.SHORTCUT_UPDATES -> HomeScreen.Tab.Updates
-            Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.History
+            Constants.SHORTCUT_UPDATES -> HomeScreen.Tab.Recents(startPage = HomeScreen.Tab.Recents.StartPage.UPDATES)
+            Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.Recents(startPage = HomeScreen.Tab.Recents.StartPage.HISTORY)
             Constants.SHORTCUT_SOURCES -> HomeScreen.Tab.Browse(false)
             Constants.SHORTCUT_SOURCE -> {
                 val sourceId = intent.extras?.getLong(Constants.SOURCE_EXTRA)?.takeIf { it > 0 } ?: return markReadyAndReturn(false)

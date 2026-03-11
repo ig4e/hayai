@@ -24,6 +24,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.history.HistoryUiModel
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.more.RecentsHistoryScreen
 import eu.kanade.presentation.more.RecentsScreen as RecentsCombinedScreen
 import eu.kanade.presentation.more.RecentsUpdatesScreen
@@ -47,6 +48,17 @@ internal fun RecentsRootContent(
     onClearHistory: () -> Unit,
     onClickUpdateCover: (Long) -> Unit,
     onClickUpdate: (Long, Long) -> Unit,
+    onUpdateSelected: (UpdatesItem, Boolean, Boolean, Boolean) -> Unit,
+    onUpdateSwipeRead: (UpdatesItem, Boolean) -> Unit,
+    onUpdateSwipeDownload: (UpdatesItem, ChapterDownloadAction) -> Unit,
+    onDownloadUpdates: (List<UpdatesItem>, ChapterDownloadAction) -> Unit,
+    onMultiBookmarkUpdates: (List<UpdatesItem>, Boolean) -> Unit,
+    onMultiMarkAsReadUpdates: (List<UpdatesItem>, Boolean) -> Unit,
+    onMultiDeleteUpdates: (List<UpdatesItem>) -> Unit,
+    startTabIndex: Int? = null,
+    onStartTabConsumed: () -> Unit = {},
+    openDownloadQueue: Boolean = false,
+    onDownloadQueueOpened: () -> Unit = {},
     onOpenStats: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -73,10 +85,26 @@ internal fun RecentsRootContent(
                 item.update.chapterName.lowercase().contains(normalizedQuery)
         }
     }
+    val selectedFilteredUpdates = remember(filteredUpdateItems) {
+        filteredUpdateItems.filter { it.selected }
+    }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { 3 }
 
     LaunchedEffect(pagerState.currentPage) {
         selectedTabIndex = pagerState.currentPage
+    }
+    LaunchedEffect(startTabIndex) {
+        val target = startTabIndex ?: return@LaunchedEffect
+        if (target in 0..2 && pagerState.currentPage != target) {
+            pagerState.scrollToPage(target)
+        }
+        onStartTabConsumed()
+    }
+    LaunchedEffect(openDownloadQueue) {
+        if (openDownloadQueue) {
+            showDownloadQueue = true
+            onDownloadQueueOpened()
+        }
     }
 
     if (showDownloadQueue) {
@@ -136,6 +164,14 @@ internal fun RecentsRootContent(
                     onDeleteHistory = onDeleteHistory,
                     onClickUpdateCover = onClickUpdateCover,
                     onClickUpdate = onClickUpdate,
+                    selectedUpdates = selectedFilteredUpdates,
+                    onUpdateSelected = onUpdateSelected,
+                    onUpdateSwipeRead = onUpdateSwipeRead,
+                    onUpdateSwipeDownload = onUpdateSwipeDownload,
+                    onDownloadUpdates = onDownloadUpdates,
+                    onMultiBookmarkClicked = onMultiBookmarkUpdates,
+                    onMultiMarkAsReadClicked = onMultiMarkAsReadUpdates,
+                    onMultiDeleteClicked = onMultiDeleteUpdates,
                 )
             },
             TabContent(
@@ -162,6 +198,14 @@ internal fun RecentsRootContent(
                     updateItems = filteredUpdateItems,
                     onClickUpdateCover = onClickUpdateCover,
                     onClickUpdate = onClickUpdate,
+                    selectedUpdates = selectedFilteredUpdates,
+                    onUpdateSelected = onUpdateSelected,
+                    onUpdateSwipeRead = onUpdateSwipeRead,
+                    onUpdateSwipeDownload = onUpdateSwipeDownload,
+                    onDownloadUpdates = onDownloadUpdates,
+                    onMultiBookmarkClicked = onMultiBookmarkUpdates,
+                    onMultiMarkAsReadClicked = onMultiMarkAsReadUpdates,
+                    onMultiDeleteClicked = onMultiDeleteUpdates,
                 )
             },
         ),
