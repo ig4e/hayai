@@ -96,7 +96,7 @@ body:
           required: true
         - label: I have checked the [README](https://github.com/ig4e/hayai#faq), [latest release notes](https://github.com/ig4e/hayai/releases), and existing issues before opening this report.
           required: true
-        - label: I have updated the app to version **[1.12.0](https://github.com/ig4e/hayai/releases/latest)**.
+        - label: I have updated the app to version **[1.12.1](https://github.com/ig4e/hayai/releases/latest)**.
           required: true
         - label: I have filled out all of the requested information in this form, including specific version numbers.
           required: true

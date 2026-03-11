@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelog bulletedList="false">
-    <changelogversion changeDate="March 10, 2026" versionName="r-current">
-        <changelogtext>Forward-ported the missing Hayai fork features onto the current upstream base.</changelogtext>
-        <changelogtext>Restored metadata, Edit Manga, onboarding, and migration search improvements.</changelogtext>
-        <changelogtext>Normalized startup update checks, release asset naming, and Hayai package identity.</changelogtext>
-        <changelogtext>Cleaned theme fallback behavior and removed stale resources left behind by earlier rollbacks.</changelogtext>
-        <changelogtext>Updated workflows, issue templates, and About surfaces to reflect Hayai instead of upstream branding.</changelogtext>
+    <changelogversion changeDate="March 11, 2026" versionName="r-current">
+        <changelogtext>Added a separate beta release track with its own installable package name and updater path.</changelogtext>
+        <changelogtext>Linked stable and beta GitHub Actions builds to matching Firebase app configs.</changelogtext>
+        <changelogtext>Normalized release-specific search intents, shortcuts, and asset routing.</changelogtext>
+        <changelogtext>Hardened release packaging so beta and stable signed builds use the same minification fixes.</changelogtext>
+        <changelogtext>Cleaned stale workflow secret references and finished the 1.12.1 release metadata update.</changelogtext>
     </changelogversion>
     <!--
 
