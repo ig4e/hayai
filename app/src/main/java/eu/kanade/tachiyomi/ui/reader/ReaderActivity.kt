@@ -89,6 +89,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerConfig
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.VerticalPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
@@ -896,6 +897,7 @@ class ReaderActivity : BaseActivity() {
         viewModel.onViewerLoaded(newViewer)
         updateViewerInset(readerPreferences.fullscreen().get(), readerPreferences.drawUnderCutout().get())
         binding.viewerContainer.addView(newViewer.getView())
+        binding.navigationOverlay.isLTR = newViewer !is R2LPagerViewer
 
         // SY -->
         if (newViewer is PagerViewer) {
@@ -1077,6 +1079,7 @@ class ReaderActivity : BaseActivity() {
      */
     @SuppressLint("SetTextI18n")
     fun onPageSelected(page: ReaderPage, hasExtraPage: Boolean = false) {
+        isScrollingThroughPages = false
         // SY -->
         val currentPageText = if (hasExtraPage) {
             val invertDoublePage = (viewModel.state.value.viewer as? PagerViewer)?.config?.invertDoublePages ?: false
