@@ -42,28 +42,21 @@ jobs:
 
       - name: Generate changelog
         id: changelog
-        shell: bash
+        shell: python3 {0}
         run: |
-          CURRENT_TAG="${{ github.ref_name }}"
-          PREV_TAG=""
-          while IFS= read -r tag; do
-            if [ "$tag" != "$CURRENT_TAG" ]; then
-              PREV_TAG="$tag"
-              break
-            fi
-          done < <(git tag -l "beta-v*" --sort=-version:refname)
-          if [ -z "$PREV_TAG" ]; then
-            PREV_TAG=$(git rev-list --max-parents=0 HEAD | tail -1)
-          fi
-          CHANGELOG=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD")
-          if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="- No changes recorded"
-          fi
-          {
-            echo "changelog<<CHANGELOG_EOF"
-            echo "$CHANGELOG"
-            echo "CHANGELOG_EOF"
-          } >> "$GITHUB_OUTPUT"
+          import xml.etree.ElementTree as ET, os
+          tree = ET.parse("app/src/main/res/raw/changelog_release.xml")
+          version = tree.getroot()[0]
+          name = version.get("versionName", "")
+          date = version.get("changeDate", "")
+          entries = [f"- {t.text.strip()}" for t in version.findall("changelogtext") if t.text]
+          body = "\n".join(entries) if entries else "- No changes recorded"
+          header = f"**{name}** — {date}\n\n" if name and date else ""
+          changelog = header + body
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write("changelog<<CHANGELOG_EOF\n")
+              f.write(changelog + "\n")
+              f.write("CHANGELOG_EOF\n")
 
       - name: Write google-services.json
         uses: DamianReeves/write-file-action@v1.3
