@@ -25,7 +25,11 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.domain.recents.service.RecentsPreferences
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.plus
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 @Composable
 fun BrowseSourceComfortableGrid(
@@ -35,6 +39,9 @@ fun BrowseSourceComfortableGrid(
     onMangaClick: (Manga) -> Unit,
     onMangaLongClick: (Manga) -> Unit,
 ) {
+    val outlineOnCovers by remember { Injekt.get<RecentsPreferences>() }
+        .outlineOnCovers().collectAsState()
+
     LazyVerticalGrid(
         columns = columns,
         contentPadding = contentPadding + PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -61,6 +68,7 @@ fun BrowseSourceComfortableGrid(
                 // SY <--
                 onClick = { onMangaClick(manga) },
                 onLongClick = { onMangaLongClick(manga) },
+                outlineOnCovers = outlineOnCovers,
             )
         }
 
@@ -80,6 +88,7 @@ private fun BrowseSourceComfortableGridItem(
     // SY <--
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = onClick,
+    outlineOnCovers: Boolean = false,
 ) {
     MangaComfortableGridItem(
         title = manga.title,
@@ -133,5 +142,6 @@ private fun BrowseSourceComfortableGridItem(
         // SY <--
         onLongClick = onLongClick,
         onClick = onClick,
+        outlineOnCovers = outlineOnCovers,
     )
 }

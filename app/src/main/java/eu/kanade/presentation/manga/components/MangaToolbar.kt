@@ -41,6 +41,10 @@ fun MangaToolbar(
     onClickMarkAllAsUnread: (() -> Unit)?,
     onClickMigrate: (() -> Unit)?,
     onClickEditNotes: () -> Unit,
+    onClickRefreshTracking: (() -> Unit)?,
+    onClickRemoveAllDownloads: (() -> Unit)?,
+    onClickRemoveReadDownloads: (() -> Unit)?,
+    onClickRemoveNonBookmarkedDownloads: (() -> Unit)?,
     // SY -->
     onClickEditInfo: (() -> Unit)?,
     onClickRecommend: (() -> Unit)?,
@@ -141,6 +145,38 @@ fun MangaToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_mark_as_unread),
                                 onClick = onClickMarkAllAsUnread,
+                            ),
+                        )
+                    }
+                    if (onClickRefreshTracking != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_refresh_tracking),
+                                onClick = onClickRefreshTracking,
+                            ),
+                        )
+                    }
+                    if (onClickRemoveAllDownloads != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_remove_downloads),
+                                onClick = onClickRemoveAllDownloads,
+                            ),
+                        )
+                    }
+                    if (onClickRemoveReadDownloads != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.remove_downloads_read),
+                                onClick = onClickRemoveReadDownloads,
+                            ),
+                        )
+                    }
+                    if (onClickRemoveNonBookmarkedDownloads != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.remove_downloads_non_bookmarked),
+                                onClick = onClickRemoveNonBookmarkedDownloads,
                             ),
                         )
                     }

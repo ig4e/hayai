@@ -43,6 +43,7 @@ fun HistoryItem(
     onClickDelete: () -> Unit,
     onClickFavorite: () -> Unit,
     modifier: Modifier = Modifier,
+    showDeleteButton: Boolean = true,
 ) {
     Surface(
         modifier = modifier
@@ -103,12 +104,14 @@ fun HistoryItem(
                 }
             }
 
-            IconButton(onClick = onClickDelete) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = stringResource(MR.strings.action_delete),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (showDeleteButton) {
+                IconButton(onClick = onClickDelete) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = stringResource(MR.strings.action_delete),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

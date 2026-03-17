@@ -228,7 +228,7 @@ typealias RankedSearchResults = Results<Map<SManga, Int>>
 
 data class Results<T>(
     val recSourceName: String,
-    @StringRes val recSourceCategoryResId: Int,
+    @param:StringRes val recSourceCategoryResId: Int,
     val recAssociatedSourceId: Long?,
     val results: T,
 ) : Serializable

@@ -164,14 +164,12 @@ fun SyncFavoritesProgressDialog(
                     status is FavoritesSyncStatus.Processing.AddingGalleryToLocal
                 ) {
                     delay(5.seconds)
+                    val statusTitle = when (status) {
+                        is FavoritesSyncStatus.Processing.AddingGalleryToRemote -> status.title
+                        is FavoritesSyncStatus.Processing.AddingGalleryToLocal -> status.title
+                    }
                     value = properties.copy(
-                        text = when (status) {
-                            is FavoritesSyncStatus.Processing.AddingGalleryToRemote ->
-                                properties.text + "\n\n" + status.title
-                            is FavoritesSyncStatus.Processing.AddingGalleryToLocal ->
-                                properties.text + "\n\n" + status.title
-                            else -> properties.text
-                        },
+                        text = properties.text + "\n\n" + statusTitle,
                     )
                 }
             }

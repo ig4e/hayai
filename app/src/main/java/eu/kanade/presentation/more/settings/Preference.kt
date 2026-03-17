@@ -58,7 +58,7 @@ sealed class Preference {
             override val subtitle: String? = null,
             val valueString: String? = null,
             val valueRange: IntProgression = 0..1,
-            @IntRange(from = 0) val steps: Int = with(valueRange) { (last - first) - 1 },
+            @param:IntRange(from = 0) val steps: Int = with(valueRange) { (last - first) - 1 },
             override val enabled: Boolean = true,
             override val onValueChanged: suspend (value: Int) -> Unit = {},
         ) : PreferenceItem<Int, Unit>() {

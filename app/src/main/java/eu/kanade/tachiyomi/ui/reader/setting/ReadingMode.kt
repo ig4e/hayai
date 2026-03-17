@@ -13,7 +13,7 @@ import tachiyomi.i18n.MR
 
 enum class ReadingMode(
     val stringRes: StringResource,
-    @DrawableRes val iconRes: Int,
+    @param:DrawableRes val iconRes: Int,
     val flagValue: Int,
     val direction: Direction? = null,
     val type: ViewerType? = null,

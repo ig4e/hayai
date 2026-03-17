@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package eu.kanade.presentation.more.settings.screen.about
 
 import androidx.compose.foundation.layout.fillMaxSize

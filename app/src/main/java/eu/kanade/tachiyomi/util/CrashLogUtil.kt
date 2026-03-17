@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import exh.syDebugVersion
+import tachiyomi.i18n.MR
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.lang.withUIContext
 import uy.kohesive.injekt.Injekt
@@ -35,7 +36,7 @@ class CrashLogUtil(
             val uri = file.getUriCompat(context)
             context.startActivity(uri.toShareIntent(context, "text/plain"))
         } catch (e: Throwable) {
-            withUIContext { context.toast("Failed to get logs") }
+            withUIContext { context.toast(MR.strings.failed_to_get_logs) }
         }
     }
 

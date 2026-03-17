@@ -54,6 +54,8 @@ import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import java.time.LocalDate
+import java.util.Date
+import eu.kanade.tachiyomi.util.lang.toTimestampString
 
 @Composable
 fun RecentsScreen(
@@ -73,6 +75,9 @@ fun RecentsScreen(
     onMultiBookmarkClicked: (List<UpdatesItem>, Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<UpdatesItem>, Boolean) -> Unit,
     onMultiDeleteClicked: (List<UpdatesItem>) -> Unit,
+    showRemHistory: Boolean = true,
+    showTitleFirst: Boolean = false,
+    showUpdatedTime: Boolean = false,
 ) {
     val allItems = remember(historyItems, updateItems) {
         buildRecentsCombinedUiModels(historyItems, updateItems)
@@ -136,6 +141,7 @@ fun RecentsScreen(
                                 },
                                 onClickDelete = { pendingDeleteHistory = item.item.item },
                                 onClickFavorite = { onClickHistoryFavorite(item.item.item.mangaId) },
+                                showDeleteButton = showRemHistory,
                             )
                         }
                         is RecentsCombinedUiModel.Update -> {
@@ -161,6 +167,8 @@ fun RecentsScreen(
                                 onSwipeDownload = {
                                     onUpdateSwipeDownload(updateItem, updateItem.downloadAction())
                                 },
+                                showTitleFirst = showTitleFirst,
+                                showUpdatedTime = showUpdatedTime,
                             )
                         }
                     }
@@ -185,6 +193,8 @@ fun RecentsHistoryScreen(
     onClickHistory: (Long, Long) -> Unit,
     onClickHistoryFavorite: (Long) -> Unit,
     onDeleteHistory: (HistoryWithRelations, Boolean) -> Unit,
+    showRemHistory: Boolean = true,
+    collapseGroupedHistory: Boolean = true,
 ) {
     var pendingDeleteHistory by remember { mutableStateOf<HistoryWithRelations?>(null) }
 
@@ -210,13 +220,25 @@ fun RecentsHistoryScreen(
                 if (historyItems.isEmpty()) {
                     RecentsEmpty(stringResource(MR.strings.information_no_recent_manga))
                 } else {
-                    historyItems.forEach { item ->
+                    val displayItems = if (collapseGroupedHistory) {
+                        historyItems
+                            .groupBy { it.item.mangaId }
+                            .values
+                            .map { group ->
+                                group.maxByOrNull { it.item.readAt?.time ?: 0L } ?: group.first()
+                            }
+                            .sortedByDescending { it.item.readAt?.time ?: 0L }
+                    } else {
+                        historyItems
+                    }
+                    displayItems.forEach { item ->
                         HistoryItem(
                             history = item.item,
                             onClickCover = { onClickHistoryCover(item.item.mangaId) },
                             onClickResume = { onClickHistory(item.item.mangaId, item.item.chapterId) },
                             onClickDelete = { pendingDeleteHistory = item.item },
                             onClickFavorite = { onClickHistoryFavorite(item.item.mangaId) },
+                            showDeleteButton = showRemHistory,
                         )
                     }
                 }
@@ -238,6 +260,9 @@ fun RecentsUpdatesScreen(
     onMultiBookmarkClicked: (List<UpdatesItem>, Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<UpdatesItem>, Boolean) -> Unit,
     onMultiDeleteClicked: (List<UpdatesItem>) -> Unit,
+    showTitleFirst: Boolean = false,
+    showUpdatedTime: Boolean = false,
+    collapseGroupedUpdates: Boolean = false,
 ) {
     val selectionMode = selectedUpdates.isNotEmpty()
 
@@ -254,7 +279,15 @@ fun RecentsUpdatesScreen(
                     if (updateItems.isEmpty()) {
                         RecentsEmpty(stringResource(MR.strings.information_no_recent))
                     } else {
-                        updateItems.forEach { item ->
+                        val displayItems = if (collapseGroupedUpdates && !selectionMode) {
+                            updateItems
+                                .groupBy { it.update.mangaId }
+                                .values
+                                .map { group -> group.first() to group.size }
+                        } else {
+                            updateItems.map { it to 1 }
+                        }
+                        displayItems.forEach { (item, chapterCount) ->
                             RecentsUpdateRow(
                                 item = item,
                                 selectionMode = selectionMode,
@@ -276,6 +309,9 @@ fun RecentsUpdatesScreen(
                                 onSwipeDownload = {
                                     onUpdateSwipeDownload(item, item.downloadAction())
                                 },
+                                showTitleFirst = showTitleFirst,
+                                showUpdatedTime = showUpdatedTime,
+                                chapterCountBadge = if (collapseGroupedUpdates && chapterCount > 1) chapterCount else null,
                             )
                         }
                     }
@@ -358,6 +394,9 @@ private fun RecentsUpdateRow(
     onLongClick: () -> Unit,
     onSwipeRead: () -> Unit,
     onSwipeDownload: () -> Unit,
+    showTitleFirst: Boolean = false,
+    showUpdatedTime: Boolean = false,
+    chapterCountBadge: Int? = null,
 ) {
     SwipeableActionsBox(
         startActions = listOf(
@@ -421,18 +460,43 @@ private fun RecentsUpdateRow(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = item.update.mangaTitle,
+                        text = if (showTitleFirst) item.update.chapterName else item.update.mangaTitle,
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = item.update.chapterName,
+                        text = if (showTitleFirst) item.update.mangaTitle else item.update.chapterName,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (showUpdatedTime) {
+                        val formattedTime = remember(item.update.dateFetch) {
+                            Date(item.update.dateFetch).toTimestampString()
+                        }
+                        Text(
+                            text = formattedTime,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (chapterCountBadge != null) {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    ) {
+                        Text(
+                            text = "$chapterCountBadge",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiary,
+                        )
+                    }
                 }
             }
         }

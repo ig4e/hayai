@@ -184,12 +184,12 @@ object AboutScreen : Screen() {
                             url = "https://github.com/ig4e/hayai",
                         )
                         LinkIcon(
-                            label = "Discord",
+                            label = stringResource(MR.strings.label_discord),
                             icon = CustomIcons.Discord,
                             url = "https://discord.gg/mihon",
                         )
                         LinkIcon(
-                            label = "GitHub",
+                            label = stringResource(MR.strings.label_github),
                             icon = CustomIcons.Github,
                             url = "https://github.com/ig4e/hayai",
                         )
@@ -236,7 +236,7 @@ object AboutScreen : Screen() {
                     }
                 }
             } catch (e: Exception) {
-                context.toast(e.message)
+                context.toast(MR.strings.update_check_failed)
                 logcat(LogPriority.ERROR, e)
             } finally {
                 onFinish()

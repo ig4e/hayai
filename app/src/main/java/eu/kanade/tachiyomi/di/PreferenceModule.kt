@@ -18,6 +18,7 @@ import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StoragePreferences
+import tachiyomi.domain.recents.service.RecentsPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.api.InjektRegistrar
 
@@ -65,6 +66,9 @@ class PreferenceModule(val app: Application) : InjektModule {
                 folderProvider = get<AndroidStorageFolderProvider>(),
                 preferenceStore = get(),
             )
+        }
+        addSingletonFactory {
+            RecentsPreferences(get())
         }
         addSingletonFactory {
             UiPreferences(get())

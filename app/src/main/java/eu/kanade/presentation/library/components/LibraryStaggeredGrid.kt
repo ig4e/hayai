@@ -29,6 +29,7 @@ internal fun LibraryCompactStaggeredGrid(
     onClickContinueReading: ((LibraryManga) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    outlineOnCovers: Boolean = false,
 ) {
     LazyLibraryStaggeredGrid(
         modifier = Modifier.fillMaxSize(),
@@ -71,6 +72,7 @@ internal fun LibraryCompactStaggeredGrid(
                 } else {
                     null
                 },
+                outlineOnCovers = outlineOnCovers,
             )
         }
     }
@@ -87,6 +89,7 @@ internal fun LibraryComfortableStaggeredGrid(
     onClickContinueReading: ((LibraryManga) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    outlineOnCovers: Boolean = false,
 ) {
     LazyLibraryStaggeredGrid(
         modifier = Modifier.fillMaxSize(),
@@ -129,6 +132,7 @@ internal fun LibraryComfortableStaggeredGrid(
                 } else {
                     null
                 },
+                outlineOnCovers = outlineOnCovers,
             )
         }
     }

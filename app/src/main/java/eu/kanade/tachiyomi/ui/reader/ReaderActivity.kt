@@ -964,7 +964,8 @@ class ReaderActivity : BaseActivity() {
                 startActivity(intent)
             }
         } catch (e: Exception) {
-            toast(e.message)
+            logcat(LogPriority.ERROR, e)
+            toast(MR.strings.error_generic)
         }
     }
 
@@ -1023,7 +1024,7 @@ class ReaderActivity : BaseActivity() {
     private fun setInitialChapterError(error: Throwable) {
         logcat(LogPriority.ERROR, error)
         finish()
-        toast(error.message)
+        toast(MR.strings.error_generic)
     }
 
     /**

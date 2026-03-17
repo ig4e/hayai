@@ -78,6 +78,7 @@ class DebugInfoScreen : Screen() {
         val status by produceState(initialValue = "-") {
             val result = ProfileVerifier.getCompilationStatusAsync().await().profileInstallResultCode
             value = when (result) {
+                @Suppress("DEPRECATION")
                 ProfileVerifier.CompilationStatus.RESULT_CODE_NO_PROFILE -> "No profile installed"
                 ProfileVerifier.CompilationStatus.RESULT_CODE_COMPILED_WITH_PROFILE -> "Compiled"
                 ProfileVerifier.CompilationStatus.RESULT_CODE_COMPILED_WITH_PROFILE_NON_MATCHING ->

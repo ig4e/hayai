@@ -2,17 +2,27 @@ package eu.kanade.tachiyomi.util.system
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import android.os.Build
 import androidx.core.content.getSystemService
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import coil3.asDrawable
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.size.Dimension
+import coil3.size.Size
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.flow.first
+import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.GetNextChapters
@@ -21,7 +31,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import tachiyomi.core.common.Constants
+import kotlin.math.min
 
 class DynamicShortcutManager(
     private val context: Context,
@@ -127,11 +137,13 @@ class DynamicShortcutManager(
 
     private suspend fun buildContinueReadingShortcut(lastHistory: HistoryWithRelations): ShortcutInfoCompat? {
         val entryIntent = getEntryIntent(lastHistory)
+        val icon = loadCoverIcon(lastHistory)
+            ?: IconCompat.createWithResource(context, R.drawable.sc_history_48dp)
 
-        val shortcut = ShortcutInfoCompat.Builder(context, CONTINUE_READING_SHORTCUT_ID)
+        return ShortcutInfoCompat.Builder(context, CONTINUE_READING_SHORTCUT_ID)
             .setShortLabel(context.stringResource(MR.strings.shortcut_continue_reading))
             .setLongLabel(lastHistory.title)
-            .setIcon(IconCompat.createWithResource(context, R.drawable.sc_history_48dp))
+            .setIcon(icon)
             .setIntent(
                 Intent(context, MainActivity::class.java).apply {
                     action = Intent.ACTION_VIEW
@@ -147,17 +159,18 @@ class DynamicShortcutManager(
                 ),
             )
             .build()
-
-        return shortcut
     }
 
     private suspend fun buildMangaShortcut(history: HistoryWithRelations): ShortcutInfoCompat? {
         val entryIntent = getEntryIntent(history)
         val title = history.title.ifBlank { context.stringResource(MR.strings.manga) }
+        val icon = loadCoverIcon(history)
+            ?: IconCompat.createWithResource(context, R.drawable.ic_book_24dp)
+
         return ShortcutInfoCompat.Builder(context, "manga-${history.mangaId}")
             .setShortLabel(title)
             .setLongLabel(title)
-            .setIcon(IconCompat.createWithResource(context, R.drawable.ic_book_24dp))
+            .setIcon(icon)
             .setIntent(
                 Intent(context, MainActivity::class.java).apply {
                     action = Intent.ACTION_VIEW
@@ -179,10 +192,13 @@ class DynamicShortcutManager(
         if (source.id <= 0L) return null
 
         val label = source.name.ifBlank { source.id.toString() }
+        val icon = loadSourceIcon(source)
+            ?: IconCompat.createWithResource(context, R.drawable.sc_extensions_48dp)
+
         return ShortcutInfoCompat.Builder(context, "source-${source.id}")
             .setShortLabel(label)
             .setLongLabel(label)
-            .setIcon(IconCompat.createWithResource(context, R.drawable.sc_extensions_48dp))
+            .setIcon(icon)
             .setIntent(
                 Intent(context, MainActivity::class.java).apply {
                     action = Constants.SHORTCUT_SOURCE
@@ -191,6 +207,53 @@ class DynamicShortcutManager(
             )
             .setAlwaysBadged()
             .build()
+    }
+
+    private suspend fun loadCoverIcon(history: HistoryWithRelations): IconCompat? {
+        return try {
+            val request = ImageRequest.Builder(context)
+                .data(history.coverData)
+                .size(Size(Dimension(SHORTCUT_ICON_SIZE), Dimension(SHORTCUT_ICON_SIZE)))
+                .build()
+            val bitmap = (
+                context.imageLoader
+                    .execute(request).image?.asDrawable(context.resources) as? BitmapDrawable
+                )?.bitmap ?: return null
+            val squared = bitmap.toSquare() ?: return null
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                IconCompat.createWithAdaptiveBitmap(squared)
+            } else {
+                IconCompat.createWithBitmap(squared)
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun loadSourceIcon(source: Source): IconCompat? {
+        return try {
+            val extensionManager: ExtensionManager = Injekt.get()
+            val bitmap = (extensionManager.getAppIconForSource(source.id) as? BitmapDrawable)
+                ?.bitmap ?: return null
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                IconCompat.createWithAdaptiveBitmap(bitmap.toSquare() ?: bitmap)
+            } else {
+                IconCompat.createWithBitmap(bitmap)
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun Bitmap.toSquare(): Bitmap? {
+        val side = min(width, height)
+        val xOffset = (width - side) / 2
+        val yOffset = ((height - side) / 2 * 0.25).toInt()
+        return try {
+            Bitmap.createBitmap(this, xOffset, yOffset, side, side)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private suspend fun getEntryIntent(history: HistoryWithRelations): Intent {
@@ -234,5 +297,6 @@ class DynamicShortcutManager(
 
     companion object {
         private const val CONTINUE_READING_SHORTCUT_ID = "continue_reading"
+        private const val SHORTCUT_ICON_SIZE = 128
     }
 }

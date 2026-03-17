@@ -49,6 +49,7 @@ fun LibraryContent(
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
     getColumnsForOrientation: (Boolean) -> PreferenceMutableState<Int>,
     getItemsForCategory: (Category) -> List<LibraryItem>,
+    outlineOnCovers: Boolean = false,
 ) {
     Column(
         modifier = Modifier.padding(
@@ -120,6 +121,7 @@ fun LibraryContent(
                     },
                     onLongClickManga = onToggleRangeSelection,
                     onClickContinueReading = onContinueReadingClicked,
+                    outlineOnCovers = outlineOnCovers,
                 )
             } else {
                 LibraryPager(
@@ -143,6 +145,7 @@ fun LibraryContent(
                     },
                     onLongClickManga = onToggleRangeSelection,
                     onClickContinueReading = onContinueReadingClicked,
+                    outlineOnCovers = outlineOnCovers,
                 )
             }
         }

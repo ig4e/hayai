@@ -1,3 +1,5 @@
+@file:Suppress("CONTEXT_RECEIVERS_DEPRECATED")
+
 package eu.kanade.presentation.util
 
 import android.content.Context

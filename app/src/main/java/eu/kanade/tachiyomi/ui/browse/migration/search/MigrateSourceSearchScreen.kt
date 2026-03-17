@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -21,13 +22,13 @@ import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.SourceFilterDialog
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import exh.ui.ifSourcesLoaded
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import mihon.feature.migration.list.MigrationListScreen
@@ -54,6 +55,7 @@ data class MigrateSourceSearchScreen(
             return
         }
 
+        val context = LocalContext.current
         val uriHandler = LocalUriHandler.current
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
@@ -134,10 +136,14 @@ data class MigrateSourceSearchScreen(
                     onUpdate = screenModel::setFilters,
                     // SY -->
                     startExpanded = screenModel.startExpanded,
-                    onSave = {},
-                    savedSearches = persistentListOf(),
-                    onSavedSearch = {},
-                    onSavedSearchPress = {},
+                    onSave = screenModel::onSaveSearch,
+                    savedSearches = state.savedSearches,
+                    onSavedSearch = { search ->
+                        screenModel.onSavedSearch(search) {
+                            context.toast(it)
+                        }
+                    },
+                    onSavedSearchPress = screenModel::onSavedSearchPress,
                     openMangaDexRandom = null,
                     openMangaDexFollows = null,
                     // SY <--

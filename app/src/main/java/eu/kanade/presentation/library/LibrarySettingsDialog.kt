@@ -349,6 +349,10 @@ private fun ColumnScope.DisplayPage(
         label = stringResource(MR.strings.action_display_show_continue_reading_button),
         pref = screenModel.libraryPreferences.showContinueReadingButton(),
     )
+    CheckboxItem(
+        label = stringResource(MR.strings.pref_outline_on_covers),
+        pref = screenModel.recentsPreferences.outlineOnCovers(),
+    )
 
     HeadingItem(MR.strings.tabs_header)
     CheckboxItem(

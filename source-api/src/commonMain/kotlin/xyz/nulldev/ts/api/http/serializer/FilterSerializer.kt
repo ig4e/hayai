@@ -86,15 +86,15 @@ class FilterSerializer {
             if (it.second is KMutableProperty1) {
                 val obj = json[it.first]!!.jsonPrimitive
                 val res: Any? = when (json[CLASS_MAPPINGS]!!.jsonObject[it.first]!!.jsonPrimitive.content) {
-                    java.lang.Integer::class.java.name -> obj.int
-                    java.lang.Long::class.java.name -> obj.long
-                    java.lang.Float::class.java.name -> obj.float
-                    java.lang.Double::class.java.name -> obj.double
-                    java.lang.String::class.java.name -> obj.content
-                    java.lang.Boolean::class.java.name -> obj.boolean
-                    java.lang.Byte::class.java.name -> obj.content.toByte()
-                    java.lang.Short::class.java.name -> obj.content.toShort()
-                    java.lang.Character::class.java.name -> obj.content[0]
+                    Int::class.javaObjectType.name -> obj.int
+                    Long::class.javaObjectType.name -> obj.long
+                    Float::class.javaObjectType.name -> obj.float
+                    Double::class.javaObjectType.name -> obj.double
+                    String::class.java.name -> obj.content
+                    Boolean::class.javaObjectType.name -> obj.boolean
+                    Byte::class.javaObjectType.name -> obj.content.toByte()
+                    Short::class.javaObjectType.name -> obj.content.toShort()
+                    Char::class.javaObjectType.name -> obj.content[0]
                     "null" -> null
                     else -> throw IllegalArgumentException("Cannot deserialize this type!")
                 }

@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import tachiyomi.core.common.i18n.stringResource
@@ -42,12 +43,18 @@ internal class AppUpdateNotifier(private val context: Context) {
             release.version,
         )
 
-        val releaseIntent = Intent(Intent.ACTION_VIEW, release.releaseLink.toUri()).run {
+        val releaseIntent = Intent(context, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_SHOW_UPDATE_NOTES
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_VERSION_NAME, release.version)
+            putExtra(MainActivity.EXTRA_CHANGELOG_INFO, release.info)
+            putExtra(MainActivity.EXTRA_RELEASE_LINK, release.releaseLink)
+            putExtra(MainActivity.EXTRA_DOWNLOAD_LINK, release.getDownloadLink())
+        }.let {
             PendingIntent.getActivity(
                 context,
                 release.hashCode(),
-                this,
+                it,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         }
@@ -145,7 +152,7 @@ internal class AppUpdateNotifier(private val context: Context) {
     fun notifyAutoInstall() {
         with(notificationBuilder) {
             setContentTitle(context.stringResource(MR.strings.app_name))
-            setContentText("Installing update automatically...")
+            setContentText(context.stringResource(MR.strings.installing_update_automatically))
             setSmallIcon(R.drawable.ic_system_update_alt_white_24dp)
             setOnlyAlertOnce(false)
             setProgress(0, 0, false)

@@ -104,7 +104,8 @@ class WebViewActivity : BaseActivity() {
         try {
             startActivity(url.toUri().toShareIntent(this, type = "text/plain"))
         } catch (e: Exception) {
-            toast(e.message)
+            logcat(LogPriority.ERROR, e)
+            toast(MR.strings.error_generic)
         }
     }
 

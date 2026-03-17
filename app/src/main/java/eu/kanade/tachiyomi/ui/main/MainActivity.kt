@@ -488,6 +488,22 @@ class MainActivity : BaseActivity() {
                 navigator.push(DeepLinkScreen(DeepLinkScreen.TYPE_READER_SETTINGS))
                 null
             }
+            ACTION_SHOW_UPDATE_NOTES -> {
+                val versionName = intent.getStringExtra(EXTRA_VERSION_NAME) ?: return markReadyAndReturn(false)
+                val changelogInfo = intent.getStringExtra(EXTRA_CHANGELOG_INFO).orEmpty()
+                val releaseLink = intent.getStringExtra(EXTRA_RELEASE_LINK).orEmpty()
+                val downloadLink = intent.getStringExtra(EXTRA_DOWNLOAD_LINK).orEmpty()
+                navigator.popUntilRoot()
+                navigator.push(
+                    eu.kanade.tachiyomi.ui.more.NewUpdateScreen(
+                        versionName = versionName,
+                        changelogInfo = changelogInfo,
+                        releaseLink = releaseLink,
+                        downloadLink = downloadLink,
+                    ),
+                )
+                null
+            }
             Intent.ACTION_SEARCH, Intent.ACTION_SEND, "com.google.android.gms.actions.SEARCH_ACTION" -> {
                 // If the intent match the "standard" Android search intent
                 // or the Google-specific search intent (triggered by saying or typing "search *query* on *Tachiyomi*" in Google Search/Google Assistant)
@@ -553,6 +569,11 @@ class MainActivity : BaseActivity() {
         const val INTENT_SEARCH_QUERY = "query"
         const val INTENT_SEARCH_FILTER = "filter"
         val SHORTCUT_READER_SETTINGS = "${BuildConfig.APPLICATION_ID}.READER_SETTINGS"
+        val ACTION_SHOW_UPDATE_NOTES = "${BuildConfig.APPLICATION_ID}.SHOW_UPDATE_NOTES"
+        const val EXTRA_VERSION_NAME = "version_name"
+        const val EXTRA_CHANGELOG_INFO = "changelog_info"
+        const val EXTRA_RELEASE_LINK = "release_link"
+        const val EXTRA_DOWNLOAD_LINK = "download_link"
     }
 }
 

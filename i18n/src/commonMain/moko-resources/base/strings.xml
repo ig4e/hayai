@@ -814,6 +814,40 @@
     <string name="error_saving_cover">Error saving cover</string>
     <string name="error_sharing_cover">Error sharing cover</string>
     <string name="confirm_delete_chapters">Are you sure you want to delete the selected chapters?</string>
+    <string name="confirm_mark_all_chapters_read">Mark all chapters as read?</string>
+    <string name="confirm_mark_all_chapters_unread">Mark all chapters as unread?</string>
+    <string name="action_remove_downloads">Remove downloads</string>
+    <string name="remove_downloads_all">All chapters</string>
+    <string name="remove_downloads_read">Read chapters</string>
+    <string name="remove_downloads_non_bookmarked">Non-bookmarked chapters</string>
+    <string name="confirm_remove_downloads">Remove selected chapter downloads?</string>
+    <string name="failed_to_get_logs">Failed to get logs</string>
+    <string name="installing_update_automatically">Installing update automatically…</string>
+    <string name="exhentai_login">ExHentai login</string>
+    <string name="label_discord">Discord</string>
+    <string name="label_github">GitHub</string>
+    <string name="update_check_failed">Failed to check for updates</string>
+    <string name="action_refresh_tracking">Refresh tracking</string>
+    <string name="pref_show_recents_downloads">Show downloads</string>
+    <string name="pref_show_remove_history">Show remove history button</string>
+    <string name="pref_show_read_in_all">Show read in all tabs</string>
+    <string name="pref_show_title_first">Show title first</string>
+    <string name="pref_uniform_covers">Uniform covers</string>
+    <string name="pref_outline_on_covers">Outline on covers</string>
+    <string name="pref_group_chapters_history">Group chapters</string>
+    <string name="pref_collapse_grouped">Collapse grouped chapters</string>
+    <string name="pref_show_updated_time">Show updated time</string>
+    <string name="pref_sort_fetched_time">Sort by fetched time</string>
+    <string name="pref_collapse_grouped_updates">Collapse grouped updates</string>
+    <string name="show_dls_none">None</string>
+    <string name="show_dls_only_unread">Only unread</string>
+    <string name="show_dls_only_downloaded">Only downloaded</string>
+    <string name="show_dls_unread_or_downloaded">Unread or downloaded</string>
+    <string name="group_by_series">By series</string>
+    <string name="group_by_week">By week</string>
+    <string name="group_by_day">By day</string>
+    <string name="group_never">Never</string>
+    <string name="recents_options">Recents options</string>
     <string name="chapter_settings">Chapter settings</string>
     <string name="confirm_set_chapter_settings">Are you sure you want to save these settings as default?</string>
     <string name="also_set_chapter_settings_for_library">Also apply to all entries in my library</string>
@@ -875,6 +909,7 @@
     <!-- Image notifier -->
     <string name="picture_saved">Picture saved</string>
     <string name="error_saving_picture">Error saving picture</string>
+    <string name="error_generic">An error occurred</string>
 
     <!-- Reader activity -->
     <string name="custom_filter">Custom filter</string>

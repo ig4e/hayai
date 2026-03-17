@@ -64,6 +64,43 @@ fun DeleteChaptersDialog(
 }
 
 @Composable
+fun MarkAllChaptersDialog(
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+    isRead: Boolean,
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onDismissRequest()
+                    onConfirm()
+                },
+            ) {
+                Text(text = stringResource(MR.strings.action_ok))
+            }
+        },
+        title = {
+            Text(text = stringResource(MR.strings.are_you_sure))
+        },
+        text = {
+            Text(
+                text = stringResource(
+                    if (isRead) MR.strings.confirm_mark_all_chapters_read
+                    else MR.strings.confirm_mark_all_chapters_unread,
+                ),
+            )
+        },
+    )
+}
+
+@Composable
 fun SetIntervalDialog(
     interval: Int,
     nextUpdate: Instant?,

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package eu.kanade.presentation.track
 
 import androidx.compose.animation.AnimatedVisibility

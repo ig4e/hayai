@@ -1,5 +1,8 @@
 package eu.kanade.presentation.more.settings.screen
 
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
@@ -7,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.util.relativeTimeSpanString
@@ -16,8 +20,11 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -61,8 +68,43 @@ object SettingsDownloadScreen : SearchableSettings {
         downloadPreferences: DownloadPreferences,
     ): Preference.PreferenceGroup {
         val downloadCache = remember { Injekt.get<DownloadCache>() }
+        val storageManager = remember { Injekt.get<StorageManager>() }
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        var showRemoveAllDialog by remember { mutableStateOf(false) }
+
+        if (showRemoveAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showRemoveAllDialog = false },
+                dismissButton = {
+                    TextButton(onClick = { showRemoveAllDialog = false }) {
+                        Text(text = presentationStringResource(MR.strings.action_cancel))
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showRemoveAllDialog = false
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    storageManager.getDownloadsDirectory()?.listFiles()?.forEach { it.delete() }
+                                }
+                                downloadCache.invalidateCache()
+                                context.toast(MR.strings.all_downloads_removed)
+                            }
+                        },
+                    ) {
+                        Text(text = presentationStringResource(MR.strings.action_ok))
+                    }
+                },
+                title = {
+                    Text(text = presentationStringResource(MR.strings.are_you_sure))
+                },
+                text = {
+                    Text(text = presentationStringResource(MR.strings.pref_remove_all_downloads_summary))
+                },
+            )
+        }
 
         val parallelSourceLimit by downloadPreferences.parallelSourceLimit().collectPreferenceAsState()
 
@@ -110,8 +152,7 @@ object SettingsDownloadScreen : SearchableSettings {
                     title = presentationStringResource(MR.strings.pref_remove_all_downloads),
                     subtitle = presentationStringResource(MR.strings.pref_remove_all_downloads_summary),
                     onClick = {
-                        // TODO: confirmation dialog
-                        context.toast(MR.strings.all_downloads_removed)
+                        showRemoveAllDialog = true
                     },
                 ),
             ),

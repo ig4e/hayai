@@ -68,7 +68,7 @@ fun EhLoginWebViewScreen(
         topBar = {
             Box {
                 AppBar(
-                    title = "ExHentai login",
+                    title = stringResource(MR.strings.exhentai_login),
                     navigateUp = onUp,
                     navigationIcon = Icons.Outlined.Close,
                 )
@@ -80,7 +80,7 @@ fun EhLoginWebViewScreen(
                     )
                     is LoadingState.Loading -> {
                         val animatedProgress by animateFloatAsState(
-                            (loadingState as? LoadingState.Loading)?.progress ?: 1f,
+                            loadingState.progress,
                             animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
                             label = "webview_loading",
                         )

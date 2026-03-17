@@ -10,6 +10,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.manga.components.MangaMetadataPage
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -60,6 +61,9 @@ class MetadataViewScreen(private val mangaId: Long, private val sourceId: Long) 
                     alternativeTitles = alternativeTitles,
                     extraInfo = extraInfo,
                     searchMetadataChips = searchMetadata,
+                    onTagSearch = { query ->
+                        navigator.push(BrowseSourceScreen(sourceId, query))
+                    },
                 )
             }
         }

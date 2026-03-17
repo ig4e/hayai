@@ -43,6 +43,7 @@ internal fun Project.configureAndroid(commonExtension: CommonExtension<*, *, *, 
             jvmTarget.set(AndroidConfig.JvmTarget)
             freeCompilerArgs.addAll(
                 "-Xcontext-receivers",
+                "-Xwarning-level=CONTEXT_RECEIVERS_DEPRECATED:disabled",
                 "-opt-in=kotlin.RequiresOptIn",
             )
 
@@ -73,8 +74,6 @@ internal fun Project.configureCompose(commonExtension: CommonExtension<*, *, *, 
     }
 
     extensions.configure<ComposeCompilerGradlePluginExtension> {
-        featureFlags.set(setOf(ComposeFeatureFlag.OptimizeNonSkippingGroups))
-
         val enableMetrics = project.providers.gradleProperty("enableComposeCompilerMetrics").orNull.toBoolean()
         val enableReports = project.providers.gradleProperty("enableComposeCompilerReports").orNull.toBoolean()
 

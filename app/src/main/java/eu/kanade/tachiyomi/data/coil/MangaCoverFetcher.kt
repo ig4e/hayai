@@ -96,7 +96,6 @@ class MangaCoverFetcher(
         val uniFile = UniFile.fromUri(options.context, uri.toUri())
             ?: throw IOException("Unable to resolve image uri: $uri")
         val inputStream = uniFile.openInputStream()
-            ?: throw IOException("Unable to open image uri: $uri")
         val source = inputStream.source().buffer()
         return SourceFetchResult(
             source = ImageSource(source = source, fileSystem = FileSystem.SYSTEM),

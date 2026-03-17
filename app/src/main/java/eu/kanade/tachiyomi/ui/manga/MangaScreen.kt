@@ -33,6 +33,7 @@ import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.MangaScreen
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
+import eu.kanade.presentation.manga.components.MarkAllChaptersDialog
 import eu.kanade.presentation.manga.components.MangaCoverDialog
 import eu.kanade.presentation.manga.components.ScanlatorFilterDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
@@ -196,10 +197,10 @@ class MangaScreen(
             onFilterButtonClicked = screenModel::showSettingsDialog,
             onRefresh = screenModel::fetchAllFromSource,
             onMarkAllAsReadClicked = {
-                screenModel.markChaptersRead(successState.chapters.map { it.chapter }, true)
+                screenModel.showMarkAllAsReadDialog()
             },
             onMarkAllAsUnreadClicked = {
-                screenModel.markChaptersRead(successState.chapters.map { it.chapter }, false)
+                screenModel.showMarkAllAsUnreadDialog()
             },
             onContinueReading = { continueReading(context, screenModel.getNextUnreadChapter()) },
             onSearch = { query, global -> scope.launch { performSearch(navigator, query, global) } },
@@ -215,6 +216,14 @@ class MangaScreen(
                 navigator.push(MigrationConfigScreen(successState.manga.id))
             }.takeIf { successState.manga.favorite },
             onEditNotesClicked = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
+            onRefreshTrackingClicked = screenModel::refreshAllTracking
+                .takeIf { successState.trackingCount > 0 },
+            onRemoveAllDownloadsClicked = screenModel::removeAllDownloads
+                .takeIf { !successState.source.isLocalOrStub() },
+            onRemoveReadDownloadsClicked = screenModel::removeReadDownloads
+                .takeIf { !successState.source.isLocalOrStub() },
+            onRemoveNonBookmarkedDownloadsClicked = screenModel::removeNonBookmarkedDownloads
+                .takeIf { !successState.source.isLocalOrStub() },
             // SY -->
             onMetadataViewerClicked = { openMetadataViewer(navigator, successState.manga) },
             onEditInfoClicked = screenModel::showEditMangaInfoDialog,
@@ -344,6 +353,24 @@ class MangaScreen(
                         .takeIf { screenModel.isUpdateIntervalEnabled },
                 )
             }
+            MangaScreenModel.Dialog.MarkAllAsRead -> {
+                MarkAllChaptersDialog(
+                    onDismissRequest = onDismissRequest,
+                    onConfirm = {
+                        screenModel.markChaptersRead(successState.chapters.map { it.chapter }, true)
+                    },
+                    isRead = true,
+                )
+            }
+            MangaScreenModel.Dialog.MarkAllAsUnread -> {
+                MarkAllChaptersDialog(
+                    onDismissRequest = onDismissRequest,
+                    onConfirm = {
+                        screenModel.markChaptersRead(successState.chapters.map { it.chapter }, false)
+                    },
+                    isRead = false,
+                )
+            }
             // SY -->
             is MangaScreenModel.Dialog.EditMangaInfo -> {
                 EditMangaDialog(
@@ -411,7 +438,8 @@ class MangaScreen(
                 context.startActivity(intent)
             }
         } catch (e: Exception) {
-            context.toast(e.message)
+            logcat(LogPriority.ERROR, e)
+            context.toast(MR.strings.error_generic)
         }
     }
 

@@ -18,6 +18,7 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.interactor.InsertTrack
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -81,7 +82,8 @@ abstract class BaseTracker(
         try {
             addTracks.bind(this, item, mangaId)
         } catch (e: Throwable) {
-            withUIContext { Injekt.get<Application>().toast(e.message) }
+            logcat(LogPriority.ERROR, e) { "Failed to register track data id=$id" }
+            withUIContext { Injekt.get<Application>().toast(MR.strings.error_generic) }
         }
     }
 
@@ -147,7 +149,7 @@ abstract class BaseTracker(
             }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to update remote track data id=$id" }
-            withUIContext { Injekt.get<Application>().toast(e.message) }
+            withUIContext { Injekt.get<Application>().toast(MR.strings.error_generic) }
         }
     }
 }

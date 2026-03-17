@@ -56,6 +56,7 @@ fun LibrarySections(
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
     getColumnsForOrientation: (Boolean) -> PreferenceMutableState<Int>,
     getItemsForCategory: (Category) -> List<LibraryItem>,
+    outlineOnCovers: Boolean = false,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     val displayMode by getDisplayMode(0)
@@ -126,6 +127,7 @@ fun LibrarySections(
                                         } else {
                                             null
                                         },
+                                        outlineOnCovers = outlineOnCovers,
                                     )
                                 }
 
@@ -141,6 +143,7 @@ fun LibrarySections(
                                         } else {
                                             null
                                         },
+                                        outlineOnCovers = outlineOnCovers,
                                     )
                                 }
 
@@ -216,6 +219,7 @@ fun LibrarySections(
                                     } else {
                                         null
                                     },
+                                    outlineOnCovers = outlineOnCovers,
                                 )
                             }
                         }
@@ -240,6 +244,7 @@ fun LibrarySections(
                                         } else {
                                             null
                                         },
+                                        outlineOnCovers = outlineOnCovers,
                                     )
                                 }
                             }
@@ -266,6 +271,7 @@ fun LibrarySections(
                                         } else {
                                             null
                                         },
+                                        outlineOnCovers = outlineOnCovers,
                                     )
                                 }
                             }
@@ -362,6 +368,7 @@ private fun LibrarySectionListItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onClickContinueReading: (() -> Unit)?,
+    outlineOnCovers: Boolean = false,
 ) {
     val manga = libraryItem.libraryManga.manga
     MangaListItem(
@@ -385,6 +392,7 @@ private fun LibrarySectionListItem(
         onLongClick = onLongClick,
         onClick = onClick,
         onClickContinueReading = onClickContinueReading,
+        outlineOnCovers = outlineOnCovers,
     )
 }
 
@@ -421,6 +429,7 @@ private fun LibrarySectionCompactGridItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onClickContinueReading: (() -> Unit)?,
+    outlineOnCovers: Boolean = false,
 ) {
     val manga = libraryItem.libraryManga.manga
     MangaCompactGridItem(
@@ -448,6 +457,7 @@ private fun LibrarySectionCompactGridItem(
         onLongClick = onLongClick,
         onClick = onClick,
         onClickContinueReading = onClickContinueReading,
+        outlineOnCovers = outlineOnCovers,
     )
 }
 
@@ -458,6 +468,7 @@ private fun LibrarySectionComfortableGridItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onClickContinueReading: (() -> Unit)?,
+    outlineOnCovers: Boolean = false,
 ) {
     val manga = libraryItem.libraryManga.manga
     MangaComfortableGridItem(
@@ -485,5 +496,6 @@ private fun LibrarySectionComfortableGridItem(
         onLongClick = onLongClick,
         onClick = onClick,
         onClickContinueReading = onClickContinueReading,
+        outlineOnCovers = outlineOnCovers,
     )
 }

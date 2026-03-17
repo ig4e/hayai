@@ -70,7 +70,8 @@ fun Context.openInBrowser(uri: Uri, forceDefaultBrowser: Boolean = false) {
         }
         startActivity(intent)
     } catch (e: Exception) {
-        toast(e.message)
+        logcat(LogPriority.ERROR, e)
+        toast(stringResource(MR.strings.error_generic))
     }
 }
 

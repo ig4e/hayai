@@ -22,6 +22,7 @@ internal fun LibraryCompactGrid(
     searchQuery: String?,
     useStaggeredGrid: Boolean,
     onGlobalSearchClicked: () -> Unit,
+    outlineOnCovers: Boolean = false,
 ) {
     if (useStaggeredGrid) {
         LibraryCompactStaggeredGrid(
@@ -35,6 +36,7 @@ internal fun LibraryCompactGrid(
             onClickContinueReading = onClickContinueReading,
             searchQuery = searchQuery,
             onGlobalSearchClicked = onGlobalSearchClicked,
+            outlineOnCovers = outlineOnCovers,
         )
         return
     }
@@ -80,6 +82,7 @@ internal fun LibraryCompactGrid(
                 } else {
                     null
                 },
+                outlineOnCovers = outlineOnCovers,
             )
         }
     }

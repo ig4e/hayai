@@ -78,7 +78,10 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.collectAsState
+import tachiyomi.domain.recents.service.RecentsPreferences
 import tachiyomi.source.local.isLocal
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 data object LibraryTab : Tab {
 
@@ -109,6 +112,8 @@ data object LibraryTab : Tab {
         val settingsScreenModel = rememberScreenModel { LibrarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
         val useStaggeredGrid by settingsScreenModel.libraryPreferences.useStaggeredGrid().collectAsState()
+        val recentsPreferences = remember { Injekt.get<RecentsPreferences>() }
+        val outlineOnCovers by recentsPreferences.outlineOnCovers().collectAsState()
 
         val snackbarHostState = remember { SnackbarHostState() }
 
@@ -280,6 +285,7 @@ data object LibraryTab : Tab {
                         getDisplayMode = { screenModel.getDisplayMode() },
                         getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
                         getItemsForCategory = { state.getItemsForCategory(it) },
+                        outlineOnCovers = outlineOnCovers,
                     )
                 }
             }

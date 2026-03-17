@@ -412,7 +412,7 @@ class MigrationListScreenModel(
 
     sealed interface Dialog {
         data class Migrate(val copy: Boolean, val totalCount: Int, val skippedCount: Int) : Dialog
-        data class Progress(@FloatRange(0.0, 1.0) val progress: Float) : Dialog
+        data class Progress(@param:FloatRange(0.0, 1.0) val progress: Float) : Dialog
         data object Exit : Dialog
     }
 

@@ -1,6 +1,7 @@
 package eu.kanade.presentation.library.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -80,6 +81,7 @@ fun MangaCompactGridItem(
     coverBadgeStart: @Composable (RowScope.() -> Unit)? = null,
     coverBadgeEnd: @Composable (RowScope.() -> Unit)? = null,
     coverBadgeBottom: @Composable (RowScope.() -> Unit)? = null,
+    outlineOnCovers: Boolean = false,
 ) {
     GridItemSelectable(
         isSelected = isSelected,
@@ -87,6 +89,11 @@ fun MangaCompactGridItem(
         onLongClick = onLongClick,
     ) {
         MangaGridCover(
+            modifier = if (outlineOnCovers) {
+                Modifier.border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+            } else {
+                Modifier
+            },
             cover = {
                 MangaCover.Book(
                     modifier = Modifier
@@ -188,6 +195,7 @@ fun MangaComfortableGridItem(
     coverBadgeEnd: (@Composable RowScope.() -> Unit)? = null,
     coverBadgeBottom: (@Composable RowScope.() -> Unit)? = null,
     onClickContinueReading: (() -> Unit)? = null,
+    outlineOnCovers: Boolean = false,
 ) {
     GridItemSelectable(
         isSelected = isSelected,
@@ -196,6 +204,11 @@ fun MangaComfortableGridItem(
     ) {
         Column {
             MangaGridCover(
+                modifier = if (outlineOnCovers) {
+                    Modifier.border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                } else {
+                    Modifier
+                },
                 cover = {
                     MangaCover.Book(
                         modifier = Modifier
@@ -362,6 +375,7 @@ fun MangaListItem(
     isSelected: Boolean = false,
     coverAlpha: Float = 1f,
     onClickContinueReading: (() -> Unit)? = null,
+    outlineOnCovers: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -377,7 +391,14 @@ fun MangaListItem(
         MangaCover.Square(
             modifier = Modifier
                 .fillMaxHeight()
-                .alpha(coverAlpha),
+                .alpha(coverAlpha)
+                .then(
+                    if (outlineOnCovers) {
+                        Modifier.border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                    } else {
+                        Modifier
+                    },
+                ),
             data = coverData,
         )
         Text(

@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.SupervisorAccount
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -87,7 +87,7 @@ internal class GuidesStep(
                         onClick = { handler.openUri(GETTING_STARTED_URL) },
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.MenuBook,
+                            imageVector = Icons.AutoMirrored.Filled.MenuBook,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )

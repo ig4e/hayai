@@ -58,6 +58,8 @@ import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentMap
@@ -364,7 +366,8 @@ object SettingsTrackingScreen : SearchableSettings {
             true
         } catch (e: Throwable) {
             tracker.logout()
-            withUIContext { context.toast(e.message.toString()) }
+            logcat(LogPriority.ERROR, e) { "Login failed for tracker" }
+            withUIContext { context.toast(MR.strings.error_generic) }
             false
         }
     }

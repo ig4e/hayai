@@ -6,6 +6,7 @@ import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -26,14 +27,19 @@ import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.more.RecentsHistoryScreen
+import eu.kanade.presentation.more.RecentsOptionsSheet
 import eu.kanade.presentation.more.RecentsScreen as RecentsCombinedScreen
 import eu.kanade.presentation.more.RecentsUpdatesScreen
 import eu.kanade.tachiyomi.ui.download.DownloadQueuePane
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.domain.history.model.HistoryWithRelations
+import tachiyomi.domain.recents.service.RecentsPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +72,15 @@ internal fun RecentsRootContent(
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     var showDownloadQueue by rememberSaveable { mutableStateOf(false) }
     var showClearHistoryDialog by rememberSaveable { mutableStateOf(false) }
+    var showOptionsSheet by rememberSaveable { mutableStateOf(false) }
+    val recentsPreferences = remember { Injekt.get<RecentsPreferences>() }
+    val showRemHistory by recentsPreferences.showRecentsRemHistory().collectAsState()
+    val showReadInAll by recentsPreferences.showReadInAllRecents().collectAsState()
+    val showTitleFirst by recentsPreferences.showTitleFirstInRecents().collectAsState()
+    val showUpdatedTime by recentsPreferences.showUpdatedTime().collectAsState()
+    val sortFetchedTime by recentsPreferences.sortFetchedTime().collectAsState()
+    val collapseGroupedUpdates by recentsPreferences.collapseGroupedUpdates().collectAsState()
+    val collapseGroupedHistory by recentsPreferences.collapseGroupedHistory().collectAsState()
     val normalizedQuery = remember(searchQuery) {
         searchQuery
             ?.trim()
@@ -145,6 +160,14 @@ internal fun RecentsRootContent(
         )
     }
 
+    if (showOptionsSheet) {
+        RecentsOptionsSheet(
+            onDismissRequest = { showOptionsSheet = false },
+            recentsPreferences = recentsPreferences,
+            initialTab = selectedTabIndex,
+        )
+    }
+
     TabbedScreen(
         titleRes = MR.strings.label_recents,
         state = pagerState,
@@ -157,7 +180,11 @@ internal fun RecentsRootContent(
             ) { _, _ ->
                 RecentsCombinedScreen(
                     historyItems = filteredHistoryItems,
-                    updateItems = filteredUpdateItems,
+                    updateItems = if (showReadInAll) {
+                        filteredUpdateItems
+                    } else {
+                        filteredUpdateItems.filter { !it.update.read }
+                    },
                     onClickHistoryCover = onClickHistoryCover,
                     onClickHistory = onClickHistory,
                     onClickHistoryFavorite = onClickHistoryFavorite,
@@ -172,6 +199,9 @@ internal fun RecentsRootContent(
                     onMultiBookmarkClicked = onMultiBookmarkUpdates,
                     onMultiMarkAsReadClicked = onMultiMarkAsReadUpdates,
                     onMultiDeleteClicked = onMultiDeleteUpdates,
+                    showRemHistory = showRemHistory,
+                    showTitleFirst = showTitleFirst,
+                    showUpdatedTime = showUpdatedTime,
                 )
             },
             TabContent(
@@ -186,6 +216,8 @@ internal fun RecentsRootContent(
                     onClickHistory = onClickHistory,
                     onClickHistoryFavorite = onClickHistoryFavorite,
                     onDeleteHistory = onDeleteHistory,
+                    showRemHistory = showRemHistory,
+                    collapseGroupedHistory = collapseGroupedHistory,
                 )
             },
             TabContent(
@@ -195,7 +227,11 @@ internal fun RecentsRootContent(
                 onChangeSearchQuery = { searchQuery = it },
             ) { _, _ ->
                 RecentsUpdatesScreen(
-                    updateItems = filteredUpdateItems,
+                    updateItems = if (sortFetchedTime) {
+                        filteredUpdateItems.sortedByDescending { it.update.dateFetch }
+                    } else {
+                        filteredUpdateItems
+                    },
                     onClickUpdateCover = onClickUpdateCover,
                     onClickUpdate = onClickUpdate,
                     selectedUpdates = selectedFilteredUpdates,
@@ -206,11 +242,19 @@ internal fun RecentsRootContent(
                     onMultiBookmarkClicked = onMultiBookmarkUpdates,
                     onMultiMarkAsReadClicked = onMultiMarkAsReadUpdates,
                     onMultiDeleteClicked = onMultiDeleteUpdates,
+                    showTitleFirst = showTitleFirst,
+                    showUpdatedTime = showUpdatedTime,
+                    collapseGroupedUpdates = collapseGroupedUpdates,
                 )
             },
         ),
         navigateUp = navigateUp,
         rootActions = persistentListOf(
+            AppBar.Action(
+                title = stringResource(MR.strings.recents_options),
+                icon = Icons.Outlined.Tune,
+                onClick = { showOptionsSheet = true },
+            ),
             AppBar.Action(
                 title = stringResource(MR.strings.label_download_queue),
                 icon = Icons.Outlined.GetApp,

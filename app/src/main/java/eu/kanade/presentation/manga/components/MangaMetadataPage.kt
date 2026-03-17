@@ -56,6 +56,7 @@ fun MangaMetadataPage(
     alternativeTitles: List<String> = emptyList(),
     extraInfo: List<Pair<String, String>> = emptyList(),
     searchMetadataChips: SearchMetadataChips? = null,
+    onTagSearch: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -166,7 +167,7 @@ fun MangaMetadataPage(
                         title = stringResource(MR.strings.label_tags),
                         icon = Icons.Outlined.LocalOffer,
                     ) {
-                        NamespaceTags(tags = tags, onClick = {})
+                        NamespaceTags(tags = tags, onClick = onTagSearch)
                     }
                 }
             }

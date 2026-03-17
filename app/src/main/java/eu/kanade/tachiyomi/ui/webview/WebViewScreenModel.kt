@@ -13,6 +13,7 @@ import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -38,7 +39,8 @@ class WebViewScreenModel(
         try {
             context.startActivity(url.toUri().toShareIntent(context, type = "text/plain"))
         } catch (e: Exception) {
-            context.toast(e.message)
+            logcat(LogPriority.ERROR, e)
+            context.toast(MR.strings.error_generic)
         }
     }
 

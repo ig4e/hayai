@@ -1311,6 +1311,12 @@ class MangaScreenModel(
         }
     }
 
+    fun refreshAllTracking() {
+        screenModelScope.launchNonCancellable {
+            refreshTrackers()
+        }
+    }
+
     private suspend fun refreshTrackers(
         refreshTracks: RefreshTracks = Injekt.get(),
     ) {
@@ -1669,6 +1675,9 @@ class MangaScreenModel(
         data class EditMergedSettings(val mergedData: MergedMangaData) : Dialog
         // SY <--
 
+        data object MarkAllAsRead : Dialog
+        data object MarkAllAsUnread : Dialog
+
         data object SettingsSheet : Dialog
         data object TrackSheet : Dialog
         data object FullCover : Dialog
@@ -1692,6 +1701,44 @@ class MangaScreenModel(
 
     fun showCoverDialog() {
         updateSuccessState { it.copy(dialog = Dialog.FullCover) }
+    }
+
+    fun showMarkAllAsReadDialog() {
+        updateSuccessState { it.copy(dialog = Dialog.MarkAllAsRead) }
+    }
+
+    fun showMarkAllAsUnreadDialog() {
+        updateSuccessState { it.copy(dialog = Dialog.MarkAllAsUnread) }
+    }
+
+    fun removeAllDownloads() {
+        val state = successState ?: return
+        val downloadedChapters = state.chapters
+            .filter { it.isDownloaded }
+            .map { it.chapter }
+        if (downloadedChapters.isNotEmpty()) {
+            deleteChapters(downloadedChapters)
+        }
+    }
+
+    fun removeReadDownloads() {
+        val state = successState ?: return
+        val downloadedReadChapters = state.chapters
+            .filter { it.isDownloaded && it.chapter.read }
+            .map { it.chapter }
+        if (downloadedReadChapters.isNotEmpty()) {
+            deleteChapters(downloadedReadChapters)
+        }
+    }
+
+    fun removeNonBookmarkedDownloads() {
+        val state = successState ?: return
+        val downloadedNonBookmarked = state.chapters
+            .filter { it.isDownloaded && !it.chapter.bookmark }
+            .map { it.chapter }
+        if (downloadedNonBookmarked.isNotEmpty()) {
+            deleteChapters(downloadedNonBookmarked)
+        }
     }
 
     fun showMigrateDialog(duplicate: Manga) {
