@@ -23,6 +23,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.util.system.isBetaFlavor
 import eu.kanade.tachiyomi.util.system.isPreviewBuildType
 import kotlinx.serialization.Serializable
 import nl.adaptivity.xmlutil.core.AndroidXmlReader
@@ -55,7 +56,11 @@ fun WhatsNewDialog(onDismissRequest: () -> Unit) {
                         XML.decodeFromReader<Changelog>(
                             AndroidXmlReader(
                                 context.resources.openRawResource(
-                                    if (isPreviewBuildType) R.raw.changelog_debug else R.raw.changelog_release,
+                                    when {
+                                        isBetaFlavor -> R.raw.changelog_beta
+                                        isPreviewBuildType -> R.raw.changelog_debug
+                                        else -> R.raw.changelog_release
+                                    },
                                 ).bufferedReader(),
                             ),
                         ).toDisplayChangelog()
