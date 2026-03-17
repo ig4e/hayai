@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Clone repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -37,6 +39,25 @@ jobs:
         run: |
           version_name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          CURRENT_VERSION="${{ steps.app_version.outputs.version_name }}"
+          PREV_TAG=$(git tag -l "v*" --sort=-version:refname | grep -v "^v${CURRENT_VERSION}$" | grep -v "^beta-" | head -1)
+          if [ -z "$PREV_TAG" ]; then
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          CHANGELOG=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD" | grep -v "^- $" || true)
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="- No changes recorded"
+          fi
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "$CHANGELOG"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       # SY -->
       - name: Write google-services.json
@@ -94,6 +115,10 @@ jobs:
           tag_name: v${{ steps.app_version.outputs.version_name }}
           name: Hayai v${{ steps.app_version.outputs.version_name }}
           body: |
+            ## What's Changed
+
+            ${{ steps.changelog.outputs.changelog }}
+
             ---
 
             ### Checksums
