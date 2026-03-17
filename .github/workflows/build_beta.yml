@@ -45,7 +45,7 @@ jobs:
         shell: python3 {0}
         run: |
           import xml.etree.ElementTree as ET, os
-          tree = ET.parse("app/src/main/res/raw/changelog_release.xml")
+          tree = ET.parse("app/src/main/res/raw/changelog_beta.xml")
           version = tree.getroot()[0]
           name = version.get("versionName", "")
           date = version.get("changeDate", "")

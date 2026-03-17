@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<changelog bulletedList="true">
+    <changelogversion versionName="1.12.1-beta" changeDate="March 17, 2026">
+        <changelogtext>Wired Recents preferences (outlineOnCovers, showDeleteButton) through library and browse component chains.</changelogtext>
+        <changelogtext>Added RecentsOptionsSheet with tabbed History, Updates, and Downloads controls.</changelogtext>
+        <changelogtext>Added outline on covers toggle to library display settings.</changelogtext>
+        <changelogtext>Completed GlobalSearchCardRow outlineOnCovers threading.</changelogtext>
+        <changelogtext>Replaced raw exception toasts with localized error messages throughout.</changelogtext>
+        <changelogtext>Fixed all Kotlin compiler warnings across app and core modules.</changelogtext>
+        <changelogtext>Beta releases now auto-publish with versioned APK names.</changelogtext>
+    </changelogversion>
+</changelog>
