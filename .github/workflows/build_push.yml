@@ -53,7 +53,7 @@ jobs:
             fi
           done < <(git tag -l "v*" --sort=-version:refname)
           if [ -z "$PREV_TAG" ]; then
-            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD | tail -1)
           fi
           CHANGELOG=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD")
           if [ -z "$CHANGELOG" ]; then
