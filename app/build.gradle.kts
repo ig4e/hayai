@@ -98,6 +98,7 @@ android {
 
             matchingFallbacks.add("release")
             versionNameSuffix = "-b${betaCount}"
+            applicationIdSuffix = ".beta"
         }
         create("nightly") {
             initWith(getByName("release"))

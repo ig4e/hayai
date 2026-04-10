@@ -18,6 +18,7 @@ A free and open source manga reader
 ## Download
 
 [![Hayai Stable](https://img.shields.io/github/v/release/ig4e/hayai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69&filter=v*)](https://github.com/ig4e/hayai/releases)
+[![Hayai Beta](https://img.shields.io/github/v/release/ig4e/hayai?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39&filter=v*-b*)](https://github.com/ig4e/hayai/releases)
 
 *Requires Android 6.0 or higher.*
 

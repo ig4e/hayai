@@ -1,51 +1,13 @@
 {
   "project_info": {
-    "project_number": "636318130901",
-    "project_id": "hayai",
-    "storage_bucket": "hayai.appspot.com"
+    "project_number": "237497878717",
+    "project_id": "hayai-6c4fa",
+    "storage_bucket": "hayai-6c4fa.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:636318130901:android:6487a6238b24d2a357f85c",
-        "android_client_info": {
-          "package_name": "dev.ahmedmohamed.hayai.debug"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBORypbgpIKGb8s3Si6gaQlY5CLkR804OI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:636318130901:android:388d6d443528368657f85c",
-        "android_client_info": {
-          "package_name": "dev.ahmedmohamed.hayai.nightly"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBORypbgpIKGb8s3Si6gaQlY5CLkR804OI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:636318130901:android:0ae2cb126b21d3a357f85c",
+        "mobilesdk_app_id": "1:237497878717:android:4dba7fe406262ff7218fd4",
         "android_client_info": {
           "package_name": "dev.ahmedmohamed.hayai"
         }
@@ -53,7 +15,64 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBORypbgpIKGb8s3Si6gaQlY5CLkR804OI"
+          "current_key": "AIzaSyDm7G3jnSpyp5MsfY6VvVQi8lElMQi0zIs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:237497878717:android:9f623ba234ffcf9d218fd4",
+        "android_client_info": {
+          "package_name": "dev.ahmedmohamed.hayai.beta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDm7G3jnSpyp5MsfY6VvVQi8lElMQi0zIs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:237497878717:android:4dba7fe406262ff7218fd4",
+        "android_client_info": {
+          "package_name": "dev.ahmedmohamed.hayai.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDm7G3jnSpyp5MsfY6VvVQi8lElMQi0zIs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:237497878717:android:4dba7fe406262ff7218fd4",
+        "android_client_info": {
+          "package_name": "dev.ahmedmohamed.hayai.nightly"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDm7G3jnSpyp5MsfY6VvVQi8lElMQi0zIs"
         }
       ],
       "services": {
