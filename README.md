@@ -84,7 +84,7 @@ The developer(s) of this application does not have any affiliation with the cont
 <pre>
 Copyright © 2015 Javier Tomas
 Copyright © 2024 null2264
-Copyright © 2024 Ahmed Mohamed
+Copyright © 2026 Ahmed Mohamed
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
