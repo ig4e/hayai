@@ -100,7 +100,7 @@ body:
           required: true
         - label: I have tried the [troubleshooting guide](https://mihon.app/docs/guides/troubleshooting/).
           required: true
-        - label: I have updated the app to version **[1.9.7.4](https://github.com/null2264/yokai/releases/latest)**.
+        - label: I have updated the app to version **[1.9.7.4](https://github.com/ig4e/hayai/releases/latest)**.
           required: true
         - label: I have updated all installed extensions.
           required: true
@@ -120,4 +120,4 @@ body:
         Add a :+1: [reaction] to [issues you find important].
 
         [reaction]: https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/
-        [issues you find important]: https://github.com/null2264/yokai/issues?q=is%3Aissue+is%3Aopen+sort%3Areactions-%2B1-desc
+        [issues you find important]: https://github.com/ig4e/hayai/issues?q=is%3Aissue+is%3Aopen+sort%3Areactions-%2B1-desc

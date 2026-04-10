@@ -1090,7 +1090,7 @@
     <string name="information_cloudflare_help">Cloudflare に関するヘルプについてはここをタップしてください</string>
     <string name="please_update_webview">互換性を高めるために WebView アプリを更新してください</string>
     <string name="information_webview_required">アプリが機能するには WebView が必要です</string>
-    <string name="webview_is_required">Yokai には WebView が必要です</string>
+    <string name="webview_is_required">Hayai には WebView が必要です</string>
     <string name="action_webview_back">戻る</string>
     <string name="action_webview_forward">進む</string>
     <string name="action_webview_refresh">更新</string>

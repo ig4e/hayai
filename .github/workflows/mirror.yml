@@ -40,7 +40,7 @@ jobs:
 
       - name: Push to mirror repo (GitLab)
         env:
-          MIRROR_URL: "gitlab.com/null2264/yokai.git"
+          MIRROR_URL: "gitlab.com/ig4e/hayai.git"
           MIRROR_USERNAME: ${{ secrets.MIRROR_USERNAME }}
           MIRROR_AUTH: ${{ secrets.MIRROR_AUTH }}
         run: |

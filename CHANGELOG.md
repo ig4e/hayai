@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
+> **Note:** Hayai is a fork of [Yokai](https://github.com/null2264/yokai). The changelog below reflects upstream Yokai changes prior to the fork.
+
 The format is simplified version of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - `Additions` - New features
 - `Changes` - Behaviour/visual changes

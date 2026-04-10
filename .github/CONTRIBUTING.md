@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> Looking to report an issue/bug or make a feature request? Please refer to the [README file](https://github.com/null2264/yokai#contributing).
+> Looking to report an issue/bug or make a feature request? Please refer to the [README file](https://github.com/ig4e/hayai#contributing).
 
 ---
 
@@ -9,7 +9,7 @@ Thanks for your interest in contributing to Hayai!
 
 Pull requests are welcome!
 
-If you're interested in taking on [an open issue](https://github.com/null2264/yokai/issues), please comment on it so others are aware.
+If you're interested in taking on [an open issue](https://github.com/ig4e/hayai/issues), please comment on it so others are aware.
 You do not need to ask for permission nor an assignment.
 
 ## Prerequisites

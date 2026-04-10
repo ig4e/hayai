@@ -185,7 +185,7 @@ class AboutScreen : Screen() {
 
                             TextPreferenceWidget(
                                 title = stringResource(MR.strings.help_translate),
-                                onPreferenceClick = { context.openInBrowser("https://hosted.weblate.org/engage/yokai/") },
+                                onPreferenceClick = { context.openInBrowser("https://hosted.weblate.org/engage/hayai/") },
                             )
                         }
                     }

@@ -28,8 +28,8 @@ class AppUpdateCheckerTest {
     }
 
     @Test
-    fun `Check new nightly version (Yokai format)`() {
-        assertTrue(isNewVersion("r2", "1.2.3-r1"))  // yokai format
+    fun `Check new nightly version (Hayai format)`() {
+        assertTrue(isNewVersion("r2", "1.2.3-r1"))  // hayai format
         assertFalse(isNewVersion("r1", "1.2.3"))  // Unlikely to happened, but we should try anyway
     }
 

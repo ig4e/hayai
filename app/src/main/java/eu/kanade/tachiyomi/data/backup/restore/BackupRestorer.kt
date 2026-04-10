@@ -114,7 +114,7 @@ class BackupRestorer(
     internal fun writeErrorLog(): File {
         try {
             if (errors.isNotEmpty()) {
-                val file = context.createFileInCacheDir("yokai_restore.txt")
+                val file = context.createFileInCacheDir("hayai_restore.txt")
                 val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
 
                 file.bufferedWriter().use { out ->
