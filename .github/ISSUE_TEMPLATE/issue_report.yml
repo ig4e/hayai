@@ -1,5 +1,5 @@
 name: 🐞 Issue report
-description: Report an issue or bug in Yōkai
+description: Report an issue or bug in Hayai
 labels: [bug]
 body:
 
@@ -50,8 +50,8 @@ body:
   - type: input
     id: tachiyomi-version
     attributes:
-      label: Yōkai version
-      description: You can find your Yōkai version in **More → About**.
+      label: Hayai version
+      description: You can find your Hayai version in **More → About**.
       placeholder: |
         Example: "1.8.0" or "1.8.0-b5000 (Nightly)" or "Nightly r5000"
     validations:

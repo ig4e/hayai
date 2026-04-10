@@ -1,5 +1,5 @@
 name: 🌟 Feature request
-description: Suggest a feature to improve Yōkai
+description: Suggest a feature to improve Hayai
 labels: [enhancement]
 body:
 
@@ -7,7 +7,7 @@ body:
     id: feature-description
     attributes:
       label: Describe your suggested feature
-      description: How can Yōkai be improved?
+      description: How can Hayai be improved?
       placeholder: |
         Example:
           "It should work like this..."
@@ -31,7 +31,7 @@ body:
           required: true
         - label: I have written a short but informative title.
           required: true
-        - label: If this is an request for a feature in the original Tachiyomi, I am opening because multiple versions of Yōkai have been released without this feature.
+        - label: If this is an request for a feature in the original Tachiyomi, I am opening because multiple versions of Hayai have been released without this feature.
           required: true
         - label: If this is an issue with an extension, or a request for an extension, I should be contacting the extensions repository's maintainer/support for help.
           required: true

@@ -148,7 +148,7 @@ class BangumiApi(
         private const val OAUTH_URL = "https://bgm.tv/oauth/access_token"
         private const val LOGIN_URL = "https://bgm.tv/oauth/authorize"
 
-        private const val REDIRECT_URL = "yokai://bangumi-auth"
+        private const val REDIRECT_URL = "hayai://bangumi-auth"
         private const val BASE_MANGA_URL = "$API_URL/mangas"
 
         fun mangaUrl(remoteId: Int): String {

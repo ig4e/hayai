@@ -29,7 +29,7 @@
     <color name="primaryTachiyomi">#54759E</color>
     <color name="onPrimaryTachiyomi">@color/md_white_1000</color>
     <color name="primaryInverseTachiyomi">#78bcff</color>
-    <color name="splashBackground">@color/yokai_background</color>
+    <color name="splashBackground">@color/hayai_background</color>
     <color name="secondaryTachiyomi">@color/md_blue_A400</color>
     <color name="rippleColorTachiyomi">#1F2979FF</color>
     <color name="secondaryVariantTachiyomi">#0d2f68</color>
@@ -107,8 +107,8 @@
     <color name="navigation_next">#CCA6CFD5</color>
     <color name="navigation_prev">#CC7D1128</color>
 
-    <!-- Yokai -->
-    <color name="yokai_background">#0E1418</color>
+    <!-- Hayai -->
+    <color name="hayai_background">#232B30</color>
 
     <!-- Spring Blossom -->
     <color name="primaryDuskDawn">#a149bf</color>

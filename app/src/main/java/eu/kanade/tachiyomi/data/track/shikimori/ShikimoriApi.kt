@@ -161,7 +161,7 @@ class ShikimoriApi(
         private const val OAUTH_URL = "$BASE_URL/oauth/token"
         private const val LOGIN_URL = "$BASE_URL/oauth/authorize"
 
-        private const val REDIRECT_URL = "yokai://shikimori-auth"
+        private const val REDIRECT_URL = "hayai://shikimori-auth"
         private const val BASE_MANGA_URL = "$API_URL/mangas"
 
         fun mangaUrl(remoteId: Int): String {

@@ -9,5 +9,5 @@ fun Logger.e(e: Throwable) = e(e) { "Something went wrong!" }
 
 fun Logger.setToDefault(writersToAdd: List<LogWriter>) {
     Logger.setLogWriters(listOf(platformLogWriter()) + writersToAdd)
-    Logger.setTag("Yokai")
+    Logger.setTag("Hayai")
 }

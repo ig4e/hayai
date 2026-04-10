@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Yōkai</string>
-    <string name="app_short_name" translatable="false">Yōkai</string>
-    <string name="app_normalized_name" translatable="false">Yokai</string>
+    <string name="app_name" translatable="false">Hayai</string>
+    <string name="app_short_name" translatable="false">Hayai</string>
+    <string name="app_normalized_name" translatable="false">Hayai</string>
 
     <string name="action_menu_overflow_description">More options</string>
     <string name="action_bar_up_description">Navigate up</string>

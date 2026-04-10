@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:636318130901:android:6487a6238b24d2a357f85c",
         "android_client_info": {
-          "package_name": "eu.kanade.tachiyomi.debugYokai"
+          "package_name": "dev.ahmedmohamed.hayai.debug"
         }
       },
       "oauth_client": [],
@@ -28,7 +28,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:636318130901:android:388d6d443528368657f85c",
         "android_client_info": {
-          "package_name": "eu.kanade.tachiyomi.nightlyYokai"
+          "package_name": "dev.ahmedmohamed.hayai.nightly"
         }
       },
       "oauth_client": [],
@@ -47,7 +47,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:636318130901:android:0ae2cb126b21d3a357f85c",
         "android_client_info": {
-          "package_name": "eu.kanade.tachiyomi.yokai"
+          "package_name": "dev.ahmedmohamed.hayai"
         }
       },
       "oauth_client": [],

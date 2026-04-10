@@ -15,4 +15,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "yokai-buildSrc"
+rootProject.name = "hayai-buildSrc"

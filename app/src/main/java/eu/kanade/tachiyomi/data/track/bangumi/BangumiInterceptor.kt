@@ -33,7 +33,7 @@ class BangumiInterceptor(val bangumi: Bangumi) : Interceptor {
 
         val authRequest = if (originalRequest.method == "GET") {
             originalRequest.newBuilder()
-                .header("User-Agent", "null2264/yokai/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+                .header("User-Agent", "ig4e/hayai/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
                 .url(
                     originalRequest.url.newBuilder()
                         .addQueryParameter("access_token", currAuth.accessToken).build(),
@@ -42,7 +42,7 @@ class BangumiInterceptor(val bangumi: Bangumi) : Interceptor {
         } else {
             originalRequest.newBuilder()
                 .post(addToken(currAuth.accessToken, originalRequest.body as FormBody))
-                .header("User-Agent", "null2264/yokai/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+                .header("User-Agent", "ig4e/hayai/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
                 .build()
         }
 

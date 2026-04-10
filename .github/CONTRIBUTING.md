@@ -3,7 +3,7 @@
 
 ---
 
-Thanks for your interest in contributing to Yōkai!
+Thanks for your interest in contributing to Hayai!
 
 # Code contributions
 

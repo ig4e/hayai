@@ -24,7 +24,7 @@ import java.io.IOException
 class CrashLogUtil(private val context: Context) {
 
     private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_CRASH_LOGS) {
-        setSmallIcon(R.drawable.ic_yokai)
+        setSmallIcon(R.drawable.ic_hayai)
     }
 
     suspend fun dumpLogs(exception: Throwable? = null) = withNonCancellableContext {

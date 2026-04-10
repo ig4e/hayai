@@ -193,7 +193,7 @@ internal class AppUpdateNotifier(private val context: Context) {
         with(NotificationCompat.Builder(context, Notifications.CHANNEL_UPDATED)) {
             setContentTitle(context.getString(MR.strings.update_completed))
             setContentText(context.getString(MR.strings.updated_to_, BuildConfig.VERSION_NAME))
-            setSmallIcon(R.drawable.ic_yokai)
+            setSmallIcon(R.drawable.ic_hayai)
             setAutoCancel(true)
             setOngoing(false)
             setProgress(0, 0, false)
