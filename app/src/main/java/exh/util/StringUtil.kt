@@ -18,3 +18,5 @@ fun String.nullIfBlank(): String? = ifBlank { null }
 
 fun String.capitalize(locale: Locale = Locale.getDefault()) =
     replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
+
+fun <T> List<T>.nullIfEmpty(): List<T>? = ifEmpty { null }

@@ -1,21 +1,33 @@
 package exh.source
 
 object BlacklistedSources {
-    val EHENTAI_EXT_SOURCES = listOf(
-        7463985582498188812, // E-Hentai English
-        7463985582498188813, // E-Hentai Chinese
-        7463985582498188814, // E-Hentai Japanese
-        7463985582498188815, // E-Hentai Korean
-        7463985582498188816, // E-Hentai French
-        7463985582498188817, // E-Hentai German
-        7463985582498188818, // E-Hentai Spanish
-        7463985582498188819, // E-Hentai Italian
-        7463985582498188820, // E-Hentai Portuguese
-        7463985582498188821, // E-Hentai Thai
-        7463985582498188822, // E-Hentai Vietnamese
-        7463985582498188823, // E-Hentai Russian
-        7463985582498188824, // E-Hentai Dutch
-        7463985582498188825, // E-Hentai Polish
-        7463985582498188826, // E-Hentai Hungarian
+    val EHENTAI_EXT_SOURCES = longArrayOf(
+        8100626124886895451,
+        57122881048805941,
+        4678440076103929247,
+        1876021963378735852,
+        3955189842350477641,
+        4348288691341764259,
+        773611868725221145,
+        5759417018342755550,
+        825187715438990384,
+        6116711405602166104,
+        7151438547982231541,
+        2171445159732592630,
+        3032959619549451093,
+        5980349886941016589,
+        6073266008352078708,
+        5499077866612745456,
+        6140480779421365791,
+    )
+
+    val BLACKLISTED_EXT_SOURCES = EHENTAI_EXT_SOURCES
+
+    val BLACKLISTED_EXTENSIONS = arrayOf(
+        "eu.kanade.tachiyomi.extension.all.ehentai",
+    )
+
+    var HIDDEN_SOURCES = setOf(
+        MERGED_SOURCE_ID,
     )
 }

@@ -1,7 +1,6 @@
 package exh.source
 
 import eu.kanade.tachiyomi.source.Source
-import yokai.domain.manga.models.Manga
 
 // Used to speed up isLewdSource
 var metadataDelegatedSourceIds: List<Long> = emptyList()
@@ -24,9 +23,6 @@ fun isMetadataSource(source: Long) = source in 6900..6999 ||
 
 fun Source.isEhBasedSource() = id == EH_SOURCE_ID || id == EXH_SOURCE_ID
 
-fun Manga.isEhBasedManga() = source == EH_SOURCE_ID || source == EXH_SOURCE_ID
+fun Source.isMdBasedSource() = id in mangaDexSourceIds
 
-fun Source.getMainSource(): Source = this
-
-@JvmName("getMainSourceInline")
-inline fun <reified T : Source> Source.getMainSource(): T? = this as? T
+// TODO: Add Manga.isEhBasedManga() when Manga domain model is available
