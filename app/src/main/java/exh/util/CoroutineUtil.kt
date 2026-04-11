@@ -1,8 +1,10 @@
 package exh.util
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.onEach
+import kotlin.coroutines.coroutineContext
 
-suspend fun <T> withIOContext(block: suspend () -> T): T = withContext(Dispatchers.IO) { block() }
-suspend fun <T> withNonCancellableContext(block: suspend () -> T): T = withContext(NonCancellable) { block() }
+fun <T> Flow<T>.cancellable() = onEach {
+    coroutineContext.ensureActive()
+}
