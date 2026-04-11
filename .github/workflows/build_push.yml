@@ -164,6 +164,7 @@ jobs:
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
           summarise: true
+          buildToolsVersion: 35.0.0
 
       - name: Clean up build artifacts
         if: env.VERSION_TAG != ''
