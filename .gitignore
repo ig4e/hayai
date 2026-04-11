@@ -11,3 +11,4 @@
 .kotlin/
 kls_database.db
 weblate.conf
+.claude/worktrees/
