@@ -8,7 +8,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
-import yokai.domain.manga.models.Manga
+import eu.kanade.tachiyomi.domain.manga.models.Manga
 import java.math.RoundingMode
 import java.text.NumberFormat
 

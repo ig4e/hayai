@@ -1,15 +1,17 @@
 package exh.di
 
 import org.koin.dsl.module
+import yokai.data.manga.metadata.MangaMetadataRepositoryImpl
+import yokai.domain.manga.metadata.MangaMetadataRepository
 
 fun exhModule() = module {
     // Preferences
     single { exh.source.ExhPreferences(get()) }
     single { exh.pref.DelegateSourcePreferences(get()) }
 
-    // Metadata repository - wire these based on what the foundation agent creates
-    // single<MangaMetadataRepository> { MangaMetadataRepositoryImpl(get()) }
+    // Metadata repository
+    single<MangaMetadataRepository> { MangaMetadataRepositoryImpl(get()) }
 
     // EH Update Helper
-    // single { EHentaiUpdateHelper(get(), get()) }
+    single { exh.eh.EHentaiUpdateHelper(get()) }
 }
