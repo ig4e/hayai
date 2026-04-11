@@ -1,0 +1,182 @@
+package exh.ui.login
+
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.webkit.CookieManager
+import android.webkit.WebView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.net.toUri
+import co.touchlab.kermit.Logger
+import eu.kanade.tachiyomi.R
+import exh.source.ExhPreferences
+import uy.kohesive.injekt.injectLazy
+import java.net.HttpCookie
+import java.util.Locale
+
+/**
+ * LoginController
+ */
+class EhLoginActivity : AppCompatActivity() {
+    private val exhPreferences: ExhPreferences by injectLazy()
+    private val logger = Logger.withTag("EhLoginActivity")
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // TODO: Set up WebView-based login UI using Compose or XML
+        // For now, this is a skeleton that can be wired up later
+        Toast.makeText(this, "E-Hentai login not yet implemented in UI", Toast.LENGTH_LONG).show()
+    }
+
+    fun onPageFinished(view: WebView, url: String, customIgneous: String?) {
+        logger.d { url }
+        val parsedUrl = url.toUri()
+        if (parsedUrl.host.equals("forums.e-hentai.org", ignoreCase = true)) {
+            view.evaluateJavascript(
+                """
+                    (function() {
+                        let html = document.documentElement.innerHTML;
+                        return html.includes("/cdn-cgi/");
+                    })();
+                """.trimIndent(),
+            ) { result ->
+                val isCloudflareBlock = result == "true"
+
+                if (isCloudflareBlock) {
+                    logger.d { "Cloudflare block detected - skipping logic" }
+                    return@evaluateJavascript
+                }
+
+                // Hide distracting content
+                if (!parsedUrl.queryParameterNames.contains(PARAM_SKIP_INJECT)) {
+                    view.evaluateJavascript(HIDE_JS, null)
+                }
+                // Check login result
+
+                if (parsedUrl.getQueryParameter("code")?.toInt() != 0) {
+                    if (checkLoginCookies(url)) view.loadUrl("https://exhentai.org/")
+                }
+            }
+        } else if (parsedUrl.host.equals("exhentai.org", ignoreCase = true)) {
+            // At ExHentai, check that everything worked out...
+            if (applyExHentaiCookies(url, customIgneous)) {
+                exhPreferences.enableExhentai.set(true)
+                setResult(RESULT_OK)
+                finish()
+            }
+        }
+    }
+
+    /**
+     * Check if we are logged in
+     */
+    private fun checkLoginCookies(url: String): Boolean {
+        getCookies(url)?.let { parsed ->
+            return parsed.count {
+                (
+                    it.name.equals(MEMBER_ID_COOKIE, ignoreCase = true) ||
+                        it.name.equals(PASS_HASH_COOKIE, ignoreCase = true)
+                    ) &&
+                    it.value.isNotBlank()
+            } >= 2
+        }
+        return false
+    }
+
+    /**
+     * Parse cookies at ExHentai
+     */
+    private fun applyExHentaiCookies(url: String, customIgneous: String?): Boolean {
+        getCookies(url)?.let { parsed ->
+
+            var memberId: String? = null
+            var passHash: String? = null
+            var igneous: String? = customIgneous
+
+            if (customIgneous != null) {
+                CookieManager.getInstance().setCookie(url, "$IGNEOUS_COOKIE=$customIgneous")
+            }
+
+            parsed.forEach {
+                when (it.name.lowercase(Locale.getDefault())) {
+                    MEMBER_ID_COOKIE -> memberId = it.value
+                    PASS_HASH_COOKIE -> passHash = it.value
+                    IGNEOUS_COOKIE -> igneous = customIgneous ?: it.value
+                }
+            }
+
+            // Missing a cookie
+            if (memberId == null || passHash == null || igneous == null) return false
+
+            // Update prefs
+            exhPreferences.memberIdVal.set(memberId!!)
+            exhPreferences.passHashVal.set(passHash!!)
+            exhPreferences.igneousVal.set(igneous!!)
+
+            return true
+        }
+        return false
+    }
+
+    private fun getCookies(url: String): List<HttpCookie>? =
+        CookieManager.getInstance().getCookie(url)?.let { cookie ->
+            cookie.split("; ").flatMap {
+                HttpCookie.parse(it)
+            }
+        }
+
+    override fun finish() {
+        super.finish()
+    }
+
+    companion object {
+        const val PARAM_SKIP_INJECT = "TEH_SKIP_INJECT"
+
+        const val MEMBER_ID_COOKIE = "ipb_member_id"
+        const val PASS_HASH_COOKIE = "ipb_pass_hash"
+        const val IGNEOUS_COOKIE = "igneous"
+
+        const val HIDE_JS =
+            """
+                    javascript:(function () {
+                        document.getElementsByTagName('body')[0].style.visibility = 'hidden';
+                        document.getElementsByName('submit')[0].style.visibility = 'visible';
+                        document.querySelector('td[width="60%"][valign="top"]').style.visibility = 'visible';
+
+                        function hide(e) {if(e != null) e.style.display = 'none';}
+
+                        hide(document.querySelector(".errorwrap"));
+                        hide(document.querySelector('td[width="40%"][valign="top"]'));
+                        var child = document.querySelector(".page").querySelector('div');
+                        child.style.padding = null;
+                        var ft = child.querySelectorAll('table');
+                        var fd = child.parentNode.querySelectorAll('div > div');
+                        var fh = document.querySelector('#border').querySelectorAll('td > table');
+                        hide(ft[0]);
+                        hide(ft[1]);
+                        hide(fd[1]);
+                        hide(fd[2]);
+                        hide(child.querySelector('br'));
+                        var error = document.querySelector(".page > div > .borderwrap");
+                        if(error != null) error.style.visibility = 'visible';
+                        hide(fh[0]);
+                        hide(fh[1]);
+                        hide(document.querySelector("#gfooter"));
+                        hide(document.querySelector(".copyright"));
+                        document.querySelectorAll("td").forEach(function(e) {
+                            e.style.color = "white";
+                        });
+                        var pc = document.querySelector(".postcolor");
+                        if(pc != null) pc.style.color = "#26353F";
+                    })()
+                    """
+
+        fun newIntent(context: Context): Intent {
+            return Intent(context, EhLoginActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+        }
+    }
+}
