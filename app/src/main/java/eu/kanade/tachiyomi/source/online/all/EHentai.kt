@@ -24,6 +24,7 @@ import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import eu.kanade.tachiyomi.util.asJsoup
 import exh.debug.DebugToggles
 import exh.eh.EHTags
+import exh.metadata.MetadataUtil
 import exh.eh.EHentaiUpdateHelper
 import exh.eh.EHentaiUpdateWorkerConstants
 import exh.eh.GalleryEntry
@@ -268,7 +269,7 @@ class EHentai(
     private fun getDateTag(element: Element?): Long? {
         val text = element?.text()?.nullIfBlank()
         return if (text != null) {
-            val date = ZonedDateTime.parse(text, exh.metadata.MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC))
+            val date = ZonedDateTime.parse(text, MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC))
             date?.toInstant()?.toEpochMilli()
         } else {
             null
@@ -373,7 +374,7 @@ class EHentai(
                 doc.select("#gdd .gdt1").find { el ->
                     el.text().lowercase() == "posted:"
                 }!!.nextElementSibling()!!.text(),
-                exh.metadata.MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
+                MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
             )!!.toInstant().toEpochMilli()
             scanlator = EHentaiSearchMetadata.galleryId(location)
         }
@@ -391,7 +392,7 @@ class EHentai(
                     chapter_number = index + 2f
                     date_upload = ZonedDateTime.parse(
                         posted,
-                        exh.metadata.MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
+                        MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
                     ).toInstant().toEpochMilli()
                     scanlator = EHentaiSearchMetadata.galleryId(link)
                 }
@@ -674,6 +675,9 @@ class EHentai(
     override fun chapterListParse(response: Response) =
         throw UnsupportedOperationException("Unused method was called somehow!")
 
+    override fun chapterPageParse(response: Response): SChapter =
+        throw UnsupportedOperationException("Unused method was called somehow!")
+
     override fun pageListParse(response: Response) =
         throw UnsupportedOperationException("Unused method was called somehow!")
 
@@ -693,9 +697,10 @@ class EHentai(
         with(response.asJsoup()) {
             val currentImage = getElementById("img")!!.attr("src")
             // Each press of the retry button will choose another server
-            select("#loadfail").attr("onclick").nullIfBlank()?.let {
-                page.url = addParam(page.url, "nl", it.substring(it.indexOf('\'') + 1 until it.lastIndexOf('\'')))
-            }
+            // TODO: page.url is val in Hayai's Page model; retry with alt server not supported yet
+            // select("#loadfail").attr("onclick").nullIfBlank()?.let {
+            //     page.url = addParam(page.url, "nl", it.substring(it.indexOf('\'') + 1 until it.lastIndexOf('\'')))
+            // }
             if (currentImage == "https://ehgt.org/g/509.gif") {
                 throw Exception("Exceeded page quota")
             }

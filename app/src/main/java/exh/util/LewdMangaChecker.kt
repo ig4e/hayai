@@ -1,10 +1,11 @@
 package exh.util
 
-import exh.source.isEhBasedManga
+import exh.source.EH_SOURCE_ID
+import exh.source.EXH_SOURCE_ID
 import yokai.domain.manga.models.Manga
 
 fun Manga.isLewd(): Boolean {
-    if (isEhBasedManga()) {
+    if (source == EH_SOURCE_ID || source == EXH_SOURCE_ID) {
         return genres.orEmpty().none { tag -> isNonHentaiTag(tag) }
     }
 

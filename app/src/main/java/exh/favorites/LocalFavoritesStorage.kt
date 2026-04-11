@@ -3,7 +3,7 @@ package exh.favorites
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.source.EXH_SOURCE_ID
-import exh.source.isEhBasedManga
+// TODO: import exh.source.isEhBasedManga when Manga extension is available
 import yokai.domain.manga.models.Manga
 
 /**

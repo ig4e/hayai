@@ -381,6 +381,7 @@ open class BrowseSourcePresenter(
                     group.subItems = subItems
                     group
                 }
+                is Filter.AutoComplete -> null // TODO: AutoComplete filter UI not implemented yet
             }
         }
     }

@@ -1,8 +1,6 @@
 package exh.md.handlers
 
 import eu.kanade.tachiyomi.data.database.models.Track
-// TODO: Add MDLIST constant when MdList tracker is available
-private const val MDLIST = 60L
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SManga
 import exh.md.dto.MangaDataDto
@@ -18,6 +16,9 @@ import exh.util.under
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+
+// TODO: Replace with actual MdList tracker ID when available
+private const val MDLIST_TRACKER_ID = 60L
 
 class FollowsHandler(
     private val lang: String,
@@ -89,7 +90,7 @@ class FollowsHandler(
         return withContext(Dispatchers.IO) {
             val mangaId = MdUtil.getMangaId(track.tracking_url)
             val result = runCatching {
-                if (track.score == 0.0) {
+                if (track.score == 0f) {
                     service.deleteMangaRating(mangaId)
                 } else {
                     service.updateMangaRating(mangaId, track.score.toInt())
@@ -126,11 +127,11 @@ class FollowsHandler(
                 service.mangasRating(mangaId).ratings.asMdMap<PersonalRatingDto>()[mangaId]
             }
             val (followStatus, rating) = followStatusDef.await() to ratingDef.await()
-            Track.create(MDLIST).apply {
+            Track.create(MDLIST_TRACKER_ID).apply {
                 title = ""
-                status = followStatus.long
+                status = followStatus.long.toInt()
                 tracking_url = url
-                score = rating?.rating?.toDouble() ?: 0.0
+                score = rating?.rating?.toFloat() ?: 0f
             }
         }
     }

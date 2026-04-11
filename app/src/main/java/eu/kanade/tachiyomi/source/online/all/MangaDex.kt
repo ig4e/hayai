@@ -182,25 +182,12 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getLatestUpdates"))
     override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
-        val request = delegate.latestUpdatesRequest(page)
-        val url = request.url.newBuilder()
-            .removeAllQueryParameters("includeFutureUpdates")
-            .build()
-        return client.newCall(request.newBuilder().url(url).build())
-            .asObservableSuccess()
-            .map { response ->
-                delegate.latestUpdatesParse(response)
-            }
+        @Suppress("DEPRECATION")
+        return super<DelegatedHttpSource>.fetchLatestUpdates(page)
     }
 
     override suspend fun getLatestUpdates(page: Int): MangasPage {
-        val request = delegate.latestUpdatesRequest(page)
-        val url = request.url.newBuilder()
-            .removeAllQueryParameters("includeFutureUpdates")
-            .build()
-
-        val response = client.newCall(request.newBuilder().url(url).build()).awaitSuccess()
-        return delegate.latestUpdatesParse(response)
+        return super<DelegatedHttpSource>.getLatestUpdates(page)
     }
 
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getMangaDetails"))

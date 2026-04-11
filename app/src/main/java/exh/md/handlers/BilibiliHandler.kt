@@ -23,7 +23,6 @@ import okhttp3.Response
 import rx.Observable
 import uy.kohesive.injekt.injectLazy
 import yokai.util.lang.runAsObservable
-import kotlin.time.Duration.Companion.seconds
 
 class BilibiliHandler(currentClient: OkHttpClient) {
     val baseUrl = "https://www.bilibilicomics.com"
@@ -34,7 +33,7 @@ class BilibiliHandler(currentClient: OkHttpClient) {
         .build()
 
     val client: OkHttpClient = currentClient.newBuilder()
-        .rateLimit(1, 1.seconds)
+        .rateLimit(1, 1)
         .build()
 
     val json by injectLazy<Json>()

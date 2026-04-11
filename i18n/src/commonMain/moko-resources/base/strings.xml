@@ -1526,4 +1526,16 @@
     <!-- EH Humanize Time -->
     <string name="humanize_fallback">moments ago</string>
     <!-- EXH -->
+
+    <!-- EXH Common Actions -->
+    <string name="action_ok">OK</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="logout">Log out</string>
+    <string name="chapter_error">Chapter error</string>
+    <string name="label_sources">Sources</string>
+    <string name="entry_found">Entry found!</string>
+    <string name="connected_to_wifi">Connected to Wi-Fi</string>
+    <string name="front_page_categories">Front page categories</string>
+    <string name="front_page_categories_summary">Select which categories to show on the front page</string>
+    <string name="log_in_to_mangadex">Log in to MangaDex</string>
 </resources>

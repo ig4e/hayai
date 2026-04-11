@@ -5,7 +5,7 @@ import androidx.core.net.toUri
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
-import exh.source.getMainSource
+// TODO: import exh.source.getMainSource when available
 import yokai.domain.manga.models.Manga
 
 class GalleryAdder {

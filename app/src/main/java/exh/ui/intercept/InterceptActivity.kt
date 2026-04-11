@@ -29,7 +29,6 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import exh.GalleryAddEvent
 import exh.GalleryAdder
-import eu.kanade.tachiyomi.domain.manga.models.Manga
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +38,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.manga.models.Manga
 import yokai.i18n.MR
+import yokai.presentation.core.Constants
 import yokai.presentation.theme.YokaiTheme
 import yokai.util.lang.getString
 
@@ -118,9 +119,9 @@ class InterceptActivity : BaseActivity<Nothing>() {
                         finish()
                         startActivity(
                             Intent(this, MainActivity::class.java)
-                                .setAction(MainActivity.SHORTCUT_MANGA)
+                                .setAction(Constants.SHORTCUT_MANGA)
                                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                                .putExtra(MainActivity.MANGA_EXTRA, it.mangaId),
+                                .putExtra(Constants.MANGA_EXTRA, it.mangaId),
                         )
                     }
                     is InterceptResult.Failure -> {

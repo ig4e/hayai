@@ -1,9 +1,0 @@
-package exh.source
-
-const val EH_SOURCE_ID = 6905L
-const val EXH_SOURCE_ID = 6906L
-const val MERGED_SOURCE_ID = 6907L
-const val PURURIN_SOURCE_ID = 2221515250486218861L
-const val TSUMINO_SOURCE_ID = 6909L
-const val HBROWSE_SOURCE_ID = 6910L
-const val EIGHTMUSES_SOURCE_ID = 6911L

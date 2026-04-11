@@ -33,7 +33,7 @@ fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
 
     LaunchedEffect(run) {
         if (run) {
-            if (exhPreferences.exhShowSettingsUploadWarning().get()) {
+            if (exhPreferences.exhShowSettingsUploadWarning.get()) {
                 warnDialogOpen = true
             } else {
                 configureDialogOpen = true
@@ -52,7 +52,7 @@ fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
             confirmButton = {
                 TextButton(
                     onClick = {
-                        exhPreferences.exhShowSettingsUploadWarning().set(false)
+                        exhPreferences.exhShowSettingsUploadWarning.set(false)
                         configureDialogOpen = true
                         warnDialogOpen = false
                     },

@@ -80,7 +80,7 @@ object SettingsEhScreen : ComposableSettings() {
     @Composable
     override fun getPreferences(): List<Preference> {
         val exhPreferences: ExhPreferences = remember { Injekt.get() }
-        val exhentaiEnabled by exhPreferences.enableExhentai().collectAsState()
+        val exhentaiEnabled by exhPreferences.enableExhentai.collectAsState()
         var runConfigureDialog by remember { mutableStateOf(false) }
         val openWarnConfigureDialogController = { runConfigureDialog = true }
 
@@ -101,14 +101,14 @@ object SettingsEhScreen : ComposableSettings() {
         openWarnConfigureDialogController: () -> Unit,
     ) {
         var initialLoadGuard by remember { mutableStateOf(false) }
-        val useHentaiAtHome by exhPreferences.useHentaiAtHome().collectAsState()
-        val useJapaneseTitle by exhPreferences.useJapaneseTitle().collectAsState()
-        val useOriginalImages by exhPreferences.exhUseOriginalImages().collectAsState()
-        val ehTagFilterValue by exhPreferences.ehTagFilterValue().collectAsState()
-        val ehTagWatchingValue by exhPreferences.ehTagWatchingValue().collectAsState()
-        val settingsLanguages by exhPreferences.exhSettingsLanguages().collectAsState()
-        val enabledCategories by exhPreferences.exhEnabledCategories().collectAsState()
-        val imageQuality by exhPreferences.imageQuality().collectAsState()
+        val useHentaiAtHome by exhPreferences.useHentaiAtHome.collectAsState()
+        val useJapaneseTitle by exhPreferences.useJapaneseTitle.collectAsState()
+        val useOriginalImages by exhPreferences.exhUseOriginalImages.collectAsState()
+        val ehTagFilterValue by exhPreferences.ehTagFilterValue.collectAsState()
+        val ehTagWatchingValue by exhPreferences.ehTagWatchingValue.collectAsState()
+        val settingsLanguages by exhPreferences.exhSettingsLanguages.collectAsState()
+        val enabledCategories by exhPreferences.exhEnabledCategories.collectAsState()
+        val imageQuality by exhPreferences.imageQuality.collectAsState()
         DisposableEffect(
             useHentaiAtHome,
             useJapaneseTitle,
@@ -166,9 +166,9 @@ object SettingsEhScreen : ComposableSettings() {
                 }
             }
         val context = LocalContext.current
-        val value by exhPreferences.enableExhentai().collectAsState()
+        val value by exhPreferences.enableExhentai.collectAsState()
         return Preference.PreferenceItem.SwitchPreference(
-            pref = exhPreferences.enableExhentai(),
+            pref = exhPreferences.enableExhentai,
             title = stringResource(MR.strings.enable_exhentai),
             subtitle = if (!value) {
                 stringResource(MR.strings.requires_login)
@@ -177,7 +177,7 @@ object SettingsEhScreen : ComposableSettings() {
             },
             onValueChanged = { newVal ->
                 if (!newVal) {
-                    exhPreferences.enableExhentai().set(false)
+                    exhPreferences.enableExhentai.set(false)
                     true
                 } else {
                     activityResultContract.launch(EhLoginActivity.newIntent(context))
@@ -193,7 +193,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.ListPreference<Int> {
         return Preference.PreferenceItem.ListPreference(
-            pref = exhPreferences.useHentaiAtHome(),
+            pref = exhPreferences.useHentaiAtHome,
             title = stringResource(MR.strings.use_hentai_at_home),
             subtitle = stringResource(MR.strings.use_hentai_at_home_summary),
             entries = persistentMapOf(
@@ -209,9 +209,9 @@ object SettingsEhScreen : ComposableSettings() {
         exhentaiEnabled: Boolean,
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.SwitchPreference {
-        val value by exhPreferences.useJapaneseTitle().collectAsState()
+        val value by exhPreferences.useJapaneseTitle.collectAsState()
         return Preference.PreferenceItem.SwitchPreference(
-            pref = exhPreferences.useJapaneseTitle(),
+            pref = exhPreferences.useJapaneseTitle,
             title = stringResource(MR.strings.show_japanese_titles),
             subtitle = if (value) {
                 stringResource(MR.strings.show_japanese_titles_option_1)
@@ -227,9 +227,9 @@ object SettingsEhScreen : ComposableSettings() {
         exhentaiEnabled: Boolean,
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.SwitchPreference {
-        val value by exhPreferences.exhUseOriginalImages().collectAsState()
+        val value by exhPreferences.exhUseOriginalImages.collectAsState()
         return Preference.PreferenceItem.SwitchPreference(
-            pref = exhPreferences.exhUseOriginalImages(),
+            pref = exhPreferences.exhUseOriginalImages,
             title = stringResource(MR.strings.use_original_images),
             subtitle = if (value) {
                 stringResource(MR.strings.use_original_images_on)
@@ -258,7 +258,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhentaiEnabled: Boolean,
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.TextPreference {
-        val value by exhPreferences.ehTagFilterValue().collectAsState()
+        val value by exhPreferences.ehTagFilterValue.collectAsState()
         var dialogOpen by remember { mutableStateOf(false) }
         if (dialogOpen) {
             TagThresholdDialog(
@@ -269,7 +269,7 @@ object SettingsEhScreen : ComposableSettings() {
                 outsideRangeError = stringResource(MR.strings.tag_filtering_threshhold_error),
                 onValueChange = {
                     dialogOpen = false
-                    exhPreferences.ehTagFilterValue().set(it)
+                    exhPreferences.ehTagFilterValue.set(it)
                 },
             )
         }
@@ -286,7 +286,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhentaiEnabled: Boolean,
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.TextPreference {
-        val value by exhPreferences.ehTagWatchingValue().collectAsState()
+        val value by exhPreferences.ehTagWatchingValue.collectAsState()
         var dialogOpen by remember { mutableStateOf(false) }
         if (dialogOpen) {
             TagThresholdDialog(
@@ -297,7 +297,7 @@ object SettingsEhScreen : ComposableSettings() {
                 outsideRangeError = stringResource(MR.strings.tag_watching_threshhold_error),
                 onValueChange = {
                     dialogOpen = false
-                    exhPreferences.ehTagWatchingValue().set(it)
+                    exhPreferences.ehTagWatchingValue.set(it)
                 },
             )
         }
@@ -314,7 +314,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhentaiEnabled: Boolean,
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.TextPreference {
-        val value by exhPreferences.exhSettingsLanguages().collectAsState()
+        val value by exhPreferences.exhSettingsLanguages.collectAsState()
         var dialogOpen by remember { mutableStateOf(false) }
         if (dialogOpen) {
             LanguagesDialog(
@@ -322,7 +322,7 @@ object SettingsEhScreen : ComposableSettings() {
                 initialValue = value,
                 onValueChange = {
                     dialogOpen = false
-                    exhPreferences.exhSettingsLanguages().set(it)
+                    exhPreferences.exhSettingsLanguages.set(it)
                 },
             )
         }
@@ -339,7 +339,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhentaiEnabled: Boolean,
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.TextPreference {
-        val value by exhPreferences.exhEnabledCategories().collectAsState()
+        val value by exhPreferences.exhEnabledCategories.collectAsState()
         var dialogOpen by remember { mutableStateOf(false) }
         if (dialogOpen) {
             FrontPageCategoriesDialog(
@@ -347,7 +347,7 @@ object SettingsEhScreen : ComposableSettings() {
                 initialValue = value,
                 onValueChange = {
                     dialogOpen = false
-                    exhPreferences.exhEnabledCategories().set(it)
+                    exhPreferences.exhEnabledCategories.set(it)
                 },
             )
         }
@@ -365,7 +365,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.SwitchPreference {
         return Preference.PreferenceItem.SwitchPreference(
-            pref = exhPreferences.exhWatchedListDefaultState(),
+            pref = exhPreferences.exhWatchedListDefaultState,
             title = stringResource(MR.strings.watched_list_default),
             subtitle = stringResource(MR.strings.watched_list_state_summary),
             enabled = exhentaiEnabled,
@@ -378,7 +378,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.ListPreference<String> {
         return Preference.PreferenceItem.ListPreference(
-            pref = exhPreferences.imageQuality(),
+            pref = exhPreferences.imageQuality,
             title = stringResource(MR.strings.eh_image_quality),
             subtitle = stringResource(MR.strings.eh_image_quality_summary),
             entries = persistentMapOf(
@@ -398,7 +398,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.SwitchPreference {
         return Preference.PreferenceItem.SwitchPreference(
-            pref = exhPreferences.enhancedEHentaiView(),
+            pref = exhPreferences.enhancedEHentaiView,
             title = stringResource(MR.strings.pref_enhanced_e_hentai_view),
             subtitle = stringResource(MR.strings.pref_enhanced_e_hentai_view_summary),
         )
@@ -428,7 +428,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.SwitchPreference {
         return Preference.PreferenceItem.SwitchPreference(
-            pref = exhPreferences.exhReadOnlySync(),
+            pref = exhPreferences.exhReadOnlySync,
             title = stringResource(MR.strings.disable_favorites_uploading),
             subtitle = stringResource(MR.strings.disable_favorites_uploading_summary),
         )
@@ -450,7 +450,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.SwitchPreference {
         return Preference.PreferenceItem.SwitchPreference(
-            pref = exhPreferences.exhLenientSync(),
+            pref = exhPreferences.exhLenientSync,
             title = stringResource(MR.strings.ignore_sync_errors),
             subtitle = stringResource(MR.strings.ignore_sync_errors_summary),
         )
@@ -500,10 +500,10 @@ object SettingsEhScreen : ComposableSettings() {
     private fun getUpdateCheckerFrequency(
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.ListPreference<Int> {
-        val value by exhPreferences.exhAutoUpdateFrequency().collectAsState()
+        val value by exhPreferences.exhAutoUpdateFrequency.collectAsState()
         val context = LocalContext.current
         return Preference.PreferenceItem.ListPreference(
-            pref = exhPreferences.exhAutoUpdateFrequency(),
+            pref = exhPreferences.exhAutoUpdateFrequency,
             title = stringResource(MR.strings.time_between_batches),
             subtitle = if (value == 0) {
                 stringResource(MR.strings.time_between_batches_summary_1)
@@ -532,7 +532,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.MultiSelectListPreference {
         return Preference.PreferenceItem.MultiSelectListPreference(
-            pref = exhPreferences.exhAutoUpdateRequirements(),
+            pref = exhPreferences.exhAutoUpdateRequirements,
             title = stringResource(MR.strings.auto_update_restrictions),
             entries = persistentMapOf(
                 "wifi" to stringResource(MR.strings.connected_to_wifi),

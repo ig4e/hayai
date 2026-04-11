@@ -1,5 +1,6 @@
 package exh.source
 
+import android.net.Uri
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
@@ -146,6 +147,26 @@ abstract class DelegatedHttpSource(val delegate: HttpSource) : HttpSource() {
      */
     open val baseHttpClient: OkHttpClient? = null
     open val networkHttpClient: OkHttpClient get() = network.client
+
+    /**
+     * Domain name used for deep-link matching.
+     */
+    open val domainName: String = ""
+
+    /**
+     * Whether this source can open the given [uri].
+     */
+    open fun canOpenUrl(uri: Uri): Boolean = false
+
+    /**
+     * Extract a chapter URL from the given [uri].
+     */
+    open fun chapterUrl(uri: Uri): String? = null
+
+    /**
+     * Fetch a manga from a chapter URL.
+     */
+    open suspend fun fetchMangaFromChapterUrl(uri: Uri): Triple<SChapter, SManga, List<SChapter>>? = null
 
     /**
      * Visible name of the source.

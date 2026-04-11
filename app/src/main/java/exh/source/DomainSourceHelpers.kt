@@ -11,7 +11,7 @@ var lanraragiSourceIds: List<Long> = emptyList()
 
 var mangaDexSourceIds: List<Long> = emptyList()
 
-var LIBRARY_UPDATE_EXCLUDED_SOURCES = listOf(
+var LIBRARY_UPDATE_EXCLUDED_SOURCES = listOf<Long>(
     EH_SOURCE_ID,
     EXH_SOURCE_ID,
     PURURIN_SOURCE_ID,
