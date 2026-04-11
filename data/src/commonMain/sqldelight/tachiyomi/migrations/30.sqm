@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS excluded_scanlators(
+    manga_id INTEGER NOT NULL,
+    scanlator TEXT NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS excluded_scanlators_manga_id_index ON excluded_scanlators(manga_id);
+CREATE INDEX IF NOT EXISTS idx_excluded_scanlators_scanlator ON excluded_scanlators(scanlator);
+
+CREATE TABLE IF NOT EXISTS feed_saved_search (
+    _id INTEGER NOT NULL PRIMARY KEY,
+    source INTEGER NOT NULL,
+    saved_search INTEGER,
+    global INTEGER NOT NULL,
+    FOREIGN KEY(saved_search) REFERENCES saved_search (id)
+    ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS feed_saved_search_saved_search_index ON feed_saved_search(saved_search);

@@ -7,9 +7,14 @@ import android.webkit.CookieManager
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.util.view.setComposeContent
 import exh.source.ExhPreferences
 import uy.kohesive.injekt.injectLazy
 import java.net.HttpCookie
@@ -25,9 +30,37 @@ class EhLoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // TODO: Set up WebView-based login UI using Compose or XML
-        // For now, this is a skeleton that can be wired up later
-        Toast.makeText(this, "E-Hentai login not yet implemented in UI", Toast.LENGTH_LONG).show()
+        setComposeContent {
+            var showIgneousDialog by remember { mutableStateOf(false) }
+            var lastWebView by remember { mutableStateOf<WebView?>(null) }
+
+            EhLoginWebViewScreen(
+                onUp = { finish() },
+                onPageFinished = { view, url ->
+                    lastWebView = view
+                    onPageFinished(view, url, null)
+                },
+                onClickRecheckLoginStatus = { loadUrl -> loadUrl("https://exhentai.org/") },
+                onClickAlternateLoginPage = { loadUrl -> loadUrl("https://e-hentai.org/bounce_login.php") },
+                onClickSkipPageRestyling = { loadUrl ->
+                    loadUrl("https://forums.e-hentai.org/index.php?act=Login&$PARAM_SKIP_INJECT=true")
+                },
+                onClickCustomIgneousCookie = {
+                    showIgneousDialog = true
+                },
+            )
+
+            if (showIgneousDialog) {
+                IgneousDialog(
+                    onDismissRequest = { showIgneousDialog = false },
+                    onIgneousSet = { igneous ->
+                        lastWebView?.let { webView ->
+                            onPageFinished(webView, "https://exhentai.org/", igneous)
+                        }
+                    },
+                )
+            }
+        }
     }
 
     fun onPageFinished(view: WebView, url: String, customIgneous: String?) {
