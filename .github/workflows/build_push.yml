@@ -32,6 +32,7 @@ jobs:
   build:
     name: Build app
     runs-on: ubuntu-latest
+    environment: build
 
     steps:
       - name: Clone repo
