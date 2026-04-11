@@ -75,6 +75,9 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import yokai.core.CrashlyticsLogWriter
 import yokai.core.RollingUniFileLogWriter
+// EXH -->
+import exh.di.exhModule
+// EXH <--
 import yokai.core.di.appModule
 import yokai.core.di.domainModule
 import yokai.core.di.initExpensiveComponents
@@ -111,9 +114,19 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         }
 
         startKoin {
-            modules(preferenceModule(this@App), appModule(this@App), domainModule())
+            // EXH -->
+            modules(preferenceModule(this@App), appModule(this@App), domainModule(), exhModule())
+            // EXH <--
         }
         initExpensiveComponents(this)
+
+        // EXH -->
+        // Schedule EHentai gallery update worker if enabled
+        // This will be wired when EHentaiUpdateWorkerConstants is available:
+        // if (Injekt.get<ExhPreferences>().autoUpdateFrequency().get() > 0) {
+        //     EHentaiUpdateWorker.scheduleBackground(this)
+        // }
+        // EXH <--
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
 

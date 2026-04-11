@@ -167,6 +167,15 @@ class MangaBackupRestorer(
         restoreHistoryForManga(history)
         restoreTrackForManga(manga, tracks)
         restoreFilteredScanlatorsForManga(manga, filteredScanlators)
+        // EXH -->
+        // Restore EXH metadata when present
+        // When the metadata repository is wired:
+        // backupManga.flatMetadata?.let { metadataBytes ->
+        //     manga.id?.let { mangaId ->
+        //         metadataRepository.restoreMetadata(mangaId, metadataBytes)
+        //     }
+        // }
+        // EXH <--
         customManga?.let {
             it.mangaId = manga.id!!
             launchNow {

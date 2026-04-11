@@ -264,6 +264,114 @@
             android:icon="@mipmap/ic_launcher"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
 
+        <!-- EXH -->
+        <activity
+            android:name="exh.ui.login.EhLoginActivity"
+            android:label="EHentaiLogin"
+            android:exported="false"/>
+
+        <activity
+            android:name="exh.ui.intercept.InterceptActivity"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Tachiyomi"
+            android:exported="true">
+            <!-- E-Hentai -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="e-hentai.org" />
+                <data android:host="www.e-hentai.org" />
+                <data android:host="g.e-hentai.org" />
+                <data android:pathPattern="/g/..*" />
+            </intent-filter>
+            <!-- ExHentai -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="exhentai.org" />
+                <data android:host="www.exhentai.org" />
+                <data android:pathPattern="/g/..*" />
+            </intent-filter>
+            <!-- NHentai -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="nhentai.net" />
+                <data android:host="www.nhentai.net" />
+                <data android:pathPattern="/g/..*" />
+            </intent-filter>
+            <!-- Tsumino -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="tsumino.com" />
+                <data android:host="www.tsumino.com" />
+                <data android:pathPattern="/Read/View/..*" />
+                <data android:pathPattern="/Book/Info/..*" />
+            </intent-filter>
+            <!-- Pururin -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="pururin.me" />
+                <data android:pathPattern="/gallery/..*" />
+            </intent-filter>
+            <!-- HBrowse -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="hbrowse.com" />
+                <data android:host="www.hbrowse.com" />
+            </intent-filter>
+            <!-- MangaDex -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="mangadex.org" />
+                <data android:host="mangadex.cc" />
+                <data android:host="www.mangadex.org" />
+                <data android:host="www.mangadex.cc" />
+                <data android:pathPattern="/manga/..*" />
+                <data android:pathPattern="/title/..*" />
+                <data android:pathPattern="/chapter/..*" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="exh.md.MangaDexLoginActivity"
+            android:label="MangaDexLogin"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="mangadex-auth"
+                    android:scheme="hayai" />
+            </intent-filter>
+        </activity>
+        <!-- EXH -->
+
         <activity
             android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
             android:theme="@style/Theme.OSS" />

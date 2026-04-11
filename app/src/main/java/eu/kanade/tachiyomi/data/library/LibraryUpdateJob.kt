@@ -41,6 +41,10 @@ import eu.kanade.tachiyomi.extension.ExtensionUpdateJob
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.UnmeteredSource
+// EXH -->
+import exh.source.EH_SOURCE_ID
+import exh.source.EXH_SOURCE_ID
+// EXH <--
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -463,6 +467,13 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private fun filterMangaToUpdate(mangaToAdd: List<LibraryManga>): List<LibraryManga> {
         val restrictions = preferences.libraryUpdateMangaRestriction().get()
         return mangaToAdd.filter { manga ->
+
+            // EXH -->
+            // Skip EH/EXH sources - they have their own update worker (EHentaiUpdateWorker)
+            if (manga.manga.source == EH_SOURCE_ID || manga.manga.source == EXH_SOURCE_ID) {
+                return@filter false
+            }
+            // EXH <--
 
             if (tags.contains(WORK_NAME_AUTO) && manga.manga.isLocal()) {
                 // This prevents data loss if files are temporarily moved when a background job runs.
