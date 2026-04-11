@@ -1,0 +1,55 @@
+CREATE TABLE IF NOT EXISTS search_metadata (
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    uploader TEXT,
+    extra TEXT NOT NULL,
+    indexed_extra TEXT,
+    extra_version INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS search_metadata_uploader_index ON search_metadata(uploader);
+CREATE INDEX IF NOT EXISTS search_metadata_indexed_extra_index ON search_metadata(indexed_extra);
+
+CREATE TABLE IF NOT EXISTS search_tags (
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    namespace TEXT,
+    name TEXT NOT NULL,
+    type INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS search_tags_manga_id_index ON search_tags(manga_id);
+CREATE INDEX IF NOT EXISTS search_tags_namespace_name_index ON search_tags(namespace, name);
+
+CREATE TABLE IF NOT EXISTS search_titles (
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    type INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS search_titles_manga_id_index ON search_titles(manga_id);
+
+CREATE TABLE IF NOT EXISTS merged (
+    _id INTEGER NOT NULL PRIMARY KEY,
+    info_manga INTEGER NOT NULL DEFAULT 0,
+    get_chapter_updates INTEGER NOT NULL DEFAULT 0,
+    chapter_sort_mode INTEGER NOT NULL DEFAULT 0,
+    chapter_priority INTEGER NOT NULL DEFAULT 0,
+    download_chapters INTEGER NOT NULL DEFAULT 0,
+    merge_id INTEGER NOT NULL,
+    merge_url TEXT NOT NULL,
+    manga_id INTEGER,
+    manga_url TEXT NOT NULL,
+    manga_source INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE SET NULL,
+    FOREIGN KEY(merge_id) REFERENCES mangas (_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS merged_merge_id_index ON merged(merge_id);
+
+CREATE TABLE IF NOT EXISTS eh_favorites (
+    gid TEXT NOT NULL,
+    token TEXT NOT NULL,
+    title TEXT NOT NULL,
+    category INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (gid, token)
+);

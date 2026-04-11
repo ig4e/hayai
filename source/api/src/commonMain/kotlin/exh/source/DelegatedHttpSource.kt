@@ -1,17 +1,22 @@
-package eu.kanade.tachiyomi.source.online
+package exh.source
 
-import android.net.Uri
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.online.HttpSource
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import rx.Observable
 
-abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
+/**
+ * SY's DelegatedHttpSource variant used for enhanced/delegated source wrapping.
+ * Distinct from the existing DelegatedHttpSource in eu.kanade.tachiyomi.source.online.
+ */
+@Suppress("OverridingDeprecatedMember", "DEPRECATION")
+abstract class DelegatedHttpSource(val delegate: HttpSource) : HttpSource() {
     /**
      * Returns the request for the popular manga given the page.
      *
@@ -101,8 +106,6 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      */
     override fun imageUrlParse(response: Response) =
         throw UnsupportedOperationException("Should never be called!")
-
-    abstract val domainName: String
 
     /**
      * Base url of the website without the trailing slash, like: http://mysite.com
@@ -339,27 +342,6 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      */
     override fun getFilterList() = delegate.getFilterList()
 
-    open fun canOpenUrl(uri: Uri): Boolean = false
-    open fun chapterUrl(uri: Uri): String? = null
-    open fun pageNumber(uri: Uri): Int? = uri.pathSegments.lastOrNull()?.toIntOrNull()
-    open suspend fun fetchMangaFromChapterUrl(uri: Uri): Triple<SChapter, SManga, List<SChapter>>? = null
-
-    open suspend fun getMangaDetailsByUrl(url: String): SManga {
-        val manga = SManga.create().apply {
-            this.url = url
-            this.title = ""
-        }
-        return delegate.getMangaDetails(manga.copy())
-    }
-
-    open suspend fun getChapterListByUrl(url: String): List<SChapter> {
-        val manga = SManga.create().apply {
-            this.url = url
-            this.title = ""
-        }
-        return delegate.getChapterList(manga)
-    }
-
     protected open fun ensureDelegateCompatible() {
         if (versionId != delegate.versionId || lang != delegate.lang) {
             throw IncompatibleDelegateException(
@@ -371,8 +353,4 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
     }
 
     class IncompatibleDelegateException(message: String) : RuntimeException(message)
-
-    init {
-        delegate.bindDelegate(this)
-    }
 }

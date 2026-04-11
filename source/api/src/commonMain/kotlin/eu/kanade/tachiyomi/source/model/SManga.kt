@@ -55,3 +55,27 @@ interface SManga : Serializable {
         }
     }
 }
+
+// EXH -->
+fun SManga.copy(
+    url: String = this.url,
+    title: String = this.title,
+    artist: String? = this.artist,
+    author: String? = this.author,
+    description: String? = this.description,
+    genre: String? = this.genre,
+    status: Int = this.status,
+    thumbnail_url: String? = this.thumbnail_url,
+    initialized: Boolean = this.initialized,
+) = SManga.create().also {
+    it.url = url
+    it.title = title
+    it.artist = artist
+    it.author = author
+    it.description = description
+    it.genre = genre
+    it.status = status
+    it.thumbnail_url = thumbnail_url
+    it.initialized = initialized
+}
+// EXH <--

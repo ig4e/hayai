@@ -1,17 +1,23 @@
-package eu.kanade.tachiyomi.source.online
+package exh.source
 
-import android.net.Uri
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
-import okhttp3.OkHttpClient
-import okhttp3.Request
+import eu.kanade.tachiyomi.source.online.HttpSource
 import okhttp3.Response
-import rx.Observable
 
-abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
+@Suppress("OverridingDeprecatedMember", "DEPRECATION")
+class EnhancedHttpSource(
+    val originalSource: HttpSource,
+    val enhancedSource: HttpSource,
+) : HttpSource() {
+
+    // TODO: Wire up DelegateSourcePreferences once Injekt module is set up
+    // For now, always delegate to the enhanced source
+    private fun shouldDelegate(): Boolean = true
+
     /**
      * Returns the request for the popular manga given the page.
      *
@@ -102,27 +108,30 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
     override fun imageUrlParse(response: Response) =
         throw UnsupportedOperationException("Should never be called!")
 
-    abstract val domainName: String
-
     /**
      * Base url of the website without the trailing slash, like: http://mysite.com
      */
-    override val baseUrl get() = delegate.baseUrl
+    override val baseUrl get() = source().baseUrl
 
     /**
      * Headers used for requests.
      */
-    override val headers get() = delegate.headers
+    override val headers get() = source().headers
 
     /**
      * Whether the source has support for latest updates.
      */
-    override val supportsLatest get() = delegate.supportsLatest
+    override val supportsLatest get() = source().supportsLatest
 
     /**
      * Name of the source.
      */
-    final override val name get() = delegate.name
+    override val name get() = source().name
+
+    /**
+     * An ISO 639-1 compliant language code (two letters in lower case).
+     */
+    override val lang get() = source().lang
 
     // ===> OPTIONAL FIELDS
 
@@ -131,23 +140,17 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * of the MD5 of the string: sourcename/language/versionId
      * Note the generated id sets the sign bit to 0.
      */
-    override val id get() = delegate.id
+    override val id get() = source().id
 
     /**
      * Default network client for doing requests.
      */
-    final override val client get() = delegate.client
-
-    /**
-     * You must NEVER call super.client if you override this!
-     */
-    open val baseHttpClient: OkHttpClient? = null
-    open val networkHttpClient: OkHttpClient get() = network.client
+    override val client get() = originalSource.client
 
     /**
      * Visible name of the source.
      */
-    override fun toString() = delegate.toString()
+    override fun toString() = source().toString()
 
     /**
      * Returns an observable containing a page with a list of manga. Normally it's not needed to
@@ -156,15 +159,9 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param page the page number to retrieve.
      */
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getPopularManga"))
-    override fun fetchPopularManga(page: Int): Observable<MangasPage> {
-        ensureDelegateCompatible()
-        return delegate.fetchPopularManga(page)
-    }
+    override fun fetchPopularManga(page: Int) = source().fetchPopularManga(page)
 
-    override suspend fun getPopularManga(page: Int): MangasPage {
-        ensureDelegateCompatible()
-        return delegate.getPopularManga(page)
-    }
+    override suspend fun getPopularManga(page: Int) = source().getPopularManga(page)
 
     /**
      * Returns an observable containing a page with a list of manga. Normally it's not needed to
@@ -175,15 +172,11 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param filters the list of filters to apply.
      */
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getSearchManga"))
-    override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
-        ensureDelegateCompatible()
-        return delegate.fetchSearchManga(page, query, filters)
-    }
+    override fun fetchSearchManga(page: Int, query: String, filters: FilterList) =
+        source().fetchSearchManga(page, query, filters)
 
-    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
-        ensureDelegateCompatible()
-        return delegate.getSearchManga(page, query, filters)
-    }
+    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList) =
+        source().getSearchManga(page, query, filters)
 
     /**
      * Returns an observable containing a page with a list of latest manga updates.
@@ -191,15 +184,9 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param page the page number to retrieve.
      */
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getLatestUpdates"))
-    override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
-        ensureDelegateCompatible()
-        return delegate.fetchLatestUpdates(page)
-    }
+    override fun fetchLatestUpdates(page: Int) = source().fetchLatestUpdates(page)
 
-    override suspend fun getLatestUpdates(page: Int): MangasPage {
-        ensureDelegateCompatible()
-        return delegate.getLatestUpdates(page)
-    }
+    override suspend fun getLatestUpdates(page: Int) = source().getLatestUpdates(page)
 
     /**
      * Returns an observable with the updated details for a manga. Normally it's not needed to
@@ -208,18 +195,12 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param manga the manga to be updated.
      */
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getMangaDetails"))
-    override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
-        ensureDelegateCompatible()
-        return delegate.fetchMangaDetails(manga)
-    }
+    override fun fetchMangaDetails(manga: SManga) = source().fetchMangaDetails(manga)
 
     /**
      * [1.x API] Get the updated details for a manga.
      */
-    override suspend fun getMangaDetails(manga: SManga): SManga {
-        ensureDelegateCompatible()
-        return delegate.getMangaDetails(manga)
-    }
+    override suspend fun getMangaDetails(manga: SManga): SManga = source().getMangaDetails(manga)
 
     /**
      * Returns the request for the details of a manga. Override only if it's needed to change the
@@ -227,10 +208,7 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      *
      * @param manga the manga to be updated.
      */
-    override fun mangaDetailsRequest(manga: SManga): Request {
-        ensureDelegateCompatible()
-        return delegate.mangaDetailsRequest(manga)
-    }
+    override fun mangaDetailsRequest(manga: SManga) = source().mangaDetailsRequest(manga)
 
     /**
      * Returns an observable with the updated chapter list for a manga. Normally it's not needed to
@@ -239,18 +217,12 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param manga the manga to look for chapters.
      */
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getChapterList"))
-    override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
-        ensureDelegateCompatible()
-        return delegate.fetchChapterList(manga)
-    }
+    override fun fetchChapterList(manga: SManga) = source().fetchChapterList(manga)
 
     /**
      * [1.x API] Get all the available chapters for a manga.
      */
-    override suspend fun getChapterList(manga: SManga): List<SChapter> {
-        ensureDelegateCompatible()
-        return delegate.getChapterList(manga)
-    }
+    override suspend fun getChapterList(manga: SManga): List<SChapter> = source().getChapterList(manga)
 
     /**
      * Returns an observable with the page list for a chapter.
@@ -258,18 +230,12 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param chapter the chapter whose page list has to be fetched.
      */
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getPageList"))
-    override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
-        ensureDelegateCompatible()
-        return delegate.fetchPageList(chapter)
-    }
+    override fun fetchPageList(chapter: SChapter) = source().fetchPageList(chapter)
 
     /**
      * [1.x API] Get the list of pages a chapter has.
      */
-    override suspend fun getPageList(chapter: SChapter): List<Page> {
-        ensureDelegateCompatible()
-        return delegate.getPageList(chapter)
-    }
+    override suspend fun getPageList(chapter: SChapter): List<Page> = source().getPageList(chapter)
 
     /**
      * Returns an observable with the page containing the source url of the image. If there's any
@@ -278,25 +244,16 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param page the page whose source image has to be fetched.
      */
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getImageUrl"))
-    override fun fetchImageUrl(page: Page): Observable<String> {
-        ensureDelegateCompatible()
-        return delegate.fetchImageUrl(page)
-    }
+    override fun fetchImageUrl(page: Page) = source().fetchImageUrl(page)
 
-    override suspend fun getImageUrl(page: Page): String {
-        ensureDelegateCompatible()
-        return delegate.getImageUrl(page)
-    }
+    override suspend fun getImageUrl(page: Page) = source().getImageUrl(page)
 
     /**
      * Returns the response of the source image.
      *
      * @param page the page whose source image has to be downloaded.
      */
-    override suspend fun getImage(page: Page): Response {
-        ensureDelegateCompatible()
-        return delegate.getImage(page)
-    }
+    override suspend fun getImage(page: Page) = source().getImage(page)
 
     /**
      * Returns the url of the provided manga
@@ -305,10 +262,7 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param manga the manga
      * @return url of the manga
      */
-    override fun getMangaUrl(manga: SManga): String {
-        ensureDelegateCompatible()
-        return delegate.getMangaUrl(manga)
-    }
+    override fun getMangaUrl(manga: SManga) = source().getMangaUrl(manga)
 
     /**
      * Returns the url of the provided chapter
@@ -317,10 +271,7 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param chapter the chapter
      * @return url of the chapter
      */
-    override fun getChapterUrl(chapter: SChapter): String {
-        ensureDelegateCompatible()
-        return delegate.getChapterUrl(chapter)
-    }
+    override fun getChapterUrl(chapter: SChapter) = source().getChapterUrl(chapter)
 
     /**
      * Called before inserting a new chapter into database. Use it if you need to override chapter
@@ -329,50 +280,19 @@ abstract class DelegatedHttpSource(val delegate: HttpSource): HttpSource() {
      * @param chapter the chapter to be added.
      * @param manga the manga of the chapter.
      */
-    override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
-        ensureDelegateCompatible()
-        return delegate.prepareNewChapter(chapter, manga)
-    }
+    override fun prepareNewChapter(chapter: SChapter, manga: SManga) =
+        source().prepareNewChapter(chapter, manga)
 
     /**
      * Returns the list of filters for the source.
      */
-    override fun getFilterList() = delegate.getFilterList()
+    override fun getFilterList() = source().getFilterList()
 
-    open fun canOpenUrl(uri: Uri): Boolean = false
-    open fun chapterUrl(uri: Uri): String? = null
-    open fun pageNumber(uri: Uri): Int? = uri.pathSegments.lastOrNull()?.toIntOrNull()
-    open suspend fun fetchMangaFromChapterUrl(uri: Uri): Triple<SChapter, SManga, List<SChapter>>? = null
-
-    open suspend fun getMangaDetailsByUrl(url: String): SManga {
-        val manga = SManga.create().apply {
-            this.url = url
-            this.title = ""
+    fun source(): HttpSource {
+        return if (shouldDelegate()) {
+            enhancedSource
+        } else {
+            originalSource
         }
-        return delegate.getMangaDetails(manga.copy())
-    }
-
-    open suspend fun getChapterListByUrl(url: String): List<SChapter> {
-        val manga = SManga.create().apply {
-            this.url = url
-            this.title = ""
-        }
-        return delegate.getChapterList(manga)
-    }
-
-    protected open fun ensureDelegateCompatible() {
-        if (versionId != delegate.versionId || lang != delegate.lang) {
-            throw IncompatibleDelegateException(
-                "Delegate source is not compatible (" +
-                    "versionId: $versionId <=> ${delegate.versionId}, lang: $lang <=> ${delegate.lang}" +
-                    ")!",
-            )
-        }
-    }
-
-    class IncompatibleDelegateException(message: String) : RuntimeException(message)
-
-    init {
-        delegate.bindDelegate(this)
     }
 }
