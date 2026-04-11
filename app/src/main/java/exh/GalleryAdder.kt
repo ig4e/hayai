@@ -3,18 +3,52 @@ package exh
 import android.content.Context
 import androidx.core.net.toUri
 import co.touchlab.kermit.Logger
+import eu.kanade.tachiyomi.data.database.models.create
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
-// TODO: import exh.source.getMainSource when available
-import yokai.domain.manga.models.Manga
+import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
+import exh.source.getMainSource
+import uy.kohesive.injekt.injectLazy
+import yokai.domain.chapter.interactor.GetChapter
+import yokai.domain.manga.interactor.GetManga
+import yokai.domain.manga.interactor.InsertManga
+import yokai.domain.manga.interactor.UpdateManga
+import yokai.domain.manga.models.MangaUpdate
 
 class GalleryAdder {
     private val logger = Logger.withTag("GalleryAdder")
 
+    private val getManga: GetManga by injectLazy()
+    private val insertManga: InsertManga by injectLazy()
+    private val updateManga: UpdateManga by injectLazy()
+    private val getChapter: GetChapter by injectLazy()
+    private val sourceManager: SourceManager by injectLazy()
+    private val preferences: PreferencesHelper by injectLazy()
+
+    private val filters: Pair<Set<String>, Set<Long>> by lazy {
+        preferences.enabledLanguages().get() to
+            preferences.hiddenSources().get().map { it.toLong() }.toSet()
+    }
+
+    private val Pair<Set<String>, Set<Long>>.enabledLangs get() = first
+    private val Pair<Set<String>, Set<Long>>.disabledSources get() = second
+
     fun pickSource(url: String): List<UrlImportableSource> {
         val uri = url.toUri()
-        // TODO: Wire up SourceManager when available
-        return emptyList()
+        return sourceManager.getCatalogueSources()
+            .mapNotNull { it.getMainSource<UrlImportableSource>() }
+            .filter {
+                it.lang in filters.enabledLangs &&
+                    it.id !in filters.disabledSources &&
+                    try {
+                        it.matchesUri(uri)
+                    } catch (e: Exception) {
+                        false
+                    }
+            }
     }
 
     suspend fun addGallery(
@@ -42,12 +76,46 @@ class GalleryAdder {
                     return GalleryAddEvent.Fail.UnknownType(url)
                 }
             } else {
-                return GalleryAddEvent.Fail.UnknownSource(url)
+                sourceManager.getCatalogueSources()
+                    .mapNotNull { it.getMainSource<UrlImportableSource>() }
+                    .find {
+                        it.lang in filters.enabledLangs &&
+                            it.id !in filters.disabledSources &&
+                            try {
+                                it.matchesUri(uri)
+                            } catch (e: Exception) {
+                                false
+                            }
+                    } ?: return GalleryAddEvent.Fail.UnknownSource(url)
+            }
+
+            val realChapterUrl = try {
+                source.mapUrlToChapterUrl(uri)
+            } catch (e: Exception) {
+                logger.e(e) { "URI map to chapter error" }
+                null
+            }
+
+            val cleanedChapterUrl = if (realChapterUrl != null) {
+                try {
+                    source.cleanChapterUrl(realChapterUrl)
+                } catch (e: Exception) {
+                    logger.e(e) { "URI clean error" }
+                    null
+                }
+            } else {
+                null
+            }
+
+            val chapterMangaUrl = if (realChapterUrl != null) {
+                source.mapChapterUrlToMangaUrl(realChapterUrl.toUri())
+            } else {
+                null
             }
 
             // Map URL to manga URL
             val realMangaUrl = try {
-                source.mapUrlToMangaUrl(uri)
+                chapterMangaUrl ?: source.mapUrlToMangaUrl(uri)
             } catch (e: Exception) {
                 logger.e(e) { "URI map to gallery error" }
                 null
@@ -61,32 +129,56 @@ class GalleryAdder {
                 null
             } ?: return GalleryAddEvent.Fail.UnknownType(url)
 
-            // TODO: Wire up manga fetching and DB operations when repositories are available
-            // For now, create a minimal manga object
-            val manga = Manga(
-                id = null,
-                url = cleanedMangaUrl,
-                title = "",
-                artist = null,
-                author = null,
-                description = null,
-                genres = null,
-                status = 0,
-                thumbnailUrl = null,
-                updateStrategy = eu.kanade.tachiyomi.source.model.UpdateStrategy.ALWAYS_UPDATE,
-                initialized = false,
-                source = source.id,
-                favorite = fav,
-                lastUpdate = 0L,
-                dateAdded = System.currentTimeMillis(),
-                viewerFlags = 0,
-                chapterFlags = 0,
-                hideTitle = false,
-                filteredScanlators = null,
-                coverLastModified = 0L,
-            )
+            // Use manga in DB if possible, otherwise create new entry
+            var manga = getManga.awaitByUrlAndSource(cleanedMangaUrl, source.id)
+            if (manga == null) {
+                // Create a new Manga using the old interface for DB insertion
+                val newManga = Manga.create(cleanedMangaUrl, "", source.id)
+                newManga.id = insertManga.await(newManga)
+                manga = getManga.awaitByUrlAndSource(cleanedMangaUrl, source.id)
+                    ?: return GalleryAddEvent.Fail.Error(url, "Failed to insert manga into database (Gallery: $url)")
+            }
 
-            return GalleryAddEvent.Success(url, manga)
+            // Fetch and update manga details from source
+            val newMangaDetails = retry(retry) { source.getMangaDetails(manga!!) }
+            manga!!.copyFrom(newMangaDetails)
+            manga!!.initialized = true
+            updateManga.await(manga!!.toMangaUpdate())
+            manga = getManga.awaitById(manga!!.id!!)!!
+
+            if (fav) {
+                updateManga.await(MangaUpdate(id = manga.id!!, favorite = true))
+                manga.favorite = true
+            }
+
+            // Fetch and sync chapters
+            try {
+                val chapterList = retry(retry) {
+                    if (source is EHentai) {
+                        source.getChapterList(manga, throttleFunc)
+                    } else {
+                        source.getChapterList(manga)
+                    }
+                }
+
+                if (chapterList.isNotEmpty()) {
+                    syncChaptersWithSource(chapterList, manga, source)
+                }
+            } catch (e: Exception) {
+                logger.w(e) { "Chapter fetch error for ${manga.title}" }
+                return GalleryAddEvent.Fail.Error(url, "Failed to fetch chapters (Gallery: $url)")
+            }
+
+            return if (cleanedChapterUrl != null) {
+                val chapter = getChapter.awaitByUrlAndMangaId(cleanedChapterUrl, manga.id!!, false)
+                if (chapter != null) {
+                    GalleryAddEvent.Success(url, manga, chapter)
+                } else {
+                    GalleryAddEvent.Fail.Error(url, "Could not identify chapter: $url")
+                }
+            } else {
+                GalleryAddEvent.Success(url, manga)
+            }
         } catch (e: Exception) {
             logger.w(e) { "Could not add gallery: $url" }
 
@@ -100,6 +192,29 @@ class GalleryAdder {
             )
         }
     }
+
+    private inline fun <T : Any> retry(retryCount: Int, block: () -> T): T {
+        var result: T? = null
+        var lastError: Exception? = null
+
+        for (i in 1..retryCount) {
+            try {
+                result = block()
+                break
+            } catch (e: Exception) {
+                if (e is EHentai.GalleryNotFoundException) {
+                    throw e
+                }
+                lastError = e
+            }
+        }
+
+        if (lastError != null) {
+            throw lastError
+        }
+
+        return result!!
+    }
 }
 
 sealed class GalleryAddEvent {
@@ -110,6 +225,7 @@ sealed class GalleryAddEvent {
     class Success(
         override val galleryUrl: String,
         val manga: Manga,
+        val chapter: eu.kanade.tachiyomi.data.database.models.Chapter? = null,
     ) : GalleryAddEvent() {
         override val galleryTitle = manga.title
         override val logMessage = "Successfully added gallery: $galleryTitle"

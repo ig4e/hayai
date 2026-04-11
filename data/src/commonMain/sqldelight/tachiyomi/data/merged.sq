@@ -1,10 +1,12 @@
+import kotlin.Boolean;
+
 CREATE TABLE merged(
     _id INTEGER NOT NULL PRIMARY KEY,
-    info_manga INTEGER NOT NULL DEFAULT 0,
-    get_chapter_updates INTEGER NOT NULL DEFAULT 0,
+    info_manga INTEGER AS Boolean NOT NULL DEFAULT 0,
+    get_chapter_updates INTEGER AS Boolean NOT NULL DEFAULT 0,
     chapter_sort_mode INTEGER NOT NULL DEFAULT 0,
     chapter_priority INTEGER NOT NULL DEFAULT 0,
-    download_chapters INTEGER NOT NULL DEFAULT 0,
+    download_chapters INTEGER AS Boolean NOT NULL DEFAULT 0,
     merge_id INTEGER NOT NULL,
     merge_url TEXT NOT NULL,
     manga_id INTEGER,

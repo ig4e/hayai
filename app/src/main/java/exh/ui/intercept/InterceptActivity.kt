@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import yokai.domain.manga.models.Manga
+import eu.kanade.tachiyomi.domain.manga.models.Manga
 import yokai.i18n.MR
 import yokai.presentation.core.Constants
 import yokai.presentation.theme.YokaiTheme
