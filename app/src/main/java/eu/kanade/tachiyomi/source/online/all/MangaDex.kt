@@ -1,115 +1,407 @@
 package eu.kanade.tachiyomi.source.online.all
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
-import eu.kanade.tachiyomi.data.database.models.toChapter
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.await
-import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.TrackManager
+import eu.kanade.tachiyomi.data.track.TrackPreferences
+import eu.kanade.tachiyomi.network.asObservableSuccess
+import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.online.DelegatedHttpSource
+import eu.kanade.tachiyomi.source.online.FollowsSource
 import eu.kanade.tachiyomi.source.online.HttpSource
-import java.util.Locale
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import okhttp3.CacheControl
+import eu.kanade.tachiyomi.source.online.LoginSource
+import eu.kanade.tachiyomi.source.online.MetadataSource
+import eu.kanade.tachiyomi.source.online.NamespaceSource
+import eu.kanade.tachiyomi.source.online.RandomMangaSource
+import eu.kanade.tachiyomi.source.online.UrlImportableSource
+import exh.md.dto.MangaDto
+import exh.md.dto.StatisticsMangaDto
+import exh.md.handlers.ApiMangaParser
+import exh.md.handlers.AzukiHandler
+import exh.md.handlers.BilibiliHandler
+import exh.md.handlers.ComikeyHandler
+import exh.md.handlers.FollowsHandler
+import exh.md.handlers.MangaHandler
+import exh.md.handlers.MangaHotHandler
+import exh.md.handlers.MangaPlusHandler
+import exh.md.handlers.NamicomiHandler
+import exh.md.handlers.PageHandler
+import exh.md.handlers.SimilarHandler
+import exh.md.network.MangaDexAuthInterceptor
+import exh.md.network.MangaDexLoginHelper
+import exh.md.service.MangaDexAuthService
+import exh.md.service.MangaDexService
+import exh.md.service.SimilarService
+import exh.md.utils.FollowStatus
+import exh.md.utils.MdApi
+import exh.md.utils.MdLang
+import exh.md.utils.MdUtil
+import exh.metadata.metadata.MangaDexSearchMetadata
+import exh.source.DelegatedHttpSource
+import okhttp3.OkHttpClient
+import okhttp3.Response
+import rx.Observable
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
-import yokai.domain.manga.interactor.GetManga
-import yokai.i18n.MR
-import yokai.util.lang.getString
+import yokai.util.lang.runAsObservable
+import kotlin.reflect.KClass
 
-class MangaDex(delegate: HttpSource) : DelegatedHttpSource(delegate) {
+@Suppress("OverridingDeprecatedMember")
+class MangaDex(delegate: HttpSource, val context: Context) :
+    DelegatedHttpSource(delegate),
+    MetadataSource<MangaDexSearchMetadata, Triple<MangaDto, List<String>, StatisticsMangaDto>>,
+    UrlImportableSource,
+    FollowsSource,
+    LoginSource,
+    RandomMangaSource,
+    NamespaceSource {
+    override val lang: String = delegate.lang
 
-    private val getManga: GetManga = Injekt.get()
-
-    override val lang: String = "all"
-
+    // DelegatedHttpSource abstract members
     override val domainName: String = "mangadex"
-
-    val sourceManager: SourceManager by injectLazy()
-
     override fun canOpenUrl(uri: Uri): Boolean {
         return uri.pathSegments?.lastOrNull() != "comments"
     }
-
     override fun chapterUrl(uri: Uri): String? {
         val chapterNumber = uri.pathSegments.getOrNull(1) ?: return null
         return "/chapter/$chapterNumber"
     }
+    override suspend fun fetchMangaFromChapterUrl(uri: Uri): Triple<SChapter, SManga, List<SChapter>>? = null
 
-    override fun pageNumber(uri: Uri): Int? {
-        return uri.pathSegments.getOrNull(2)?.toIntOrNull()
+    private val mdLang by lazy {
+        MdLang.fromExt(lang) ?: MdLang.ENGLISH
     }
 
-    override suspend fun fetchMangaFromChapterUrl(uri: Uri): Triple<SChapter, SManga, List<SChapter>>? {
-        val url = chapterUrl(uri) ?: return null
-        val request =
-            GET("https:///api.mangadex.org/v2$url", delegate!!.headers, CacheControl.FORCE_NETWORK)
-        val response = network.client.newCall(request).await()
-        if (response.code != 200) throw Exception("HTTP error ${response.code}")
-        val body = response.body.string()
-        if (body.isEmpty()) {
-            throw Exception("Null Response")
-        }
+    override val matchingHosts: List<String> = listOf("mangadex.org", "www.mangadex.org")
 
-        val jsonObject = Json.decodeFromString<MangaDexChapterData>(body)
-        val dataObject = jsonObject.data ?: throw Exception("Chapter not found")
-        val mangaId = dataObject.mangaId ?: throw Exception("No manga associated with chapter")
-        val mangaUrl = "/manga/$mangaId/"
-        return withContext(Dispatchers.IO) {
-            val deferredManga = async {
-                getManga.awaitByUrlAndSource(mangaUrl, delegate.id) ?: getMangaDetailsByUrl(mangaUrl)
+    val trackPreferences: TrackPreferences by injectLazy()
+
+    private val sourcePreferences: SharedPreferences by lazy {
+        context.getSharedPreferences("source_$id", 0x0000)
+    }
+
+    private val mangaDexAuthInterceptor = MangaDexAuthInterceptor(trackPreferences, Unit)
+
+    private val loginHelper = MangaDexLoginHelper(network.client, trackPreferences, Unit, mangaDexAuthInterceptor)
+
+    override val baseHttpClient: OkHttpClient? = delegate.client.newBuilder()
+        .addInterceptor(mangaDexAuthInterceptor)
+        .build()
+
+    private fun dataSaver() = sourcePreferences.getBoolean(getDataSaverPreferenceKey(mdLang.lang), false)
+    private fun usePort443Only() = sourcePreferences.getBoolean(getStandardHttpsPreferenceKey(mdLang.lang), false)
+    private fun blockedGroups() = sourcePreferences.getString(getBlockedGroupsPrefKey(mdLang.lang), "").orEmpty()
+    private fun blockedUploaders() = sourcePreferences.getString(getBlockedUploaderPrefKey(mdLang.lang), "").orEmpty()
+    private fun coverQuality() = sourcePreferences.getString(getCoverQualityPrefKey(mdLang.lang), "").orEmpty()
+    private fun tryUsingFirstVolumeCover() = sourcePreferences.getBoolean(getTryUsingFirstVolumeCoverKey(mdLang.lang), false)
+    private fun altTitlesInDesc() = sourcePreferences.getBoolean(getAltTitlesInDescKey(mdLang.lang), false)
+    private fun finalChapterInDesc() = sourcePreferences.getBoolean(getFinalChapterInDescPrefKey(mdLang.lang), false)
+    private fun preferExtensionLangTitle() = sourcePreferences.getBoolean(getPreferExtensionLangTitlePrefKey(mdLang.extLang), true)
+
+    private val mangadexService by lazy {
+        MangaDexService(client)
+    }
+    private val mangadexAuthService by lazy {
+        MangaDexAuthService(baseHttpClient ?: client, headers)
+    }
+    private val similarService by lazy {
+        SimilarService(client)
+    }
+    private val apiMangaParser by lazy {
+        ApiMangaParser(mdLang.lang)
+    }
+    private val followsHandler by lazy {
+        FollowsHandler(mdLang.lang, mangadexAuthService)
+    }
+    private val mangaHandler by lazy {
+        MangaHandler(mdLang.lang, mangadexService, apiMangaParser)
+    }
+    private val similarHandler by lazy {
+        SimilarHandler(mdLang.lang, mangadexService, similarService)
+    }
+    private val mangaPlusHandler by lazy {
+        MangaPlusHandler(network.client)
+    }
+    private val comikeyHandler by lazy {
+        ComikeyHandler(network.client, network.defaultUserAgent)
+    }
+    private val bilibiliHandler by lazy {
+        BilibiliHandler(network.client)
+    }
+    private val azukHandler by lazy {
+        AzukiHandler(network.client, network.defaultUserAgent)
+    }
+    private val mangaHotHandler by lazy {
+        MangaHotHandler(network.client, network.defaultUserAgent)
+    }
+    private val namicomiHandler by lazy {
+        NamicomiHandler(network.client, network.defaultUserAgent)
+    }
+    private val pageHandler by lazy {
+        PageHandler(
+            headers,
+            mangadexService,
+            mangaPlusHandler,
+            comikeyHandler,
+            bilibiliHandler,
+            azukHandler,
+            mangaHotHandler,
+            namicomiHandler,
+            trackPreferences,
+            Unit, // TODO: Replace with MdList when available
+        )
+    }
+
+    // UrlImportableSource methods
+    override suspend fun mapUrlToMangaUrl(uri: Uri): String? {
+        val lcFirstPathSegment = uri.pathSegments.firstOrNull()?.lowercase() ?: return null
+
+        return if (lcFirstPathSegment == "title" || lcFirstPathSegment == "manga") {
+            MdUtil.buildMangaUrl(uri.pathSegments[1])
+        } else {
+            null
+        }
+    }
+
+    override fun mapUrlToChapterUrl(uri: Uri): String? {
+        if (!uri.pathSegments.firstOrNull().equals("chapter", true)) return null
+        val id = uri.pathSegments.getOrNull(1) ?: return null
+        return MdApi.chapter + '/' + id
+    }
+
+    override suspend fun mapChapterUrlToMangaUrl(uri: Uri): String? {
+        val id = uri.pathSegments.getOrNull(1) ?: return null
+        return mangaHandler.getMangaFromChapterId(id)?.let { MdUtil.buildMangaUrl(it) }
+    }
+
+    @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getLatestUpdates"))
+    override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
+        val request = delegate.latestUpdatesRequest(page)
+        val url = request.url.newBuilder()
+            .removeAllQueryParameters("includeFutureUpdates")
+            .build()
+        return client.newCall(request.newBuilder().url(url).build())
+            .asObservableSuccess()
+            .map { response ->
+                delegate.latestUpdatesParse(response)
             }
-            val deferredChapters = async { getChapterListByUrl(mangaUrl) }
-            val manga = deferredManga.await()
-            val chapters = deferredChapters.await()
-            val context = Injekt.get<PreferencesHelper>().context
-            val trueChapter = chapters.find { it.url == "/api$url" }?.toChapter() ?: error(
-                context.getString(MR.strings.chapter_not_found),
-            )
-            Triple(trueChapter, manga, chapters)
+    }
+
+    override suspend fun getLatestUpdates(page: Int): MangasPage {
+        val request = delegate.latestUpdatesRequest(page)
+        val url = request.url.newBuilder()
+            .removeAllQueryParameters("includeFutureUpdates")
+            .build()
+
+        val response = client.newCall(request.newBuilder().url(url).build()).awaitSuccess()
+        return delegate.latestUpdatesParse(response)
+    }
+
+    @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getMangaDetails"))
+    override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
+        return mangaHandler.fetchMangaDetailsObservable(
+            manga,
+            id,
+            coverQuality(),
+            tryUsingFirstVolumeCover(),
+            altTitlesInDesc(),
+            finalChapterInDesc(),
+            preferExtensionLangTitle(),
+        )
+    }
+
+    override suspend fun getMangaDetails(manga: SManga): SManga {
+        return mangaHandler.getMangaDetails(
+            manga,
+            id,
+            coverQuality(),
+            tryUsingFirstVolumeCover(),
+            altTitlesInDesc(),
+            finalChapterInDesc(),
+            preferExtensionLangTitle(),
+        )
+    }
+
+    @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getChapterList"))
+    override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
+        return mangaHandler.fetchChapterListObservable(manga, blockedGroups(), blockedUploaders())
+    }
+
+    override suspend fun getChapterList(manga: SManga): List<SChapter> {
+        return mangaHandler.getChapterList(manga, blockedGroups(), blockedUploaders())
+    }
+
+    @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getPageList"))
+    override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
+        return runAsObservable { pageHandler.fetchPageList(chapter, usePort443Only(), dataSaver(), delegate) }
+    }
+
+    override suspend fun getPageList(chapter: SChapter): List<Page> {
+        return pageHandler.fetchPageList(chapter, usePort443Only(), dataSaver(), delegate)
+    }
+
+    override suspend fun getImage(page: Page): Response {
+        val call = pageHandler.getImageCall(page)
+        return call?.awaitSuccess() ?: super.getImage(page)
+    }
+
+    @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getImageUrl"))
+    override fun fetchImageUrl(page: Page): Observable<String> {
+        return pageHandler.fetchImageUrl(page) {
+            @Suppress("DEPRECATION")
+            super.fetchImageUrl(it)
         }
     }
 
-    @Serializable
-    private data class MangaDexChapterData(
-        val data: MangaDexChapterInfo? = null,
-    )
+    override suspend fun getImageUrl(page: Page): String {
+        return pageHandler.getImageUrl(page) {
+            super.getImageUrl(page)
+        }
+    }
 
-    @Serializable
-    private data class MangaDexChapterInfo(
-        val mangaId: Int? = null,
-        val language: String? = null,
-    )
+    // MetadataSource methods
+    override val metaClass: KClass<MangaDexSearchMetadata> = MangaDexSearchMetadata::class
 
-    private fun getRealLangCode(langCode: String): String {
-        return when (langCode.lowercase(Locale.getDefault())) {
-            "gb" -> "en"
-            "vn" -> "vi"
-            "mx" -> "es-419"
-            "br" -> "pt-BR"
-            "ph" -> "fil"
-            "sa" -> "ar"
-            "bd" -> "bn"
-            "mm" -> "my"
-            "cz" -> "cs"
-            "dk" -> "da"
-            "gr" -> "el"
-            "jp" -> "ja"
-            "kr" -> "ko"
-            "my" -> "ms"
-            "ir" -> "fa"
-            "rs" -> "sh"
-            "ua" -> "uk"
-            "cn" -> "zh-Hans"
-            "hk" -> "zh-Hant"
-            else -> langCode
+    override fun newMetaInstance() = MangaDexSearchMetadata()
+
+    override suspend fun parseIntoMetadata(
+        metadata: MangaDexSearchMetadata,
+        input: Triple<MangaDto, List<String>, StatisticsMangaDto>,
+    ) {
+        apiMangaParser.parseIntoMetadata(
+            metadata,
+            input.first,
+            input.second,
+            input.third,
+            null,
+            coverQuality(),
+            altTitlesInDesc(),
+            finalChapterInDesc(),
+            preferExtensionLangTitle(),
+        )
+    }
+
+    // LoginSource methods
+    override val requiresLogin: Boolean = false
+
+    override val twoFactorAuth = LoginSource.AuthSupport.NOT_SUPPORTED
+
+    override fun isLogged(): Boolean {
+        return false // TODO: Check MdList login status when available
+    }
+
+    override fun getUsername(): String {
+        return "" // TODO: Get from MdList when available
+    }
+
+    override fun getPassword(): String {
+        return "" // TODO: Get from MdList when available
+    }
+
+    override suspend fun login(authCode: String): Boolean {
+        return loginHelper.login(authCode)
+    }
+
+    override suspend fun logout(): Boolean {
+        return loginHelper.logout()
+    }
+
+    // FollowsSource methods
+    override suspend fun fetchFollows(page: Int): MangasPage {
+        return followsHandler.fetchFollows(page)
+    }
+
+    override suspend fun fetchAllFollows(): List<Pair<SManga, MangaDexSearchMetadata>> {
+        return followsHandler.fetchAllFollows()
+    }
+
+    suspend fun updateFollowStatus(mangaID: String, followStatus: FollowStatus): Boolean {
+        return followsHandler.updateFollowStatus(mangaID, followStatus)
+    }
+
+    suspend fun fetchTrackingInfo(url: String): Track {
+        return followsHandler.fetchTrackingInfo(url)
+    }
+
+    suspend fun updateRating(track: Track): Boolean {
+        return followsHandler.updateRating(track)
+    }
+
+    // RandomMangaSource method
+    override suspend fun fetchRandomMangaUrl(): String {
+        return mangaHandler.fetchRandomMangaId()
+    }
+
+    suspend fun getMangaSimilar(manga: SManga): MangasPage {
+        return similarHandler.getSimilar(manga)
+    }
+
+    suspend fun getMangaRelated(manga: SManga): MangasPage {
+        return similarHandler.getRelated(manga)
+    }
+
+    suspend fun getMangaMetadata(track: Track): SManga {
+        return mangaHandler.getMangaMetadata(
+            track,
+            id,
+            coverQuality(),
+            tryUsingFirstVolumeCover(),
+            altTitlesInDesc(),
+            finalChapterInDesc(),
+            preferExtensionLangTitle(),
+        )
+    }
+
+    companion object {
+        private const val dataSaverPref = "dataSaverV5"
+        fun getDataSaverPreferenceKey(dexLang: String): String {
+            return "${dataSaverPref}_$dexLang"
+        }
+
+        private const val standardHttpsPortPref = "usePort443"
+        fun getStandardHttpsPreferenceKey(dexLang: String): String {
+            return "${standardHttpsPortPref}_$dexLang"
+        }
+
+        private const val blockedGroupsPref = "blockedGroups"
+        fun getBlockedGroupsPrefKey(dexLang: String): String {
+            return "${blockedGroupsPref}_$dexLang"
+        }
+
+        private const val blockedUploaderPref = "blockedUploader"
+        fun getBlockedUploaderPrefKey(dexLang: String): String {
+            return "${blockedUploaderPref}_$dexLang"
+        }
+
+        private const val coverQualityPref = "thumbnailQuality"
+        fun getCoverQualityPrefKey(dexLang: String): String {
+            return "${coverQualityPref}_$dexLang"
+        }
+
+        private const val tryUsingFirstVolumeCoverPref = "tryUsingFirstVolumeCover"
+        fun getTryUsingFirstVolumeCoverKey(dexLang: String): String {
+            return "${tryUsingFirstVolumeCoverPref}_$dexLang"
+        }
+
+        private const val altTitlesInDescPref = "altTitlesInDesc"
+        fun getAltTitlesInDescKey(dexLang: String): String {
+            return "${altTitlesInDescPref}_$dexLang"
+        }
+
+        private const val finalChapterInDescPref = "finalChapterInDesc"
+        fun getFinalChapterInDescPrefKey(dexLang: String): String {
+            return "${finalChapterInDescPref}_$dexLang"
+        }
+
+        private const val preferExtensionLangTitlePref = "preferExtensionLangTitle"
+        fun getPreferExtensionLangTitlePrefKey(dexLang: String): String {
+            return "${preferExtensionLangTitlePref}_$dexLang"
         }
     }
 }
