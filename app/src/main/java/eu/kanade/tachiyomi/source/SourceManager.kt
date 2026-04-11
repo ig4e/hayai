@@ -7,16 +7,31 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.DelegatedHttpSource
 import eu.kanade.tachiyomi.source.online.HttpSource
+// EXH -->
+import eu.kanade.tachiyomi.source.online.all.EHentai
+import eu.kanade.tachiyomi.source.online.all.MergedSource
+import eu.kanade.tachiyomi.source.online.all.NHentai
+import exh.source.BlacklistedSources
+import exh.source.DelegatedHttpSource as ExhDelegatedHttpSource
+import exh.source.EH_SOURCE_ID
+import exh.source.EXH_SOURCE_ID
+import exh.source.EnhancedHttpSource
+import exh.source.ExhPreferences
+import exh.source.MERGED_SOURCE_ID
+// EXH <--
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import uy.kohesive.injekt.injectLazy
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -34,34 +49,45 @@ class SourceManager(
     val catalogueSources: Flow<List<CatalogueSource>> = sourcesMapFlow.map { it.values.filterIsInstance<CatalogueSource>() }
     val onlineSources: Flow<List<HttpSource>> = catalogueSources.map { it.filterIsInstance<HttpSource>() }
 
+    // EXH -->
+    private val exhPreferences: ExhPreferences by injectLazy()
+    // EXH <--
+
     // FIXME: Delegated source, unused at the moment, J2K only delegate deep links
     private val delegatedSources = emptyList<DelegatedSource>().associateBy { it.sourceId }
 
     init {
         scope.launch {
             extensionManager.installedExtensionsFlow
-                .collectLatest { extensions ->
+                // EXH -->
+                .combine(exhPreferences.enableExhentai.changes()) { extensions, enableExhentai ->
+                    extensions to enableExhentai
+                }
+                .collectLatest { (extensions, enableExhentai) ->
+                // EXH <--
                     val mutableMap = ConcurrentHashMap<Long, Source>(mapOf(LocalSource.ID to LocalSource(context)))
+
+                    // EXH -->
+                    mutableMap[EH_SOURCE_ID] = EHentai(EH_SOURCE_ID, false, context)
+                    if (enableExhentai) {
+                        mutableMap[EXH_SOURCE_ID] = EHentai(EXH_SOURCE_ID, true, context)
+                    }
+                    mutableMap[MERGED_SOURCE_ID] = MergedSource()
+                    // EXH <--
+
                     extensions.forEach { extension ->
                         extension.sources.forEach {
-                            mutableMap[it.id] = it
-                            //delegatedSources[it.id]?.delegatedHttpSource?.delegate = it as? HttpSource
-                            //registerStubSource(it)
+                            // EXH -->
+                            val internalSource = it.toInternalSource()
+                            if (internalSource != null) {
+                                mutableMap[it.id] = internalSource
+                            }
+                            // EXH <--
                         }
                     }
                     sourcesMapFlow.value = mutableMap
                 }
         }
-
-//        scope.launch {
-//            sourceRepository.subscribeAll()
-//                .collectLatest { sources ->
-//                    val mutableMap = stubSourcesMap.toMutableMap()
-//                    sources.forEach {
-//                        mutableMap[it.id] = StubSource(it)
-//                    }
-//                }
-//        }
     }
 
     fun get(sourceKey: Long): Source? {
@@ -132,6 +158,82 @@ class SourceManager(
         val sourceId: Long,
         val delegatedHttpSource: DelegatedHttpSource,
     )
+
+    // EXH -->
+    /**
+     * Wraps extension sources with EXH delegated sources when they match
+     * the DELEGATED_SOURCES table. Returns null if source is blacklisted.
+     */
+    private fun Source.toInternalSource(): Source? {
+        val sourceQName = this::class.qualifiedName
+        val factories = DELEGATED_SOURCES.entries
+            .filter { it.value.factory }
+            .map { it.value.originalSourceQualifiedClassName }
+        val delegate = if (sourceQName != null) {
+            val matched = factories.find { sourceQName.startsWith(it) }
+            if (matched != null) {
+                DELEGATED_SOURCES[matched]
+            } else {
+                DELEGATED_SOURCES[sourceQName]
+            }
+        } else {
+            null
+        }
+        val newSource = if (this is HttpSource && delegate != null) {
+            val enhancedSource = EnhancedHttpSource(
+                this,
+                delegate.newSourceClass.constructors.find { it.parameters.size == 2 }!!.call(this, context),
+            )
+
+            currentDelegatedSources[enhancedSource.originalSource.id] = DelegatedSourceEntry(
+                enhancedSource.originalSource.name,
+                enhancedSource.originalSource.id,
+                enhancedSource.originalSource::class.qualifiedName ?: delegate.originalSourceQualifiedClassName,
+                (enhancedSource.enhancedSource as ExhDelegatedHttpSource)::class,
+                delegate.factory,
+            )
+            enhancedSource
+        } else {
+            this
+        }
+
+        return if (id in BlacklistedSources.BLACKLISTED_EXT_SOURCES) {
+            null
+        } else {
+            newSource
+        }
+    }
+
+    companion object {
+        private const val fillInSourceId = Long.MAX_VALUE
+
+        // Delegation table: maps extension qualified class names to EXH enhanced sources.
+        // When an extension source matches, it gets wrapped with EnhancedHttpSource
+        // for metadata handling. Factory sources match by prefix (e.g., multi-lang).
+        // Additional delegated sources (Pururin, Tsumino, HBrowse, 8Muses, MangaDex,
+        // LANraragi) will be added here as their DelegatedHttpSource implementations
+        // are ported from SY.
+        val DELEGATED_SOURCES = listOf(
+            DelegatedSourceEntry(
+                "NHentai",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.nhentai.NHentai",
+                NHentai::class,
+                true,
+            ),
+        ).associateBy { it.originalSourceQualifiedClassName }
+
+        val currentDelegatedSources: MutableMap<Long, DelegatedSourceEntry> = mutableMapOf()
+
+        data class DelegatedSourceEntry(
+            val sourceName: String,
+            val sourceId: Long,
+            val originalSourceQualifiedClassName: String,
+            val newSourceClass: KClass<out ExhDelegatedHttpSource>,
+            val factory: Boolean = false,
+        )
+    }
+    // EXH <--
 }
 
 class SourceNotFoundException(message: String, val id: Long) : Exception(message)

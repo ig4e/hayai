@@ -162,6 +162,10 @@ dependencies {
     implementation(libs.compose.theme.adapter3)
     implementation(compose.webview)
 
+    // EXH -->
+    implementation(libs.accompanist.webview)
+    // EXH <--
+
     implementation(libs.flexbox)
 
     implementation(libs.material)

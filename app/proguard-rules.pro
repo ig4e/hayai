@@ -102,3 +102,7 @@
 # Firebase
 -keep class com.google.firebase.installations.** { *; }
 -keep interface com.google.firebase.installations.** { *; }
+
+# EXH metadata serialization
+-keep class exh.metadata.metadata.** { *; }
+-keep class exh.md.dto.** { *; }

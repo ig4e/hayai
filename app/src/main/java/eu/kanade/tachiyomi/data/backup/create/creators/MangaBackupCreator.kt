@@ -93,6 +93,17 @@ class MangaBackupCreator(
             }
         }
 
+        // EXH -->
+        // Backup EXH metadata if available
+        // When the metadata repository is wired:
+        // manga.id?.let { mangaId ->
+        //     val metadata = metadataRepository.getMetadataForManga(mangaId)
+        //     if (metadata != null) {
+        //         mangaObject.flatMetadata = metadata.toByteArray()
+        //     }
+        // }
+        // EXH <--
+
         return mangaObject
     }
 }

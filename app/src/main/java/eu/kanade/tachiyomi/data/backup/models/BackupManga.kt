@@ -48,6 +48,11 @@ data class BackupManga(
     // SY specific values
     @ProtoNumber(602) var customStatus: Int = 0,
 
+    // EXH -->
+    // Flat metadata for search_metadata, search_tags, search_titles backup
+    @ProtoNumber(603) var flatMetadata: ByteArray? = null,
+    // EXH <--
+
     // J2K specific values
     @ProtoNumber(800) var customTitle: String? = null,
     @ProtoNumber(801) var customArtist: String? = null,

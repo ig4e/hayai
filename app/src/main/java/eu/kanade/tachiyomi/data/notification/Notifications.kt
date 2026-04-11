@@ -59,6 +59,12 @@ object Notifications {
     const val CHANNEL_LIBRARY_SKIPPED = "library_skipped_channel"
     const val ID_LIBRARY_SKIPPED = -104
 
+    // EXH -->
+    const val CHANNEL_LIBRARY_EHENTAI = "library_ehentai_channel"
+    const val ID_EHENTAI_PROGRESS = -199
+    const val ID_EHENTAI_ERROR = -198
+    // EXH <--
+
     /**
      * Notification channel and ids used by the library updater.
      */
@@ -234,6 +240,16 @@ object Notifications {
                 setShowBadge(false)
                 group = GROUP_APP_UPDATES
             },
+            // EXH -->
+            NotificationChannel(
+                CHANNEL_LIBRARY_EHENTAI,
+                "EHentai",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                group = GROUP_LIBRARY
+                setShowBadge(false)
+            },
+            // EXH <--
         )
         context.notificationManager.createNotificationChannels(channels)
     }
