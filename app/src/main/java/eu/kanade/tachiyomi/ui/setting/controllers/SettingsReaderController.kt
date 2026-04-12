@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.ui.setting.defaultValue
 import eu.kanade.tachiyomi.ui.setting.infoPreference
 import eu.kanade.tachiyomi.ui.setting.intListPreference
 import eu.kanade.tachiyomi.ui.setting.listPreference
+import eu.kanade.tachiyomi.ui.setting.seekBarPreference
 import eu.kanade.tachiyomi.ui.setting.multiSelectListPreferenceMat
 import eu.kanade.tachiyomi.ui.setting.onClick
 import eu.kanade.tachiyomi.ui.setting.preference
@@ -74,13 +75,14 @@ class SettingsReaderController : SettingsLegacyController() {
                 titleRes = MR.strings.animate_page_transitions
                 defaultValue = true
             }
-            intListPreference(activity) {
+            seekBarPreference {
                 key = Keys.preloadSize
                 titleRes = MR.strings.page_preload_amount
-                entryValues = listOf(4, 6, 8, 10, 12, 14, 16, 20)
-                entries = entryValues.map { context.getString(MR.plurals.pages_plural, it, it) }
-                defaultValue = 6
                 summaryRes = MR.strings.amount_of_pages_to_preload
+                min = 1
+                max = 20
+                showSeekBarValue = true
+                setDefaultValue(6)
             }
             multiSelectListPreferenceMat(activity) {
                 key = Keys.readerBottomButtons

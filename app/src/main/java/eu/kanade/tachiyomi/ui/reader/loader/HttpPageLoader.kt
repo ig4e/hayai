@@ -46,7 +46,7 @@ class HttpPageLoader(
      */
     private val queue = PriorityBlockingQueue<PriorityPage>()
 
-    private val preloadSize = preferences.preloadSize().get()
+    private val preloadSize get() = preferences.preloadSize().get()
 
     init {
         scope.launchIO {

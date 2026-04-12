@@ -107,10 +107,6 @@ fun ComposeSourceFilterSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 0.dp,
     ) {
-        // Read revision to subscribe to recomposition
-        @Suppress("UNUSED_EXPRESSION")
-        revision
-
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -145,8 +141,10 @@ fun ComposeSourceFilterSheet(
                 }
             }
 
-            // Filter items
+            // Filter items — read revision here so items recompose on reset
             items(filters.size) { index ->
+                @Suppress("UNUSED_EXPRESSION")
+                revision
                 FilterItem(
                     filter = filters[index],
                     onUpdate = triggerUpdate,
@@ -260,11 +258,13 @@ private fun FilterItem(filter: Filter<*>, onUpdate: () -> Unit) {
             )
         }
         is Filter.CheckBox -> {
+            var checked by remember(filter) { mutableStateOf(filter.state) }
             FilterCheckbox(
                 label = filter.name,
-                checked = filter.state,
+                checked = checked,
                 onCheckedChange = {
-                    filter.state = !filter.state
+                    checked = !checked
+                    filter.state = checked
                     onUpdate()
                 },
             )
@@ -279,16 +279,18 @@ private fun FilterItem(filter: Filter<*>, onUpdate: () -> Unit) {
             FilterSelect(filter, onUpdate)
         }
         is Filter.Sort -> {
+            var sortState by remember(filter) { mutableStateOf(filter.state) }
             FilterCollapsibleGroup(filter.name) {
                 filter.values.forEachIndexed { index, item ->
-                    val isSelected = filter.state?.index == index
-                    val ascending = if (isSelected) filter.state?.ascending else null
+                    val isSelected = sortState?.index == index
+                    val ascending = if (isSelected) sortState?.ascending else null
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                val asc = if (isSelected) !filter.state!!.ascending else true
-                                filter.state = Filter.Sort.Selection(index, asc)
+                                val asc = if (isSelected) !sortState!!.ascending else true
+                                sortState = Filter.Sort.Selection(index, asc)
+                                filter.state = sortState
                                 onUpdate()
                             }
                             .padding(horizontal = 24.dp, vertical = 12.dp),
@@ -348,21 +350,24 @@ private fun FilterCheckbox(
 
 @Composable
 private fun FilterTriState(filter: Filter.TriState, onUpdate: () -> Unit) {
+    var state by remember(filter) { mutableIntStateOf(filter.state) }
     val states = listOf("Ignore", "Include", "Exclude")
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                filter.state = (filter.state + 1) % 3
+                state = (state + 1) % 3
+                filter.state = state
                 onUpdate()
             }
             .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
-            checked = filter.state != Filter.TriState.STATE_IGNORE,
+            checked = state != Filter.TriState.STATE_IGNORE,
             onCheckedChange = {
-                filter.state = (filter.state + 1) % 3
+                state = (state + 1) % 3
+                filter.state = state
                 onUpdate()
             },
         )
@@ -373,20 +378,20 @@ private fun FilterTriState(filter: Filter.TriState, onUpdate: () -> Unit) {
                 .weight(1f),
             style = MaterialTheme.typography.bodyLarge,
         )
-        if (filter.state != Filter.TriState.STATE_IGNORE) {
+        if (state != Filter.TriState.STATE_IGNORE) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (filter.state == Filter.TriState.STATE_INCLUDE) {
+                color = if (state == Filter.TriState.STATE_INCLUDE) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
                     MaterialTheme.colorScheme.errorContainer
                 },
             ) {
                 Text(
-                    text = states[filter.state],
+                    text = states[state],
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (filter.state == Filter.TriState.STATE_INCLUDE) {
+                    color = if (state == Filter.TriState.STATE_INCLUDE) {
                         MaterialTheme.colorScheme.onPrimaryContainer
                     } else {
                         MaterialTheme.colorScheme.onErrorContainer

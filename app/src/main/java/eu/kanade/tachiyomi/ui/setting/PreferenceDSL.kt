@@ -15,6 +15,7 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceGroup
 import androidx.preference.PreferenceManager
 import androidx.preference.PreferenceScreen
+import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
@@ -81,6 +82,10 @@ inline fun PreferenceGroup.intListPreference(
     block: (@DSL IntListMatPreference).() -> Unit,
 ): IntListMatPreference {
     return initThenAdd(IntListMatPreference(activity, context), block)
+}
+
+inline fun PreferenceGroup.seekBarPreference(block: SeekBarPreference.() -> Unit): SeekBarPreference {
+    return initThenAdd(SeekBarPreference(context), block)
 }
 
 inline fun PreferenceGroup.multiSelectListPreferenceMat(
