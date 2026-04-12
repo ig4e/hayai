@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
+import eu.kanade.tachiyomi.ui.source.filter.AutoCompleteItem
 import eu.kanade.tachiyomi.ui.source.filter.CheckboxItem
 import eu.kanade.tachiyomi.ui.source.filter.CheckboxSectionItem
 import eu.kanade.tachiyomi.ui.source.filter.GroupItem
@@ -381,7 +382,7 @@ open class BrowseSourcePresenter(
                     group.subItems = subItems
                     group
                 }
-                is Filter.AutoComplete -> null // TODO: AutoComplete filter UI not implemented yet
+                is Filter.AutoComplete -> AutoCompleteItem(filter)
             }
         }
     }

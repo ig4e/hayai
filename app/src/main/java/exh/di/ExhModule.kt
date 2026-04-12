@@ -22,5 +22,5 @@ fun exhModule() = module {
     factory<MetadataSource.GetFlatMetadataById> { GetFlatMetadataByIdInteractor(get()) }
 
     // EH Update Helper
-    single { exh.eh.EHentaiUpdateHelper(get()) }
+    single { exh.eh.EHentaiUpdateHelper(get<android.app.Application>()) }
 }

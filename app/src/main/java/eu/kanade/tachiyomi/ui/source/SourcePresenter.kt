@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
+import exh.source.BlacklistedSources
 import eu.kanade.tachiyomi.util.system.withUIContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -140,6 +141,7 @@ class SourcePresenter(
         return sourceManager.getCatalogueSources()
             .filter { it.lang in languages || it.id == LocalSource.ID }
             .filterNot { it.id.toString() in hiddenCatalogues }
+            .filterNot { it.id in BlacklistedSources.HIDDEN_SOURCES }
             .sortedBy { "(${it.lang}) ${it.name}" }
     }
 

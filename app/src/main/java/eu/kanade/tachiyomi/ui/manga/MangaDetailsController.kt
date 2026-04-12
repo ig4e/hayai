@@ -808,7 +808,13 @@ class MangaDetailsController :
 
     fun showError(message: String) {
         binding.swipeRefresh.isRefreshing = presenter.isLoading
-        view?.snack(message)
+        Logger.e { "MangaDetails showError: $message" }
+        try {
+            view?.snack(message)
+        } catch (e: Exception) {
+            Logger.e(e) { "Snackbar crash, falling back to toast" }
+            activity?.toast(message)
+        }
     }
 
     fun showChaptersRemovedPopup(deletedChapters: List<ChapterItem>) {

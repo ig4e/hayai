@@ -944,7 +944,7 @@ class EHentai(
         Filter.Group<GenreOption>(
             "Genres",
             listOf(
-                GenreOption("Doujinshi", 2),
+                GenreOption("Dōjinshi", 2),
                 GenreOption("Manga", 4),
                 GenreOption("Artist CG", 8),
                 GenreOption("Game CG", 16),

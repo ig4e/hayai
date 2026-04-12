@@ -16,7 +16,7 @@ import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 @Serializable
-abstract class RaisedSearchMetadata {
+sealed class RaisedSearchMetadata {
     @Transient
     var mangaId: Long = -1
 

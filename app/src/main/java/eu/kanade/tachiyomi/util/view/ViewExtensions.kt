@@ -132,8 +132,14 @@ fun View.snack(
     message: CharSequence,
     length: Int = Snackbar.LENGTH_SHORT,
     f: (Snackbar.() -> Unit)? = null,
-): Snackbar {
-    val snack = Snackbar.make(this, message, length)
+): Snackbar? {
+    val snack = try {
+        Snackbar.make(this, message, length)
+    } catch (e: Exception) {
+        // M3 Expressive theme can fail to resolve Snackbar attributes
+        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+        return null
+    }
     if (f != null) {
         snack.f()
     }
@@ -154,7 +160,7 @@ fun View.snack(
     resource: Int,
     length: Int = Snackbar.LENGTH_SHORT,
     f: (Snackbar.() -> Unit)? = null,
-): Snackbar {
+): Snackbar? {
     return snack(context.getString(resource), length, f)
 }
 
@@ -162,7 +168,7 @@ fun View.snack(
     resource: StringResource,
     length: Int = Snackbar.LENGTH_SHORT,
     f: (Snackbar.() -> Unit)? = null,
-): Snackbar {
+): Snackbar? {
     return snack(context.getString(resource), length, f)
 }
 

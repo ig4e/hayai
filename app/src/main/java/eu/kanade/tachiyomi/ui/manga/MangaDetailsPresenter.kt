@@ -491,6 +491,7 @@ class MangaDetailsPresenter(
                 getHistory()
             }
         } catch (e: Exception) {
+            Logger.e(e) { "fetchChaptersFromSource failed for manga ${manga.id}" }
             withUIContext {
                 view?.showError(trimException(e))
             }

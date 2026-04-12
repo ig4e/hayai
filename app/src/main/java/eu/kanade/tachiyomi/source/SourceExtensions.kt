@@ -1,9 +1,14 @@
 package eu.kanade.tachiyomi.source
 
+import android.app.Application
 import android.graphics.drawable.Drawable
+import androidx.core.content.ContextCompat
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.online.HttpSource
+import exh.source.EH_SOURCE_ID
+import exh.source.EXH_SOURCE_ID
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -20,7 +25,13 @@ fun Source.nameBasedOnEnabledLanguages(enabledLanguages: Set<String>, extensionM
     return if (includeLangInName(enabledLanguages, extensionManager)) toString() else name
 }
 
-fun Source.icon(): Drawable? = Injekt.get<ExtensionManager>().getAppIconForSource(this)
+fun Source.icon(): Drawable? {
+    when (id) {
+        EH_SOURCE_ID -> return ContextCompat.getDrawable(Injekt.get<Application>(), R.mipmap.ic_ehentai_source)
+        EXH_SOURCE_ID -> return ContextCompat.getDrawable(Injekt.get<Application>(), R.mipmap.ic_exhentai_source)
+    }
+    return Injekt.get<ExtensionManager>().getAppIconForSource(this)
+}
 
 fun Source.pkgName() = Injekt.get<ExtensionManager>().getPackageName(this.id)
 fun HttpSource.getExtension(extensionManager: ExtensionManager? = null): Extension.Installed? =

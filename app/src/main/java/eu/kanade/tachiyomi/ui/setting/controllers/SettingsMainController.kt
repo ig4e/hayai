@@ -16,6 +16,8 @@ import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsAdvancedLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDataLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.search.SettingsSearchController
+import exh.source.ExhPreferences
+import uy.kohesive.injekt.injectLazy
 import eu.kanade.tachiyomi.ui.setting.iconRes
 import eu.kanade.tachiyomi.ui.setting.iconTint
 import eu.kanade.tachiyomi.ui.setting.onClick
@@ -33,6 +35,8 @@ import yokai.util.lang.getString
 import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 
 class SettingsMainController : SettingsLegacyController(), FloatingSearchInterface {
+
+    private val exhPreferences: ExhPreferences by injectLazy()
 
     init {
         setHasOptionsMenu(true)
@@ -78,6 +82,20 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
             iconTint = tintColor
             titleRes = MR.strings.browse
             onClick { navigateTo(SettingsBrowseController()) }
+        }
+        if (exhPreferences.isHentaiEnabled.get()) {
+            preference {
+                iconRes = R.drawable.ic_eh_logo_24dp
+                iconTint = tintColor
+                titleRes = MR.strings.pref_category_eh
+                onClick { navigateTo(SettingsEhController()) }
+            }
+        }
+        preference {
+            iconRes = R.drawable.ic_save_24dp
+            iconTint = tintColor
+            titleRes = MR.strings.data_saver
+            onClick { navigateTo(SettingsDataSaverController()) }
         }
         preference {
             iconRes = R.drawable.ic_sync_24dp

@@ -1,18 +1,26 @@
 package eu.kanade.tachiyomi.ui.crash
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -64,6 +72,21 @@ class CrashActivity : AppCompatActivity() {
                         startActivity(Intent(this@CrashActivity, MainActivity::class.java))
                     },
                 ) {
+                    TextButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Crash log", exception.toString()))
+                            Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.align(Alignment.End),
+                    ) {
+                        Icon(
+                            Icons.Outlined.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = Size.tiny),
+                        )
+                        Text("Copy Error")
+                    }
                     Box(
                         modifier = Modifier
                             .padding(vertical = Size.small)
