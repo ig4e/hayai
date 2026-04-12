@@ -7,7 +7,7 @@
 # Injekt.get<T>() creates `object : FullTypeReference<T>() {}` at every call site;
 # if R8 removes those anonymous classes the Signature attribute is gone and
 # FullTypeReference.<init> throws IllegalArgumentException at runtime.
--keep class * extends uy.kohesive.injekt.api.FullTypeReference { *; }
+-keep class ** extends uy.kohesive.injekt.api.FullTypeReference { *; }
 
 -keep,allowoptimization class eu.kanade.**
 -keep,allowoptimization class tachiyomi.**

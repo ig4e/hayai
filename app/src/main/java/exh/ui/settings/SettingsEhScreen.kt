@@ -61,8 +61,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import uy.kohesive.injekt.injectLazy
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
 import yokai.util.lang.getString
@@ -76,6 +75,10 @@ import kotlin.time.Duration.Companion.seconds
 
 object SettingsEhScreen : ComposableSettings() {
 
+    private val exhPreferences: ExhPreferences by injectLazy()
+    private val delegateSourcePreferences: DelegateSourcePreferences by injectLazy()
+    private val ehFavoritesRepository: yokai.domain.manga.EhFavoritesRepository by injectLazy()
+
     private fun readResolve(): Any = SettingsEhScreen
 
     @Composable
@@ -84,7 +87,6 @@ object SettingsEhScreen : ComposableSettings() {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val exhPreferences: ExhPreferences = remember { Injekt.get() }
         val exhentaiEnabled by exhPreferences.enableExhentai.collectAsState()
         var runConfigureDialog by remember { mutableStateOf(false) }
         val openWarnConfigureDialogController = { runConfigureDialog = true }
@@ -105,7 +107,7 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
         openWarnConfigureDialogController: () -> Unit,
     ) {
-        val delegateSourcePreferences: DelegateSourcePreferences = remember { Injekt.get() }
+        val delegateSourcePreferences = delegateSourcePreferences
         var initialLoadGuard by remember { mutableStateOf(false) }
         val useHentaiAtHome by exhPreferences.useHentaiAtHome.collectAsState()
         val useJapaneseTitle by delegateSourcePreferences.useJapaneseTitle.collectAsState()
@@ -214,7 +216,7 @@ object SettingsEhScreen : ComposableSettings() {
     private fun getUseJapaneseTitle(
         exhentaiEnabled: Boolean,
     ): Preference.PreferenceItem.SwitchPreference {
-        val delegateSourcePreferences: DelegateSourcePreferences = remember { Injekt.get() }
+        val delegateSourcePreferences = delegateSourcePreferences
         val value by delegateSourcePreferences.useJapaneseTitle.collectAsState()
         return Preference.PreferenceItem.SwitchPreference(
             pref = delegateSourcePreferences.useJapaneseTitle,
@@ -511,7 +513,7 @@ object SettingsEhScreen : ComposableSettings() {
     private fun getForceSyncReset(): Preference.PreferenceItem.TextPreference {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val ehFavoritesRepository: yokai.domain.manga.EhFavoritesRepository = remember { Injekt.get() }
+        val ehFavoritesRepository = ehFavoritesRepository
         var dialogOpen by remember { mutableStateOf(false) }
         if (dialogOpen) {
             SyncResetDialog(
