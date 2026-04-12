@@ -131,6 +131,7 @@ fun BrowseSourceEHentaiListItem(
         Box {
             MangaCover(
                 data = manga,
+                contentDescription = manga.title,
                 modifier = Modifier
                     .fillMaxHeight()
                     .drawWithContent {

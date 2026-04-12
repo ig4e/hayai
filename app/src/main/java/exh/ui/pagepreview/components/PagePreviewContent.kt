@@ -171,7 +171,7 @@ private fun PagePreviewItem(
     ) {
         AsyncImage(
             model = page.imageUrl,
-            contentDescription = null,
+            contentDescription = stringResource(MR.strings.page_preview_image, page.index),
             modifier = Modifier
                 .height(200.dp)
                 .width(120.dp)

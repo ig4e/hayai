@@ -2,6 +2,7 @@ package exh.ui.metadata.adapters
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,11 +28,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import exh.metadata.MetadataUtil
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.ui.metadata.GenreChip
 import exh.ui.metadata.MetadataUIUtil
 import exh.ui.metadata.RatingRow
+import exh.ui.metadata.getRatingString
+import yokai.i18n.MR
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -49,7 +53,8 @@ fun EHentaiDescription(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         // Genre chip
-        val genreInfo = meta.genre?.let { MetadataUIUtil.getGenreAndColour(it) }
+        val isDark = isSystemInDarkTheme()
+        val genreInfo = meta.genre?.let { MetadataUIUtil.getGenreAndColour(it, isDark) }
         val genreText = genreInfo?.second ?: meta.genre ?: "Unknown"
         val genreColor = genreInfo?.first
         Row(
@@ -60,12 +65,13 @@ fun EHentaiDescription(
         }
 
         // Visibility
+        val visibilityValue = meta.visible ?: stringResource(MR.strings.unknown)
         Text(
-            text = "Visibility: ${meta.visible ?: "Unknown"}",
+            text = stringResource(MR.strings.visibility_label, visibilityValue),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.combinedClickable(
                 onClick = {},
-                onLongClick = { clipboardManager.setText(AnnotatedString(meta.visible ?: "Unknown")) },
+                onLongClick = { clipboardManager.setText(AnnotatedString(visibilityValue)) },
             ),
         )
 
@@ -73,7 +79,7 @@ fun EHentaiDescription(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Book,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.favorites_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -103,7 +109,7 @@ fun EHentaiDescription(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.SdCard,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.file_size_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -120,31 +126,36 @@ fun EHentaiDescription(
 
         // Pages
         val pageCount = meta.length ?: 0
+        val pagesText = stringResource(MR.strings.page_count_format, pageCount)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.MenuBook,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.page_count_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "$pageCount pages",
+                text = pagesText,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.combinedClickable(
                     onClick = {},
-                    onLongClick = { clipboardManager.setText(AnnotatedString("$pageCount pages")) },
+                    onLongClick = { clipboardManager.setText(AnnotatedString(pagesText)) },
                 ),
             )
         }
 
         // Language
-        val language = meta.language ?: "Unknown"
-        val languageText = if (meta.translated == true) "$language (Translated)" else language
+        val language = meta.language ?: stringResource(MR.strings.unknown)
+        val languageText = if (meta.translated == true) {
+            stringResource(MR.strings.language_translated, language)
+        } else {
+            language
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Language,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.language_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -161,7 +172,7 @@ fun EHentaiDescription(
 
         // Rating
         val ratingFloat = meta.averageRating?.toFloat() ?: 0F
-        val ratingText = "$ratingFloat - ${MetadataUIUtil.getRatingString(ratingFloat * 2)}"
+        val ratingText = "$ratingFloat - ${getRatingString(ratingFloat * 2)}"
         RatingRow(rating = ratingFloat, ratingText = ratingText)
 
         // More info button
@@ -172,7 +183,7 @@ fun EHentaiDescription(
             IconButton(onClick = openMetadataViewer) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = "More info",
+                    contentDescription = stringResource(MR.strings.more_info),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }

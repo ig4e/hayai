@@ -39,11 +39,14 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import eu.kanade.tachiyomi.util.compose.LocalRouter
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import exh.recs.batch.RankedSearchResults
 import exh.recs.sources.RecommendationPagingSource
-import eu.kanade.tachiyomi.domain.manga.models.Manga
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
@@ -60,6 +63,7 @@ class RecommendsScreen(private val args: Args) : Screen() {
     @Composable
     override fun Content() {
         val backPress = LocalBackPress.currentOrThrow
+        val router = LocalRouter.current
 
         val screenModel = rememberScreenModel { RecommendsScreenModel(args) }
         val state by screenModel.state.collectAsState()
@@ -81,17 +85,27 @@ class RecommendsScreen(private val args: Args) : Screen() {
         ) { contentPadding ->
             RecommendsContent(
                 items = state.filteredItems,
+                isFullyLoaded = state.progress == state.total && state.total > 0,
                 contentPadding = contentPadding,
                 onClickSource = { pagingSource ->
                     // For now, clicking source header is a no-op
                     // BrowseRecommendsScreen can be navigated to in the future
                 },
                 onClickItem = { manga ->
-                    // TODO: Navigate to manga details screen
-                    // navigator.push(MangaScreen(manga.id))
+                    if (router != null && manga.id != null) {
+                        router.pushController(
+                            MangaDetailsController(manga, fromCatalogue = true)
+                                .withFadeTransaction(),
+                        )
+                    }
                 },
                 onLongClickItem = { manga ->
-                    // TODO: Navigate to web view or manga details
+                    if (router != null && manga.id != null) {
+                        router.pushController(
+                            MangaDetailsController(manga, fromCatalogue = true)
+                                .withFadeTransaction(),
+                        )
+                    }
                 },
             )
         }
@@ -101,6 +115,7 @@ class RecommendsScreen(private val args: Args) : Screen() {
 @Composable
 private fun RecommendsContent(
     items: Map<RecommendationPagingSource, RecommendationItemResult>,
+    isFullyLoaded: Boolean,
     contentPadding: PaddingValues,
     onClickSource: (RecommendationPagingSource) -> Unit,
     onClickItem: (Manga) -> Unit,
@@ -113,7 +128,15 @@ private fun RecommendsContent(
                 .padding(contentPadding),
             contentAlignment = Alignment.Center,
         ) {
-            CircularProgressIndicator()
+            if (isFullyLoaded) {
+                Text(
+                    text = stringResource(MR.strings.rec_no_results),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                CircularProgressIndicator()
+            }
         }
         return
     }
@@ -168,7 +191,7 @@ private fun RecommendationSourceItem(
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.view_all_recommendations),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

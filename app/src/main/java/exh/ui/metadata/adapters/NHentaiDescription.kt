@@ -2,6 +2,7 @@ package exh.ui.metadata.adapters
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,10 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import exh.metadata.MetadataUtil
 import exh.metadata.metadata.NHentaiSearchMetadata
 import exh.ui.metadata.GenreChip
 import exh.ui.metadata.MetadataUIUtil
+import yokai.i18n.MR
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -52,7 +55,8 @@ fun NHentaiDescription(
             .takeIf { it.isNotEmpty() }
             ?.joinToString { it.name }
             ?: "Unknown"
-        val genreInfo = MetadataUIUtil.getGenreAndColour(categoriesText)
+        val isDark = isSystemInDarkTheme()
+        val genreInfo = MetadataUIUtil.getGenreAndColour(categoriesText, isDark)
         GenreChip(
             genre = genreInfo?.second ?: categoriesText,
             color = genreInfo?.first,
@@ -63,7 +67,7 @@ fun NHentaiDescription(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Book,
-                    contentDescription = null,
+                    contentDescription = stringResource(MR.strings.favorites_label),
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -97,20 +101,21 @@ fun NHentaiDescription(
 
         // Pages
         val pageCount = meta.pageImagePreviewUrls.size
+        val pagesText = stringResource(MR.strings.page_count_format, pageCount)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.MenuBook,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.page_count_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "$pageCount pages",
+                text = pagesText,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.combinedClickable(
                     onClick = {},
-                    onLongClick = { clipboardManager.setText(AnnotatedString("$pageCount pages")) },
+                    onLongClick = { clipboardManager.setText(AnnotatedString(pagesText)) },
                 ),
             )
         }
@@ -134,7 +139,7 @@ fun NHentaiDescription(
             IconButton(onClick = openMetadataViewer) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = "More info",
+                    contentDescription = stringResource(MR.strings.more_info),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }

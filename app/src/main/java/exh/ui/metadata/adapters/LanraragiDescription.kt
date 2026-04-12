@@ -23,7 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import exh.metadata.metadata.LanraragiSearchMetadata
+import yokai.i18n.MR
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -54,11 +56,11 @@ fun LanraragiDescription(
 
         // Pages
         val pageCount = meta.pageCount ?: 1
-        val pagesText = "$pageCount pages"
+        val pagesText = stringResource(MR.strings.page_count_format, pageCount)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.MenuBook,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.page_count_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -81,7 +83,7 @@ fun LanraragiDescription(
             IconButton(onClick = openMetadataViewer) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = "More info",
+                    contentDescription = stringResource(MR.strings.more_info),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }

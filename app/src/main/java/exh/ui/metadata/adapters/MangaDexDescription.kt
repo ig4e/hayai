@@ -19,9 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import exh.metadata.metadata.MangaDexSearchMetadata
 import exh.ui.metadata.MetadataUIUtil
 import exh.ui.metadata.RatingRow
+import exh.ui.metadata.getRatingString
+import yokai.i18n.MR
 import kotlin.math.round
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -42,7 +45,7 @@ fun MangaDexDescription(
         val ratingFloat = meta.rating
         if (ratingFloat != null) {
             val displayRating = (round(ratingFloat * 100.0) / 100.0).toFloat()
-            val ratingText = "$displayRating - ${MetadataUIUtil.getRatingString(ratingFloat)}"
+            val ratingText = "$displayRating - ${getRatingString(ratingFloat)}"
             RatingRow(rating = ratingFloat / 2F, ratingText = ratingText)
 
             Text(
@@ -63,7 +66,7 @@ fun MangaDexDescription(
             IconButton(onClick = openMetadataViewer) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = "More info",
+                    contentDescription = stringResource(MR.strings.more_info),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }

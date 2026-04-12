@@ -1567,4 +1567,96 @@
     <string name="rec_collecting">Collecting recommendations</string>
     <string name="rec_initializing">Initializing</string>
     <string name="no_results">No results</string>
+
+    <!-- Data Saver -->
+    <string name="data_saver">Data Saver</string>
+    <string name="data_saver_off">Off</string>
+    <string name="data_saver_wsrv">wsrv.nl (free CDN)</string>
+    <string name="data_saver_custom">Custom server</string>
+    <string name="data_saver_quality">Image quality</string>
+    <string name="data_saver_quality_summary">Current: %d%%</string>
+    <string name="data_saver_format">Output format</string>
+    <string name="data_saver_server_url">Server URL</string>
+    <string name="data_saver_api_key">API key</string>
+    <string name="data_saver_max_width">Max width (0 = no limit)</string>
+    <string name="data_saver_max_height">Max height (0 = no limit)</string>
+    <string name="data_saver_proxy">Proxy (wsrv.nl via custom server)</string>
+    <string name="data_saver_resize">Resize</string>
+    <string name="data_saver_fit_mode">Fit Mode</string>
+    <string name="data_saver_fit_inside">Inside</string>
+    <string name="data_saver_fit_outside">Outside</string>
+    <string name="data_saver_fit_cover">Cover</string>
+    <string name="data_saver_fit_contain">Contain</string>
+    <string name="data_saver_fit_fill">Fill</string>
+    <string name="data_saver_fit_scale_down">Scale Down</string>
+    <string name="data_saver_no_upscale">Prevent Upscaling</string>
+    <string name="data_saver_no_upscale_summary">Do not enlarge images smaller than the target size</string>
+    <string name="data_saver_adjustments">Adjustments</string>
+    <string name="data_saver_brightness">Brightness</string>
+    <string name="data_saver_brightness_summary">Current: %d</string>
+    <string name="data_saver_contrast">Contrast</string>
+    <string name="data_saver_contrast_summary">Current: %d</string>
+    <string name="data_saver_saturation">Saturation</string>
+    <string name="data_saver_saturation_summary">Current: %d</string>
+    <string name="data_saver_sharpen">Sharpen</string>
+    <string name="data_saver_sharpen_summary">Current: %d</string>
+    <string name="data_saver_effects">Effects</string>
+    <string name="data_saver_blur">Blur</string>
+    <string name="data_saver_blur_summary">Current: %d</string>
+    <string name="data_saver_filter">Filter</string>
+    <string name="data_saver_filter_none">None</string>
+    <string name="data_saver_filter_greyscale">Greyscale</string>
+    <string name="data_saver_filter_sepia">Sepia</string>
+    <string name="data_saver_filter_negate">Negate</string>
+    <string name="data_saver_no_limit">No limit</string>
+    <string name="data_saver_server">Server</string>
+
+    <!-- EXH Login -->
+    <string name="exhentai_login">ExHentai login</string>
+
+    <!-- EXH Metadata Rating Strings -->
+    <string name="rating_abysmal">Abysmal</string>
+    <string name="rating_terrible">Terrible</string>
+    <string name="rating_bad">Bad</string>
+    <string name="rating_poor">Poor</string>
+    <string name="rating_below_average">Below Average</string>
+    <string name="rating_average">Average</string>
+    <string name="rating_above_average">Above Average</string>
+    <string name="rating_good">Good</string>
+    <string name="rating_very_good">Very Good</string>
+    <string name="rating_great">Great</string>
+    <string name="rating_masterpiece">Masterpiece</string>
+    <string name="rating_none">No rating</string>
+
+    <!-- EXH Settings Language Filtering -->
+    <string name="original">Original</string>
+    <string name="rewrite">Rewrite</string>
+
+    <!-- EXH Misc UI -->
+    <string name="source_not_found">Source not found</string>
+    <string name="no_follows_found">No follows found</string>
+    <string name="visibility_label">Visibility: %1$s</string>
+    <string name="page_count_format">%1$d pages</string>
+    <string name="favorites_label">Favorites</string>
+    <string name="file_size_label">File size</string>
+    <string name="page_count_label">Page count</string>
+    <string name="language_label">Language</string>
+    <string name="page_preview_image">Page preview %1$d</string>
+    <string name="view_all_recommendations">View all recommendations</string>
+
+    <!-- Intercept Activity -->
+    <string name="opening_link">Opening link\u2026</string>
+    <string name="intercept_opening_in_app">Opening in %1$s</string>
+
+    <!-- Settings Descriptions -->
+    <string name="show_updater_statistics_summary">View timing and count details from the last update check</string>
+    <string name="auto_update_restrictions_summary">Only run gallery update checks when conditions are met</string>
+    <string name="mangadex_login_subtitle">Log in to access your MangaDex follows and reading statuses</string>
+    <string name="mangadex_sync_follows_subtitle">Import your MangaDex follows into the local library</string>
+    <string name="mangadex_push_favorites_subtitle">Push local library entries to your MangaDex follows list</string>
+
+    <!-- Recommendation Source Display Names -->
+    <string name="rec_source_mangaupdates_community">MangaUpdates Community</string>
+    <string name="rec_source_mangaupdates_similar">MangaUpdates Similar</string>
+    <string name="rec_source_mangadex_similar">MangaDex Similar</string>
 </resources>

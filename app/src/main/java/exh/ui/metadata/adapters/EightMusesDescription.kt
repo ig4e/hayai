@@ -18,7 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import exh.metadata.metadata.EightMusesSearchMetadata
+import yokai.i18n.MR
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -53,7 +55,7 @@ fun EightMusesDescription(
             IconButton(onClick = openMetadataViewer) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = "More info",
+                    contentDescription = stringResource(MR.strings.more_info),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }

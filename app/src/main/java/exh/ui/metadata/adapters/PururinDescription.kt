@@ -2,6 +2,7 @@ package exh.ui.metadata.adapters
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,10 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import exh.metadata.metadata.PururinSearchMetadata
 import exh.ui.metadata.GenreChip
 import exh.ui.metadata.MetadataUIUtil
 import exh.ui.metadata.RatingRow
+import exh.ui.metadata.getRatingString
+import yokai.i18n.MR
 import kotlin.math.round
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -47,7 +51,8 @@ fun PururinDescription(
         // Genre
         val genreTag = meta.tags.find { it.namespace == PururinSearchMetadata.TAG_NAMESPACE_CATEGORY }
         val genreName = genreTag?.name ?: "Unknown"
-        val genreInfo = MetadataUIUtil.getGenreAndColour(genreName)
+        val isDark = isSystemInDarkTheme()
+        val genreInfo = MetadataUIUtil.getGenreAndColour(genreName, isDark)
         GenreChip(
             genre = genreInfo?.second ?: genreName,
             color = genreInfo?.first,
@@ -67,11 +72,11 @@ fun PururinDescription(
         }
 
         // Size
-        val sizeText = meta.fileSize ?: "Unknown"
+        val sizeText = meta.fileSize ?: stringResource(MR.strings.unknown)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.SdCard,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.file_size_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -88,11 +93,11 @@ fun PururinDescription(
 
         // Pages
         val pageCount = meta.pages ?: 0
-        val pagesText = "$pageCount pages"
+        val pagesText = stringResource(MR.strings.page_count_format, pageCount)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.MenuBook,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.page_count_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -110,7 +115,7 @@ fun PururinDescription(
         // Rating
         val ratingFloat = meta.averageRating?.toFloat() ?: 0F
         val displayRating = (round(ratingFloat * 100.0) / 100.0).toFloat()
-        val ratingText = "$displayRating - ${MetadataUIUtil.getRatingString(ratingFloat * 2)}"
+        val ratingText = "$displayRating - ${getRatingString(ratingFloat * 2)}"
         RatingRow(rating = ratingFloat, ratingText = ratingText)
 
         // More info button
@@ -121,7 +126,7 @@ fun PururinDescription(
             IconButton(onClick = openMetadataViewer) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = "More info",
+                    contentDescription = stringResource(MR.strings.more_info),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }

@@ -10,6 +10,50 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixes` - Bugfixes
 - `Other` - Technical changes/updates
 
+## [1.14.0]
+
+### Additions
+- Add first-class hentai source support (ported from TachiyomiSY)
+  - E-Hentai / ExHentai: full browsing, login, metadata, favorites sync, auto-update, gallery import
+  - NHentai, 8Muses, HBrowse, Pururin, Tsumino, LANraragi built-in sources
+  - MangaDex enhanced: OAuth login, follows sync, similar manga, API metadata
+  - MergedSource for combining chapters from multiple sources
+- Add metadata system with namespaced tags, database storage, and per-source detail screens
+- Add smart search engine with fuzzy title matching
+- Add recommendations system (AniList, MyAnimeList, MangaUpdates, Comick, MangaDex)
+- Add page preview system for gallery thumbnails
+- Add Data Saver with 4 modes: Off, wsrv.nl, Custom Server, Proxy (wsrv.nl via custom)
+  - Full image processing: quality, format, resize, fit modes, brightness, contrast, saturation, sharpen, blur, filters
+  - Support for custom hayai-image-proxy server
+- Add E-Hentai tag autocomplete with 136,000+ tags loaded from JSON assets
+- Add deep link handling for 7 domains (e-hentai.org, exhentai.org, nhentai.net, mangadex.org, etc.)
+- Add EH/ExH and MangaDex source logos
+
+### Changes
+- E-Hentai alt server retry now supported (Page.url changed to mutable)
+- Metadata automatically persists to database via MetadataSource interface
+- Genre chips now have dark mode color variants
+- Rating display now color-coded (red → orange → yellow → green)
+- InterceptActivity shows app branding during link loading
+- All EXH screens use YokaiScaffold, Material 3, and proper string resources
+
+### Fixes
+- Fix ComikeyHandler NPE on missing href field
+- Fix HBrowse empty error messages for missing table sections
+- Fix recommendation screen navigation (clicking manga now opens details)
+- Fix MangaDex OAuth token persistence (uses PreferenceStore instead of missing MdList tracker)
+- Fix smart search engine missing async import
+- Fix Manga type mismatches across recommendation system
+
+### Other
+- Delete dead code: Version.kt, EXHMigrations.kt, OkHttpUtil.kt, OkHttpExtensions.kt, duplicate LewdMangaChecker
+- Remove hardcoded strings across all EXH screens (90+ string resources added)
+- Add accessibility contentDescription to all icons
+- Add proper loading and empty states to all EXH screens
+- Consolidate preference duplication (useJapaneseTitle)
+- Wire MetadataSource DI with 3 interactor implementations
+- Refactor E-Hentai tags from 28K lines of Kotlin to JSON assets (2.9 MB, runtime loading with cache)
+
 ## [Unreleased]
 
 ### Additions

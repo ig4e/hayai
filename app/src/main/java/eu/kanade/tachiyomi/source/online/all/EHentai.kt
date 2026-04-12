@@ -43,7 +43,6 @@ import exh.source.ExhPreferences
 import exh.ui.login.EhLoginActivity
 import exh.util.UriFilter
 import exh.util.UriGroup
-import exh.util.asObservableWithAsyncStacktrace
 import exh.util.dropBlank
 import exh.util.ignore
 import exh.util.nullIfBlank
@@ -87,16 +86,18 @@ import java.net.URLEncoder
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 
-// TODO Consider gallery updating when doing tabbed browsing
 class EHentai(
     override val id: Long,
     val exh: Boolean,
     val context: Context,
 ) : HttpSource(),
-    // TODO: These interfaces will be created by another agent in source/api
-    // MetadataSource<EHentaiSearchMetadata, Document>,
+    MetadataSource<EHentaiSearchMetadata, Document>,
     UrlImportableSource,
     NamespaceSource {
+
+    override val metaClass = EHentaiSearchMetadata::class
+
+    override fun newMetaInstance() = EHentaiSearchMetadata()
 
     private val logger = Logger.withTag(if (exh) "ExHentai" else "EHentai")
 
@@ -406,7 +407,7 @@ class EHentai(
 
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getChapterList"))
     fun fetchChapterList(manga: SManga, throttleFunc: suspend () -> Unit): Observable<List<SChapter>> {
-        // TODO: Bridge coroutine to RxJava properly
+        // Source API compat: Observable wrapper for suspend function
         return Observable.empty()
     }
 
@@ -599,37 +600,13 @@ class EHentai(
     /**
      * Returns an observable with the updated details for a manga.
      */
+    // Source API compat: Observable wrapper for suspend getMangaDetails
+    @Suppress("DEPRECATION")
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getMangaDetails"))
     override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
-        return client.newCall(mangaDetailsRequest(manga))
-            .asObservableWithAsyncStacktrace()
-            .flatMap { (stacktrace, response) ->
-                if (response.isSuccessful) {
-                    val doc = response.asJsoup()
-                    val newerGallery = doc.select("#gnd a").lastOrNull()
-                    val pre = if (
-                        newerGallery != null && DebugToggles.PULL_TO_ROOT_WHEN_LOADING_EXH_MANGA_DETAILS.enabled
-                    ) {
-                        manga.url = EHentaiSearchMetadata.normalizeUrl(newerGallery.attr("href"))
-                        client.newCall(mangaDetailsRequest(manga))
-                            .asObservableSuccess().map { it.asJsoup() }
-                    } else {
-                        Observable.just(doc)
-                    }
-
-                    pre.map { document ->
-                        parseGalleryPage(document, manga)
-                    }
-                } else {
-                    response.close()
-
-                    if (response.code == 404) {
-                        throw GalleryNotFoundException(stacktrace)
-                    } else {
-                        throw Exception("HTTP error ${response.code}", stacktrace)
-                    }
-                }
-            }
+        return Observable.fromCallable {
+            kotlinx.coroutines.runBlocking { getMangaDetails(manga) }
+        }
     }
 
     override suspend fun getMangaDetails(manga: SManga): SManga {
@@ -661,13 +638,9 @@ class EHentai(
         }
     }
 
-    /**
-     * Parse a gallery detail page into an EHentaiSearchMetadata and apply it to the manga.
-     */
-    private fun parseGalleryPage(document: Document, manga: SManga): SManga {
-        val metadata = EHentaiSearchMetadata()
+    override suspend fun parseIntoMetadata(metadata: EHentaiSearchMetadata, input: Document) {
         with(metadata) {
-            with(document) {
+            with(input) {
                 val url = location()
                 gId = EHentaiSearchMetadata.galleryId(url)
                 gToken = EHentaiSearchMetadata.galleryToken(url)
@@ -688,7 +661,6 @@ class EHentai(
 
                 uploader = select("#gdn").text().trimOrNull()
 
-                // Parse the table
                 select("#gdd tr").forEach {
                     val left = it.select(".gdt1").text().trimOrNull()
                     val rightElement = it.selectFirst(".gdt2") ?: return@forEach
@@ -726,7 +698,6 @@ class EHentai(
                     logger.d { "aged $title - too old" }
                 }
 
-                // Parse ratings
                 ignore {
                     averageRating = select("#rating_label")
                         .text()
@@ -739,7 +710,6 @@ class EHentai(
                         ?.toInt()
                 }
 
-                // Parse tags
                 tags.clear()
                 select("#taglist tr").forEach {
                     val namespace = it.select(".tc").text().removeSuffix(":")
@@ -756,7 +726,6 @@ class EHentai(
                     }
                 }
 
-                // Add genre as virtual tag
                 genre?.let {
                     tags += RaisedTag(EH_GENRE_NAMESPACE, it, TAG_TYPE_VIRTUAL)
                 }
@@ -775,20 +744,13 @@ class EHentai(
                 }
             }
         }
+    }
 
-        return metadata.createMangaInfo(manga).let {
-            manga.apply {
-                url = it.url
-                title = it.title
-                artist = it.artist
-                author = it.author
-                description = it.description
-                genre = it.genre
-                status = it.status
-                thumbnail_url = it.thumbnail_url
-                initialized = true
-            }
-        }
+    /**
+     * Parse gallery page via MetadataSource — automatically persists metadata to DB.
+     */
+    private suspend fun parseGalleryPage(document: Document, manga: SManga): SManga {
+        return parseToManga(manga, document)
     }
 
     /**
@@ -821,10 +783,9 @@ class EHentai(
         with(response.asJsoup()) {
             val currentImage = getElementById("img")!!.attr("src")
             // Each press of the retry button will choose another server
-            // TODO: page.url is val in Hayai's Page model; retry with alt server not supported yet
-            // select("#loadfail").attr("onclick").nullIfBlank()?.let {
-            //     page.url = addParam(page.url, "nl", it.substring(it.indexOf('\'') + 1 until it.lastIndexOf('\'')))
-            // }
+            select("#loadfail").attr("onclick").nullIfBlank()?.let {
+                page.url = addParam(page.url, "nl", it.substring(it.indexOf('\'') + 1 until it.lastIndexOf('\'')))
+            }
             if (currentImage == "https://ehgt.org/g/509.gif") {
                 throw Exception("Exceeded page quota")
             }

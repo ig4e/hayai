@@ -51,6 +51,7 @@ import exh.eh.EHentaiUpdateWorkerConstants
 import exh.eh.EHentaiUpdaterStats
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.source.EXH_SOURCE_ID
+import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
 import exh.ui.login.EhLoginActivity
 import exh.util.nullIfBlank
@@ -96,6 +97,7 @@ object SettingsEhScreen : ComposableSettings() {
             getAccountSettingsGroup(exhPreferences, exhentaiEnabled, openWarnConfigureDialogController),
             getFavoritesSyncGroup(exhPreferences),
             getGalleryUpdateCheckerGroup(exhPreferences),
+            getDataSaverGroup(exhPreferences),
         )
     }
 
@@ -104,9 +106,10 @@ object SettingsEhScreen : ComposableSettings() {
         exhPreferences: ExhPreferences,
         openWarnConfigureDialogController: () -> Unit,
     ) {
+        val delegateSourcePreferences: DelegateSourcePreferences = remember { Injekt.get() }
         var initialLoadGuard by remember { mutableStateOf(false) }
         val useHentaiAtHome by exhPreferences.useHentaiAtHome.collectAsState()
-        val useJapaneseTitle by exhPreferences.useJapaneseTitle.collectAsState()
+        val useJapaneseTitle by delegateSourcePreferences.useJapaneseTitle.collectAsState()
         val useOriginalImages by exhPreferences.exhUseOriginalImages.collectAsState()
         val ehTagFilterValue by exhPreferences.ehTagFilterValue.collectAsState()
         val ehTagWatchingValue by exhPreferences.ehTagWatchingValue.collectAsState()
@@ -144,7 +147,7 @@ object SettingsEhScreen : ComposableSettings() {
             preferenceItems = persistentListOf(
                 getLoginPreference(exhPreferences, openWarnConfigureDialogController),
                 getUseHentaiAtHome(exhentaiEnabled, exhPreferences),
-                getUseJapaneseTitle(exhentaiEnabled, exhPreferences),
+                getUseJapaneseTitle(exhentaiEnabled),
                 getUseOriginalImages(exhentaiEnabled, exhPreferences),
                 getWatchedTags(exhentaiEnabled),
                 getTagFilterThreshold(exhentaiEnabled, exhPreferences),
@@ -211,11 +214,11 @@ object SettingsEhScreen : ComposableSettings() {
     @Composable
     private fun getUseJapaneseTitle(
         exhentaiEnabled: Boolean,
-        exhPreferences: ExhPreferences,
     ): Preference.PreferenceItem.SwitchPreference {
-        val value by exhPreferences.useJapaneseTitle.collectAsState()
+        val delegateSourcePreferences: DelegateSourcePreferences = remember { Injekt.get() }
+        val value by delegateSourcePreferences.useJapaneseTitle.collectAsState()
         return Preference.PreferenceItem.SwitchPreference(
-            pref = exhPreferences.useJapaneseTitle,
+            pref = delegateSourcePreferences.useJapaneseTitle,
             title = stringResource(MR.strings.show_japanese_titles),
             subtitle = if (value) {
                 stringResource(MR.strings.show_japanese_titles_option_1)
@@ -593,6 +596,7 @@ object SettingsEhScreen : ComposableSettings() {
         return Preference.PreferenceItem.MultiSelectListPreference(
             pref = exhPreferences.exhAutoUpdateRequirements,
             title = stringResource(MR.strings.auto_update_restrictions),
+            subtitle = stringResource(MR.strings.auto_update_restrictions_summary),
             entries = persistentMapOf(
                 "wifi" to stringResource(MR.strings.connected_to_wifi),
                 "ac" to stringResource(MR.strings.charging),
@@ -619,7 +623,317 @@ object SettingsEhScreen : ComposableSettings() {
         }
         return Preference.PreferenceItem.TextPreference(
             title = stringResource(MR.strings.show_updater_statistics),
+            subtitle = stringResource(MR.strings.show_updater_statistics_summary),
             onClick = { dialogOpen = true },
+        )
+    }
+
+    // endregion
+
+    // region Data Saver Group
+
+    @Composable
+    private fun getDataSaverGroup(
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceGroup {
+        val dataSaverMode by exhPreferences.dataSaverMode.collectAsState()
+        val dataSaverEnabled = dataSaverMode != 0
+        val isCustomOrProxy = dataSaverMode == 2 || dataSaverMode == 3
+
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.data_saver),
+            preferenceItems = persistentListOf(
+                // Mode selection
+                getDataSaverMode(exhPreferences),
+                // Basic
+                getDataSaverQuality(dataSaverEnabled, exhPreferences),
+                getDataSaverFormat(dataSaverEnabled, exhPreferences),
+                // Resize header
+                getDataSaverSectionHeader(dataSaverEnabled, stringResource(MR.strings.data_saver_resize)),
+                getDataSaverMaxWidth(dataSaverEnabled, exhPreferences),
+                getDataSaverMaxHeight(dataSaverEnabled, exhPreferences),
+                getDataSaverFitMode(dataSaverEnabled, exhPreferences),
+                getDataSaverNoUpscale(dataSaverEnabled, exhPreferences),
+                // Adjustments header
+                getDataSaverSectionHeader(dataSaverEnabled, stringResource(MR.strings.data_saver_adjustments)),
+                getDataSaverBrightness(dataSaverEnabled, exhPreferences),
+                getDataSaverContrast(dataSaverEnabled, exhPreferences),
+                getDataSaverSaturation(dataSaverEnabled, exhPreferences),
+                getDataSaverSharpen(dataSaverEnabled, exhPreferences),
+                // Effects header
+                getDataSaverSectionHeader(dataSaverEnabled, stringResource(MR.strings.data_saver_effects)),
+                getDataSaverBlur(dataSaverEnabled, exhPreferences),
+                getDataSaverFilter(dataSaverEnabled, exhPreferences),
+                // Server (Custom or Proxy)
+                getDataSaverSectionHeader(isCustomOrProxy, stringResource(MR.strings.data_saver_server)),
+                getDataSaverServerUrl(isCustomOrProxy, exhPreferences),
+                getDataSaverApiKey(isCustomOrProxy, exhPreferences),
+            ),
+        )
+    }
+
+    @Composable
+    private fun getDataSaverSectionHeader(
+        enabled: Boolean,
+        title: String,
+    ): Preference.PreferenceItem.TextPreference {
+        return Preference.PreferenceItem.TextPreference(
+            title = title,
+            enabled = enabled,
+        )
+    }
+
+    @Composable
+    private fun getDataSaverMode(
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.ListPreference<Int> {
+        return Preference.PreferenceItem.ListPreference(
+            pref = exhPreferences.dataSaverMode,
+            title = stringResource(MR.strings.data_saver),
+            entries = persistentMapOf(
+                0 to stringResource(MR.strings.data_saver_off),
+                1 to stringResource(MR.strings.data_saver_wsrv),
+                2 to stringResource(MR.strings.data_saver_custom),
+                3 to stringResource(MR.strings.data_saver_proxy),
+            ),
+        )
+    }
+
+    @Composable
+    private fun getDataSaverQuality(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.SliderPreference {
+        val quality by exhPreferences.dataSaverQuality.collectAsState()
+        return Preference.PreferenceItem.SliderPreference(
+            value = quality,
+            min = 1,
+            max = 100,
+            title = stringResource(MR.strings.data_saver_quality),
+            subtitle = stringResource(MR.strings.data_saver_quality_summary, quality),
+            enabled = enabled,
+            onValueChanged = {
+                exhPreferences.dataSaverQuality.set(it)
+                true
+            },
+        )
+    }
+
+    @Composable
+    private fun getDataSaverFormat(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.ListPreference<String> {
+        return Preference.PreferenceItem.ListPreference(
+            pref = exhPreferences.dataSaverFormat,
+            title = stringResource(MR.strings.data_saver_format),
+            entries = persistentMapOf(
+                "webp" to "WebP",
+                "avif" to "AVIF",
+                "jpeg" to "JPEG",
+                "png" to "PNG",
+                "original" to stringResource(MR.strings.data_saver_filter_none),
+            ),
+            enabled = enabled,
+        )
+    }
+
+    @Composable
+    private fun getDataSaverMaxWidth(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.EditTextPreference {
+        return Preference.PreferenceItem.EditTextPreference(
+            pref = exhPreferences.dataSaverMaxWidth,
+            title = stringResource(MR.strings.data_saver_max_width),
+            enabled = enabled,
+        )
+    }
+
+    @Composable
+    private fun getDataSaverMaxHeight(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.EditTextPreference {
+        return Preference.PreferenceItem.EditTextPreference(
+            pref = exhPreferences.dataSaverMaxHeight,
+            title = stringResource(MR.strings.data_saver_max_height),
+            enabled = enabled,
+        )
+    }
+
+    @Composable
+    private fun getDataSaverFitMode(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.ListPreference<String> {
+        return Preference.PreferenceItem.ListPreference(
+            pref = exhPreferences.dataSaverFitMode,
+            title = stringResource(MR.strings.data_saver_fit_mode),
+            entries = persistentMapOf(
+                "inside" to stringResource(MR.strings.data_saver_fit_inside),
+                "outside" to stringResource(MR.strings.data_saver_fit_outside),
+                "cover" to stringResource(MR.strings.data_saver_fit_cover),
+                "contain" to stringResource(MR.strings.data_saver_fit_contain),
+                "fill" to stringResource(MR.strings.data_saver_fit_fill),
+                "scale-down" to stringResource(MR.strings.data_saver_fit_scale_down),
+            ),
+            enabled = enabled,
+        )
+    }
+
+    @Composable
+    private fun getDataSaverNoUpscale(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.SwitchPreference {
+        return Preference.PreferenceItem.SwitchPreference(
+            pref = exhPreferences.dataSaverNoUpscale,
+            title = stringResource(MR.strings.data_saver_no_upscale),
+            subtitle = stringResource(MR.strings.data_saver_no_upscale_summary),
+            enabled = enabled,
+        )
+    }
+
+    @Composable
+    private fun getDataSaverBrightness(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.SliderPreference {
+        val brightness by exhPreferences.dataSaverBrightness.collectAsState()
+        return Preference.PreferenceItem.SliderPreference(
+            value = brightness,
+            min = -100,
+            max = 100,
+            title = stringResource(MR.strings.data_saver_brightness),
+            subtitle = stringResource(MR.strings.data_saver_brightness_summary, brightness),
+            enabled = enabled,
+            onValueChanged = {
+                exhPreferences.dataSaverBrightness.set(it)
+                true
+            },
+        )
+    }
+
+    @Composable
+    private fun getDataSaverContrast(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.SliderPreference {
+        val contrast by exhPreferences.dataSaverContrast.collectAsState()
+        return Preference.PreferenceItem.SliderPreference(
+            value = contrast,
+            min = -100,
+            max = 100,
+            title = stringResource(MR.strings.data_saver_contrast),
+            subtitle = stringResource(MR.strings.data_saver_contrast_summary, contrast),
+            enabled = enabled,
+            onValueChanged = {
+                exhPreferences.dataSaverContrast.set(it)
+                true
+            },
+        )
+    }
+
+    @Composable
+    private fun getDataSaverSaturation(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.SliderPreference {
+        val saturation by exhPreferences.dataSaverSaturation.collectAsState()
+        return Preference.PreferenceItem.SliderPreference(
+            value = saturation,
+            min = -100,
+            max = 100,
+            title = stringResource(MR.strings.data_saver_saturation),
+            subtitle = stringResource(MR.strings.data_saver_saturation_summary, saturation),
+            enabled = enabled,
+            onValueChanged = {
+                exhPreferences.dataSaverSaturation.set(it)
+                true
+            },
+        )
+    }
+
+    @Composable
+    private fun getDataSaverSharpen(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.SliderPreference {
+        val sharpen by exhPreferences.dataSaverSharpen.collectAsState()
+        return Preference.PreferenceItem.SliderPreference(
+            value = sharpen,
+            min = 0,
+            max = 10,
+            title = stringResource(MR.strings.data_saver_sharpen),
+            subtitle = stringResource(MR.strings.data_saver_sharpen_summary, sharpen),
+            enabled = enabled,
+            onValueChanged = {
+                exhPreferences.dataSaverSharpen.set(it)
+                true
+            },
+        )
+    }
+
+    @Composable
+    private fun getDataSaverBlur(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.SliderPreference {
+        val blur by exhPreferences.dataSaverBlur.collectAsState()
+        return Preference.PreferenceItem.SliderPreference(
+            value = blur,
+            min = 0,
+            max = 100,
+            title = stringResource(MR.strings.data_saver_blur),
+            subtitle = stringResource(MR.strings.data_saver_blur_summary, blur),
+            enabled = enabled,
+            onValueChanged = {
+                exhPreferences.dataSaverBlur.set(it)
+                true
+            },
+        )
+    }
+
+    @Composable
+    private fun getDataSaverFilter(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.ListPreference<String> {
+        return Preference.PreferenceItem.ListPreference(
+            pref = exhPreferences.dataSaverFilter,
+            title = stringResource(MR.strings.data_saver_filter),
+            entries = persistentMapOf(
+                "none" to stringResource(MR.strings.data_saver_filter_none),
+                "greyscale" to stringResource(MR.strings.data_saver_filter_greyscale),
+                "sepia" to stringResource(MR.strings.data_saver_filter_sepia),
+                "negate" to stringResource(MR.strings.data_saver_filter_negate),
+            ),
+            enabled = enabled,
+        )
+    }
+
+    @Composable
+    private fun getDataSaverServerUrl(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.EditTextPreference {
+        return Preference.PreferenceItem.EditTextPreference(
+            pref = exhPreferences.dataSaverServerUrl,
+            title = stringResource(MR.strings.data_saver_server_url),
+            enabled = enabled,
+        )
+    }
+
+    @Composable
+    private fun getDataSaverApiKey(
+        enabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceItem.EditTextPreference {
+        return Preference.PreferenceItem.EditTextPreference(
+            pref = exhPreferences.dataSaverApiKey,
+            title = stringResource(MR.strings.data_saver_api_key),
+            enabled = enabled,
         )
     }
 
@@ -852,10 +1166,10 @@ object SettingsEhScreen : ComposableSettings() {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(text = "Language", modifier = Modifier.padding(4.dp))
-                        Text(text = "Original", modifier = Modifier.padding(4.dp))
-                        Text(text = "Translated", modifier = Modifier.padding(4.dp))
-                        Text(text = "Rewrite", modifier = Modifier.padding(4.dp))
+                        Text(text = stringResource(MR.strings.language), modifier = Modifier.padding(4.dp))
+                        Text(text = stringResource(MR.strings.original), modifier = Modifier.padding(4.dp))
+                        Text(text = stringResource(MR.strings.translated), modifier = Modifier.padding(4.dp))
+                        Text(text = stringResource(MR.strings.rewrite), modifier = Modifier.padding(4.dp))
                     }
                     LanguageDialogRow("Japanese", state.japanese)
                     LanguageDialogRow("English", state.english)

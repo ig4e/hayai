@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -78,12 +80,17 @@ class InterceptActivity : BaseActivity<Nothing>() {
                     .fillMaxSize()
                     .padding(paddingValues),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
             ) {
+                Image(
+                    painter = painterResource(R.mipmap.ic_launcher),
+                    contentDescription = getString(MR.strings.app_name),
+                    modifier = Modifier.size(64.dp),
+                )
                 when (status) {
                     InterceptResult.Idle, InterceptResult.Loading -> {
                         Text(
-                            text = getString(MR.strings.loading_entry),
+                            text = getString(MR.strings.opening_link),
                             style = MaterialTheme.typography.titleLarge,
                         )
                         CircularProgressIndicator(modifier = Modifier.size(56.dp))
@@ -95,6 +102,7 @@ class InterceptActivity : BaseActivity<Nothing>() {
                     is InterceptResult.Failure -> Text(
                         text = getString(MR.strings.error_with_reason),
                         style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             }

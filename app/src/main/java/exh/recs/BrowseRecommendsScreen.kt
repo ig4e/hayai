@@ -33,10 +33,13 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import eu.kanade.tachiyomi.util.compose.LocalRouter
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import exh.recs.batch.RankedSearchResults
-import eu.kanade.tachiyomi.domain.manga.models.Manga
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
@@ -60,15 +63,19 @@ class BrowseRecommendsScreen(
     @Composable
     override fun Content() {
         val backPress = LocalBackPress.currentOrThrow
+        val router = LocalRouter.current
 
         val screenModel = rememberScreenModel { BrowseRecommendsScreenModel(args) }
         val state by screenModel.state.collectAsState()
 
         val title = remember {
             when (val currentArgs = args) {
-                is Args.SingleSourceManga -> currentArgs.recommendationSourceName
-                    .substringAfterLast('.')
-                    .replace("PagingSource", "")
+                is Args.SingleSourceManga -> {
+                    val rawName = currentArgs.recommendationSourceName
+                        .substringAfterLast('.')
+                        .replace("PagingSource", "")
+                    SOURCE_NAME_MAP[rawName] ?: rawName
+                }
                 is Args.MergedSourceMangas -> currentArgs.results.recSourceName
             }
         }
@@ -122,13 +129,30 @@ class BrowseRecommendsScreen(
                             mangas = currentState.mangas,
                             contentPadding = contentPadding,
                             onClickItem = { manga ->
-                                // TODO: Navigate to manga details or smart search
+                                if (router != null && manga.id != null) {
+                                    router.pushController(
+                                        MangaDetailsController(manga, fromCatalogue = true)
+                                            .withFadeTransaction(),
+                                    )
+                                }
                             },
                         )
                     }
                 }
             }
         }
+    }
+
+    companion object {
+        /**
+         * Maps raw class-derived names to user-friendly display names.
+         * Class names that already produce clean names (e.g., AniList, MyAnimeList, Comick) are not mapped.
+         */
+        private val SOURCE_NAME_MAP = mapOf(
+            "MangaUpdatesCommunity" to "MangaUpdates Community",
+            "MangaUpdatesSimilar" to "MangaUpdates Similar",
+            "MangaDexSimilar" to "MangaDex Similar",
+        )
     }
 }
 

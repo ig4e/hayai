@@ -82,7 +82,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = "No follows found",
+                                text = stringResource(MR.strings.no_follows_found),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                         }

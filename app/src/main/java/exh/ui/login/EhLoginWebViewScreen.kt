@@ -66,7 +66,7 @@ fun EhLoginWebViewScreen(
 
     YokaiScaffold(
         onNavigationIconClicked = onUp,
-        title = "ExHentai login",
+        title = stringResource(MR.strings.exhentai_login),
         navigationIcon = Icons.Outlined.Close,
         appBarType = AppBarType.SMALL,
     ) { contentPadding ->

@@ -62,7 +62,7 @@ class HBrowse(delegate: HttpSource, val context: Context) :
             hbId = hbUrl!!.removePrefix("/").substringBefore("/").toLong()
 
             tags.clear()
-            ((tables[""] ?: error("")) + (tables["categories"] ?: error(""))).forEach { (k, v) ->
+            ((tables[""] ?: error("Missing default table")) + (tables["categories"] ?: error("Missing categories table"))).forEach { (k, v) ->
                 when (val lowercaseNs = k.lowercase()) {
                     "title" -> title = v.text()
                     "length" -> length = v.text().substringBefore(" ").toInt()

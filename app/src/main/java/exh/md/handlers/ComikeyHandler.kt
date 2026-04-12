@@ -50,7 +50,7 @@ class ComikeyHandler(cloudflareClient: OkHttpClient, userAgent: String) {
         if (ok.not()) {
             return null
         }
-        val url = element["href"]?.jsonPrimitive!!.content
+        val url = element["href"]?.jsonPrimitive?.content ?: return null
         return GET(url, headers)
     }
 

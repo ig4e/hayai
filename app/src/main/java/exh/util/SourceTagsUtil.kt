@@ -50,6 +50,10 @@ object SourceTagsUtil {
 
     private const val TAG_TYPE_EXCLUDE = 69 // why not
 
+    /**
+     * Genre colors for E-Hentai categories.
+     * These are kept in sync with [exh.ui.metadata.MetadataUIUtil.getGenreAndColour].
+     */
     enum class GenreColor(val color: Int) {
         DOUJINSHI_COLOR("#f44336"),
         MANGA_COLOR("#ff9800"),
@@ -60,7 +64,7 @@ object SourceTagsUtil {
         IMAGE_SET_COLOR("#3f51b5"),
         COSPLAY_COLOR("#9c27b0"),
         ASIAN_PORN_COLOR("#9575cd"),
-        MISC_COLOR("#f06292"),
+        MISC_COLOR("#795548"),
         ;
 
         constructor(color: String) : this(color.toColorInt())

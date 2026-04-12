@@ -2,6 +2,7 @@ package exh.ui.metadata.adapters
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,10 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import exh.metadata.metadata.TsuminoSearchMetadata
 import exh.ui.metadata.GenreChip
 import exh.ui.metadata.MetadataUIUtil
 import exh.ui.metadata.RatingRow
+import exh.ui.metadata.getRatingString
+import yokai.i18n.MR
 import java.util.Date
 import kotlin.math.round
 
@@ -47,7 +51,8 @@ fun TsuminoDescription(
     ) {
         // Genre
         val genreName = meta.category ?: "Unknown"
-        val genreInfo = MetadataUIUtil.getGenreAndColour(genreName)
+        val isDark = isSystemInDarkTheme()
+        val genreInfo = MetadataUIUtil.getGenreAndColour(genreName, isDark)
         GenreChip(
             genre = genreInfo?.second ?: genreName,
             color = genreInfo?.first,
@@ -57,7 +62,7 @@ fun TsuminoDescription(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Book,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.favorites_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -96,11 +101,11 @@ fun TsuminoDescription(
 
         // Pages
         val pageCount = meta.length ?: 0
-        val pagesText = "$pageCount pages"
+        val pagesText = stringResource(MR.strings.page_count_format, pageCount)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.MenuBook,
-                contentDescription = null,
+                contentDescription = stringResource(MR.strings.page_count_label),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -118,7 +123,7 @@ fun TsuminoDescription(
         // Rating
         val ratingFloat = meta.averageRating ?: 0F
         val displayRating = (round(ratingFloat * 100.0) / 100.0).toFloat()
-        val ratingText = "$displayRating - ${MetadataUIUtil.getRatingString(ratingFloat * 2)}"
+        val ratingText = "$displayRating - ${getRatingString(ratingFloat * 2)}"
         RatingRow(rating = ratingFloat, ratingText = ratingText)
 
         // More info button
@@ -129,7 +134,7 @@ fun TsuminoDescription(
             IconButton(onClick = openMetadataViewer) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = "More info",
+                    contentDescription = stringResource(MR.strings.more_info),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }

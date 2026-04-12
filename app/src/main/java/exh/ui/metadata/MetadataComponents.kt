@@ -1,9 +1,9 @@
 package exh.ui.metadata
 
-import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,11 +23,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import kotlin.math.roundToInt
+import yokai.i18n.MR
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -89,6 +90,7 @@ fun RatingRow(
     rating: Float,
     ratingText: String,
 ) {
+    val ratingColor = getRatingColor(rating)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -107,13 +109,30 @@ fun RatingRow(
         Text(
             text = starText,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = ratingColor,
         )
         Text(
             text = ratingText,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * Returns a color corresponding to the rating value (0-10 scale mapped to 5-star display).
+ * The rating parameter is on a 0-5 star scale; multiply by 2 for the 0-10 mapping.
+ */
+@Composable
+private fun getRatingColor(rating: Float): Color {
+    val isDark = isSystemInDarkTheme()
+    val ratingOut10 = (rating * 2).coerceIn(0f, 10f)
+    return when {
+        ratingOut10 < 2f -> if (isDark) Color(0xFFEF5350) else Color(0xFFD32F2F) // Red (bad)
+        ratingOut10 < 4f -> if (isDark) Color(0xFFFF7043) else Color(0xFFE64A19) // Orange (below average)
+        ratingOut10 < 6f -> if (isDark) Color(0xFFFFCA28) else Color(0xFFF9A825) // Yellow (average)
+        ratingOut10 < 8f -> if (isDark) Color(0xFF9CCC65) else Color(0xFF7CB342) // Light green (good)
+        else -> if (isDark) Color(0xFF66BB6A) else Color(0xFF388E3C) // Green (great)
     }
 }
 
@@ -137,39 +156,57 @@ fun CopyableText(
     }
 }
 
-object MetadataUIUtil {
-    fun getRatingString(rating: Float?): String = when (rating?.roundToInt()) {
-        0 -> "Abysmal"
-        1 -> "Terrible"
-        2 -> "Bad"
-        3 -> "Poor"
-        4 -> "Below Average"
-        5 -> "Average"
-        6 -> "Above Average"
-        7 -> "Good"
-        8 -> "Very Good"
-        9 -> "Great"
-        10 -> "Masterpiece"
-        else -> "No rating"
-    }
+@Composable
+fun getRatingString(rating: Float?): String = when (rating?.roundToInt()) {
+    0 -> stringResource(MR.strings.rating_abysmal)
+    1 -> stringResource(MR.strings.rating_terrible)
+    2 -> stringResource(MR.strings.rating_bad)
+    3 -> stringResource(MR.strings.rating_poor)
+    4 -> stringResource(MR.strings.rating_below_average)
+    5 -> stringResource(MR.strings.rating_average)
+    6 -> stringResource(MR.strings.rating_above_average)
+    7 -> stringResource(MR.strings.rating_good)
+    8 -> stringResource(MR.strings.rating_very_good)
+    9 -> stringResource(MR.strings.rating_great)
+    10 -> stringResource(MR.strings.rating_masterpiece)
+    else -> stringResource(MR.strings.rating_none)
+}
 
-    fun getGenreAndColour(genre: String): Pair<Color, String>? = when (genre) {
-        "doujinshi", "Doujinshi" -> Color(0xFFF44336) to "Doujinshi"
-        "manga", "Japanese Manga", "Manga" -> Color(0xFFFF9800) to "Manga"
-        "artistcg", "artist CG", "artist-cg", "Artist CG" -> Color(0xFFFBC02D) to "Artist CG"
-        "gamecg", "game CG", "game-cg", "Game CG" -> Color(0xFF4CAF50) to "Game CG"
-        "western" -> Color(0xFF8BC34A) to "Western"
-        "non-h", "non-H" -> Color(0xFF2196F3) to "Non-H"
-        "imageset", "image Set" -> Color(0xFF3F51B5) to "Image Set"
-        "cosplay" -> Color(0xFF9C27B0) to "Cosplay"
-        "asianporn", "asian Porn" -> Color(0xFF9575CD) to "Asian Porn"
-        "misc" -> Color(0xFF795548) to "Misc"
-        "Korean Manhwa" -> Color(0xFFFBC02D) to "Manhwa"
-        "Chinese Manhua" -> Color(0xFF4CAF50) to "Manhua"
-        "Comic" -> Color(0xFF8BC34A) to "Comic"
-        "artbook" -> Color(0xFF3F51B5) to "Artbook"
-        "webtoon" -> Color(0xFF2196F3) to "Webtoon"
-        "Video" -> Color(0xFF8BC34A) to "Video"
+object MetadataUIUtil {
+
+    /**
+     * Returns the genre color and display name for the given genre string.
+     * Use [getGenreColor] for Compose-aware dark mode support.
+     */
+    fun getGenreAndColour(genre: String, isDark: Boolean = false): Pair<Color, String>? = when (genre) {
+        "doujinshi", "Doujinshi" -> genreColor(0xFFF44336, 0xFFEF5350, isDark) to "Doujinshi"
+        "manga", "Japanese Manga", "Manga" -> genreColor(0xFFFF9800, 0xFFFFA726, isDark) to "Manga"
+        "artistcg", "artist CG", "artist-cg", "Artist CG" -> genreColor(0xFFFBC02D, 0xFFFFD54F, isDark) to "Artist CG"
+        "gamecg", "game CG", "game-cg", "Game CG" -> genreColor(0xFF4CAF50, 0xFF66BB6A, isDark) to "Game CG"
+        "western" -> genreColor(0xFF8BC34A, 0xFF9CCC65, isDark) to "Western"
+        "non-h", "non-H" -> genreColor(0xFF2196F3, 0xFF42A5F5, isDark) to "Non-H"
+        "imageset", "image Set" -> genreColor(0xFF3F51B5, 0xFF5C6BC0, isDark) to "Image Set"
+        "cosplay" -> genreColor(0xFF9C27B0, 0xFFAB47BC, isDark) to "Cosplay"
+        "asianporn", "asian Porn" -> genreColor(0xFF9575CD, 0xFFB39DDB, isDark) to "Asian Porn"
+        "misc" -> genreColor(0xFF795548, 0xFF8D6E63, isDark) to "Misc"
+        "Korean Manhwa" -> genreColor(0xFFFBC02D, 0xFFFFD54F, isDark) to "Manhwa"
+        "Chinese Manhua" -> genreColor(0xFF4CAF50, 0xFF66BB6A, isDark) to "Manhua"
+        "Comic" -> genreColor(0xFF8BC34A, 0xFF9CCC65, isDark) to "Comic"
+        "artbook" -> genreColor(0xFF3F51B5, 0xFF5C6BC0, isDark) to "Artbook"
+        "webtoon" -> genreColor(0xFF2196F3, 0xFF42A5F5, isDark) to "Webtoon"
+        "Video" -> genreColor(0xFF8BC34A, 0xFF9CCC65, isDark) to "Video"
         else -> null
     }
+
+    private fun genreColor(light: Long, dark: Long, isDark: Boolean): Color =
+        if (isDark) Color(dark) else Color(light)
+}
+
+/**
+ * Composable function that returns the genre color with dark mode awareness.
+ */
+@Composable
+fun getGenreColor(genre: String): Color? {
+    val isDark = isSystemInDarkTheme()
+    return MetadataUIUtil.getGenreAndColour(genre, isDark)?.first
 }

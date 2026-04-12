@@ -1,5 +1,6 @@
 package exh.uconfig
 
+import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
 import okhttp3.FormBody
 import uy.kohesive.injekt.injectLazy
@@ -7,6 +8,7 @@ import java.util.Locale
 
 class EhUConfigBuilder {
     private val exhPreferences: ExhPreferences by injectLazy()
+    private val delegateSourcePreferences: DelegateSourcePreferences by injectLazy()
 
     fun build(hathPerks: EHHathPerksResponse): FormBody {
         val configItems = mutableListOf<ConfigItem>()
@@ -31,7 +33,7 @@ class EhUConfigBuilder {
             else -> Entry.UseHentaiAtHome.ANY
         }
 
-        configItems += if (exhPreferences.useJapaneseTitle.get()) {
+        configItems += if (delegateSourcePreferences.useJapaneseTitle.get()) {
             Entry.TitleDisplayLanguage.JAPANESE
         } else {
             Entry.TitleDisplayLanguage.DEFAULT
