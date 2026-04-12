@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,11 +31,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import cafe.adriel.voyager.navigator.LocalNavigator
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -47,6 +50,7 @@ import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import exh.recs.batch.RankedSearchResults
 import exh.recs.sources.RecommendationPagingSource
+import exh.recs.sources.StaticResultPagingSource
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
@@ -64,6 +68,7 @@ class RecommendsScreen(private val args: Args) : Screen() {
     override fun Content() {
         val backPress = LocalBackPress.currentOrThrow
         val router = LocalRouter.current
+        val navigator = LocalNavigator.current
 
         val screenModel = rememberScreenModel { RecommendsScreenModel(args) }
         val state by screenModel.state.collectAsState()
@@ -87,9 +92,30 @@ class RecommendsScreen(private val args: Args) : Screen() {
                 items = state.filteredItems,
                 isFullyLoaded = state.progress == state.total && state.total > 0,
                 contentPadding = contentPadding,
-                onClickSource = { pagingSource ->
-                    // For now, clicking source header is a no-op
-                    // BrowseRecommendsScreen can be navigated to in the future
+                onClickSource = onClickSource@{ pagingSource ->
+                    val nav = navigator ?: return@onClickSource
+                    when (val currentArgs = args) {
+                        is Args.SingleSourceManga -> nav.push(
+                            BrowseRecommendsScreen(
+                                args = BrowseRecommendsScreen.Args.SingleSourceManga(
+                                    mangaId = currentArgs.mangaId,
+                                    sourceId = currentArgs.sourceId,
+                                    recommendationSourceName = pagingSource::class.qualifiedName!!,
+                                ),
+                                isExternalSource = false,
+                            ),
+                        )
+                        is Args.MergedSourceMangas -> {
+                            val staticSource = pagingSource as? StaticResultPagingSource
+                                ?: return@onClickSource
+                            nav.push(
+                                BrowseRecommendsScreen(
+                                    args = BrowseRecommendsScreen.Args.MergedSourceMangas(staticSource.data),
+                                    isExternalSource = false,
+                                ),
+                            )
+                        }
+                    }
                 },
                 onClickItem = { manga ->
                     if (router != null && manga.id != null) {
@@ -285,6 +311,7 @@ private fun RecommendationCard(
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Column {
             AsyncImage(
