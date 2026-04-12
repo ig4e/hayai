@@ -10,11 +10,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExploreOff
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import eu.kanade.tachiyomi.ui.source.filter.ComposeSourceFilterSheet
 import androidx.core.view.WindowInsetsCompat.Type.ime
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.core.view.isVisible
@@ -153,11 +148,10 @@ open class BrowseSourceController(bundle: Bundle) :
 
     /** Current filter sheet */
     private var filterSheet: SourceFilterSheet? = null
-    var showComposeFilterSheet by mutableStateOf(false)
     private var lastPosition: Int = -1
 
     // Basically a cache just so the filter sheet is shown faster
-    var savedSearches by mutableStateOf(emptyList<SavedSearch>())
+    var savedSearches = emptyList<SavedSearch>()
 
     private val isBehindGlobalSearch: Boolean
         get() = router.backstackSize >= 2 && router.backstack[router.backstackSize - 2].controller is GlobalSearchController
@@ -244,32 +238,6 @@ open class BrowseSourceController(bundle: Bundle) :
 
         presenter.restartPager()
 
-        binding.composeFilterOverlay.setContent {
-            MaterialTheme {
-                if (showComposeFilterSheet) {
-                    ComposeSourceFilterSheet(
-                        filters = presenter.sourceFilters,
-                        savedSearches = savedSearches,
-                        onFilterChanged = { presenter.filtersChanged = true },
-                        onResetClicked = {
-                            presenter.appliedFilters = FilterList()
-                            val newFilters = presenter.source.getFilterList()
-                            presenter.sourceFilters = newFilters
-                            presenter.filtersChanged = true
-                        },
-                        onSearchClicked = {
-                            if (presenter.filtersChanged) {
-                                applyFilters()
-                            }
-                        },
-                        onSaveClicked = { onComposeFilterSave() },
-                        onSavedSearchClicked = { searchId -> onComposeFilterSavedSearchClicked(searchId) },
-                        onDeleteSavedSearchClicked = { searchId -> onComposeFilterDeleteSearch(searchId) },
-                        onDismiss = { showComposeFilterSheet = false },
-                    )
-                }
-            }
-        }
     }
 
     override fun onDestroyView(view: View) {
@@ -426,52 +394,85 @@ open class BrowseSourceController(bundle: Bundle) :
     }
 
     private fun showFilters() {
-        showComposeFilterSheet = true
-        presenter.filtersChanged = false
-    }
-
-    private fun onComposeFilterSave() {
-        viewScope.launchIO {
-            val names = presenter.loadSearches().map { it.name }
-            var searchName = ""
-            withUIContext {
-                activity!!.materialAlertDialog()
-                    .setTitle(activity!!.getString(MR.strings.save_search))
-                    .setTextInput(hint = activity!!.getString(MR.strings.save_search_hint)) { input ->
-                        searchName = input
-                    }
-                    .setPositiveButton(MR.strings.save) { _, _ ->
-                        if (searchName.isNotBlank() && searchName !in names) {
-                            presenter.saveSearch(searchName.trim(), presenter.query, presenter.sourceFilters)
-                        } else {
-                            activity!!.toast(MR.strings.save_search_invalid_name)
+        if (filterSheet != null) return
+        val oldFilters = mutableListOf<Any?>()
+        for (i in presenter.sourceFilters) {
+            if (i is Filter.Group<*>) {
+                val subFilters = mutableListOf<Any?>()
+                for (j in i.state) { subFilters.add((j as Filter<*>).state) }
+                oldFilters.add(subFilters)
+            } else {
+                oldFilters.add(i.state)
+            }
+        }
+        filterSheet = SourceFilterSheet(
+            activity = activity!!,
+            searches = { savedSearches },
+            onSearchClicked = {
+                var matches = true
+                for (i in presenter.sourceFilters.indices) {
+                    val filter = oldFilters.getOrNull(i)
+                    if (filter is List<*>) {
+                        for (j in filter.indices) {
+                            if (filter[j] != ((presenter.sourceFilters[i] as Filter.Group<*>).state[j] as Filter<*>).state) {
+                                matches = false; break
+                            }
                         }
+                    } else if (filter != presenter.sourceFilters[i].state) { matches = false; break }
+                    if (!matches) break
+                }
+                if (!matches) { applyFilters() }
+            },
+            onResetClicked = {
+                presenter.appliedFilters = FilterList()
+                val newFilters = presenter.source.getFilterList()
+                presenter.sourceFilters = newFilters
+                filterSheet?.setFilters(presenter.filterItems)
+            },
+            onSaveClicked = {
+                viewScope.launchIO {
+                    val names = presenter.loadSearches().map { it.name }
+                    var searchName = ""
+                    withUIContext {
+                        activity!!.materialAlertDialog()
+                            .setTitle(activity!!.getString(MR.strings.save_search))
+                            .setTextInput(hint = activity!!.getString(MR.strings.save_search_hint)) { input -> searchName = input }
+                            .setPositiveButton(MR.strings.save) { _, _ ->
+                                if (searchName.isNotBlank() && searchName !in names) {
+                                    presenter.saveSearch(searchName.trim(), presenter.query, presenter.sourceFilters)
+                                    filterSheet?.scrollToTop()
+                                } else { activity!!.toast(MR.strings.save_search_invalid_name) }
+                            }
+                            .setNegativeButton(MR.strings.cancel, null)
+                            .show()
                     }
-                    .setNegativeButton(MR.strings.cancel, null)
+                }
+            },
+            onSavedSearchClicked = ss@{ searchId ->
+                viewScope.launchIO {
+                    val search = presenter.loadSearch(searchId)
+                    if (search?.filters == null) return@launchIO
+                    withUIContext {
+                        presenter.sourceFilters = search.filters
+                        filterSheet?.setFilters(presenter.filterItems)
+                        filterSheet?.dismiss()
+                    }
+                }
+            },
+            onDeleteSavedSearchClicked = { searchId ->
+                activity!!.materialAlertDialog()
+                    .setTitle(MR.strings.save_search_delete)
+                    .setMessage(MR.strings.save_search_delete)
+                    .setPositiveButton(MR.strings.cancel, null)
+                    .setNegativeButton(android.R.string.ok) { _, _ -> presenter.deleteSearch(searchId) }
                     .show()
-            }
-        }
-    }
-
-    private fun onComposeFilterSavedSearchClicked(searchId: Long) {
-        viewScope.launchIO {
-            val search = presenter.loadSearch(searchId)
-            if (search?.filters == null) return@launchIO
-            withUIContext {
-                presenter.sourceFilters = search.filters
-                showComposeFilterSheet = false
-                applyFilters()
-            }
-        }
-    }
-
-    private fun onComposeFilterDeleteSearch(searchId: Long) {
-        activity!!.materialAlertDialog()
-            .setTitle(MR.strings.save_search_delete)
-            .setMessage(MR.strings.save_search_delete)
-            .setPositiveButton(MR.strings.cancel, null)
-            .setNegativeButton(android.R.string.ok) { _, _ -> presenter.deleteSearch(searchId) }
-            .show()
+            },
+        )
+        filterSheet?.setFilters(presenter.filterItems)
+        presenter.filtersChanged = false
+        filterSheet?.setOnCancelListener { filterSheet = null }
+        filterSheet?.setOnDismissListener { filterSheet = null }
+        filterSheet?.show()
     }
 
     /**

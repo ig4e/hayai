@@ -1,8 +1,12 @@
 -dontobfuscate
 
+# Keep generic type signatures required by Injekt (FullTypeReference uses Signature attribute)
+-keepattributes Signature
+
 -keep,allowoptimization class eu.kanade.**
 -keep,allowoptimization class tachiyomi.**
 -keep,allowoptimization class yokai.**
+-keep,allowoptimization class exh.**
 
 # Keep common dependencies used in extensions
 -keep,allowoptimization class androidx.preference.** { public protected *; }
@@ -63,7 +67,7 @@
 ##---------------End: proguard configuration for okhttp  ----------
 
 ##---------------Begin: proguard configuration for kotlinx.serialization  ----------
--keepattributes *Annotation*, InnerClasses
+-keepattributes *Annotation*, InnerClasses, Signature
 -dontnote kotlinx.serialization.AnnotationsKt # core serialization annotations
 
 # kotlinx-serialization-json specific. Add this if you have java.lang.NoClassDefFoundError kotlinx.serialization.json.JsonObjectSerializer

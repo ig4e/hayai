@@ -35,7 +35,7 @@ class GlobalExceptionHandler private constructor(
             Logger.e(exception)
             launchActivity(applicationContext, activityToBeLaunched, exception)
             exitProcess(0)
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             defaultHandler.uncaughtException(thread, exception)
         }
     }

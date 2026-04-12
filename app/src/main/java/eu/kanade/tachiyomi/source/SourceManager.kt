@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.source
 
 import android.content.Context
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -78,9 +79,13 @@ class SourceManager(
                     extensions.forEach { extension ->
                         extension.sources.forEach {
                             // EXH -->
-                            val internalSource = it.toInternalSource()
-                            if (internalSource != null) {
-                                mutableMap[it.id] = internalSource
+                            try {
+                                val internalSource = it.toInternalSource()
+                                if (internalSource != null) {
+                                    mutableMap[it.id] = internalSource
+                                }
+                            } catch (e: Throwable) {
+                                Logger.e(e) { "Failed to initialize source ${it.name} (${it.id}) from ${extension.name}" }
                             }
                             // EXH <--
                         }
@@ -180,19 +185,30 @@ class SourceManager(
             null
         }
         val newSource = if (this is HttpSource && delegate != null) {
-            val enhancedSource = EnhancedHttpSource(
-                this,
-                delegate.newSourceClass.constructors.find { it.parameters.size == 2 }!!.call(this, context),
-            )
+            try {
+                val constructor = delegate.newSourceClass.constructors.find { it.parameters.size == 2 }
+                if (constructor == null) {
+                    Logger.e { "No 2-param constructor found for delegate ${delegate.newSourceClass.simpleName}, skipping delegation for ${this.name}" }
+                    this
+                } else {
+                    val enhancedSource = EnhancedHttpSource(
+                        this,
+                        constructor.call(this, context),
+                    )
 
-            currentDelegatedSources[enhancedSource.originalSource.id] = DelegatedSourceEntry(
-                enhancedSource.originalSource.name,
-                enhancedSource.originalSource.id,
-                enhancedSource.originalSource::class.qualifiedName ?: delegate.originalSourceQualifiedClassName,
-                (enhancedSource.enhancedSource as ExhDelegatedHttpSource)::class,
-                delegate.factory,
-            )
-            enhancedSource
+                    currentDelegatedSources[enhancedSource.originalSource.id] = DelegatedSourceEntry(
+                        enhancedSource.originalSource.name,
+                        enhancedSource.originalSource.id,
+                        enhancedSource.originalSource::class.qualifiedName ?: delegate.originalSourceQualifiedClassName,
+                        (enhancedSource.enhancedSource as ExhDelegatedHttpSource)::class,
+                        delegate.factory,
+                    )
+                    enhancedSource
+                }
+            } catch (e: Throwable) {
+                Logger.e(e) { "Failed to wrap ${this.name} with delegated source, using original" }
+                this
+            }
         } else {
             this
         }

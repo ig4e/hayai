@@ -331,7 +331,13 @@ internal object ExtensionLoader {
             return LoadResult.Error
         }
 
-        val sources = appInfo.metaData.getString(METADATA_SOURCE_CLASS)!!
+        val sourceClassMetadata = appInfo.metaData?.getString(METADATA_SOURCE_CLASS)
+        if (sourceClassMetadata.isNullOrBlank()) {
+            Logger.w { "Extension $extName ($pkgName) is missing required source class metadata" }
+            return LoadResult.Error
+        }
+
+        val sources = sourceClassMetadata
             .split(";")
             .map {
                 val sourceClass = it.trim()
