@@ -17,7 +17,9 @@ class EnhancedHttpSource(
     val enhancedSource: HttpSource,
 ) : HttpSource() {
 
-    private fun shouldDelegate(): Boolean = Injekt.get<DelegateSourcePreferences>().delegateSources.get()
+    private val delegateSourcePreferences: DelegateSourcePreferences = Injekt.get()
+
+    private fun shouldDelegate(): Boolean = delegateSourcePreferences.delegateSources.get()
 
     /**
      * Returns the request for the popular manga given the page.

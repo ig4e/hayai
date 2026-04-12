@@ -45,6 +45,8 @@ fun InfoScreen(
     canAccept: Boolean,
     rejectText: String? = null,
     onRejectClick: (() -> Unit)? = null,
+    tertiaryText: String? = null,
+    onTertiaryClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     InfoScreen(
@@ -65,6 +67,8 @@ fun InfoScreen(
         canAccept = canAccept,
         rejectText = rejectText,
         onRejectClick = onRejectClick,
+        tertiaryText = tertiaryText,
+        onTertiaryClick = onTertiaryClick,
         content = content,
     )
 }
@@ -80,6 +84,8 @@ fun InfoScreen(
     canAccept: Boolean,
     rejectText: String? = null,
     onRejectClick: (() -> Unit)? = null,
+    tertiaryText: String? = null,
+    onTertiaryClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -123,6 +129,19 @@ fun InfoScreen(
                         onClick = onRejectClick,
                     ) {
                         Text(text = rejectText)
+                    }
+                }
+                if (tertiaryText != null && onTertiaryClick != null) {
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        border =
+                            BorderStroke(
+                                width = Size.extraExtraTiny,
+                                color = tint,
+                            ),
+                        onClick = onTertiaryClick,
+                    ) {
+                        Text(text = tertiaryText)
                     }
                 }
             }

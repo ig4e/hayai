@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.util
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import eu.kanade.tachiyomi.BuildConfig
@@ -29,17 +30,37 @@ class CrashLogUtil(private val context: Context) {
 
     suspend fun dumpLogs(exception: Throwable? = null) = withNonCancellableContext {
         try {
-            val file = context.createFileInCacheDir("hayai_crash_logs.txt")
-            file.appendText(getDebugInfo() + "\n\n")
-            file.appendText(getExtensionsInfo() + "\n\n")
-            exception?.let { file.appendText("$it\n\n") }
-
-            Runtime.getRuntime().exec("logcat *:E -d -f ${file.absolutePath}")
-
-            showNotification(file.getUriCompat(context))
+            val uri = createLogFile(exception)
+            showNotification(uri)
         } catch (e: IOException) {
             withUIContext { context.toast("Failed to get logs") }
         }
+    }
+
+    suspend fun shareLogs(exception: Throwable? = null) = withNonCancellableContext {
+        try {
+            val uri = createLogFile(exception)
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = android.content.ClipData.newRawUri(null, uri)
+                type = "text/plain"
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            context.startActivity(Intent.createChooser(sendIntent, context.getString(MR.strings.share)))
+        } catch (e: IOException) {
+            withUIContext { context.toast("Failed to get logs") }
+        }
+    }
+
+    private fun createLogFile(exception: Throwable? = null): Uri {
+        val file = context.createFileInCacheDir("hayai_crash_logs.txt")
+        file.appendText(getDebugInfo() + "\n\n")
+        file.appendText(getExtensionsInfo() + "\n\n")
+        exception?.let { file.appendText("$it\n\n") }
+
+        Runtime.getRuntime().exec("logcat *:E -d -f ${file.absolutePath}")
+
+        return file.getUriCompat(context)
     }
 
     fun getDebugInfo(): String {

@@ -45,15 +45,21 @@ class CrashActivity : AppCompatActivity() {
                     icon = Icons.Outlined.BugReport,
                     headingText = stringResource(MR.strings.crash_screen_title),
                     subtitleText = stringResource(MR.strings.crash_screen_description, stringResource(MR.strings.app_name)),
-                    acceptText = stringResource(MR.strings.dump_crash_logs),
+                    acceptText = stringResource(MR.strings.crash_screen_share_logs),
                     onAcceptClick = {
+                        scope.launch {
+                            CrashLogUtil(context).shareLogs(exception)
+                        }
+                    },
+                    canAccept = true,
+                    rejectText = stringResource(MR.strings.dump_crash_logs),
+                    onRejectClick = {
                         scope.launch {
                             CrashLogUtil(context).dumpLogs(exception)
                         }
                     },
-                    canAccept = true,
-                    rejectText = stringResource(MR.strings.crash_screen_restart_application),
-                    onRejectClick = {
+                    tertiaryText = stringResource(MR.strings.crash_screen_restart_application),
+                    onTertiaryClick = {
                         finishAffinity()
                         startActivity(Intent(this@CrashActivity, MainActivity::class.java))
                     },
