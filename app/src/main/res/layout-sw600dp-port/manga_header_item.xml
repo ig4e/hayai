@@ -170,7 +170,7 @@
         android:clipToPadding="false"
         android:requiresFadingEdge="horizontal"
         android:scrollbars="none"
-        app:layout_constraintBottom_toTopOf="@id/manga_summary_label"
+        app:layout_constraintBottom_toTopOf="@id/metadata_compose"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/bottom_line">
@@ -222,8 +222,29 @@
                 android:padding="5dp"
                 android:src="@drawable/ic_share_24dp"
                 android:tooltipText="@string/share" />
+
+            <ImageView
+                android:id="@+id/recs_button"
+                style="@style/Theme.Widget.CustomImageButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginStart="0dp"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="@string/community_recommendations"
+                android:padding="5dp"
+                android:src="@drawable/ic_auto_awesome_24dp"
+                android:tooltipText="@string/community_recommendations" />
         </LinearLayout>
     </HorizontalScrollView>
+
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/metadata_compose"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/sub_button_scroll" />
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/manga_summary_label"
@@ -237,7 +258,7 @@
         android:textIsSelectable="false"
         android:textSize="17sp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sub_button_scroll"
+        app:layout_constraintTop_toBottomOf="@id/metadata_compose"
         tools:text="About this manga" />
 
     <TextView
@@ -350,26 +371,21 @@
         android:textAlignment="textEnd"
         android:visibility="gone"
         app:drawableTint="?colorSecondary"
-        app:layout_constraintBottom_toTopOf="@id/start_reading_button"
+        app:layout_constraintBottom_toTopOf="@id/button_group_compose"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/manga_genres_tags"
         app:rippleColor="@null"
         tools:visibility="visible" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/start_reading_button"
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/button_group_compose"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
         android:layout_marginTop="12dp"
-        android:layout_marginEnd="16dp"
-        android:text="@string/start_reading"
-        app:layout_constraintBottom_toTopOf="@id/chapter_layout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/less_button"
-        tools:text="Continue Reading Chapter 17.1" />
+        app:layout_constraintTop_toBottomOf="@+id/less_button" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/chapter_layout"
@@ -381,7 +397,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/start_reading_button">
+        app:layout_constraintTop_toBottomOf="@id/button_group_compose">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/chapters_title"

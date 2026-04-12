@@ -279,14 +279,14 @@ class MangaDetailsController :
                     return
                 }
 
-                if (!headerBinding.startReadingButton.isVisible || !headerBinding.startReadingButton.isEnabled) {
+                if (headerBinding.buttonGroupCompose?.isVisible != true) {
                     binding.fab.isVisible = false
                     return
                 }
 
                 val bound = Rect()
                 binding.recycler.getHitRect(bound)
-                if (headerBinding.startReadingButton.getLocalVisibleRect(bound)) {
+                if (headerBinding.buttonGroupCompose?.getLocalVisibleRect(bound) == true) {
                     binding.fab.hide()
                 } else {
                     binding.fab.show()
@@ -1818,6 +1818,33 @@ class MangaDetailsController :
         trackingBottomSheet =
             TrackingBottomSheet(this)
         trackingBottomSheet?.show()
+    }
+
+    override fun openRecommendations() {
+        val manga = presenter.manga
+        router.pushController(
+            exh.recs.RecommendsViewController(
+                exh.recs.RecommendsScreen.Args.SingleSourceManga(
+                    mangaId = manga.id!!,
+                    sourceId = manga.source,
+                ),
+            ).withFadeTransaction(),
+        )
+    }
+
+    override fun openMetadataViewer() {
+        val manga = presenter.manga
+        router.pushController(
+            exh.ui.metadata.MetadataViewController(manga.id!!, manga.source)
+                .withFadeTransaction(),
+        )
+    }
+
+    override fun searchFromMetadata(query: String) {
+        val source = presenter.source as? CatalogueSource ?: return
+        router.pushController(
+            BrowseSourceController(source, query).withFadeTransaction(),
+        )
     }
     //endregion
 

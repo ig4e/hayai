@@ -12,10 +12,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import exh.source.ExhPreferences
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import uy.kohesive.injekt.injectLazy
 import java.net.HttpCookie
 import java.util.Locale
@@ -48,6 +53,9 @@ class EhLoginActivity : AppCompatActivity() {
                 onClickCustomIgneousCookie = {
                     showIgneousDialog = true
                 },
+                onClickRefreshIgneousCookie = {
+                    refreshIgneousCookie()
+                },
             )
 
             if (showIgneousDialog) {
@@ -59,6 +67,57 @@ class EhLoginActivity : AppCompatActivity() {
                         }
                     },
                 )
+            }
+        }
+    }
+
+    /**
+     * Refresh the igneous cookie by making a direct request to ExHentai with only
+     * ipb_member_id and ipb_pass_hash cookies (JHenTai approach).
+     * The server will set a fresh igneous cookie in the Set-Cookie response header.
+     */
+    private fun refreshIgneousCookie() {
+        val memberId = exhPreferences.memberIdVal.get()
+        val passHash = exhPreferences.passHashVal.get()
+
+        if (memberId.isBlank() || passHash.isBlank()) {
+            Toast.makeText(this, "Not logged in to E-Hentai. Please log in first.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                val newIgneous = withContext(Dispatchers.IO) {
+                    val client = OkHttpClient()
+                    val request = Request.Builder()
+                        .url("https://exhentai.org/")
+                        .addHeader("Cookie", "$MEMBER_ID_COOKIE=$memberId; $PASS_HASH_COOKIE=$passHash")
+                        .build()
+                    val response = client.newCall(request).execute()
+                    response.use {
+                        val setCookieHeaders = response.headers.values("Set-Cookie")
+                        setCookieHeaders.mapNotNull { header ->
+                            val pairs = header.split(";")
+                            pairs.firstNotNullOfOrNull { pair ->
+                                val kv = pair.trim().split("=", limit = 2)
+                                if (kv.size == 2 && kv[0].equals(IGNEOUS_COOKIE, ignoreCase = true)) {
+                                    kv[1]
+                                } else null
+                            }
+                        }.firstOrNull()
+                    }
+                }
+
+                if (newIgneous == null || newIgneous == "mystery" || newIgneous == "deleted") {
+                    Toast.makeText(this@EhLoginActivity, "Failed to refresh igneous cookie. Make sure you have ExHentai access.", Toast.LENGTH_LONG).show()
+                } else {
+                    exhPreferences.igneousVal.set(newIgneous)
+                    Toast.makeText(this@EhLoginActivity, "Igneous cookie refreshed successfully!", Toast.LENGTH_LONG).show()
+                    logger.d { "Igneous cookie refreshed: $newIgneous" }
+                }
+            } catch (e: Exception) {
+                logger.e(e) { "Failed to refresh igneous cookie" }
+                Toast.makeText(this@EhLoginActivity, "Failed to refresh igneous cookie: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -142,6 +201,16 @@ class EhLoginActivity : AppCompatActivity() {
 
             // Missing a cookie
             if (memberId == null || passHash == null || igneous == null) return false
+
+            // "mystery" means ExHentai rejected login (Sad Panda) — don't store it
+            if (igneous == "mystery" || igneous == "deleted") {
+                Toast.makeText(
+                    this,
+                    "ExHentai login failed: igneous cookie is \"$igneous\". Check your account has ExHentai access, then try again.",
+                    Toast.LENGTH_LONG,
+                ).show()
+                return false
+            }
 
             // Update prefs
             exhPreferences.memberIdVal.set(memberId!!)

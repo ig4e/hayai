@@ -8,16 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.SdCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,14 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import dev.icerock.moko.resources.compose.stringResource
 import exh.metadata.MetadataUtil
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.ui.metadata.GenreChip
 import exh.ui.metadata.MetadataUIUtil
-import exh.ui.metadata.RatingRow
-import exh.ui.metadata.getRatingString
-import yokai.i18n.MR
+import exh.ui.metadata.getRatingColor
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -45,146 +37,93 @@ fun EHentaiDescription(
     onSearch: (String) -> Unit,
 ) {
     val clipboardManager = LocalClipboardManager.current
+    val isDark = isSystemInDarkTheme()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        // Genre chip
-        val isDark = isSystemInDarkTheme()
-        val genreInfo = meta.genre?.let { MetadataUIUtil.getGenreAndColour(it, isDark) }
-        val genreText = genreInfo?.second ?: meta.genre ?: "Unknown"
-        val genreColor = genreInfo?.first
+        // Row 1: Genre chip on left, rating on right
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            val genreInfo = meta.genre?.let { MetadataUIUtil.getGenreAndColour(it, isDark) }
+            val genreText = genreInfo?.second ?: meta.genre ?: "Unknown"
+            val genreColor = genreInfo?.first
+            GenreChip(genre = genreText, color = genreColor)
+
+            val ratingFloat = meta.averageRating?.toFloat() ?: 0F
+            val ratingColor = getRatingColor(ratingFloat)
+            val fullStars = ratingFloat.toInt()
+            val hasHalf = (ratingFloat - fullStars) >= 0.5f
+            val starText = buildString {
+                repeat(fullStars) { append("★") }
+                if (hasHalf) append("½")
+                repeat(5 - fullStars - if (hasHalf) 1 else 0) { append("☆") }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = starText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ratingColor,
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "%.2f".format(ratingFloat),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        // Row 2: uploader · stats · [ⓘ]
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GenreChip(genre = genreText, color = genreColor)
-        }
-
-        // Visibility
-        val visibilityValue = meta.visible ?: stringResource(MR.strings.unknown)
-        Text(
-            text = stringResource(MR.strings.visibility_label, visibilityValue),
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.combinedClickable(
-                onClick = {},
-                onLongClick = { clipboardManager.setText(AnnotatedString(visibilityValue)) },
-            ),
-        )
-
-        // Favorites
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Book,
-                contentDescription = stringResource(MR.strings.favorites_label),
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
+            // Uploader (clickable, searchable)
             Text(
-                text = (meta.favorites ?: 0).toString(),
-                style = MaterialTheme.typography.bodyMedium,
+                text = meta.uploader ?: "Unknown",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.combinedClickable(
-                    onClick = {},
-                    onLongClick = { clipboardManager.setText(AnnotatedString((meta.favorites ?: 0).toString())) },
+                    onClick = { meta.uploader?.let { onSearch("uploader:\"$it\"") } },
+                    onLongClick = { clipboardManager.setText(AnnotatedString(meta.uploader ?: "")) },
                 ),
             )
-        }
 
-        // Uploader (clickable for search)
-        Text(
-            text = meta.uploader ?: "Unknown",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.combinedClickable(
-                onClick = { meta.uploader?.let { onSearch("uploader:\"$it\"") } },
-                onLongClick = { clipboardManager.setText(AnnotatedString(meta.uploader ?: "Unknown")) },
-            ),
-        )
+            // Stats: pages · size · language
+            val dimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            meta.length?.let { pages ->
+                Text(text = " · ${pages}p", style = MaterialTheme.typography.bodySmall, color = dimColor)
+            }
+            meta.size?.takeIf { it > 0 }?.let { size ->
+                Text(
+                    text = " · ${MetadataUtil.humanReadableByteCount(size, true)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = dimColor,
+                )
+            }
+            meta.language?.let { lang ->
+                Text(text = " · $lang", style = MaterialTheme.typography.bodySmall, color = dimColor)
+            }
 
-        // Size
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.SdCard,
-                contentDescription = stringResource(MR.strings.file_size_label),
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = MetadataUtil.humanReadableByteCount(meta.size ?: 0, true),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.combinedClickable(
-                    onClick = {},
-                    onLongClick = { clipboardManager.setText(AnnotatedString(MetadataUtil.humanReadableByteCount(meta.size ?: 0, true))) },
-                ),
-            )
-        }
+            Spacer(Modifier.weight(1f))
 
-        // Pages
-        val pageCount = meta.length ?: 0
-        val pagesText = stringResource(MR.strings.page_count_format, pageCount)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.MenuBook,
-                contentDescription = stringResource(MR.strings.page_count_label),
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = pagesText,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.combinedClickable(
-                    onClick = {},
-                    onLongClick = { clipboardManager.setText(AnnotatedString(pagesText)) },
-                ),
-            )
-        }
-
-        // Language
-        val language = meta.language ?: stringResource(MR.strings.unknown)
-        val languageText = if (meta.translated == true) {
-            stringResource(MR.strings.language_translated, language)
-        } else {
-            language
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Language,
-                contentDescription = stringResource(MR.strings.language_label),
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = languageText,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.combinedClickable(
-                    onClick = {},
-                    onLongClick = { clipboardManager.setText(AnnotatedString(languageText)) },
-                ),
-            )
-        }
-
-        // Rating
-        val ratingFloat = meta.averageRating?.toFloat() ?: 0F
-        val ratingText = "$ratingFloat - ${getRatingString(ratingFloat * 2)}"
-        RatingRow(rating = ratingFloat, ratingText = ratingText)
-
-        // More info button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            IconButton(onClick = openMetadataViewer) {
+            // Info button — opens full metadata viewer
+            IconButton(
+                onClick = openMetadataViewer,
+                modifier = Modifier.size(32.dp),
+            ) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = stringResource(MR.strings.more_info),
-                    tint = MaterialTheme.colorScheme.primary,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                 )
             }
         }

@@ -150,5 +150,8 @@ class MangaDetailsAdapter(
         fun showTrackingSheet()
         fun updateScroll()
         fun setFavButtonPopup(popupView: View)
+        fun openRecommendations()
+        fun openMetadataViewer()
+        fun searchFromMetadata(query: String)
     }
 }

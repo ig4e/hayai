@@ -8,6 +8,9 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.withIOContext
+import exh.source.ExhPreferences
+import exh.util.DataSaver
+import exh.util.DataSaver.Companion.getImage
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
@@ -31,6 +34,7 @@ class HttpPageLoader(
     private val source: HttpSource,
     private val chapterCache: ChapterCache = Injekt.get(),
     private val preferences: PreferencesHelper = Injekt.get(),
+    private val exhPreferences: ExhPreferences = Injekt.get(),
 ) : PageLoader() {
 
     override val isLocal: Boolean = false
@@ -156,9 +160,13 @@ class HttpPageLoader(
 
     /**
      * Retries a page. This method is only called from user interaction on the viewer.
+     * Clears imageUrl so getImageUrl() runs again — this is critical for EHentai where
+     * the page URL is modified with an &nl= parameter to switch to a different image server.
      */
     override fun retryPage(page: ReaderPage) {
         if (page.status is Page.State.Error) {
+            // Clear imageUrl so _loadPage re-fetches the page HTML and gets the new server URL
+            page.imageUrl = null
             page.status = Page.State.Queue
         }
         queue.offer(PriorityPage(page, 2))
@@ -199,7 +207,8 @@ class HttpPageLoader(
 
             if (!chapterCache.isImageInCache(imageUrl)) {
                 page.status = Page.State.DownloadImage
-                val imageResponse = source.getImage(page)
+                val dataSaver = DataSaver.fromPreferences(exhPreferences)
+                val imageResponse = source.getImage(page, dataSaver)
                 chapterCache.putImageToCache(imageUrl, imageResponse)
             }
 

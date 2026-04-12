@@ -49,6 +49,8 @@ import eu.kanade.tachiyomi.util.view.resetStrokeColor
 import io.noties.markwon.Markwon
 import io.noties.markwon.SoftBreakAddsNewLinePlugin
 import android.text.method.LinkMovementMethod
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import yokai.i18n.MR
 import yokai.util.coil.loadManga
 import yokai.util.lang.getString
@@ -79,6 +81,7 @@ class MangaHeaderHolder(
     private var showMoreButton = true
     var hadSelection = false
     private var canCollapse = true
+    private val accentColorState = mutableStateOf<Int?>(null)
 
     init {
 
@@ -90,9 +93,7 @@ class MangaHeaderHolder(
         }
         with(binding) {
             this ?: return@with
-            startReadingButton.transitionName = "details start reading transition"
             chapterLayout.setOnClickListener { adapter.delegate.showChapterFilter() }
-            startReadingButton.setOnClickListener { adapter.delegate.readNextChapter(it) }
             topView.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 height = adapter.delegate.topCoverHeight()
             }
@@ -138,6 +139,7 @@ class MangaHeaderHolder(
 
             webviewButton.setOnClickListener { adapter.delegate.openInWebView() }
             shareButton.setOnClickListener { adapter.delegate.prepareToShareManga() }
+            recsButton?.setOnClickListener { adapter.delegate.openRecommendations() }
             favoriteButton.setOnClickListener {
                 adapter.delegate.favoriteManga(false)
             }
@@ -389,15 +391,15 @@ class MangaHeaderHolder(
             checked(tracked)
         }
 
-        with(binding.startReadingButton) {
+        run {
             val nextChapter = presenter.getNextUnreadChapter()
-            isVisible = presenter.chapters.isNotEmpty() && !item.isLocked && !adapter.hasFilter()
-            showReadingButton = isVisible
-            isEnabled = (nextChapter != null)
-            text = if (nextChapter != null) {
+            val showButtons = presenter.chapters.isNotEmpty() && !item.isLocked && !adapter.hasFilter()
+            showReadingButton = showButtons
+            val readEnabled = nextChapter != null
+            val readText = if (nextChapter != null) {
                 val number = adapter.decimalFormat.format(nextChapter.chapter_number.toDouble())
                 if (nextChapter.chapter_number > 0) {
-                    context.getString(
+                    itemView.context.getString(
                         if (nextChapter.last_page_read > 0) {
                             MR.strings.continue_reading_chapter_
                         } else {
@@ -406,7 +408,7 @@ class MangaHeaderHolder(
                         number,
                     )
                 } else {
-                    context.getString(
+                    itemView.context.getString(
                         if (nextChapter.last_page_read > 0) {
                             MR.strings.continue_reading
                         } else {
@@ -415,7 +417,30 @@ class MangaHeaderHolder(
                     )
                 }
             } else {
-                context.getString(MR.strings.all_chapters_read)
+                itemView.context.getString(MR.strings.all_chapters_read)
+            }
+            binding?.buttonGroupCompose?.setContent {
+                yokai.presentation.theme.YokaiTheme {
+                    MangaContinueReadingButton(
+                        readButtonText = readText,
+                        readEnabled = readEnabled,
+                        showButton = showButtons,
+                        accentColorInt = accentColorState.value,
+                        onReadClick = { adapter.delegate.readNextChapter(binding?.buttonGroupCompose ?: itemView) },
+                    )
+                }
+            }
+        }
+
+        // Metadata section (EH info, etc.)
+        binding?.metadataCompose?.setContent {
+            yokai.presentation.theme.YokaiTheme {
+                MangaMetadataSection(
+                    mangaId = manga.id ?: -1L,
+                    sourceId = manga.source,
+                    openMetadataViewer = { adapter.delegate.openMetadataViewer() },
+                    onSearch = { query -> adapter.delegate.searchFromMetadata(query) },
+                )
             }
         }
 
@@ -581,6 +606,7 @@ class MangaHeaderHolder(
 
     fun updateColors(updateAll: Boolean = true) {
         val accentColor = adapter.delegate.accentColor() ?: return
+        accentColorState.value = accentColor
         if (binding == null) {
             if (chapterBinding != null) {
                 chapterBinding.filterButton.imageTintList = ColorStateList.valueOf(accentColor)
@@ -599,6 +625,7 @@ class MangaHeaderHolder(
             lessButton.setTextColor(accentColor)
             shareButton.imageTintList = ColorStateList.valueOf(accentColor)
             webviewButton.imageTintList = ColorStateList.valueOf(accentColor)
+            recsButton?.imageTintList = ColorStateList.valueOf(accentColor)
             filterButton.imageTintList = ColorStateList.valueOf(accentColor)
 
             val states = arrayOf(
@@ -611,13 +638,6 @@ class MangaHeaderHolder(
                 accentColor,
             )
 
-            startReadingButton.backgroundTintList = ColorStateList(states, colors)
-
-            val textColors = intArrayOf(
-                ColorUtils.setAlphaComponent(root.context.getResourceColor(R.attr.colorOnSurface), 97),
-                root.context.getResourceColor(AR.attr.textColorPrimaryInverse),
-            )
-            startReadingButton.setTextColor(ColorStateList(states, textColors))
             trackButton.iconTint = ColorStateList.valueOf(accentColor)
             favoriteButton.iconTint = ColorStateList.valueOf(accentColor)
             if (updateAll) {
@@ -658,7 +678,8 @@ class MangaHeaderHolder(
         binding ?: return
         if (!canCollapse) return
         binding.subItemGroup.isVisible = false
-        binding.startReadingButton.isVisible = false
+        binding.buttonGroupCompose?.isVisible = false
+        binding.metadataCompose?.isVisible = false
         if (binding.moreButton.isVisible || binding.moreButton.isInvisible) {
             binding.moreButtonGroup.isInvisible = !isTablet
         } else {
@@ -715,7 +736,8 @@ class MangaHeaderHolder(
                 binding.mangaGenresTags.isVisible = true
             }
         }
-        binding.startReadingButton.isVisible = showReadingButton
+        binding.buttonGroupCompose?.isVisible = showReadingButton
+        binding.metadataCompose?.isVisible = true
     }
 
     override fun onLongClick(view: View?): Boolean {

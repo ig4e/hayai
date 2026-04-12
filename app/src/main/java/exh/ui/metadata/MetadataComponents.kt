@@ -124,7 +124,7 @@ fun RatingRow(
  * The rating parameter is on a 0-5 star scale; multiply by 2 for the 0-10 mapping.
  */
 @Composable
-private fun getRatingColor(rating: Float): Color {
+internal fun getRatingColor(rating: Float): Color {
     val isDark = isSystemInDarkTheme()
     val ratingOut10 = (rating * 2).coerceIn(0f, 10f)
     return when {

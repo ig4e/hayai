@@ -1341,6 +1341,9 @@
     <string name="skip_page_restyling">Skip page restyling</string>
     <string name="custom_igneous_cookie">Custom igneous cookie</string>
     <string name="custom_igneous_cookie_message">Some users cannot access ExHentai the normal way, and have to pass in a specific igneous cookie value, this option is for those users.</string>
+    <string name="refresh_igneous_cookie">Refresh igneous cookie</string>
+    <string name="refresh_igneous_cookie_success">Igneous cookie refreshed successfully</string>
+    <string name="refresh_igneous_cookie_failed">Failed to refresh igneous cookie. Make sure you are logged in to E-Hentai and have ExHentai access.</string>
 
     <!-- EH Advanced Settings -->
     <string name="developer_tools">Developer tools</string>

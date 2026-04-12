@@ -342,7 +342,7 @@ class EHentai(
 
                 val parentLink = doc.select("#gdd .gdt1").find { el ->
                     el.text().lowercase() == "parent:"
-                }!!.nextElementSibling()!!.selectFirst("a")?.attr("href")
+                }?.nextElementSibling()?.selectFirst("a")?.attr("href")
 
                 if (parentLink != null) {
                     updateHelper.parentLookupTable.put(
@@ -369,14 +369,16 @@ class EHentai(
         val location = doc.location()
         val self = SChapter.create().apply {
             this.url = EHentaiSearchMetadata.normalizeUrl(location)
-            name = "v1: " + doc.selectFirst("#gn")!!.text()
+            name = "v1: " + (doc.selectFirst("#gn")?.text() ?: "")
             chapter_number = 1f
-            date_upload = ZonedDateTime.parse(
-                doc.select("#gdd .gdt1").find { el ->
-                    el.text().lowercase() == "posted:"
-                }!!.nextElementSibling()!!.text(),
-                MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
-            )!!.toInstant().toEpochMilli()
+            date_upload = doc.select("#gdd .gdt1").find { el ->
+                el.text().lowercase() == "posted:"
+            }?.nextElementSibling()?.text()?.let { postedText ->
+                runCatching {
+                    ZonedDateTime.parse(postedText, MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC))
+                        .toInstant().toEpochMilli()
+                }.getOrNull()
+            } ?: 0L
             scanlator = EHentaiSearchMetadata.galleryId(location)
         }
         // Build and append the rest of the galleries
@@ -386,15 +388,15 @@ class EHentai(
             newDisplay.mapIndexed { index, newGallery ->
                 val link = newGallery.attr("href")
                 val chapterName = newGallery.text()
-                val posted = (newGallery.nextSibling() as TextNode).text().removePrefix(", added ")
+                val posted = (newGallery.nextSibling() as? TextNode)?.text()?.removePrefix(", added ") ?: ""
                 SChapter.create().apply {
                     this.url = EHentaiSearchMetadata.normalizeUrl(link)
                     name = "v${index + 2}: $chapterName"
                     chapter_number = index + 2f
-                    date_upload = ZonedDateTime.parse(
-                        posted,
-                        MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
-                    ).toInstant().toEpochMilli()
+                    date_upload = runCatching {
+                        ZonedDateTime.parse(posted, MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC))
+                            .toInstant().toEpochMilli()
+                    }.getOrDefault(0L)
                     scanlator = EHentaiSearchMetadata.galleryId(link)
                 }
             }.reversed() + self
@@ -440,11 +442,14 @@ class EHentai(
     }
 
     private fun parseChapterPage(response: Element) = with(response) {
-        select(".gdtm a").map {
-            Pair(it.child(0).attr("alt").toInt(), it.attr("href"))
+        select(".gdtm a").mapNotNull {
+            val pageNum = it.child(0).attr("alt").toIntOrNull() ?: return@mapNotNull null
+            Pair(pageNum, it.attr("href"))
         }.plus(
-            select("#gdt a").map {
-                Pair(it.child(0).attr("title").removePrefix("Page ").substringBefore(":").toInt(), it.attr("href"))
+            select("#gdt a").mapNotNull {
+                val pageNum = it.child(0).attr("title").removePrefix("Page ").substringBefore(":").toIntOrNull()
+                    ?: return@mapNotNull null
+                Pair(pageNum, it.attr("href"))
             },
         ).sortedBy(Pair<Int, String>::first).map { it.second }
     }
@@ -786,7 +791,8 @@ class EHentai(
             select("#loadfail").attr("onclick").nullIfBlank()?.let {
                 page.url = addParam(page.url, "nl", it.substring(it.indexOf('\'') + 1 until it.lastIndexOf('\'')))
             }
-            if (currentImage == "https://ehgt.org/g/509.gif") {
+            // E-Hentai and ExHentai use different 509 quota images
+            if (currentImage == "https://ehgt.org/g/509.gif" || currentImage == "https://exhentai.org/img/509.gif") {
                 throw Exception("Exceeded page quota")
             }
             return currentImage

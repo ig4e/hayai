@@ -81,6 +81,7 @@ class Downloader(
     private val chapterCache: ChapterCache by injectLazy()
     private val xml: XML by injectLazy()
     private val getCategories: GetCategories by injectLazy()
+    private val exhPreferences: exh.source.ExhPreferences by injectLazy()
 
     /**
      * Store for persisting downloads across restarts.
@@ -521,7 +522,8 @@ class Downloader(
         page.status = Page.State.DownloadImage
         page.progress = 0
         return flow {
-            val response = source.getImage(page)
+            val dataSaver = exh.util.DataSaver.fromPreferences(exhPreferences)
+            val response = with(exh.util.DataSaver) { source.getImage(page, dataSaver) }
             val file = tmpDir.createFile("$filename.tmp")
             try {
                 response.body.source().saveTo(file!!.openOutputStream())

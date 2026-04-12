@@ -53,6 +53,7 @@ fun EhLoginWebViewScreen(
     onClickAlternateLoginPage: (loadUrl: (String) -> Unit) -> Unit,
     onClickSkipPageRestyling: (loadUrl: (String) -> Unit) -> Unit,
     onClickCustomIgneousCookie: () -> Unit,
+    onClickRefreshIgneousCookie: () -> Unit = {},
 ) {
     val state = rememberWebViewState(
         url = "https://forums.e-hentai.org/index.php?act=Login",
@@ -185,6 +186,15 @@ fun EhLoginWebViewScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text(text = stringResource(MR.strings.custom_igneous_cookie))
+                            }
+                            Button(
+                                onClick = {
+                                    onClickRefreshIgneousCookie()
+                                    showAdvancedOptions = false
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(text = stringResource(MR.strings.refresh_igneous_cookie))
                             }
                             Button(
                                 onClick = { showAdvancedOptions = false },
