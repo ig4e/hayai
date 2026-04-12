@@ -30,6 +30,7 @@ import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.storage.saveTo
+import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.connectivityManager
 import eu.kanade.tachiyomi.util.system.e
 import eu.kanade.tachiyomi.util.system.jobIsRunning
@@ -161,7 +162,7 @@ class AppDownloadInstallJob(private val context: Context, workerParams: WorkerPa
                 response.close()
                 throw Exception("Unsuccessful response")
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !DeviceUtil.isMiui) {
                 startInstalling(apkFile, notifyOnInstall)
             } else {
                 notifier.onDownloadFinished(apkFile.getUriCompat(context))
