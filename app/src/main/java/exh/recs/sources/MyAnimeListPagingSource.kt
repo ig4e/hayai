@@ -36,18 +36,20 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
             .build()
 
         val data = client.newCall(GET(apiUrl)).awaitSuccess().parseAs<JsonObject>()
-        return data["data"]!!.jsonArray
-            .map { it.jsonObject["entry"]!!.jsonObject }
-            .map { rec ->
+        return data["data"]?.jsonArray
+            ?.mapNotNull { element ->
+                val rec = element.jsonObject["entry"]?.jsonObject ?: return@mapNotNull null
+                val title = rec["title"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                val url = rec["url"]?.jsonPrimitive?.content ?: return@mapNotNull null
                 SManga.create().also { manga ->
-                    manga.title = rec["title"]!!.jsonPrimitive.content
-                    manga.url = rec["url"]!!.jsonPrimitive.content
+                    manga.title = title
+                    manga.url = url
                     manga.thumbnail_url = rec["images"]
                         ?.let(JsonElement::jsonObject)
                         ?.let(::getImage)
                     manga.initialized = true
                 }
-            }
+            } ?: emptyList()
     }
 
     fun getImage(imageObject: JsonObject): String? {
@@ -72,6 +74,13 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
 
         val data = client.newCall(GET(url)).awaitSuccess()
             .parseAs<JsonObject>()
-        return getRecsById(data["data"]!!.jsonArray.first().jsonObject["mal_id"]!!.jsonPrimitive.content)
+        val malId = data["data"]?.jsonArray
+            ?.firstOrNull()
+            ?.jsonObject
+            ?.get("mal_id")
+            ?.jsonPrimitive
+            ?.content
+            ?: return emptyList()
+        return getRecsById(malId)
     }
 }

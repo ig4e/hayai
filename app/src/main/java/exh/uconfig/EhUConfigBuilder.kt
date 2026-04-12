@@ -177,16 +177,16 @@ object Entry {
 
         fun categoryConfigs(list: List<Boolean>): List<ConfigItem> {
             return listOf(
-                GenreConfigItem("ct_doujinshi", list[0]),
-                GenreConfigItem("ct_manga", list[1]),
-                GenreConfigItem("ct_artistcg", list[2]),
-                GenreConfigItem("ct_gamecg", list[3]),
-                GenreConfigItem("ct_western", list[4]),
-                GenreConfigItem("ct_non-h", list[5]),
-                GenreConfigItem("ct_imageset", list[6]),
-                GenreConfigItem("ct_cosplay", list[7]),
-                GenreConfigItem("ct_asianporn", list[8]),
-                GenreConfigItem("ct_misc", list[9]),
+                GenreConfigItem("ct_doujinshi", list.getOrElse(0) { false }),
+                GenreConfigItem("ct_manga", list.getOrElse(1) { false }),
+                GenreConfigItem("ct_artistcg", list.getOrElse(2) { false }),
+                GenreConfigItem("ct_gamecg", list.getOrElse(3) { false }),
+                GenreConfigItem("ct_western", list.getOrElse(4) { false }),
+                GenreConfigItem("ct_non-h", list.getOrElse(5) { false }),
+                GenreConfigItem("ct_imageset", list.getOrElse(6) { false }),
+                GenreConfigItem("ct_cosplay", list.getOrElse(7) { false }),
+                GenreConfigItem("ct_asianporn", list.getOrElse(8) { false }),
+                GenreConfigItem("ct_misc", list.getOrElse(9) { false }),
             )
         }
 
@@ -202,24 +202,25 @@ object Entry {
 
         fun getLanguages(values: List<String>): List<ConfigItem> {
             val config = transformConfig(values)
+            val default = listOf(false, false, false)
             return listOf(
-                Japanese(config[0]),
-                English(config[1]),
-                Chinese(config[2]),
-                Dutch(config[3]),
-                French(config[4]),
-                German(config[5]),
-                Hungarian(config[6]),
-                Italian(config[7]),
-                Korean(config[8]),
-                Polish(config[9]),
-                Portuguese(config[10]),
-                Russian(config[11]),
-                Spanish(config[12]),
-                Thai(config[13]),
-                Vietnamese(config[14]),
-                NotAvailable(config[15]),
-                Other(config[16]),
+                Japanese(config.getOrElse(0) { default }),
+                English(config.getOrElse(1) { default }),
+                Chinese(config.getOrElse(2) { default }),
+                Dutch(config.getOrElse(3) { default }),
+                French(config.getOrElse(4) { default }),
+                German(config.getOrElse(5) { default }),
+                Hungarian(config.getOrElse(6) { default }),
+                Italian(config.getOrElse(7) { default }),
+                Korean(config.getOrElse(8) { default }),
+                Polish(config.getOrElse(9) { default }),
+                Portuguese(config.getOrElse(10) { default }),
+                Russian(config.getOrElse(11) { default }),
+                Spanish(config.getOrElse(12) { default }),
+                Thai(config.getOrElse(13) { default }),
+                Vietnamese(config.getOrElse(14) { default }),
+                NotAvailable(config.getOrElse(15) { default }),
+                Other(config.getOrElse(16) { default }),
             ).flatMap { it.configs }
         }
 

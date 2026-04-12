@@ -11,7 +11,6 @@ import exh.recs.sources.StaticResultPagingSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.manga.interactor.GetManga
@@ -22,17 +21,18 @@ class BrowseRecommendsScreenModel(
     private val sourceManager: SourceManager = Injekt.get(),
 ) : StateScreenModel<BrowseRecommendsScreenModel.State>(State.Loading) {
 
-    val recommendationSource: RecommendationPagingSource
-        get() = when (args) {
+    private suspend fun resolveRecommendationSource(): RecommendationPagingSource? {
+        return when (args) {
             is BrowseRecommendsScreen.Args.MergedSourceMangas -> StaticResultPagingSource(args.results)
             is BrowseRecommendsScreen.Args.SingleSourceManga -> {
-                val manga = runBlocking { getManga.awaitById(args.mangaId) }!!
-                val source = sourceManager.get(args.sourceId) as CatalogueSource
-                RecommendationPagingSource.createSources(manga, source).first {
+                val manga = getManga.awaitById(args.mangaId) ?: return null
+                val source = sourceManager.get(args.sourceId) as? CatalogueSource ?: return null
+                RecommendationPagingSource.createSources(manga, source).firstOrNull {
                     it::class.qualifiedName == args.recommendationSourceName
                 }
             }
         }
+    }
 
     init {
         loadResults()
@@ -41,9 +41,14 @@ class BrowseRecommendsScreenModel(
     private fun loadResults(page: Int = 1) {
         screenModelScope.launch(Dispatchers.IO) {
             try {
-                val result = recommendationSource.requestNextPage(page)
+                val source = resolveRecommendationSource()
+                if (source == null) {
+                    mutableState.update { State.Error("Could not resolve recommendation source") }
+                    return@launch
+                }
+                val result = source.requestNextPage(page)
                 val mangas = result.mangas.map { sManga ->
-                    val sourceId = recommendationSource.associatedSourceId
+                    val sourceId = source.associatedSourceId
                     val resolvedManga = if (sourceId != null) {
                         getManga.awaitByUrlAndSource(sManga.url, sourceId)
                     } else {
@@ -66,8 +71,8 @@ class BrowseRecommendsScreenModel(
                         mangas = mangas,
                         hasNextPage = result.hasNextPage,
                         currentPage = page,
-                        sourceName = recommendationSource.name,
-                        sourceCategory = recommendationSource.category,
+                        sourceName = source.name,
+                        sourceCategory = source.category,
                     )
                 }
             } catch (e: Exception) {

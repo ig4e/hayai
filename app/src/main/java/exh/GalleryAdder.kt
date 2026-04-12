@@ -217,7 +217,7 @@ class GalleryAdder {
             throw lastError
         }
 
-        return result!!
+        return result ?: error("retry() called with retryCount=$retryCount but block never executed")
     }
 }
 

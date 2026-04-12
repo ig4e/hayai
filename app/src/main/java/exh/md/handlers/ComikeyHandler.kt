@@ -38,7 +38,8 @@ class ComikeyHandler(cloudflareClient: OkHttpClient, userAgent: String) {
         val response = client.newCall(GET("$baseUrl/read/$mangaUrl")).awaitSuccess()
         val url = response.asJsoup().selectFirst("meta[property=og:url]")?.attr("content")
             ?: throw Exception("Comikey: could not find og:url meta tag")
-        return url.trimEnd('/').substringAfterLast('/').toInt()
+        return url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+            ?: throw Exception("Comikey: invalid manga ID in URL: $url")
     }
 
     private fun pageListRequest(mangaId: Int, chapterGuid: String): Request {
