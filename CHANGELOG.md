@@ -54,9 +54,13 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Wire MetadataSource DI with 3 interactor implementations
 - Refactor E-Hentai tags from 28K lines of Kotlin to JSON assets (2.9 MB, runtime loading with cache)
 
-## [Unreleased]
+## [1.15.0]
 
 ### Additions
+- Add configurable preload-ahead slider in reader settings (1–20 pages, applies immediately while reading)
+- Add Compose-based filter sheet for source browsing with saved search support
+- Add "Refresh igneous cookie" option in E-Hentai advanced login settings
+- Add custom igneous cookie dialog in E-Hentai login
 - Add random library sort
 - Add the ability to save search queries
 - Add toggle to enable/disable hide source on swipe (@Hiirbaf)
@@ -83,6 +87,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Fix Recents page shows "No recent chapters" instead of a loading screen
 - Fix not fully loaded entries can't be selected on Library page
 - Fix certain Infinix devices being unable to use any "Open link in browser" actions, including tracker setup (@MajorTanya)
+- Fix source filter checkboxes/tri-state not visually updating when tapped
 - Fix source filter bottom sheet unable to be fully scrolled to the bottom
 - Prevent potential "Comparison method violates its general contract!" crash
 - Fix staggered grid cover being squashed for local source (@AwkwardPeak7)
@@ -92,6 +97,11 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Fix crashes caused by RecyclerView stable id (@MuhamadSyabitHidayattulloh)
 - Fix paused download notification is not shown (@MuhamadSyabitHidayattulloh)
 - Disable auto refresh entry from Local Source (@lalalasupa0)
+- Fix E-Hentai/ExHentai igneous cookie "mystery" being stored as valid (now rejected with error)
+- Fix E-Hentai page loading and retry (retry now re-fetches image URL with nl= server switch)
+- Fix ExHentai 509 quota exceeded detection
+- Fix E-Hentai chapter list NPE on missing/malformed gallery data
+- Fix Data Saver not applied in reader and downloads
 - Fix extension download stuck on pending state
 - Only solve Cloudflare with WebView if it's not geoblock (@AwkwardPeak7)
 - Fix cover from LocalSource sometimes didn't load (@lalalasupa0)
