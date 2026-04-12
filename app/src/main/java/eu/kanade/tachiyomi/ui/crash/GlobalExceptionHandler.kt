@@ -70,8 +70,9 @@ class GlobalExceptionHandler private constructor(
 
         fun getThrowableFromIntent(intent: Intent): Throwable? {
             return try {
-                Json.decodeFromString(ThrowableSerializer, intent.getStringExtra(INTENT_EXTRA)!!)
-            } catch (e: Exception) {
+                val extra = intent.getStringExtra(INTENT_EXTRA) ?: return null
+                Json.decodeFromString(ThrowableSerializer, extra)
+            } catch (e: Throwable) {
                 Logger.e(e) { "Wasn't able to retrieve throwable from intent" }
                 null
             }

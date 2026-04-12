@@ -181,7 +181,8 @@ class BilibiliHandler(currentClient: OkHttpClient) {
 
     private fun imageUrlParse(response: Response): String {
         val result = response.parseAs<BilibiliResultDto<List<BilibiliPageDto>>>()
-        val page = result.data!![0]
+        val page = result.data?.firstOrNull()
+            ?: throw Exception("Bilibili: empty image token response")
 
         return "${page.url}?token=${page.token}"
     }

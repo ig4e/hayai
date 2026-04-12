@@ -36,7 +36,8 @@ class ComikeyHandler(cloudflareClient: OkHttpClient, userAgent: String) {
 
     suspend fun getMangaId(mangaUrl: String): Int {
         val response = client.newCall(GET("$baseUrl/read/$mangaUrl")).awaitSuccess()
-        val url = response.asJsoup().selectFirst("meta[property=og:url]")!!.attr("content")
+        val url = response.asJsoup().selectFirst("meta[property=og:url]")?.attr("content")
+            ?: throw Exception("Comikey: could not find og:url meta tag")
         return url.trimEnd('/').substringAfterLast('/').toInt()
     }
 
@@ -55,11 +56,12 @@ class ComikeyHandler(cloudflareClient: OkHttpClient, userAgent: String) {
     }
 
     fun pageListParse(response: Response): List<Page> {
-        return Json.parseToJsonElement(response.body.string())
-            .jsonObject["readingOrder"]!!
-            .jsonArray.mapIndexed { index, element ->
-                val url = element.jsonObject["href"]!!.jsonPrimitive.content
-                Page(index, url, url)
-            }
+        val order = Json.parseToJsonElement(response.body.string())
+            .jsonObject["readingOrder"]
+            ?.jsonArray ?: throw Exception("Comikey: missing 'readingOrder' in response")
+        return order.mapIndexedNotNull { index, element ->
+            val url = element.jsonObject["href"]?.jsonPrimitive?.content ?: return@mapIndexedNotNull null
+            Page(index, url, url)
+        }
     }
 }

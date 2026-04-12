@@ -32,11 +32,16 @@ class AzukiHandler(currentClient: OkHttpClient, userAgent: String) {
     }
 
     fun pageListParse(response: Response): List<Page> {
-        return Json.parseToJsonElement(response.body.string())
-            .jsonObject["pages"]!!
-            .jsonArray.mapIndexed { index, element ->
-                val url = element.jsonObject["image_wm"]!!.jsonObject["webp"]!!.jsonArray[1].jsonObject["url"]!!.jsonPrimitive.content
-                Page(index, url, url)
-            }
+        val pages = Json.parseToJsonElement(response.body.string())
+            .jsonObject["pages"]
+            ?.jsonArray ?: throw Exception("Azuki: missing 'pages' in response")
+        return pages.mapIndexedNotNull { index, element ->
+            val url = element.jsonObject["image_wm"]
+                ?.jsonObject?.get("webp")
+                ?.jsonArray?.getOrNull(1)
+                ?.jsonObject?.get("url")
+                ?.jsonPrimitive?.content ?: return@mapIndexedNotNull null
+            Page(index, url, url)
+        }
     }
 }

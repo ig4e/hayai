@@ -3,6 +3,12 @@
 # Keep generic type signatures required by Injekt (FullTypeReference uses Signature attribute)
 -keepattributes Signature
 
+# Keep all anonymous FullTypeReference subclasses so R8 cannot remove them.
+# Injekt.get<T>() creates `object : FullTypeReference<T>() {}` at every call site;
+# if R8 removes those anonymous classes the Signature attribute is gone and
+# FullTypeReference.<init> throws IllegalArgumentException at runtime.
+-keep class * extends uy.kohesive.injekt.api.FullTypeReference { *; }
+
 -keep,allowoptimization class eu.kanade.**
 -keep,allowoptimization class tachiyomi.**
 -keep,allowoptimization class yokai.**

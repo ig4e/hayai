@@ -140,14 +140,18 @@ class GalleryAdder {
             }
 
             // Fetch and update manga details from source
-            val newMangaDetails = retry(retry) { source.getMangaDetails(manga!!) }
-            manga!!.copyFrom(newMangaDetails)
-            manga!!.initialized = true
-            updateManga.await(manga!!.toMangaUpdate())
-            manga = getManga.awaitById(manga!!.id!!)!!
+            // manga is non-null here: either found in DB or inserted and re-fetched above
+            val nonNullManga = manga ?: return GalleryAddEvent.Fail.Error(url, "Manga not found (Gallery: $url)")
+            val newMangaDetails = retry(retry) { source.getMangaDetails(nonNullManga) }
+            nonNullManga.copyFrom(newMangaDetails)
+            nonNullManga.initialized = true
+            updateManga.await(nonNullManga.toMangaUpdate())
+            val mangaId = nonNullManga.id ?: return GalleryAddEvent.Fail.Error(url, "Manga has no ID (Gallery: $url)")
+            manga = getManga.awaitById(mangaId)
+                ?: return GalleryAddEvent.Fail.Error(url, "Failed to reload manga after update (Gallery: $url)")
 
             if (fav) {
-                updateManga.await(MangaUpdate(id = manga.id!!, favorite = true))
+                updateManga.await(MangaUpdate(id = manga.id ?: mangaId, favorite = true))
                 manga.favorite = true
             }
 
