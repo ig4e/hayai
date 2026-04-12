@@ -1,47 +1,43 @@
 package exh.eh
 
-import exh.eh.tags.Artist
-import exh.eh.tags.Artist2
-import exh.eh.tags.Character
-import exh.eh.tags.Cosplayer
-import exh.eh.tags.Female
-import exh.eh.tags.Group
-import exh.eh.tags.Group2
-import exh.eh.tags.Language
-import exh.eh.tags.Male
-import exh.eh.tags.Mixed
-import exh.eh.tags.Other
-import exh.eh.tags.Parody
-import exh.eh.tags.Reclass
+import android.content.Context
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 
 object EHTags {
-    fun getAllTags(): List<String> = listOf(
-        Female.getTags(),
-        Male.getTags(),
-        Language.getTags(),
-        Reclass.getTags(),
-        Mixed.getTags(),
-        Other.getTags(),
-        Cosplayer.getTags(),
-        Parody.getTags(),
-        Character.getTags(),
-        Group.getTags(),
-        Group2.getTags(),
-        Artist.getTags(),
-        Artist2.getTags(),
-    ).flatten().flatten()
+    private var cachedTags: List<String>? = null
+    private var cachedNamespaces: List<String>? = null
 
-    fun getNamespaces(): List<String> = listOf(
-        "reclass",
-        "language",
-        "parody",
-        "character",
-        "group",
-        "artist",
-        "cosplayer",
-        "male",
-        "female",
-        "mixed",
-        "other",
+    private val namespaceFiles = listOf(
+        "reclass", "language", "parody", "character", "group",
+        "artist", "cosplayer", "male", "female", "mixed", "other", "location",
     )
+
+    fun getAllTags(context: Context): List<String> {
+        cachedTags?.let { return it }
+        val all = namespaceFiles.flatMap { ns ->
+            loadTagFile(context, ns)
+        }
+        cachedTags = all
+        return all
+    }
+
+    fun getNamespaces(): List<String> = namespaceFiles
+
+    private fun loadTagFile(context: Context, namespace: String): List<String> {
+        return try {
+            val json = context.assets.open("ehtags/$namespace.json")
+                .bufferedReader()
+                .use { it.readText() }
+            Json.parseToJsonElement(json).jsonArray.map { it.jsonPrimitive.content }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun invalidateCache() {
+        cachedTags = null
+        cachedNamespaces = null
+    }
 }

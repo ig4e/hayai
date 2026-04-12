@@ -66,4 +66,6 @@ class ExhPreferences(
     )
 
     val enhancedEHentaiView: Preference<Boolean> = preferenceStore.getBoolean("enhanced_e_hentai_view", true)
+
+    val recommendationSearchFlags: Preference<Int> = preferenceStore.getInt("rec_search_flags", Int.MAX_VALUE)
 }

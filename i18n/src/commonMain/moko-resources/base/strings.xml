@@ -1522,6 +1522,7 @@
     <!-- EH Page Previews -->
     <string name="page_previews">Page previews</string>
     <string name="more_previews">More previews</string>
+    <string name="page_preview_go_to">Go to</string>
 
     <!-- EH Humanize Time -->
     <string name="humanize_fallback">moments ago</string>
@@ -1538,4 +1539,32 @@
     <string name="front_page_categories">Front page categories</string>
     <string name="front_page_categories_summary">Select which categories to show on the front page</string>
     <string name="log_in_to_mangadex">Log in to MangaDex</string>
+
+    <!-- EXH MangaDex Auth -->
+    <string name="mangadex_login_title">MangaDex Login</string>
+    <string name="mangadex_logged_in">Logged in</string>
+    <string name="mangadex_logged_out">Logged out successfully</string>
+    <string name="mangadex_not_logged_in">Not logged in to MangaDex</string>
+    <string name="mangadex_not_enabled">MangaDex source is not enabled</string>
+    <string name="mangadex_sync_follows_complete">Synced %d follows from MangaDex</string>
+    <string name="mangadex_push_started">Syncing library to MangaDex…</string>
+
+    <!-- EXH Recommendations -->
+    <string name="similar">Similar to %1$s</string>
+    <string name="similar_titles">Similar titles</string>
+    <string name="community_recommendations">Community recommendations</string>
+    <string name="rec_search">Find common recommendations</string>
+    <string name="rec_hide_library_entries">Hide results already in your library</string>
+    <string name="rec_services_to_search">Recommendation services to search</string>
+    <string name="rec_group_source">Source recommendations</string>
+    <string name="rec_group_tracker">Tracker recommendations</string>
+    <string name="rec_common_recommendations">Common recommendations</string>
+    <string name="rec_search_short">Find recommendations</string>
+    <string name="rec_no_results">No recommendations found</string>
+    <string name="rec_error_title">Search failed</string>
+    <string name="rec_error_string">An error occurred during the search process: %1$s</string>
+    <string name="rec_processing_state">Processing entry %1$d of %2$d</string>
+    <string name="rec_collecting">Collecting recommendations</string>
+    <string name="rec_initializing">Initializing</string>
+    <string name="no_results">No results</string>
 </resources>

@@ -1,12 +1,15 @@
 package exh.md.utils
 
-import eu.kanade.tachiyomi.data.track.TrackPreferences
+import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import eu.kanade.tachiyomi.network.POST
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.util.PkceUtil
 import exh.md.dto.MangaAttributesDto
 import exh.md.dto.MangaDataDto
+import exh.source.getMainSource
 import exh.util.nullIfZero
 import kotlinx.serialization.json.Json
 import okhttp3.FormBody
@@ -139,14 +142,38 @@ class MdUtil {
             return "$cdnUrl/covers/$dexId/$fileName"
         }
 
-        // TODO: Adapt TrackPreferences and MdList for Hayai's tracker system
-        fun saveOAuth(preferences: TrackPreferences, mdList: Any, oAuth: MALOAuth?) {
-            // TODO: Implement OAuth save when MdList tracker is available
+        private const val MANGADEX_OAUTH_KEY = "__PRIVATE_mangadex_oauth_token"
+
+        fun saveOAuth(preferenceStore: PreferenceStore, oAuth: MALOAuth?) {
+            val pref = preferenceStore.getString(MANGADEX_OAUTH_KEY, "")
+            if (oAuth == null) {
+                pref.delete()
+            } else {
+                pref.set(jsonParser.encodeToString(oAuth))
+            }
         }
 
-        fun loadOAuth(preferences: TrackPreferences, mdList: Any): MALOAuth? {
-            // TODO: Implement OAuth load when MdList tracker is available
-            return null
+        fun loadOAuth(preferenceStore: PreferenceStore): MALOAuth? {
+            return try {
+                val token = preferenceStore.getString(MANGADEX_OAUTH_KEY, "").get()
+                if (token.isBlank()) return null
+                jsonParser.decodeFromString<MALOAuth>(token)
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        fun isOAuthSet(preferenceStore: PreferenceStore): Boolean {
+            return preferenceStore.getString(MANGADEX_OAUTH_KEY, "").get().isNotBlank()
+        }
+
+        fun getEnabledMangaDex(
+            sourceManager: SourceManager = Injekt.get(),
+        ): MangaDex? {
+            return sourceManager.getOnlineSources()
+                .asSequence()
+                .mapNotNull { it.getMainSource<MangaDex>() }
+                .firstOrNull()
         }
 
         private var codeVerifier: String? = null

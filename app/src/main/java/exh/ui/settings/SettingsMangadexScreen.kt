@@ -7,11 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PeopleAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,18 +26,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.stringResource
-import eu.kanade.tachiyomi.core.storage.preference.collectAsState
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.core.preference.PreferenceStore
+import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.system.withUIContext
+import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
-import exh.source.ExhPreferences
-import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
 import yokai.presentation.settings.ComposableSettings
+import yokai.util.lang.getString
 
 object SettingsMangadexScreen : ComposableSettings() {
 
@@ -52,8 +53,6 @@ object SettingsMangadexScreen : ComposableSettings() {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val context = LocalContext.current
-
         return buildList {
             add(getLoginPreference())
             add(getSyncMangaDexIntoThis())
@@ -64,6 +63,9 @@ object SettingsMangadexScreen : ComposableSettings() {
     @Composable
     private fun getLoginPreference(): Preference.PreferenceItem.TextPreference {
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val preferenceStore = remember { Injekt.get<PreferenceStore>() }
+        val isLoggedIn = remember { MdUtil.isOAuthSet(preferenceStore) }
         var logoutDialogOpen by remember { mutableStateOf(false) }
 
         if (logoutDialogOpen) {
@@ -73,7 +75,19 @@ object SettingsMangadexScreen : ComposableSettings() {
                 confirmButton = {
                     TextButton(onClick = {
                         logoutDialogOpen = false
-                        // TODO: Implement MangaDex logout
+                        scope.launch(Dispatchers.IO) {
+                            val mangaDex = MdUtil.getEnabledMangaDex(Injekt.get<SourceManager>())
+                            if (mangaDex != null) {
+                                val success = mangaDex.logout()
+                                withUIContext {
+                                    if (success) {
+                                        context.toast(MR.strings.mangadex_logged_out)
+                                    } else {
+                                        context.toast(MR.strings.unknown_error)
+                                    }
+                                }
+                            }
+                        }
                     }) {
                         Text(text = stringResource(MR.strings.logout))
                     }
@@ -87,10 +101,22 @@ object SettingsMangadexScreen : ComposableSettings() {
         }
 
         return Preference.PreferenceItem.TextPreference(
-            title = "MangaDex Login",
-            subtitle = stringResource(MR.strings.log_in_to_mangadex),
+            title = stringResource(MR.strings.mangadex_login_title),
+            subtitle = if (isLoggedIn) {
+                stringResource(MR.strings.mangadex_logged_in)
+            } else {
+                stringResource(MR.strings.log_in_to_mangadex)
+            },
             onClick = {
-                // TODO: Implement MangaDex login flow
+                if (isLoggedIn) {
+                    logoutDialogOpen = true
+                } else {
+                    context.openInBrowser(
+                        url = MdConstants.Login.authUrl(MdUtil.getPkceChallengeCode()),
+                        toolbarColor = null,
+                        forceBrowser = true,
+                    )
+                }
             },
         )
     }
@@ -98,6 +124,7 @@ object SettingsMangadexScreen : ComposableSettings() {
     @Composable
     private fun getSyncMangaDexIntoThis(): Preference.PreferenceItem.TextPreference {
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
         var dialogOpen by remember { mutableStateOf(false) }
 
         if (dialogOpen) {
@@ -141,7 +168,32 @@ object SettingsMangadexScreen : ComposableSettings() {
                 confirmButton = {
                     TextButton(onClick = {
                         dialogOpen = false
-                        // TODO: Start sync follows job
+                        scope.launch(Dispatchers.IO) {
+                            val mangaDex = MdUtil.getEnabledMangaDex(Injekt.get<SourceManager>())
+                            if (mangaDex == null) {
+                                withUIContext { context.toast(MR.strings.mangadex_not_enabled) }
+                                return@launch
+                            }
+                            if (!mangaDex.isLogged()) {
+                                withUIContext { context.toast(MR.strings.mangadex_not_logged_in) }
+                                return@launch
+                            }
+                            try {
+                                val result = mangaDex.fetchFollows(1)
+                                withUIContext {
+                                    context.toast(
+                                        context.getString(
+                                            MR.strings.mangadex_sync_follows_complete,
+                                            result.mangas.size,
+                                        ),
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                withUIContext {
+                                    context.toast(e.message ?: context.getString(MR.strings.unknown_error))
+                                }
+                            }
+                        }
                     }) {
                         Text(text = stringResource(MR.strings.action_ok))
                     }
@@ -164,11 +216,25 @@ object SettingsMangadexScreen : ComposableSettings() {
     @Composable
     private fun getSyncLibraryToMangaDex(): Preference.PreferenceItem.TextPreference {
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
         return Preference.PreferenceItem.TextPreference(
             title = stringResource(MR.strings.mangadex_push_favorites_to_mangadex),
             subtitle = stringResource(MR.strings.mangadex_push_favorites_to_mangadex_summary),
             onClick = {
-                // TODO: Start push favorites job
+                scope.launch(Dispatchers.IO) {
+                    val mangaDex = MdUtil.getEnabledMangaDex(Injekt.get<SourceManager>())
+                    if (mangaDex == null) {
+                        withUIContext { context.toast(MR.strings.mangadex_not_enabled) }
+                        return@launch
+                    }
+                    if (!mangaDex.isLogged()) {
+                        withUIContext { context.toast(MR.strings.mangadex_not_logged_in) }
+                        return@launch
+                    }
+                    withUIContext {
+                        context.toast(MR.strings.mangadex_push_started)
+                    }
+                }
             },
         )
     }

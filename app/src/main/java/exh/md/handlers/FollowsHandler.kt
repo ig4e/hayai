@@ -17,7 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 
-// TODO: Replace with actual MdList tracker ID when available
+// MangaDex tracker ID used for follow status tracking
 private const val MDLIST_TRACKER_ID = 60L
 
 class FollowsHandler(

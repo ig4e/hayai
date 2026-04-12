@@ -18,9 +18,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
@@ -36,6 +39,7 @@ class SmartSearchScreen(
         val screenModel = rememberScreenModel { SmartSearchScreenModel(sourceId, origTitle) }
         val onBackPress = LocalBackPress.currentOrThrow
         val context = LocalContext.current
+        val router = LocalRouter.current
         val state by screenModel.state.collectAsState()
 
         LaunchedEffect(state) {
@@ -43,8 +47,14 @@ class SmartSearchScreen(
             if (results != null) {
                 when (results) {
                     is SmartSearchScreenModel.SearchResults.Found -> {
-                        // TODO: Navigate to manga detail screen
+                        val manga = results.manga
                         context.toast(MR.strings.entry_found)
+                        if (router != null && manga.id != null) {
+                            router.pushController(
+                                MangaDetailsController(manga, fromCatalogue = true)
+                                    .withFadeTransaction(),
+                            )
+                        }
                     }
                     is SmartSearchScreenModel.SearchResults.NotFound -> {
                         context.toast(MR.strings.could_not_find_entry)

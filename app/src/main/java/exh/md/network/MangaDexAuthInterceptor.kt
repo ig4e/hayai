@@ -1,21 +1,19 @@
 package exh.md.network
 
 import co.touchlab.kermit.Logger
-import eu.kanade.tachiyomi.data.track.TrackPreferences
+import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import eu.kanade.tachiyomi.network.parseAs
 import exh.md.utils.MdUtil
-import exh.util.nullIfBlank
 import okhttp3.Interceptor
 import okhttp3.Response
 import java.io.IOException
 
 class MangaDexAuthInterceptor(
-    private val trackPreferences: TrackPreferences,
-    private val mdList: Any, // TODO: Replace with MdList when available
+    private val preferenceStore: PreferenceStore,
 ) : Interceptor {
 
-    var token: String? = null // TODO: Load from trackPreferences when MdList is available
+    var token: String? = MdUtil.loadOAuth(preferenceStore)?.accessToken
 
     private var oauth: MALOAuth? = null
 
@@ -26,7 +24,7 @@ class MangaDexAuthInterceptor(
             return chain.proceed(originalRequest)
         }
         if (oauth == null) {
-            oauth = MdUtil.loadOAuth(trackPreferences, mdList)
+            oauth = MdUtil.loadOAuth(preferenceStore)
         }
         // Refresh access token if expired
         if (oauth != null && oauth!!.isExpired()) {
@@ -71,7 +69,7 @@ class MangaDexAuthInterceptor(
     fun setAuth(oauth: MALOAuth?) {
         token = oauth?.accessToken
         this.oauth = oauth
-        MdUtil.saveOAuth(trackPreferences, mdList, oauth)
+        MdUtil.saveOAuth(preferenceStore, oauth)
     }
 
     private fun refreshToken(chain: Interceptor.Chain): MALOAuth? {

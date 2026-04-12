@@ -44,9 +44,11 @@ class MetadataViewScreen(
 
         val state by screenModel.state.collectAsState()
 
+        val mangaTitle by screenModel.mangaTitle.collectAsState()
+
         YokaiScaffold(
             onNavigationIconClicked = onBackPress,
-            title = "", // TODO: Wire up manga title when metadata DB is available
+            title = mangaTitle.orEmpty(),
             appBarType = AppBarType.SMALL,
         ) { paddingValues ->
             when (

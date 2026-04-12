@@ -3,6 +3,7 @@ package exh.uconfig
 import android.content.Context
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.util.asJsoup
 import exh.log.maybeInjectEHLogger
@@ -17,8 +18,7 @@ import java.util.Locale
 
 class EHConfigurator(val context: Context) {
     private val exhPreferences: ExhPreferences by injectLazy()
-    // TODO: Wire up SourceManager when available
-    // private val sourceManager: SourceManager by injectLazy()
+    private val sourceManager: SourceManager by injectLazy()
 
     private val logger = Logger.withTag("EHConfigurator")
 
@@ -52,10 +52,40 @@ class EHConfigurator(val context: Context) {
     private val EHentai.uconfigUrl get() = baseUrl + UCONFIG_URL
 
     suspend fun configureAll() {
-        // TODO: Get sources from SourceManager when available
-        // val ehSource = sourceManager.get(EH_SOURCE_ID) as EHentai
-        // val exhSource = sourceManager.get(EXH_SOURCE_ID) as EHentai
-        logger.w { "configureAll() called but SourceManager is not yet wired up" }
+        val ehSource = sourceManager.get(EH_SOURCE_ID) as EHentai
+        val exhSource = sourceManager.get(EXH_SOURCE_ID) as EHentai
+
+        // Get hath perks from E-Hentai (EXH does not have a perks page)
+        val perksPage = configuratorClient.newCall(
+            ehSource.requestWithCreds()
+                .url(HATH_PERKS_URL)
+                .build(),
+        )
+            .awaitSuccess().asJsoup()
+
+        val hathPerks = EHHathPerksResponse()
+
+        perksPage.select(".stuffbox tr").forEach {
+            val name = it.child(0).text().lowercase(Locale.getDefault())
+            val purchased = it.child(2).getElementsByTag("form").isEmpty()
+
+            when (name) {
+                // Thumbnail rows
+                "more thumbs" -> hathPerks.moreThumbs = purchased
+                "thumbs up" -> hathPerks.thumbsUp = purchased
+                "all thumbs" -> hathPerks.allThumbs = purchased
+
+                // Pagination sizing
+                "paging enlargement i" -> hathPerks.pagingEnlargementI = purchased
+                "paging enlargement ii" -> hathPerks.pagingEnlargementII = purchased
+                "paging enlargement iii" -> hathPerks.pagingEnlargementIII = purchased
+            }
+        }
+
+        logger.d { "Hath perks: $hathPerks" }
+
+        configure(ehSource, hathPerks)
+        configure(exhSource, hathPerks)
     }
 
     private suspend fun configure(source: EHentai, hathPerks: EHHathPerksResponse) {

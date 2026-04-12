@@ -44,6 +44,7 @@ import androidx.compose.ui.window.DialogProperties
 import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
+import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.toast
 import exh.eh.EHentaiUpdateWorker
 import exh.eh.EHentaiUpdateWorkerConstants
@@ -53,6 +54,8 @@ import exh.source.EXH_SOURCE_ID
 import exh.source.ExhPreferences
 import exh.ui.login.EhLoginActivity
 import exh.util.nullIfBlank
+import exh.util.toAnnotatedString
+import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
@@ -61,6 +64,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
+import yokai.util.lang.getString
 import yokai.presentation.settings.ComposableSettings
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -247,7 +251,14 @@ object SettingsEhScreen : ComposableSettings() {
             title = stringResource(MR.strings.watched_tags),
             subtitle = stringResource(MR.strings.watched_tags_summary),
             onClick = {
-                // TODO: Open WebView to https://exhentai.org/mytags
+                context.startActivity(
+                    WebViewActivity.newIntent(
+                        context,
+                        url = "https://exhentai.org/mytags",
+                        sourceId = EXH_SOURCE_ID,
+                        title = context.getString(MR.strings.watched_tags_exh),
+                    ),
+                )
             },
             enabled = exhentaiEnabled,
         )
@@ -436,12 +447,50 @@ object SettingsEhScreen : ComposableSettings() {
 
     @Composable
     private fun getSyncFavoriteNotes(): Preference.PreferenceItem.TextPreference {
+        var dialogOpen by remember { mutableStateOf(false) }
+        if (dialogOpen) {
+            SyncFavoritesWarningDialog(
+                onDismissRequest = { dialogOpen = false },
+                onAccept = { dialogOpen = false },
+            )
+        }
         return Preference.PreferenceItem.TextPreference(
             title = stringResource(MR.strings.show_favorite_sync_notes),
             subtitle = stringResource(MR.strings.show_favorite_sync_notes_summary),
-            onClick = {
-                // TODO: Show sync favorites warning dialog
+            onClick = { dialogOpen = true },
+        )
+    }
+
+    @Composable
+    private fun SyncFavoritesWarningDialog(
+        onDismissRequest: () -> Unit,
+        onAccept: () -> Unit,
+    ) {
+        val context = LocalContext.current
+        val text = remember {
+            androidx.core.text.HtmlCompat.fromHtml(
+                context.getString(MR.strings.favorites_sync_notes_message),
+                androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY,
+            ).toAnnotatedString()
+        }
+        AlertDialog(
+            onDismissRequest = onDismissRequest,
+            confirmButton = {
+                TextButton(onClick = onAccept) {
+                    Text(text = stringResource(MR.strings.action_ok))
+                }
             },
+            title = {
+                Text(stringResource(MR.strings.favorites_sync_notes))
+            },
+            text = {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()),
+                ) {
+                    Text(text = text)
+                }
+            },
+            properties = DialogProperties(dismissOnClickOutside = false),
         )
     }
 
@@ -460,14 +509,24 @@ object SettingsEhScreen : ComposableSettings() {
     private fun getForceSyncReset(): Preference.PreferenceItem.TextPreference {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        val ehFavoritesRepository: yokai.domain.manga.EhFavoritesRepository = remember { Injekt.get() }
         var dialogOpen by remember { mutableStateOf(false) }
         if (dialogOpen) {
             SyncResetDialog(
                 onDismissRequest = { dialogOpen = false },
                 onStartReset = {
                     dialogOpen = false
-                    // TODO: Implement sync state reset via deleteFavoriteEntries
-                    context.toast(MR.strings.sync_state_reset)
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            ehFavoritesRepository.deleteAll()
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                context.toast(MR.strings.sync_state_reset, Toast.LENGTH_LONG)
+                            }
+                        } catch (e: Exception) {
+                            co.touchlab.kermit.Logger.withTag("SettingsEhScreen")
+                                .e(e) { "Failed to reset sync state" }
+                        }
+                    }
                 },
             )
         }

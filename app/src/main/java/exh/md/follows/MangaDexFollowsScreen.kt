@@ -1,6 +1,5 @@
 package exh.md.follows
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,10 +97,7 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                                         Text(text = manga.title)
                                     },
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            // TODO: Navigate to manga details when browse infrastructure is ready
-                                        },
+                                        .fillMaxWidth(),
                                 )
                             }
                         }

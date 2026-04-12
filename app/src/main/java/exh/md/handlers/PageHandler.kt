@@ -1,7 +1,6 @@
 package exh.md.handlers
 
 import co.touchlab.kermit.Logger
-import eu.kanade.tachiyomi.data.track.TrackPreferences
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.Source
@@ -29,8 +28,6 @@ class PageHandler(
     private val azukiHandler: AzukiHandler,
     private val mangaHotHandler: MangaHotHandler,
     private val namicomiHandler: NamicomiHandler,
-    private val preferences: TrackPreferences,
-    private val mdList: Any, // TODO: Replace with MdList when available
 ) {
 
     suspend fun fetchPageList(chapter: SChapter, usePort443Only: Boolean, dataSaver: Boolean, mangadex: Source): List<Page> {

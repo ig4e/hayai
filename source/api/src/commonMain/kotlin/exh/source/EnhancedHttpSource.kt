@@ -6,7 +6,10 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
+import exh.pref.DelegateSourcePreferences
 import okhttp3.Response
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 @Suppress("OverridingDeprecatedMember", "DEPRECATION")
 class EnhancedHttpSource(
@@ -14,9 +17,7 @@ class EnhancedHttpSource(
     val enhancedSource: HttpSource,
 ) : HttpSource() {
 
-    // TODO: Wire up DelegateSourcePreferences once Injekt module is set up
-    // For now, always delegate to the enhanced source
-    private fun shouldDelegate(): Boolean = true
+    private fun shouldDelegate(): Boolean = Injekt.get<DelegateSourcePreferences>().delegateSources.get()
 
     /**
      * Returns the request for the popular manga given the page.

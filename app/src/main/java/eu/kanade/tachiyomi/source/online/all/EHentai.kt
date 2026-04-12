@@ -618,10 +618,7 @@ class EHentai(
                     }
 
                     pre.map { document ->
-                        // TODO: Parse metadata into manga when MetadataSource is available
-                        manga.apply {
-                            initialized = true
-                        }
+                        parseGalleryPage(document, manga)
                     }
                 } else {
                     response.close()
@@ -652,10 +649,7 @@ class EHentai(
             } else {
                 doc
             }
-            // TODO: Parse metadata when MetadataSource interface is available
-            return manga.apply {
-                initialized = true
-            }
+            return parseGalleryPage(pre, manga)
         } else {
             response.close()
 
@@ -663,6 +657,136 @@ class EHentai(
                 throw GalleryNotFoundException(exception)
             } else {
                 throw Exception("HTTP error ${response.code}", exception)
+            }
+        }
+    }
+
+    /**
+     * Parse a gallery detail page into an EHentaiSearchMetadata and apply it to the manga.
+     */
+    private fun parseGalleryPage(document: Document, manga: SManga): SManga {
+        val metadata = EHentaiSearchMetadata()
+        with(metadata) {
+            with(document) {
+                val url = location()
+                gId = EHentaiSearchMetadata.galleryId(url)
+                gToken = EHentaiSearchMetadata.galleryToken(url)
+
+                metadata.exh = this@EHentai.exh
+                title = select("#gn").text().trimOrNull()
+
+                altTitle = select("#gj").text().trimOrNull()
+
+                thumbnailUrl = select("#gd1 div").attr("style").nullIfBlank()?.let {
+                    it.substring(it.indexOf('(') + 1 until it.lastIndexOf(')'))
+                }
+                genre = select(".cs")
+                    .attr("onclick")
+                    .trimOrNull()
+                    ?.substringAfterLast('/')
+                    ?.removeSuffix("'")
+
+                uploader = select("#gdn").text().trimOrNull()
+
+                // Parse the table
+                select("#gdd tr").forEach {
+                    val left = it.select(".gdt1").text().trimOrNull()
+                    val rightElement = it.selectFirst(".gdt2") ?: return@forEach
+                    val right = rightElement.text().trimOrNull()
+                    if (left != null && right != null) {
+                        ignore {
+                            when (left.removeSuffix(":").lowercase()) {
+                                "posted" -> datePosted = ZonedDateTime.parse(
+                                    right,
+                                    MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
+                                ).toInstant().toEpochMilli()
+                                "parent" -> parent = if (!right.equals("None", true)) {
+                                    rightElement.child(0).attr("href")
+                                } else {
+                                    null
+                                }
+                                "visible" -> visible = right.nullIfBlank()
+                                "language" -> {
+                                    language = right.removeSuffix(TR_SUFFIX).trimOrNull()
+                                    translated = right.endsWith(TR_SUFFIX, true)
+                                }
+                                "file size" -> size = MetadataUtil.parseHumanReadableByteCount(right)?.toLong()
+                                "length" -> length = right.removeSuffix("pages").trimOrNull()?.toInt()
+                                "favorited" -> favorites = right.removeSuffix("times").trimOrNull()?.toInt()
+                            }
+                        }
+                    }
+                }
+
+                lastUpdateCheck = System.currentTimeMillis()
+                if (datePosted != null &&
+                    lastUpdateCheck - datePosted!! > EHentaiUpdateWorkerConstants.GALLERY_AGE_TIME
+                ) {
+                    aged = true
+                    logger.d { "aged $title - too old" }
+                }
+
+                // Parse ratings
+                ignore {
+                    averageRating = select("#rating_label")
+                        .text()
+                        .removePrefix("Average:")
+                        .trimOrNull()
+                        ?.toDouble()
+                    ratingCount = select("#rating_count")
+                        .text()
+                        .trimOrNull()
+                        ?.toInt()
+                }
+
+                // Parse tags
+                tags.clear()
+                select("#taglist tr").forEach {
+                    val namespace = it.select(".tc").text().removeSuffix(":")
+                    tags += it.select("div").map { element ->
+                        RaisedTag(
+                            namespace,
+                            element.text().trim(),
+                            when {
+                                element.hasClass("gtl") -> TAG_TYPE_LIGHT
+                                element.hasClass("gtw") -> TAG_TYPE_WEAK
+                                else -> TAG_TYPE_NORMAL
+                            },
+                        )
+                    }
+                }
+
+                // Add genre as virtual tag
+                genre?.let {
+                    tags += RaisedTag(EH_GENRE_NAMESPACE, it, TAG_TYPE_VIRTUAL)
+                }
+                if (aged) {
+                    tags += RaisedTag(EH_META_NAMESPACE, "aged", TAG_TYPE_VIRTUAL)
+                }
+                uploader?.let {
+                    tags += RaisedTag(EH_UPLOADER_NAMESPACE, it, TAG_TYPE_VIRTUAL)
+                }
+                visible?.let {
+                    tags += RaisedTag(
+                        EH_VISIBILITY_NAMESPACE,
+                        it.substringAfter('(').substringBeforeLast(')'),
+                        TAG_TYPE_VIRTUAL,
+                    )
+                }
+            }
+        }
+
+        return metadata.createMangaInfo(manga).let {
+            manga.apply {
+                url = it.url
+                title = it.title
+                artist = it.artist
+                author = it.author
+                description = it.description
+                genre = it.genre
+                status = it.status
+                thumbnail_url = it.thumbnail_url
+                initialized = true
             }
         }
     }
@@ -943,11 +1067,11 @@ class EHentai(
 
     data class AdvSearchEntry(val search: Pair<String?, String>, val exclude: Boolean, val or: Boolean)
 
-    class AutoCompleteTags :
+    inner class AutoCompleteTags :
         Filter.AutoComplete(
             name = "Tags",
             hint = "Search tags here (limit of 8)",
-            values = EHTags.getNamespaces().map { "$it:" } + EHTags.getAllTags(),
+            values = EHTags.getNamespaces().map { "$it:" } + EHTags.getAllTags(context),
             skipAutoFillTags = EHTags.getNamespaces().map { "$it:" },
             validPrefixes = listOf("-", "~"),
             state = emptyList(),

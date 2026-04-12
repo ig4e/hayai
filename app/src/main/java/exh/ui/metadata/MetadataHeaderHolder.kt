@@ -8,6 +8,8 @@ import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
+import eu.kanade.tachiyomi.ui.manga.MangaDetailsAdapter
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.EightMusesSearchMetadata
 import exh.metadata.metadata.HBrowseSearchMetadata
@@ -39,6 +41,18 @@ class MetadataHeaderHolder(
         )
     }
 
+    private fun openMetadataViewer(mangaId: Long, sourceId: Long) {
+        val mangaDetailsAdapter = mAdapter as? MangaDetailsAdapter ?: return
+        mangaDetailsAdapter.controller.router.pushController(
+            MetadataViewController(mangaId, sourceId).withFadeTransaction(),
+        )
+    }
+
+    private fun triggerSearch(query: String) {
+        val mangaDetailsAdapter = mAdapter as? MangaDetailsAdapter ?: return
+        mangaDetailsAdapter.controller.globalSearch(query)
+    }
+
     fun bind(item: MetadataHeaderItem) {
         val meta = item.meta ?: return
         val mangaId = item.mangaId
@@ -50,52 +64,52 @@ class MetadataHeaderHolder(
                     is EHentaiSearchMetadata -> EHentaiDescription(
                         meta = meta,
                         openMetadataViewer = {
-                            // TODO: Navigate to MetadataViewScreen
+                            openMetadataViewer(mangaId, sourceId)
                         },
                         onSearch = { query ->
-                            // TODO: Trigger search with query
+                            triggerSearch(query)
                         },
                     )
                     is NHentaiSearchMetadata -> NHentaiDescription(
                         meta = meta,
                         openMetadataViewer = {
-                            // TODO: Navigate to MetadataViewScreen
+                            openMetadataViewer(mangaId, sourceId)
                         },
                     )
                     is MangaDexSearchMetadata -> MangaDexDescription(
                         meta = meta,
                         openMetadataViewer = {
-                            // TODO: Navigate to MetadataViewScreen
+                            openMetadataViewer(mangaId, sourceId)
                         },
                     )
                     is EightMusesSearchMetadata -> EightMusesDescription(
                         meta = meta,
                         openMetadataViewer = {
-                            // TODO: Navigate to MetadataViewScreen
+                            openMetadataViewer(mangaId, sourceId)
                         },
                     )
                     is HBrowseSearchMetadata -> HBrowseDescription(
                         meta = meta,
                         openMetadataViewer = {
-                            // TODO: Navigate to MetadataViewScreen
+                            openMetadataViewer(mangaId, sourceId)
                         },
                     )
                     is PururinSearchMetadata -> PururinDescription(
                         meta = meta,
                         openMetadataViewer = {
-                            // TODO: Navigate to MetadataViewScreen
+                            openMetadataViewer(mangaId, sourceId)
                         },
                     )
                     is TsuminoSearchMetadata -> TsuminoDescription(
                         meta = meta,
                         openMetadataViewer = {
-                            // TODO: Navigate to MetadataViewScreen
+                            openMetadataViewer(mangaId, sourceId)
                         },
                     )
                     is LanraragiSearchMetadata -> LanraragiDescription(
                         meta = meta,
                         openMetadataViewer = {
-                            // TODO: Navigate to MetadataViewScreen
+                            openMetadataViewer(mangaId, sourceId)
                         },
                     )
                     else -> {

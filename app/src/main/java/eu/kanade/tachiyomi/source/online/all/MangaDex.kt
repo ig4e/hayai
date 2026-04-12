@@ -3,10 +3,8 @@ package eu.kanade.tachiyomi.source.online.all
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.data.database.models.Track
-import eu.kanade.tachiyomi.data.track.TrackManager
-import eu.kanade.tachiyomi.data.track.TrackPreferences
-import eu.kanade.tachiyomi.network.asObservableSuccess
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
@@ -80,15 +78,15 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     override val matchingHosts: List<String> = listOf("mangadex.org", "www.mangadex.org")
 
-    val trackPreferences: TrackPreferences by injectLazy()
+    val preferenceStore: PreferenceStore by injectLazy()
 
     private val sourcePreferences: SharedPreferences by lazy {
         context.getSharedPreferences("source_$id", 0x0000)
     }
 
-    private val mangaDexAuthInterceptor = MangaDexAuthInterceptor(trackPreferences, Unit)
+    private val mangaDexAuthInterceptor = MangaDexAuthInterceptor(preferenceStore)
 
-    private val loginHelper = MangaDexLoginHelper(network.client, trackPreferences, Unit, mangaDexAuthInterceptor)
+    private val loginHelper = MangaDexLoginHelper(network.client, preferenceStore, mangaDexAuthInterceptor)
 
     override val baseHttpClient: OkHttpClient? = delegate.client.newBuilder()
         .addInterceptor(mangaDexAuthInterceptor)
@@ -153,8 +151,6 @@ class MangaDex(delegate: HttpSource, val context: Context) :
             azukHandler,
             mangaHotHandler,
             namicomiHandler,
-            trackPreferences,
-            Unit, // TODO: Replace with MdList when available
         )
     }
 
@@ -280,15 +276,15 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     override val twoFactorAuth = LoginSource.AuthSupport.NOT_SUPPORTED
 
     override fun isLogged(): Boolean {
-        return false // TODO: Check MdList login status when available
+        return MdUtil.isOAuthSet(preferenceStore)
     }
 
     override fun getUsername(): String {
-        return "" // TODO: Get from MdList when available
+        return if (isLogged()) "MangaDex" else ""
     }
 
     override fun getPassword(): String {
-        return "" // TODO: Get from MdList when available
+        return ""
     }
 
     override suspend fun login(authCode: String): Boolean {

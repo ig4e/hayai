@@ -16,6 +16,7 @@ import exh.util.capitalize
 import exh.util.floor
 import exh.util.nullIfEmpty
 import yokai.domain.manga.interactor.GetManga
+import yokai.domain.manga.metadata.MangaMetadataRepository
 import uy.kohesive.injekt.injectLazy
 import java.util.Locale
 
@@ -23,7 +24,7 @@ class ApiMangaParser(
     private val lang: String,
 ) {
     private val getManga: GetManga by injectLazy()
-    // TODO: Wire up InsertFlatMetadata and GetFlatMetadataById when metadata DB is available
+    private val metadataRepository: MangaMetadataRepository by injectLazy()
 
     val metaClass = MangaDexSearchMetadata::class
 
@@ -60,7 +61,7 @@ class ApiMangaParser(
         )
         if (mangaId != null) {
             metadata.mangaId = mangaId
-            // TODO: Insert flat metadata when metadata DB is available
+            metadataRepository.insertFlatMetadata(metadata.flatten())
         }
 
         return metadata.createMangaInfo(manga)

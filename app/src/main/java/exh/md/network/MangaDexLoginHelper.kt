@@ -1,7 +1,7 @@
 package exh.md.network
 
 import co.touchlab.kermit.Logger
-import eu.kanade.tachiyomi.data.track.TrackPreferences
+import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
@@ -15,8 +15,7 @@ import okhttp3.OkHttpClient
 
 class MangaDexLoginHelper(
     private val client: OkHttpClient,
-    private val preferences: TrackPreferences,
-    private val mdList: Any, // TODO: Replace with MdList when available
+    private val preferenceStore: PreferenceStore,
     private val mangaDexAuthInterceptor: MangaDexAuthInterceptor,
 ) {
 
@@ -43,18 +42,18 @@ class MangaDexLoginHelper(
             true -> true
             false -> {
                 Logger.e("MangaDexLoginHelper", error) { "Error logging in" }
-                // TODO: Call mdList.logout() when MdList is available
+                mangaDexAuthInterceptor.setAuth(null)
                 false
             }
         }
     }
 
     suspend fun logout(): Boolean {
-        val oauth = MdUtil.loadOAuth(preferences, mdList)
+        val oauth = MdUtil.loadOAuth(preferenceStore)
         val sessionToken = oauth?.accessToken
         val refreshToken = oauth?.refreshToken
         if (refreshToken.isNullOrEmpty() || sessionToken.isNullOrEmpty()) {
-            // TODO: Call mdList.logout() when MdList is available
+            mangaDexAuthInterceptor.setAuth(null)
             return true
         }
 
@@ -73,14 +72,13 @@ class MangaDexLoginHelper(
                     body = formBody,
                 ),
             ).awaitSuccess()
-            // TODO: Call mdList.logout() when MdList is available
         }.exceptionOrNull()
 
+        // Always clear local auth state, even if the server-side logout fails
+        mangaDexAuthInterceptor.setAuth(null)
+
         return when (error == null) {
-            true -> {
-                mangaDexAuthInterceptor.setAuth(null)
-                true
-            }
+            true -> true
             false -> {
                 Logger.e("MangaDexLoginHelper", error) { "Error logging out" }
                 false
