@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.extension.installer.ShizukuInstaller
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.ui.extension.ExtensionIntallInfo
 import eu.kanade.tachiyomi.util.storage.getUriCompat
+import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.e
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import eu.kanade.tachiyomi.util.system.launchUI
@@ -277,6 +278,21 @@ internal class ExtensionInstaller(private val context: Context) {
                 val extensionManager = Injekt.get<ExtensionManager>()
                 if (extensionManager.installedExtensionsFlow.value.find { it.pkgName == pkgName }?.isShared == false) {
                     installPrivately(downloadId, pkgName, uri)
+                    return
+                }
+                // MIUI intercepts PackageInstaller sessions silently; the broadcast callback
+                // never fires, leaving extensions stuck in "Installing" indefinitely.
+                // Fall back to the system install dialog instead.
+                if (DeviceUtil.isMiui) {
+                    pkgName ?: return
+                    // Use a dummy session ID so pollInstallStatus terminates immediately
+                    // (getSessionInfo returns null for unknown IDs → flow completes → Done).
+                    setInstalling(pkgName, Int.MIN_VALUE)
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW)
+                            .setDataAndType(uri, APK_MIME)
+                            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                    )
                     return
                 }
                 val intent =
