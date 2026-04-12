@@ -160,7 +160,7 @@ open class BrowseSourcePresenter(
     fun filtersMatchDefault(): Boolean {
         for (i in sourceFilters.indices) {
             val filter = oldFilters.getOrNull(i)
-            if (filter is List<*>) {
+            if (sourceFilters[i] is Filter.Group<*> && filter is List<*>) {
                 for (j in filter.indices) {
                     val state = ((sourceFilters[i] as Filter.Group<*>).state[j] as Filter<*>).state
                     if (filter[j] != state) {

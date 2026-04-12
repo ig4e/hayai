@@ -27,6 +27,7 @@ import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
+import coil3.dispose
 import yokai.util.coil.loadManga
 import yokai.util.lang.getString
 
@@ -131,6 +132,7 @@ class MigrationProcessHolder(
 
     private fun MangaGridItemBinding.resetManga() {
         progress.isVisible = true
+        coverThumbnail.dispose()
         coverThumbnail.setImageDrawable(null)
         compactTitle.text = ""
         title.text = ""
@@ -145,6 +147,7 @@ class MigrationProcessHolder(
         (root.layoutParams as ConstraintLayout.LayoutParams).verticalBias = 1f
         progress.isVisible = false
 
+        coverThumbnail.dispose()
         coverThumbnail.loadManga(manga.cover(), progress) {
             useCustomCover(false)
         }

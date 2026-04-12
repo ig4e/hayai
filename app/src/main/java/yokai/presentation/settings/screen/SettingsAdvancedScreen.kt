@@ -98,6 +98,7 @@ object SettingsAdvancedScreen : ComposableSettings() {
             add(getNetworkGroup(networkPreferences))
             add(getExtensionGroup(basePreferences))
             add(getLibraryGroup(basePreferences))
+            add(getMigrationGroup(preferences))
             add(getDeveloperGroup())
         }.toPersistentList()
     }
@@ -404,6 +405,32 @@ object SettingsAdvancedScreen : ComposableSettings() {
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.library),
+            preferenceItems = children,
+        )
+    }
+
+    @Composable
+    private fun getMigrationGroup(preferences: PreferencesHelper): Preference.PreferenceGroup {
+        val parallelism by preferences.migrationParallelism().collectAsState()
+
+        val children = buildList {
+            add(
+                Preference.PreferenceItem.SliderPreference(
+                    value = parallelism,
+                    min = 1,
+                    max = 10,
+                    title = stringResource(MR.strings.pref_migration_parallel),
+                    subtitle = stringResource(MR.strings.pref_migration_parallel_summary, parallelism),
+                    onValueChanged = {
+                        preferences.migrationParallelism().set(it)
+                        true
+                    },
+                ),
+            )
+        }.toPersistentList()
+
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.migration),
             preferenceItems = children,
         )
     }

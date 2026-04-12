@@ -307,6 +307,8 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun skipPreMigration() = preferenceStore.getBoolean(Keys.skipPreMigration, false)
 
+    fun migrationParallelism() = preferenceStore.getInt("migration_parallelism", 1)
+
     fun defaultMangaOrder() = preferenceStore.getString("default_manga_order", "")
 
     fun refreshCoversToo() = preferenceStore.getBoolean(Keys.refreshCoversToo, true)
