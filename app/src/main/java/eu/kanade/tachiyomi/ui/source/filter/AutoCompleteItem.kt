@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalFocusManager
+import yokai.presentation.theme.YokaiTheme
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -72,11 +73,11 @@ class AutoCompleteItem(val filter: Filter.AutoComplete) : AbstractFlexibleItem<A
         payloads: MutableList<Any?>?,
     ) {
         (holder.itemView as ComposeView).setContent {
-            MaterialTheme {
+            YokaiTheme {
                 AutoCompleteContent(
                     name = filter.name,
                     hint = filter.hint,
-                    state = filter.state.toImmutableList(),
+                    initialState = filter.state.toImmutableList(),
                     values = filter.values.toImmutableList(),
                     skipAutoFillTags = filter.skipAutoFillTags.toImmutableList(),
                     validPrefixes = filter.validPrefixes.toImmutableList(),
@@ -102,12 +103,16 @@ class AutoCompleteItem(val filter: Filter.AutoComplete) : AbstractFlexibleItem<A
 private fun AutoCompleteContent(
     name: String,
     hint: String,
-    state: ImmutableList<String>,
+    initialState: ImmutableList<String>,
     values: ImmutableList<String>,
     skipAutoFillTags: ImmutableList<String>,
     validPrefixes: ImmutableList<String>,
     onChange: (List<String>) -> Unit,
 ) {
+    // Local reactive state so chips update immediately on add/remove.
+    // `remember(initialState)` resets when the sheet is reset from outside.
+    var chips by remember(initialState) { mutableStateOf(initialState) }
+
     Column(
         Modifier
             .fillMaxWidth()
@@ -125,7 +130,9 @@ private fun AutoCompleteContent(
             onSubmit = { tag ->
                 val tagNoPrefix = validPrefixes.find { tag.startsWith(it) }?.let { tag.removePrefix(it).trim() } ?: tag
                 if (tagNoPrefix !in skipAutoFillTags) {
-                    onChange(state + tag)
+                    val newState = (chips + tag).toImmutableList()
+                    chips = newState
+                    onChange(newState)
                     true
                 } else {
                     false
@@ -136,10 +143,14 @@ private fun AutoCompleteContent(
             modifier = Modifier.padding(end = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            state.forEach {
+            chips.forEach {
                 InputChip(
                     selected = false,
-                    onClick = { onChange(state - it) },
+                    onClick = {
+                        val newState = (chips - it).toImmutableList()
+                        chips = newState
+                        onChange(newState)
+                    },
                     label = {
                         Text(
                             text = it,

@@ -412,13 +412,14 @@ open class BrowseSourceController(bundle: Bundle) :
                 var matches = true
                 for (i in presenter.sourceFilters.indices) {
                     val filter = oldFilters.getOrNull(i)
-                    if (filter is List<*>) {
+                    val sourceFilter = presenter.sourceFilters[i]
+                    if (sourceFilter is Filter.Group<*> && filter is List<*>) {
                         for (j in filter.indices) {
-                            if (filter[j] != ((presenter.sourceFilters[i] as Filter.Group<*>).state[j] as Filter<*>).state) {
+                            if (filter[j] != (sourceFilter.state[j] as Filter<*>).state) {
                                 matches = false; break
                             }
                         }
-                    } else if (filter != presenter.sourceFilters[i].state) { matches = false; break }
+                    } else if (filter != sourceFilter.state) { matches = false; break }
                     if (!matches) break
                 }
                 if (!matches) { applyFilters() }
