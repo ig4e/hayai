@@ -1146,9 +1146,13 @@ class MangaDetailsController :
 
     private fun openChapter(chapter: Chapter, sharedElement: View? = null) {
         (activity as? AppCompatActivity)?.apply {
-            if (sharedElement != null) {
+            // Only use shared-element transition if the view has a transitionName;
+            // ComposeView buttons (e.g. buttonGroupCompose) don't set one and
+            // makeSceneTransitionAnimation throws if transitionName is null.
+            val validSharedElement = sharedElement?.takeIf { it.transitionName != null }
+            if (validSharedElement != null) {
                 val (intent, bundle) = ReaderActivity
-                    .newIntentWithTransitionOptions(this, manga!!, chapter, sharedElement)
+                    .newIntentWithTransitionOptions(this, manga!!, chapter, validSharedElement)
                 val firstPos = (binding.recycler.layoutManager as LinearLayoutManager).findFirstVisibleItemPosition()
                 val lastPos = (binding.recycler.layoutManager as LinearLayoutManager).findLastVisibleItemPosition()
                 val chapterRange = if (firstPos > -1 && lastPos > -1) {
