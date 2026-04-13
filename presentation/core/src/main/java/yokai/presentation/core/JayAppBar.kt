@@ -164,7 +164,7 @@ fun JayExpandedTopAppBar(
                 Box(
                     modifier =
                         Modifier
-                            .padding(start = 16.dp, top = 64.dp, bottom = 8.dp)
+                            .padding(start = 16.dp, top = 28.dp, bottom = 8.dp)
                             .weight(1f)
                             .alpha(bottomTitleAlpha())
                 ) {
