@@ -46,58 +46,10 @@
                     android:text="@string/cover_only_grid" />
             </RadioGroup>
 
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/grid_size_layout"
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/grid_size_compose"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:gravity="center"
-                android:orientation="horizontal">
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/grid_size_text"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toStartOf="@id/grid_seekbar"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintHorizontal_chainStyle="packed"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    style="?textAppearanceBodyMedium"
-                    android:textSize="15sp"
-                    android:text="@string/grid_size"
-                    android:layout_weight="0"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/grid_seekbar"
-                    android:layout_height="wrap_content"
-                    android:layout_width="0dp"
-                    android:layout_marginStart="12dp"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="6dp"
-                    android:valueFrom="0"
-                    android:valueTo="7"
-                    tools:value="3"
-                    android:stepSize="1"
-                    app:layout_constraintStart_toEndOf="@id/grid_size_text"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toStartOf="@id/reset_grid_size"
-                    app:layout_constraintWidth_max="350dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/reset_grid_size"
-                    android:layout_marginStart="8dp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:layout_constraintStart_toEndOf="@id/grid_seekbar"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    style="@style/Theme.Widget.Button.TextButton"
-                    android:text="@string/reset" />
-            </androidx.constraintlayout.widget.ConstraintLayout>
+                android:layout_height="wrap_content" />
 
             <com.google.android.material.checkbox.MaterialCheckBox
                 android:id="@+id/uniform_grid"

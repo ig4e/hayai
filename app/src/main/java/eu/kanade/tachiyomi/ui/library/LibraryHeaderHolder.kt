@@ -213,7 +213,7 @@ class LibraryHeaderHolder(val view: View, val adapter: LibraryCategoryAdapter) :
         val sortingMode = category.sortingMode()
         val sortDrawable = getSortRes(sortingMode, isAscending, category.isDynamic, false)
 
-        binding.categorySort.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, sortDrawable, 0)
+        binding.categorySort.setCompoundDrawablesRelativeWithIntrinsicBounds(sortDrawable, 0, 0, 0)
         binding.categorySort.setText(category.sortRes())
         binding.collapseArrow.setImageResource(
             if (category.isHidden) {

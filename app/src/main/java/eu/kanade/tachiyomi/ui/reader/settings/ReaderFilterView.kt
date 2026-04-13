@@ -1,31 +1,61 @@
 package eu.kanade.tachiyomi.ui.reader.settings
 
 import android.content.Context
-import android.graphics.Rect
-import android.os.Build
 import android.util.AttributeSet
 import android.view.Window
 import android.view.WindowManager
 import androidx.annotation.ColorInt
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.databinding.ReaderColorFilterBinding
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.bindToPreference
 import eu.kanade.tachiyomi.widget.BaseReaderSettingsView
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
-import kotlin.math.max
+import yokai.presentation.theme.YokaiTheme
 
 class ReaderFilterView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
     BaseReaderSettingsView<ReaderColorFilterBinding>(context, attrs) {
 
     var window: Window? = null
-    private val boundingBox: Rect = Rect()
-    private val exclusions = listOf(boundingBox)
+
+    // Compose state — recomposition triggers when these change
+    private var colorAlpha by mutableFloatStateOf(0f)
+    private var colorRed by mutableFloatStateOf(0f)
+    private var colorGreen by mutableFloatStateOf(0f)
+    private var colorBlue by mutableFloatStateOf(0f)
+    private var filterEnabled by mutableStateOf(false)
+    private var brightnessValue by mutableFloatStateOf(0f)
+    private var brightnessEnabled by mutableStateOf(false)
 
     override fun inflateBinding() = ReaderColorFilterBinding.bind(this)
+
     override fun initGeneralPreferences() {
         activity = context as? ReaderActivity ?: return
+
         preferences.colorFilter().changes()
             .onEach { setColorFilter(it) }
             .launchIn(activity.scope)
@@ -41,116 +71,119 @@ class ReaderFilterView @JvmOverloads constructor(context: Context, attrs: Attrib
         binding.grayscale.bindToPreference(preferences.grayscale())
         binding.invertedColors.bindToPreference(preferences.invertedColors())
 
-        // Get color and update values
-        val color = preferences.colorFilterValue().get()
-        val brightness = preferences.customBrightnessValue().get()
+        // Set initial values
+        setValues(preferences.colorFilterValue().get())
+        brightnessValue = preferences.customBrightnessValue().get().toFloat()
+        filterEnabled = preferences.colorFilter().get()
+        brightnessEnabled = preferences.customBrightness().get()
 
-        val argb = setValues(color)
-
-        // Set brightness value
-        binding.txtBrightnessSliderValue.text = brightness.toString()
-        binding.brightnessSlider.value = brightness.toFloat()
-
-        // Initialize slider values
-        binding.sliderColorFilterAlpha.value = argb[0].toFloat()
-        binding.sliderColorFilterRed.value = argb[1].toFloat()
-        binding.sliderColorFilterGreen.value = argb[2].toFloat()
-        binding.sliderColorFilterBlue.value = argb[3].toFloat()
-
-        // Set listeners
-        binding.switchColorFilter.isChecked = preferences.colorFilter().get()
+        binding.switchColorFilter.isChecked = filterEnabled
         binding.switchColorFilter.setOnCheckedChangeListener { _, isChecked ->
             preferences.colorFilter().set(isChecked)
         }
 
-        binding.customBrightness.isChecked = preferences.customBrightness().get()
+        binding.customBrightness.isChecked = brightnessEnabled
         binding.customBrightness.setOnCheckedChangeListener { _, isChecked ->
             preferences.customBrightness().set(isChecked)
         }
 
         binding.colorFilterMode.bindToPreference(preferences.colorFilterMode())
-        binding.sliderColorFilterAlpha.addOnChangeListener { _, value, fromUser ->
-            binding.sliderColorFilterRed.isEnabled =
-                value > 0 && binding.sliderColorFilterAlpha.isEnabled
-            binding.sliderColorFilterGreen.isEnabled =
-                value > 0 && binding.sliderColorFilterAlpha.isEnabled
-            binding.sliderColorFilterBlue.isEnabled =
-                value > 0 && binding.sliderColorFilterAlpha.isEnabled
-            if (fromUser) {
-                setColorValue(value.toInt(), ALPHA_MASK, 24)
+
+        // Color filter sliders (A, R, G, B) — Compose
+        binding.colorSlidersCompose.setContent {
+            YokaiTheme {
+                val rgbEnabled = colorAlpha > 0f && filterEnabled
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    ColorSliderRow(
+                        label = "A",
+                        value = colorAlpha,
+                        enabled = filterEnabled,
+                        onValueChange = {
+                            colorAlpha = it
+                            setColorValue(it.roundToInt(), ALPHA_MASK, 24)
+                        },
+                    )
+                    ColorSliderRow(
+                        label = "R",
+                        value = colorRed,
+                        enabled = rgbEnabled,
+                        onValueChange = {
+                            colorRed = it
+                            setColorValue(it.roundToInt(), RED_MASK, 16)
+                        },
+                    )
+                    ColorSliderRow(
+                        label = "G",
+                        value = colorGreen,
+                        enabled = rgbEnabled,
+                        onValueChange = {
+                            colorGreen = it
+                            setColorValue(it.roundToInt(), GREEN_MASK, 8)
+                        },
+                    )
+                    ColorSliderRow(
+                        label = "B",
+                        value = colorBlue,
+                        enabled = rgbEnabled,
+                        onValueChange = {
+                            colorBlue = it
+                            setColorValue(it.roundToInt(), BLUE_MASK, 0)
+                        },
+                    )
+                }
             }
         }
 
-        setColorFilterSlider(binding.switchColorFilter.isChecked)
-
-        binding.sliderColorFilterRed.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) {
-                setColorValue(value.toInt(), RED_MASK, 16)
-            }
-        }
-
-        binding.sliderColorFilterGreen.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) {
-                setColorValue(value.toInt(), GREEN_MASK, 8)
-            }
-        }
-
-        binding.sliderColorFilterBlue.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) {
-                setColorValue(value.toInt(), BLUE_MASK, 0)
-            }
-        }
-
-        binding.brightnessSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) {
-                preferences.customBrightnessValue().set(value.toInt())
+        // Brightness slider — Compose
+        binding.brightnessSliderCompose.setContent {
+            YokaiTheme {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_brightness_day_24dp),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Slider(
+                        value = brightnessValue,
+                        onValueChange = {
+                            brightnessValue = it
+                            preferences.customBrightnessValue().set(it.roundToInt())
+                        },
+                        valueRange = -75f..100f,
+                        enabled = brightnessEnabled,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp),
+                    )
+                    Text(
+                        text = brightnessValue.roundToInt().toString(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(36.dp),
+                    )
+                }
             }
         }
     }
 
-    /**
-     * Set enabled status of sliders belonging to color filter
-     * @param enabled determines if the sliders get enabled
-     */
-    private fun setColorFilterSlider(enabled: Boolean) {
-        binding.sliderColorFilterRed.isEnabled = binding.sliderColorFilterAlpha.value > 0 && enabled
-        binding.sliderColorFilterGreen.isEnabled = binding.sliderColorFilterAlpha.value > 0 && enabled
-        binding.sliderColorFilterBlue.isEnabled = binding.sliderColorFilterAlpha.value > 0 && enabled
-        binding.sliderColorFilterAlpha.isEnabled = enabled
+    private fun setColorFilter(enabled: Boolean) {
+        filterEnabled = enabled
+        if (enabled) {
+            preferences.colorFilterValue().changes()
+                .sample(100)
+                .onEach { setColorFilterValue(it) }
+                .launchIn(activity.scope)
+        }
     }
 
-    /**
-     * Set enabled status of sliders belonging to custom brightness
-     * @param enabled value which determines if slider gets enabled
-     */
-    private fun setCustomBrightnessSlider(enabled: Boolean) {
-        binding.brightnessSlider.isEnabled = enabled
-    }
-
-    /**
-     * Set the text value's of color filter
-     * @param color integer containing color information
-     */
-    private fun setValues(color: Int): Array<Int> {
-        val alpha = getAlphaFromColor(color)
-        val red = getRedFromColor(color)
-        val green = getGreenFromColor(color)
-        val blue = getBlueFromColor(color)
-
-        // Initialize values
-        binding.txtColorFilterAlphaValue.text = alpha.toString()
-        binding.txtColorFilterRedValue.text = red.toString()
-        binding.txtColorFilterGreenValue.text = green.toString()
-        binding.txtColorFilterBlueValue.text = blue.toString()
-
-        return arrayOf(alpha, red, green, blue)
-    }
-
-    /**
-     * Manages the custom brightness value subscription
-     * @param enabled determines if the subscription get (un)subscribed
-     */
     private fun setCustomBrightness(enabled: Boolean) {
+        brightnessEnabled = enabled
         if (enabled) {
             preferences.customBrightnessValue().changes()
                 .sample(100)
@@ -159,121 +192,96 @@ class ReaderFilterView @JvmOverloads constructor(context: Context, attrs: Attrib
         } else {
             setCustomBrightnessValue(0, true)
         }
-        setCustomBrightnessSlider(enabled)
     }
 
     fun setWindowBrightness() {
-        setCustomBrightnessValue(preferences.customBrightnessValue().get(), !preferences.customBrightness().get())
+        setCustomBrightnessValue(
+            preferences.customBrightnessValue().get(),
+            !preferences.customBrightness().get(),
+        )
     }
 
-    /**
-     * Sets the brightness of the screen. Range is [-75, 100].
-     * From -75 to -1 a semi-transparent black view is shown at the top with the minimum brightness.
-     * From 1 to 100 it sets that value as brightness.
-     * 0 sets system brightness and hides the overlay.
-     */
     private fun setCustomBrightnessValue(value: Int, isDisabled: Boolean = false) {
-        // Set black overlay visibility.
         if (!isDisabled) {
-            binding.txtBrightnessSliderValue.text = value.toString()
-            window?.attributes = window?.attributes?.apply { screenBrightness = max(0.01f, value / 100f) }
+            brightnessValue = value.toFloat()
+            window?.attributes = window?.attributes?.apply {
+                screenBrightness = max(0.01f, value / 100f)
+            }
         } else {
-            window?.attributes = window?.attributes?.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
+            window?.attributes = window?.attributes?.apply {
+                screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            }
         }
     }
 
-    /**
-     * Manages the color filter value subscription
-     * @param enabled determines if the subscription get (un)subscribed
-     * @param view view of the dialog
-     */
-    private fun setColorFilter(enabled: Boolean) {
-        if (enabled) {
-            preferences.colorFilterValue().changes()
-                .sample(100)
-                .onEach { setColorFilterValue(it) }
-                .launchIn(activity.scope)
-        }
-        setColorFilterSlider(enabled)
-    }
-
-    /**
-     * Sets the color filter overlay of the screen. Determined by HEX of integer
-     * @param color hex of color.
-     */
     private fun setColorFilterValue(@ColorInt color: Int) {
         setValues(color)
     }
 
-    /**
-     * Updates the color value in preference
-     * @param color value of color range [0,255]
-     * @param mask contains hex mask of chosen color
-     * @param bitShift amounts of bits that gets shifted to receive value
-     */
+    private fun setValues(color: Int) {
+        colorAlpha = getAlphaFromColor(color).toFloat()
+        colorRed = getRedFromColor(color).toFloat()
+        colorGreen = getGreenFromColor(color).toFloat()
+        colorBlue = getBlueFromColor(color).toFloat()
+    }
+
     fun setColorValue(color: Int, mask: Long, bitShift: Int) {
         val currentColor = preferences.colorFilterValue().get()
         val updatedColor = (color shl bitShift) or (currentColor and mask.inv().toInt())
         preferences.colorFilterValue().set(updatedColor)
     }
 
-    /**
-     * Returns the alpha value from the Color Hex
-     * @param color color hex as int
-     * @return alpha of color
-     */
-    fun getAlphaFromColor(color: Int): Int {
-        return color shr 24 and 0xFF
-    }
-
-    /**
-     * Returns the red value from the Color Hex
-     * @param color color hex as int
-     * @return red of color
-     */
-    fun getRedFromColor(color: Int): Int {
-        return color shr 16 and 0xFF
-    }
-
-    /**
-     * Returns the blue value from the Color Hex
-     * @param color color hex as int
-     * @return blue of color
-     */
-    fun getBlueFromColor(color: Int): Int {
-        return color and 0xFF
-    }
+    fun getAlphaFromColor(color: Int): Int = color shr 24 and 0xFF
+    fun getRedFromColor(color: Int): Int = color shr 16 and 0xFF
+    fun getBlueFromColor(color: Int): Int = color and 0xFF
 
     private companion object {
-        /** Integer mask of alpha value **/
         const val ALPHA_MASK: Long = 0xFF000000
-
-        /** Integer mask of red value **/
         const val RED_MASK: Long = 0x00FF0000
-
-        /** Integer mask of green value **/
         const val GREEN_MASK: Long = 0x0000FF00
-
-        /** Integer mask of blue value **/
         const val BLUE_MASK: Long = 0x000000FF
-    }
-
-    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        super.onLayout(changed, left, top, right, bottom)
-        if (Build.VERSION.SDK_INT >= 29 && changed) {
-            with(binding.brightnessSlider) {
-                boundingBox.set(this.left, this.top, this.right, this.bottom)
-                this.systemGestureExclusionRects = exclusions
-            }
-        }
     }
 }
 
-/**
- * Returns the green value from the Color Hex
- * @param color color hex as int
- * @return green of color
- */
-fun ReaderFilterView.getGreenFromColor(color: Int): Int {
-    return color shr 8 and 0xFF
+fun ReaderFilterView.getGreenFromColor(color: Int): Int = color shr 8 and 0xFF
+
+@Composable
+private fun ColorSliderRow(
+    label: String,
+    value: Float,
+    enabled: Boolean,
+    onValueChange: (Float) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (enabled) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.width(20.dp),
+        )
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..255f,
+            enabled = enabled,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
+        )
+        Text(
+            text = value.roundToInt().toString(),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(36.dp),
+        )
+    }
 }
