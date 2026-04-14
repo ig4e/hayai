@@ -39,6 +39,9 @@ abstract class HttpSource : CatalogueSource {
      */
     abstract val baseUrl: String
 
+    override val webViewUrl: String
+        get() = baseUrl
+
     /**
      * Version id used to generate the source id. If the site completely changes and urls are
      * incompatible, you may increase this value and it'll be considered as a new source.
@@ -439,7 +442,7 @@ abstract class HttpSource : CatalogueSource {
      * @param manga the manga
      * @return url of the manga
      */
-    open fun getMangaUrl(manga: SManga): String {
+    override open fun getMangaUrl(manga: SManga): String {
         return mangaDetailsRequest(manga).url.toString()
     }
 
@@ -450,12 +453,12 @@ abstract class HttpSource : CatalogueSource {
      * @param chapter the chapter
      * @return url of the chapter
      */
-    open fun getChapterUrl(chapter: SChapter): String {
+    override open fun getChapterUrl(chapter: SChapter): String {
         return pageListRequest(chapter).url.toString()
     }
 
     // FIXME: Not sure if this is necessary, feels like this should be handled by the extension not by the app
-    fun getChapterUrl(manga: SManga?, chapter: SChapter): String? {
+    override fun getChapterUrl(manga: SManga?, chapter: SChapter): String? {
         manga ?: return null
 
         val chapterUrl = getUrlWithoutDomain(chapter.url)

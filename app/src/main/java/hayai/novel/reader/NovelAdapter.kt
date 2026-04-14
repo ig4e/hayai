@@ -29,7 +29,7 @@ class NovelAdapter(val viewer: NovelViewer) : RecyclerView.Adapter<RecyclerView.
         val prevHasMissingChapters = hasMissingChapters(chapters.currChapter, chapters.prevChapter)
         val nextHasMissingChapters = hasMissingChapters(chapters.nextChapter, chapters.currChapter)
 
-        // Add previous chapter pages and transition
+        // Keep a few pages from adjacent chapters, mirroring webtoon transition behavior.
         if (chapters.prevChapter != null) {
             val prevPages = chapters.prevChapter.pages
             if (prevPages != null) {

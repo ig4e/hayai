@@ -24,6 +24,7 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.databinding.ReaderChaptersSheetBinding
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
+import hayai.novel.reader.NovelViewer
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.isInNightMode
@@ -84,7 +85,7 @@ class ReaderChapterSheet @JvmOverloads constructor(context: Context, attrs: Attr
             binding.chapterRecycler.alpha = if (sheetBehavior.isExpanded()) 1f else 0f
             binding.chapterRecycler.isClickable = sheetBehavior.isExpanded()
             binding.chapterRecycler.isFocusable = sheetBehavior.isExpanded()
-            val canShowNav = viewModel.getCurrentChapter()?.pages?.size ?: 1 > 1
+            val canShowNav = activity.viewer is NovelViewer || (viewModel.getCurrentChapter()?.pages?.size ?: 1) > 1
             if (canShowNav) {
                 activity.binding.readerNav.root.isVisible = sheetBehavior.isCollapsed()
             }
@@ -116,7 +117,7 @@ class ReaderChapterSheet @JvmOverloads constructor(context: Context, attrs: Attr
                 }
 
                 override fun onStateChanged(p0: View, state: Int) {
-                    val canShowNav = (viewModel.getCurrentChapter()?.pages?.size ?: 1) > 1
+                    val canShowNav = activity.viewer is NovelViewer || (viewModel.getCurrentChapter()?.pages?.size ?: 1) > 1
                     if (state == BottomSheetBehavior.STATE_COLLAPSED) {
                         sheetBehavior?.isHideable = false
                         (binding.chapterRecycler.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(

@@ -30,6 +30,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
+import hayai.novel.source.TextSource
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
 import eu.kanade.tachiyomi.ui.reader.loader.ChapterLoader
@@ -183,7 +184,7 @@ class ReaderViewModel(
                 if (startingPage >= 0) {
                     currentChapter.requestedPage = startingPage
                     startingPage = -1
-                } else if (secondRun || !currentChapter.chapter.read) {
+                } else if (source !is TextSource && (secondRun || !currentChapter.chapter.read)) {
                     currentChapter.requestedPage = currentChapter.chapter.last_page_read
                 }
                 secondRun = true
@@ -430,7 +431,8 @@ class ReaderViewModel(
         val loader = loader ?: return -1
 
         Logger.d { "Loading adjacent ${chapter.chapter.url}" }
-        var lastPage: Int? = if (chapter.chapter.pages_left <= 1) 0 else chapter.chapter.last_page_read
+        val isTextSource = source is TextSource
+        var lastPage: Int? = if (isTextSource) 0 else if (chapter.chapter.pages_left <= 1) 0 else chapter.chapter.last_page_read
         mutableState.update { it.copy(isLoadingAdjacentChapter = true) }
         try {
             withIOContext {
@@ -450,7 +452,7 @@ class ReaderViewModel(
 
     fun toggleRead(chapter: Chapter) {
         chapter.read = !chapter.read
-        val lastPageToSave = if (chapter.read) chapter.last_page_read.toLong() else 0L 
+        val lastPageToSave = if (chapter.read) chapter.last_page_read.toLong() else 0L
         viewModelScope.launchNonCancellableIO {
             updateChapter.await(
                 ChapterUpdate(
@@ -543,6 +545,13 @@ class ReaderViewModel(
         }
     }
 
+    fun onNovelScrollProgress(page: ReaderPage) {
+        if (source !is TextSource) return
+        viewModelScope.launchNonCancellableIO {
+            saveChapterProgress(page.chapter, page, hasExtraPage = false)
+        }
+    }
+
     private fun downloadNextChapters() {
         val manga = manga ?: return
         viewModelScope.launchNonCancellableIO {
@@ -628,21 +637,32 @@ class ReaderViewModel(
      * If incognito mode isn't on or has at least 1 tracker
      */
     private suspend fun saveChapterProgress(readerChapter: ReaderChapter, page: ReaderPage, hasExtraPage: Boolean) {
-        readerChapter.requestedPage = readerChapter.chapter.last_page_read
+        val isTextSource = source is TextSource
+        readerChapter.requestedPage = if (isTextSource) 0 else readerChapter.chapter.last_page_read
         getChapter.awaitById(readerChapter.chapter.id!!)?.let { dbChapter ->
             readerChapter.chapter.bookmark = dbChapter.bookmark
         }
 
         val shouldTrack = !preferences.incognitoMode().get() || hasTrackers
         if (shouldTrack && page.status !is Page.State.Error) {
-            readerChapter.chapter.last_page_read = page.index
-            readerChapter.chapter.pages_left = (readerChapter.pages?.size ?: page.index) - page.index
-            // For double pages, check if the second to last page is doubled up
-            if (
-                (readerChapter.pages?.lastIndex == page.index && page.firstHalf != true) ||
-                (hasExtraPage && readerChapter.pages?.lastIndex?.minus(1) == page.index)
-            ) {
-                onChapterReadComplete(readerChapter)
+            if (isTextSource) {
+                val progressPercent = readerChapter.chapter.last_page_read.coerceIn(0, 100)
+                readerChapter.chapter.last_page_read = progressPercent
+                readerChapter.chapter.pages_left = (100 - progressPercent).coerceIn(0, 100)
+
+                if (!readerChapter.chapter.read && progressPercent >= NOVEL_CHAPTER_READ_THRESHOLD_PERCENT) {
+                    onChapterReadComplete(readerChapter)
+                }
+            } else {
+                readerChapter.chapter.last_page_read = page.index
+                readerChapter.chapter.pages_left = (readerChapter.pages?.size ?: page.index) - page.index
+                // For double pages, check if the second to last page is doubled up
+                if (
+                    (readerChapter.pages?.lastIndex == page.index && page.firstHalf != true) ||
+                    (hasExtraPage && readerChapter.pages?.lastIndex?.minus(1) == page.index)
+                ) {
+                    onChapterReadComplete(readerChapter)
+                }
             }
 
             updateChapter.await(
@@ -725,14 +745,12 @@ class ReaderViewModel(
 
     fun getChapterUrl(mainChapter: Chapter? = null): String? {
         val manga = manga ?: return null
-        val source = getSource() ?: return null
+        val source = source ?: return null
         val chapter = mainChapter ?: getCurrentChapter()?.chapter ?: return null
         val chapterUrl = try { source.getChapterUrl(chapter) } catch (_: Exception) { null }
         return chapterUrl.takeIf { !it.isNullOrBlank() }
             ?: try { source.getChapterUrl(manga, chapter) } catch (_: Exception) { null }
     }
-
-    fun getSource() = manga?.source?.let { sourceManager.getOrStub(it) } as? HttpSource
 
     /**
      * Returns the viewer position used by this manga or the default one.
@@ -778,7 +796,7 @@ class ReaderViewModel(
             if (currChapters != null) {
                 // Save current page
                 val currChapter = currChapters.currChapter
-                currChapter.requestedPage = currChapter.chapter.last_page_read
+                currChapter.requestedPage = if (source is TextSource) 0 else currChapter.chapter.last_page_read
 
                 mutableState.update {
                     it.copy(
@@ -1088,3 +1106,5 @@ class ReaderViewModel(
         data class ShareTrackingError(val errors: List<Pair<TrackService, String?>>) : Event()
     }
 }
+
+private const val NOVEL_CHAPTER_READ_THRESHOLD_PERCENT = 95

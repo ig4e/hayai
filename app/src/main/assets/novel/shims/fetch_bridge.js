@@ -14,7 +14,6 @@ var __defaultHeaders = {
     'Accept': '*/*',
     'Accept-Language': '*',
     'Sec-Fetch-Mode': 'cors',
-    'Accept-Encoding': 'gzip, deflate',
     'Cache-Control': 'max-age=0'
 };
 

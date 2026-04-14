@@ -25,6 +25,29 @@ interface Source {
         get() = ""
 
     /**
+     * Base URL used for opening a source in web view.
+     */
+    val webViewUrl: String?
+        get() = null
+
+    /**
+     * Returns the URL for a manga when available.
+     */
+    fun getMangaUrl(manga: SManga): String? = null
+
+    /**
+     * Returns the URL for a chapter when available.
+     */
+    fun getChapterUrl(chapter: SChapter): String? = null
+
+    /**
+     * Returns the URL for a chapter with manga context when available.
+     */
+    fun getChapterUrl(manga: SManga?, chapter: SChapter): String? {
+        return getChapterUrl(chapter)
+    }
+
+    /**
      * Get the updated details for a manga.
      *
      * @since extensions-lib 1.5

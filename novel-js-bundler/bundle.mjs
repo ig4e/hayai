@@ -8,6 +8,17 @@ import { mkdirSync } from 'fs';
 const outDir = '../app/src/main/assets/novel/runtime';
 mkdirSync(outDir, { recursive: true });
 
+await esbuild.build({
+  entryPoints: ['./polyfills.entry.js'],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: `${outDir}/polyfills.min.js`,
+});
+console.log('polyfills bundled');
+
 // Bundle cheerio (exports: { load }) + htmlparser2 (exports: { Parser })
 // cheerio includes htmlparser2 internally. Use platform 'node' for CommonJS compat,
 // but mark node builtins external since QuickJS won't have them.

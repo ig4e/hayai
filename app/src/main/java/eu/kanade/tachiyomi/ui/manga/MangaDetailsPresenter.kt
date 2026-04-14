@@ -344,7 +344,7 @@ class MangaDetailsPresenter(
     }
 
     fun getChapterUrl(chapter: Chapter): String? {
-        val source = source as? HttpSource ?: return null
+        val source = source
         val chapterUrl = try { source.getChapterUrl(chapter) } catch (_: Exception) { null }
         return chapterUrl.takeIf { !it.isNullOrBlank() }
             ?: try { source.getChapterUrl(manga, chapter) } catch (_: Exception) { null }

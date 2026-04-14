@@ -79,7 +79,6 @@ import eu.kanade.tachiyomi.data.updater.AppUpdateResult
 import eu.kanade.tachiyomi.data.updater.RELEASE_URL
 import eu.kanade.tachiyomi.databinding.MainActivityBinding
 import eu.kanade.tachiyomi.extension.ExtensionManager
-import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.MaterialMenuSheet
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
@@ -1135,17 +1134,16 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         super.onProvideAssistContent(outContent)
         when (val controller = router.backstack.lastOrNull()?.controller) {
             is MangaDetailsController -> {
-                val source = controller.presenter.source as? HttpSource ?: return
                 val url = try {
-                    source.getMangaUrl(controller.presenter.manga)
+                    controller.presenter.source.getMangaUrl(controller.presenter.manga)
                 } catch (e: Exception) {
                     return
-                }
+                } ?: return
                 outContent.webUri = Uri.parse(url)
             }
             is BrowseSourceController -> {
-                val source = controller.presenter.source as? HttpSource ?: return
-                outContent.webUri = Uri.parse(source.baseUrl)
+                val url = controller.presenter.source.webViewUrl ?: return
+                outContent.webUri = Uri.parse(url)
             }
         }
     }

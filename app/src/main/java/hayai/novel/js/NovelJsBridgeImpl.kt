@@ -52,6 +52,21 @@ class NovelJsBridgeImpl(
                 headersMap[name.lowercase()] = value
             }
 
+            if (url.contains("allnovel.org", ignoreCase = true)) {
+                Logger.d {
+                    buildString {
+                        append("NovelJsBridge.fetch allnovel")
+                        append(" url=").append(url)
+                        append(" finalUrl=").append(response.request.url)
+                        append(" status=").append(response.code)
+                        append(" bodyLen=").append(bodyText.length)
+                        append(" hasArchive=").append(bodyText.contains("archive"))
+                        append(" hasColContent=").append(bodyText.contains("col-content"))
+                        append(" preview=").append(bodyText.take(300).replace("\n", "\\n").replace("\r", "\\r"))
+                    }
+                }
+            }
+
             buildJsonResponse(response.code, response.message, bodyText, bodyBase64, headersMap)
         } catch (e: Exception) {
             Logger.e(e) { "NovelJsBridge.fetch failed: $url" }
@@ -122,12 +137,21 @@ class NovelJsBridgeImpl(
         getPrefs(pluginId).edit().clear().apply()
     }
 
+    override fun sleep(durationMs: Int) {
+        if (durationMs > 0) {
+            Thread.sleep(durationMs.toLong())
+        }
+    }
+
     // --- Helpers ---
 
     private fun buildRequest(url: String, init: FetchInit): Request {
         val builder = Request.Builder().url(url)
 
         init.headers?.forEach { (key, value) ->
+            if (key.equals("accept-encoding", ignoreCase = true)) {
+                return@forEach
+            }
             builder.addHeader(key, value)
         }
 

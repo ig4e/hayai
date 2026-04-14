@@ -42,4 +42,7 @@ interface NovelJsBridge {
 
     /** Clear all storage for a plugin. */
     fun storageClearAll(pluginId: String)
+
+    /** Blocking sleep used by timer polyfills on the dedicated JS worker thread. */
+    fun sleep(durationMs: Int)
 }

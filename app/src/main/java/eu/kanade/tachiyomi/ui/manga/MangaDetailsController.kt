@@ -1321,10 +1321,10 @@ class MangaDetailsController :
     fun shareManga(cover: File? = null) {
         val context = view?.context ?: return
 
-        val source = presenter.source as? HttpSource ?: return
+        val source = presenter.source
         val stream = cover?.getUriCompat(context)
         try {
-            val url = source.getMangaUrl(presenter.manga)
+            val url = source.getMangaUrl(presenter.manga) ?: return
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/*"
                 putExtra(Intent.EXTRA_TEXT, url)
@@ -1365,18 +1365,17 @@ class MangaDetailsController :
 
     override fun openInWebView() {
         if (isNotOnline()) return
-        val source = presenter.source as? HttpSource ?: return
         val url = try {
-            source.getMangaUrl(presenter.manga)
+            presenter.source.getMangaUrl(presenter.manga)
         } catch (e: Exception) {
             return
-        }
+        } ?: return
 
         val activity = activity ?: return
         val intent = WebViewActivity.newIntent(
             activity.applicationContext,
             url,
-            source.id,
+            presenter.source.id,
             presenter.manga
                 .title,
         )
@@ -1385,14 +1384,13 @@ class MangaDetailsController :
 
     fun openChapterInWebView(item: ChapterItem) {
         if (isNotOnline()) return
-        val source = presenter.source as? HttpSource ?: return
         val url = presenter.getChapterUrl(item.chapter) ?: return
 
         val activity = activity ?: return
         val intent = WebViewActivity.newIntent(
             activity.applicationContext,
             url,
-            source.id,
+            presenter.source.id,
             presenter.manga
                 .title,
         )

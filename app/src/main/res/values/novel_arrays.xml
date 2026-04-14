@@ -11,7 +11,7 @@
         <item>28</item>
         <item>32</item>
     </string-array>
-    <integer-array name="novel_font_size_values">
+    <string-array name="novel_font_size_values">
         <item>12</item>
         <item>14</item>
         <item>16</item>
@@ -21,7 +21,7 @@
         <item>24</item>
         <item>28</item>
         <item>32</item>
-    </integer-array>
+    </string-array>
 
     <string-array name="novel_font_family_entries">
         <item>@string/font_serif</item>
@@ -40,7 +40,7 @@
         <item>2.2</item>
         <item>2.5</item>
     </string-array>
-    <integer-array name="novel_line_height_values">
+    <string-array name="novel_line_height_values">
         <item>10</item>
         <item>12</item>
         <item>14</item>
@@ -49,7 +49,7 @@
         <item>20</item>
         <item>22</item>
         <item>25</item>
-    </integer-array>
+    </string-array>
 
     <string-array name="novel_text_align_entries">
         <item>@string/align_start</item>
@@ -67,7 +67,7 @@
         <item>32</item>
         <item>48</item>
     </string-array>
-    <integer-array name="novel_padding_values">
+    <string-array name="novel_padding_values">
         <item>0</item>
         <item>8</item>
         <item>12</item>
@@ -76,7 +76,7 @@
         <item>24</item>
         <item>32</item>
         <item>48</item>
-    </integer-array>
+    </string-array>
 
     <string-array name="novel_theme_entries">
         <item>@string/novel_theme_dark</item>

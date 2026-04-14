@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "bundle": "node bundle.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -14,6 +15,7 @@
     "cheerio": "^1.0.0-rc.12",
     "dayjs": "^1.11.13",
     "esbuild": "^0.24.0",
+    "react-native-url-polyfill": "^3.0.0",
     "urlencode": "^2.0.0"
   }
 }

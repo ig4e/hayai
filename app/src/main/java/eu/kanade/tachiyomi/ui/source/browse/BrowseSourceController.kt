@@ -364,8 +364,7 @@ open class BrowseSourceController(bundle: Bundle) :
     override fun onPrepareOptionsMenu(menu: Menu) {
         super.onPrepareOptionsMenu(menu)
 
-        val isHttpSource = presenter.source is HttpSource
-        menu.findItem(R.id.action_open_in_web_view).isVisible = isHttpSource
+        menu.findItem(R.id.action_open_in_web_view).isVisible = presenter.source.webViewUrl != null
         val isConfigurableSource = presenter.source is ConfigurableSource
         menu.findItem(R.id.action_source_settings).isVisible = isConfigurableSource
 
@@ -541,13 +540,13 @@ open class BrowseSourceController(bundle: Bundle) :
     }
 
     private fun openInWebView() {
-        val source = presenter.source as? HttpSource ?: return
+        val url = presenter.source.webViewUrl ?: return
         val activity = activity ?: return
         val intent = WebViewActivity.newIntent(
             activity,
-            source.baseUrl,
-            source.id,
-            source.name,
+            url,
+            presenter.source.id,
+            presenter.source.name,
         )
         startActivity(intent)
     }
@@ -646,7 +645,7 @@ open class BrowseSourceController(bundle: Bundle) :
                 EmptyView.Action(MR.strings.retry, retryAction)
             }
 
-            if (presenter.source is HttpSource) {
+            if (presenter.source.webViewUrl != null) {
                 actions += EmptyView.Action(
                     MR.strings.open_in_webview,
                 ) { openInWebView() }

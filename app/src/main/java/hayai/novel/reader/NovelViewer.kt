@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.BaseViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import uy.kohesive.injekt.injectLazy
@@ -74,6 +75,17 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
      * Currently active item (ReaderPage or ChapterTransition).
      */
     private var currentPage: Any? = null
+
+    /**
+     * Measured heights for chapter pages, used for chapter-local progress and restore.
+     */
+    private val measuredPageHeights = mutableMapOf<ReaderPage, Int>()
+
+    private var pendingRestoreChapterId: Long? = null
+    private var pendingRestorePercent: Int? = null
+
+    private var lastReportedChapterId: Long? = null
+    private var lastReportedProgress: Int = -1
 
     /**
      * Configuration for the novel reader (font, colors, spacing, navigation).
@@ -169,6 +181,35 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         scope.cancel()
     }
 
+    fun onWebContentTouch(event: MotionEvent): Boolean {
+        return gestureDetector.onTouchEvent(event)
+    }
+
+    fun onPageContentMeasured(page: ReaderPage, pixelHeight: Int) {
+        if (pixelHeight <= 0) return
+        measuredPageHeights[page] = pixelHeight
+        if (pendingRestoreChapterId == page.chapter.chapter.id) {
+            recycler.post { restoreSavedProgressIfReady() }
+        }
+    }
+
+    private fun checkAllowPreload(page: ReaderPage?): Boolean {
+        // Transition page selected.
+        page ?: return true
+
+        // Initial selection.
+        currentPage ?: return true
+
+        val nextItem = adapter.items.getOrNull(adapter.items.size - 1)
+        val nextChapter = (nextItem as? ChapterTransition.Next)?.to ?: (nextItem as? ReaderPage)?.chapter
+
+        return when (page.chapter) {
+            (currentPage as? ReaderPage)?.chapter -> true
+            nextChapter -> true
+            else -> false
+        }
+    }
+
     private fun onPageSelected(page: ReaderPage, allowPreload: Boolean) {
         val pages = page.chapter.pages ?: return
         Logger.d { "Novel onPageSelected: ${page.number}/${pages.size}" }
@@ -197,21 +238,23 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         Logger.d { "Novel setChapters" }
         val forceTransition = config.alwaysShowChapterTransition || currentPage is ChapterTransition
         adapter.setChapters(chapters, forceTransition)
+        measuredPageHeights.clear()
+        lastReportedChapterId = null
+        lastReportedProgress = -1
+
+        pendingRestoreChapterId = chapters.currChapter.chapter.id
+        pendingRestorePercent = chapters.currChapter.chapter.last_page_read
+            .coerceIn(0, 100)
+            .takeIf { it > 0 }
 
         if (recycler.isGone) {
             val pages = chapters.currChapter.pages ?: return
             moveToPage(pages[min(chapters.currChapter.requestedPage, pages.lastIndex)])
             recycler.isVisible = true
+        }
 
-            // NOVEL --> Restore scroll position (percentage-based)
-            val savedProgress = chapters.currChapter.chapter.last_page_read
-            if (savedProgress > 0) {
-                recycler.post {
-                    val scrollRange = recycler.computeVerticalScrollRange()
-                    recycler.scrollBy(0, (scrollRange * savedProgress / 100))
-                }
-            }
-            // NOVEL <--
+        if (pendingRestorePercent != null) {
+            recycler.post { restoreSavedProgressIfReady() }
         }
     }
 
@@ -230,26 +273,172 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
     private fun onScrolled(pos: Int? = null) {
         val position = pos ?: layoutManager.findLastVisibleItemPosition()
         val item = adapter.items.getOrNull(position)
+        val allowPreload = checkAllowPreload(item as? ReaderPage)
         if (item != null && currentPage != item) {
             currentPage = item
             when (item) {
-                is ReaderPage -> onPageSelected(item, true)
+                is ReaderPage -> onPageSelected(item, allowPreload)
                 is ChapterTransition -> onTransitionSelected(item)
             }
         }
 
-        // NOVEL --> Track scroll progress (percentage-based)
         if (item is ReaderPage) {
-            val scrollRange = recycler.computeVerticalScrollRange()
-            val scrollOffset = recycler.computeVerticalScrollOffset()
-            if (scrollRange > 0) {
-                val progress = ((scrollOffset.toFloat() / scrollRange) * 100).toInt().coerceIn(0, 100)
-                item.chapter.chapter.last_page_read = progress
-                item.chapter.chapter.pages_left = 100 - progress
-                if (progress >= 95) item.chapter.chapter.read = true
+            updateChapterProgress(item)
+        }
+    }
+
+    private fun updateChapterProgress(page: ReaderPage) {
+        val chapter = page.chapter.chapter
+        val chapterId = chapter.id
+
+        if (pendingRestorePercent != null && pendingRestoreChapterId == chapterId) {
+            return
+        }
+
+        val progress = computeChapterProgress(page) ?: return
+        chapter.last_page_read = progress
+        chapter.pages_left = (100 - progress).coerceIn(0, 100)
+        if (progress >= NOVEL_READ_THRESHOLD_PERCENT) {
+            chapter.read = true
+        }
+
+        if (chapterId == null) {
+            activity.onNovelProgressChanged(page, progress)
+            return
+        }
+
+        if (lastReportedChapterId != chapterId) {
+            lastReportedChapterId = chapterId
+            lastReportedProgress = -1
+        }
+
+        if (progress != lastReportedProgress) {
+            lastReportedProgress = progress
+            activity.onNovelProgressChanged(page, progress)
+        }
+    }
+
+    private fun computeChapterProgress(page: ReaderPage): Int? {
+        val pages = page.chapter.pages ?: return null
+        if (pages.isEmpty()) return null
+
+        val recyclerHeight = recycler.height
+        if (recyclerHeight <= 0) return null
+
+        val pagePosition = adapter.items.indexOf(page)
+        if (pagePosition == -1) return null
+
+        val pageView = layoutManager.findViewByPosition(pagePosition)
+        val currentPageHeight = getPageHeight(page, pageView)
+        if (currentPageHeight <= 0) return null
+
+        val cumulativeOffset = pages
+            .takeWhile { it != page }
+            .sumOf { getPageHeight(it) }
+
+        val maxOffsetInPage = max(currentPageHeight - recyclerHeight, 0)
+        val offsetInPage = pageView?.let { (-it.top).coerceIn(0, maxOffsetInPage) } ?: 0
+
+        val chapterHeight = pages.sumOf { getPageHeight(it) }
+        if (chapterHeight <= 0) return null
+
+        val maxScrollable = max(chapterHeight - recyclerHeight, 0)
+        if (maxScrollable <= 0) return 100
+
+        val offset = (cumulativeOffset + offsetInPage).coerceIn(0, maxScrollable)
+        return ((offset.toFloat() / maxScrollable) * 100f).roundToInt().coerceIn(0, 100)
+    }
+
+    private fun getPageHeight(page: ReaderPage, view: View? = null): Int {
+        measuredPageHeights[page]?.let { measured ->
+            if (measured > 0) return measured
+        }
+
+        val measuredFromView = view?.height ?: run {
+            val index = adapter.items.indexOf(page)
+            if (index == -1) null else layoutManager.findViewByPosition(index)?.height
+        }
+
+        return measuredFromView?.takeIf { it > 0 } ?: 0
+    }
+
+    fun moveToProgress(progressPercent: Int) {
+        val clampedProgress = progressPercent.coerceIn(0, 100)
+        pendingRestoreChapterId = null
+        pendingRestorePercent = null
+
+        if (!scrollToChapterProgress(clampedProgress)) {
+            recycler.post { scrollToChapterProgress(clampedProgress) }
+        }
+    }
+
+    private fun restoreSavedProgressIfReady() {
+        val chapterId = pendingRestoreChapterId ?: return
+        val savedProgress = pendingRestorePercent ?: return
+        val currentChapter = adapter.currentChapter ?: return
+        if (currentChapter.chapter.id != chapterId) return
+
+        if (scrollToChapterProgress(savedProgress)) {
+            pendingRestoreChapterId = null
+            pendingRestorePercent = null
+        } else {
+            recycler.post { restoreSavedProgressIfReady() }
+        }
+    }
+
+    private fun scrollToChapterProgress(progressPercent: Int): Boolean {
+        val currentChapter = adapter.currentChapter ?: return false
+
+        val pages = currentChapter.pages ?: return false
+        if (pages.isEmpty()) return false
+
+        val recyclerHeight = recycler.height
+        if (recyclerHeight <= 0) {
+            return false
+        }
+
+        val pageHeights = pages.map { page ->
+            val measured = measuredPageHeights[page]
+            if (measured != null && measured > 0) {
+                measured
+            } else {
+                val index = adapter.items.indexOf(page)
+                if (index == -1) 0 else layoutManager.findViewByPosition(index)?.height ?: 0
             }
         }
-        // NOVEL <--
+
+        if (pageHeights.any { it <= 0 }) {
+            return false
+        }
+
+        val chapterHeight = pageHeights.sum()
+        val maxScrollable = max(chapterHeight - recyclerHeight, 0)
+        val targetOffset = if (maxScrollable <= 0) 0 else {
+            (maxScrollable * (progressPercent / 100f)).roundToInt().coerceIn(0, maxScrollable)
+        }
+
+        var remainingOffset = targetOffset
+        var targetPageIndex = 0
+        for (index in pages.indices) {
+            val pageHeight = pageHeights[index]
+            if (index == pages.lastIndex || remainingOffset < pageHeight) {
+                targetPageIndex = index
+                break
+            }
+            remainingOffset -= pageHeight
+        }
+
+        if (targetPageIndex == pages.lastIndex) {
+            remainingOffset = remainingOffset.coerceIn(0, max(pageHeights[targetPageIndex] - recyclerHeight, 0))
+        }
+
+        val targetPage = pages[targetPageIndex]
+        val targetPosition = adapter.items.indexOf(targetPage)
+        if (targetPosition == -1) return false
+
+        layoutManager.scrollToPositionWithOffset(targetPosition, -remainingOffset)
+        onScrolled(targetPosition)
+        return true
     }
 
     override fun moveToPrevious() {
@@ -306,3 +495,4 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
 }
 
 private const val RECYCLER_VIEW_CACHE_SIZE = 4
+private const val NOVEL_READ_THRESHOLD_PERCENT = 95

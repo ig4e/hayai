@@ -108,6 +108,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.VerticalPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
+import hayai.novel.reader.NovelViewer
 import eu.kanade.tachiyomi.ui.security.SecureActivityDelegate
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
@@ -935,7 +936,10 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         binding.readerNav.pageSeekbar.addOnChangeListener { _, value, fromUser ->
             if (viewer != null && fromUser) {
                 val prevValue = (viewer as? PagerViewer)?.pager?.currentItem ?: -1
-                moveToPageIndex(value.roundToInt())
+                when (val currentViewer = viewer) {
+                    is NovelViewer -> currentViewer.moveToProgress(value.roundToInt())
+                    else -> moveToPageIndex(value.roundToInt())
+                }
                 val newValue = (viewer as? PagerViewer)?.pager?.currentItem ?: -1
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 &&
                     ((prevValue > -1 && newValue != prevValue) || viewer !is PagerViewer)
@@ -946,6 +950,10 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         }
 
         binding.readerNav.pageSeekbar.setLabelFormatter { value ->
+            if (viewer is NovelViewer) {
+                return@setLabelFormatter "${value.roundToInt()}%"
+            }
+
             val pageNumber = (value + 1).roundToInt()
             (viewer as? PagerViewer)?.let {
                 if (it.config.doublePages || it.config.splitPages) {
@@ -1230,7 +1238,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             ReadingModeType.LONG_STRIP.flagValue -> WebtoonViewer(this)
             ReadingModeType.CONTINUOUS_VERTICAL.flagValue -> WebtoonViewer(this, hasMargins = true)
             // NOVEL -->
-            ReadingModeType.NOVEL.flagValue -> hayai.novel.reader.NovelViewer(this)
+            ReadingModeType.NOVEL.flagValue -> NovelViewer(this)
             // NOVEL <--
             else -> R2LPagerViewer(this)
         }
@@ -1366,10 +1374,29 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             indexPageToShift = null
         }
         val currentChapterPageCount = viewerChapters.currChapter.pages?.size ?: 1
+        val isNovelViewer = viewer is NovelViewer
         binding.readerNav.root.visibility = when {
-            currentChapterPageCount == 1 -> View.GONE
+            isNovelViewer && binding.chaptersSheet.root.sheetBehavior.isCollapsed() -> View.VISIBLE
+            !isNovelViewer && currentChapterPageCount == 1 -> View.GONE
             binding.chaptersSheet.root.sheetBehavior.isCollapsed() -> View.VISIBLE
             else -> View.INVISIBLE
+        }
+
+        if (isNovelViewer) {
+            binding.readerNav.pageSeekbar.isVisible = true
+            binding.readerNav.pageSeekbar.isEnabled = true
+            binding.readerNav.leftPageText.isVisible = false
+            binding.readerNav.rightPageText.isVisible = false
+        } else {
+            val showSeekbar = currentChapterPageCount > 1
+            binding.readerNav.pageSeekbar.isVisible = showSeekbar
+            binding.readerNav.pageSeekbar.isEnabled = showSeekbar
+            binding.readerNav.leftPageText.isVisible = true
+            binding.readerNav.rightPageText.isVisible = true
+        }
+
+        if (isNovelViewer) {
+            updateNovelProgressUi(viewerChapters.currChapter.chapter.last_page_read.coerceIn(0, 100))
         }
         if (lastShiftDoubleState == null) {
             manuallyShiftedPages = false
@@ -1393,13 +1420,22 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             textView.setHorizontallyScrolling(true)
         }
 
-        if (viewerChapters.nextChapter == null && viewerChapters.prevChapter == null) {
+        if (isNovelViewer) {
+            binding.readerNav.leftChapter.isVisible = true
+            binding.readerNav.rightChapter.isVisible = true
+            binding.readerNav.leftChapter.alpha = if (viewerChapters.prevChapter != null) 1f else 0.5f
+            binding.readerNav.rightChapter.alpha = if (viewerChapters.nextChapter != null) 1f else 0.5f
+        } else if (viewerChapters.nextChapter == null && viewerChapters.prevChapter == null) {
             binding.readerNav.leftChapter.isVisible = false
             binding.readerNav.rightChapter.isVisible = false
         } else if (viewer is R2LPagerViewer) {
+            binding.readerNav.leftChapter.isVisible = true
+            binding.readerNav.rightChapter.isVisible = true
             binding.readerNav.leftChapter.alpha = if (viewerChapters.nextChapter != null) 1f else 0.5f
             binding.readerNav.rightChapter.alpha = if (viewerChapters.prevChapter != null) 1f else 0.5f
         } else {
+            binding.readerNav.leftChapter.isVisible = true
+            binding.readerNav.rightChapter.isVisible = true
             binding.readerNav.rightChapter.alpha = if (viewerChapters.nextChapter != null) 1f else 0.5f
             binding.readerNav.leftChapter.alpha = if (viewerChapters.prevChapter != null) 1f else 0.5f
         }
@@ -1494,6 +1530,14 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     @SuppressLint("SetTextI18n")
     fun onPageSelected(page: ReaderPage, hasExtraPage: Boolean) {
         viewModel.onPageSelected(page, hasExtraPage)
+
+        if (viewer is NovelViewer) {
+            if (binding.chaptersSheet.chaptersBottomSheet.selectedChapterId != page.chapter.chapter.id) {
+                binding.chaptersSheet.chaptersBottomSheet.refreshList()
+            }
+            return
+        }
+
         val pages = page.chapter.pages ?: return
 
         val currentPage = if (hasExtraPage) {
@@ -1529,6 +1573,29 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         val progress = page.index + if (hasExtraPage) 1 else 0
         // For a double page, show the last 2 pages as if it was the final part of the seekbar
         binding.readerNav.pageSeekbar.value = (if (progress == pages.lastIndex) progress else page.index).toFloat()
+    }
+
+    fun onNovelProgressChanged(page: ReaderPage, progressPercent: Int) {
+        viewModel.onNovelScrollProgress(page)
+        updateNovelProgressUi(progressPercent.coerceIn(0, 100))
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun updateNovelProgressUi(progressPercent: Int) {
+        val progressLabel = "$progressPercent%"
+        if (hingeGapSize > 0) {
+            binding.pageNumber.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+                marginStart = (binding.root.width) / 2 + hingeGapSize
+            }
+        }
+
+        binding.readerNav.pageSeekbar.valueFrom = 0f
+        binding.readerNav.pageSeekbar.valueTo = 100f
+        if (binding.readerNav.pageSeekbar.value.roundToInt() != progressPercent) {
+            binding.readerNav.pageSeekbar.value = progressPercent.toFloat()
+        }
+
+        binding.pageNumber.text = progressLabel
     }
 
     /**
@@ -1916,7 +1983,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     private fun openMangaInBrowser() {
-        val source = viewModel.getSource() ?: return
+        val source = viewModel.source ?: return
         val chapterUrl = viewModel.getChapterUrl() ?: return
 
         val intent = WebViewActivity.newIntent(

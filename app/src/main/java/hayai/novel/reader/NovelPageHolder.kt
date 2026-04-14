@@ -90,17 +90,34 @@ class NovelPageHolder(
             isHorizontalScrollBarEnabled = false
             overScrollMode = WebView.OVER_SCROLL_NEVER
 
+            setOnTouchListener { _, event ->
+                viewer.onWebContentTouch(event)
+                false
+            }
+
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
                     // Expand WebView to full content height
+                    val boundPage = page ?: return
                     view.evaluateJavascript("document.body.scrollHeight") { heightStr ->
-                        val contentHeight = heightStr?.toIntOrNull() ?: return@evaluateJavascript
+                        val contentHeight = heightStr
+                            ?.replace("\"", "")
+                            ?.toFloatOrNull()
+                            ?.toInt()
+                            ?: view.contentHeight
                         val density = view.resources.displayMetrics.density
-                        val pixelHeight = (contentHeight * density).toInt()
+                        val pixelHeight = (maxOf(contentHeight, 1) * density).toInt().coerceAtLeast(1)
                         view.layoutParams = view.layoutParams.apply {
                             height = pixelHeight
                         }
                         view.requestLayout()
+
+                        if (page == boundPage) {
+                            viewer.onPageContentMeasured(boundPage, pixelHeight)
+                            webView.isVisible = true
+                            progressView.isVisible = false
+                            errorLayout.isVisible = false
+                        }
                     }
                 }
 
@@ -113,8 +130,11 @@ class NovelPageHolder(
 
     private fun createProgressView(): ComposeView {
         return ComposeView(context).apply {
-            // Use a min-height container so RecyclerView has stable layout during load
-            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, 300.dpToPx, Gravity.CENTER)
+            layoutParams = FrameLayout.LayoutParams(
+                MATCH_PARENT,
+                context.resources.displayMetrics.heightPixels,
+                Gravity.CENTER,
+            )
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             setContent {
                 YokaiTheme {
@@ -142,6 +162,7 @@ class NovelPageHolder(
     fun bind(page: ReaderPage) {
         this.page = page
         loadJob?.cancel()
+        setLoading()
         loadJob = scope.launch { loadPageAndProcessStatus() }
     }
 
@@ -163,9 +184,7 @@ class NovelPageHolder(
     }
 
     private fun setQueued() {
-        webView.isVisible = false
-        progressView.isVisible = false
-        errorLayout.isVisible = false
+        setLoading()
     }
 
     private fun setLoading() {
@@ -175,9 +194,11 @@ class NovelPageHolder(
     }
 
     private fun setContent() {
-        val stream = page?.stream
+        val currentPage = page ?: return
+        val stream = currentPage.stream
         if (stream == null) {
-            setError()
+            currentPage.chapter.pageLoader?.retryPage(currentPage)
+            setLoading()
             return
         }
 
@@ -185,11 +206,10 @@ class NovelPageHolder(
             val html = stream().bufferedReader(Charsets.UTF_8).use { it.readText() }
             val styledHtml = applyReaderStyles(html)
 
-            webView.loadDataWithBaseURL(null, styledHtml, "text/html", "UTF-8", null)
-
-            webView.isVisible = true
-            progressView.isVisible = false
+            webView.isVisible = false
+            progressView.isVisible = true
             errorLayout.isVisible = false
+            webView.loadDataWithBaseURL(null, styledHtml, "text/html", "UTF-8", null)
         } catch (e: Exception) {
             Logger.e(e) { "NovelPageHolder: Failed to render content" }
             setError()

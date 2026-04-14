@@ -11,26 +11,24 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import hayai.novel.js.NovelJsBridge
 import hayai.novel.js.NovelJsRuntime
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.float
 import kotlinx.serialization.json.floatOrNull
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
-import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
+import java.time.Instant
 import java.util.Locale
 
 /**
@@ -45,6 +43,7 @@ class NovelSource(
     override val lang: String,
     private val siteUrl: String,
     private val pluginCode: String,
+    private val pluginFilters: JsonObject? = null,
     val iconUrl: String?,
     private val context: Context,
     private val bridge: NovelJsBridge,
@@ -52,8 +51,13 @@ class NovelSource(
 ) : CatalogueSource, TextSource {
 
     private val json = Json { ignoreUnknownKeys = true }
+    private val filterDefinitions = parseFilterDefinitions(pluginFilters)
 
     override val name: String get() = pluginName
+    val baseUrl: String get() = siteUrl
+    override val webViewUrl: String get() = baseUrl
+
+    override fun toString() = "$name (${lang.uppercase()})"
 
     override val id: Long by lazy {
         val key = "novel/${pluginId.lowercase()}/$lang/1"
@@ -77,39 +81,49 @@ class NovelSource(
         return rt
     }
 
-    // --- CatalogueSource methods ---
-
     override suspend fun getPopularManga(page: Int): MangasPage {
         val rt = ensureRuntime()
-        val resultJson = rt.callMethod("popularNovels", "$page, {showLatestNovels: false, filters: undefined}")
+        val resultJson = rt.callMethod(
+            "popularNovels",
+            "$page, {showLatestNovels: false, filters: ${buildFiltersJsArg()}}",
+        )
         Logger.d { "NovelSource($pluginId): popularNovels result (first 500 chars): ${resultJson.take(500)}" }
         return parseNovelItems(resultJson)
     }
 
     override suspend fun getLatestUpdates(page: Int): MangasPage {
         val rt = ensureRuntime()
-        val resultJson = rt.callMethod("popularNovels", "$page, {showLatestNovels: true, filters: undefined}")
+        val resultJson = rt.callMethod(
+            "popularNovels",
+            "$page, {showLatestNovels: true, filters: ${buildFiltersJsArg()}}",
+        )
         return parseNovelItems(resultJson)
     }
 
     override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
         val rt = ensureRuntime()
-        val escapedQuery = query.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-        val resultJson = rt.callMethod("searchNovels", "\"$escapedQuery\", $page")
+
+        if (query.isBlank()) {
+            val resultJson = rt.callMethod(
+                "popularNovels",
+                "$page, {showLatestNovels: false, filters: ${buildFiltersJsArg(filters)}}",
+            )
+            return parseNovelItems(resultJson)
+        }
+
+        val resultJson = rt.callMethod("searchNovels", "${escapeJsString(query)}, $page")
         return parseNovelItems(resultJson)
     }
 
     override suspend fun getMangaDetails(manga: SManga): SManga {
         val rt = ensureRuntime()
-        val escapedUrl = manga.url.replace("\\", "\\\\").replace("\"", "\\\"")
-        val resultJson = rt.callMethod("parseNovel", "\"$escapedUrl\"")
+        val resultJson = rt.callMethod("parseNovel", escapeJsString(manga.url))
         return parseSourceNovel(resultJson, manga)
     }
 
     override suspend fun getChapterList(manga: SManga): List<SChapter> {
         val rt = ensureRuntime()
-        val escapedUrl = manga.url.replace("\\", "\\\\").replace("\"", "\\\"")
-        val resultJson = rt.callMethod("parseNovel", "\"$escapedUrl\"")
+        val resultJson = rt.callMethod("parseNovel", escapeJsString(manga.url))
         return parseChapterList(resultJson)
     }
 
@@ -121,12 +135,11 @@ class NovelSource(
     }
 
     override fun getFilterList(): FilterList {
-        // TODO: Parse plugin filters property into Tachiyomi FilterList
-        // For now, return empty. Filters will be implemented in a follow-up.
-        return FilterList()
+        if (filterDefinitions.isEmpty()) {
+            return FilterList()
+        }
+        return FilterList(filterDefinitions.map { it.toFilter() })
     }
-
-    // --- Novel-specific methods ---
 
     /**
      * Fetch chapter text content (HTML string).
@@ -134,8 +147,7 @@ class NovelSource(
      */
     suspend fun getChapterText(chapterUrl: String): String {
         val rt = ensureRuntime()
-        val escapedUrl = chapterUrl.replace("\\", "\\\\").replace("\"", "\\\"")
-        val resultJson = rt.callMethod("parseChapter", "\"$escapedUrl\"")
+        val resultJson = rt.callMethod("parseChapter", escapeJsString(chapterUrl))
         // parseChapter returns a string (HTML), JSON-stringified it becomes a quoted string
         return try {
             json.decodeFromString<String>(resultJson)
@@ -145,10 +157,27 @@ class NovelSource(
         }
     }
 
+    override fun getMangaUrl(manga: SManga): String {
+        return resolveUrl(manga.url)
+    }
+
+    override fun getChapterUrl(chapter: SChapter): String {
+        return resolveUrl(chapter.url)
+    }
+
+    override fun getChapterUrl(manga: SManga?, chapter: SChapter): String? {
+        val chapterUrl = chapter.url.trim()
+        return if (chapterUrl.isBlank()) {
+            manga?.let { getMangaUrl(it) }
+        } else {
+            resolveUrl(chapterUrl)
+        }
+    }
+
     /**
      * Resolve a relative URL to absolute using the plugin's resolveUrl or site URL.
      */
-    fun resolveUrl(path: String, isNovel: Boolean = false): String {
+    fun resolveUrl(path: String): String {
         if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("//")) {
             return path
         }
@@ -160,6 +189,100 @@ class NovelSource(
     fun destroy() {
         runtime?.close()
         runtime = null
+    }
+
+    private fun buildFiltersJsArg(filters: FilterList? = null): String {
+        if (filterDefinitions.isEmpty()) {
+            return "undefined"
+        }
+
+        val filtersByKey = mutableMapOf<String, Filter<*>>()
+        filters?.forEach { filter ->
+            filterKey(filter)?.let { filtersByKey[it] = filter }
+        }
+
+        val filtersJson = buildJsonObject {
+            filterDefinitions.forEach { definition ->
+                put(definition.key, definition.toJson(filtersByKey[definition.key]))
+            }
+        }
+        return filtersJson.toString()
+    }
+
+    private fun filterKey(filter: Filter<*>): String? {
+        return when (filter) {
+            is LnTextFilter -> filter.key
+            is LnSwitchFilter -> filter.key
+            is LnPickerFilter -> filter.key
+            is LnCheckboxGroupFilter -> filter.key
+            is LnXCheckboxGroupFilter -> filter.key
+            else -> null
+        }
+    }
+
+    private fun parseFilterDefinitions(filters: JsonObject?): List<LnFilterDefinition> {
+        if (filters == null) {
+            return emptyList()
+        }
+
+        return filters.entries.mapNotNull { (key, value) ->
+            val obj = value as? JsonObject ?: return@mapNotNull null
+            val type = obj["type"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val label = obj["label"]?.jsonPrimitive?.contentOrNull ?: key
+
+            when (type) {
+                FILTER_TYPE_TEXT -> LnTextFilterDefinition(
+                    key = key,
+                    label = label,
+                    defaultValue = obj["value"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                )
+                FILTER_TYPE_SWITCH -> LnSwitchFilterDefinition(
+                    key = key,
+                    label = label,
+                    defaultValue = obj["value"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: false,
+                )
+                FILTER_TYPE_PICKER -> LnPickerFilterDefinition(
+                    key = key,
+                    label = label,
+                    options = parseFilterOptions(obj),
+                    defaultValue = obj["value"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                )
+                FILTER_TYPE_CHECKBOX -> LnCheckboxFilterDefinition(
+                    key = key,
+                    label = label,
+                    options = parseFilterOptions(obj),
+                    defaultValues = parseStringArray(obj["value"]).toSet(),
+                )
+                FILTER_TYPE_XCHECKBOX -> {
+                    val valueObj = obj["value"] as? JsonObject
+                    LnXCheckboxFilterDefinition(
+                        key = key,
+                        label = label,
+                        options = parseFilterOptions(obj),
+                        defaultInclude = parseStringArray(valueObj?.get("include")).toSet(),
+                        defaultExclude = parseStringArray(valueObj?.get("exclude")).toSet(),
+                        includePresent = valueObj?.containsKey("include") == true,
+                        excludePresent = valueObj?.containsKey("exclude") == true,
+                    )
+                }
+                else -> null
+            }
+        }
+    }
+
+    private fun parseFilterOptions(obj: JsonObject): List<LnFilterOption> {
+        val options = obj["options"] as? JsonArray ?: return emptyList()
+        return options.mapNotNull { element ->
+            val option = element as? JsonObject ?: return@mapNotNull null
+            val label = option["label"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val value = option["value"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            LnFilterOption(label = label, value = value)
+        }
+    }
+
+    private fun parseStringArray(element: JsonElement?): List<String> {
+        val array = element as? JsonArray ?: return emptyList()
+        return array.mapNotNull { it.jsonPrimitive.contentOrNull }
     }
 
     // --- Parsing helpers ---
@@ -198,12 +321,7 @@ class NovelSource(
                 obj["summary"]?.jsonPrimitive?.contentOrNull?.let { description = it }
                 obj["cover"]?.jsonPrimitive?.contentOrNull?.let { thumbnail_url = resolveUrl(it) }
 
-                val genres = obj["genres"]?.jsonPrimitive?.contentOrNull
-                genre = if (genres != null) {
-                    "Novel, $genres"
-                } else {
-                    "Novel"
-                }
+                genre = obj["genres"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
 
                 status = when (obj["status"]?.jsonPrimitive?.contentOrNull) {
                     "Ongoing" -> SManga.ONGOING
@@ -241,7 +359,7 @@ class NovelSource(
                     Logger.w(e) { "NovelSource: Failed to parse chapter" }
                     null
                 }
-            }
+            }.reversed()
         } catch (e: Exception) {
             Logger.e(e) { "NovelSource: Failed to parse chapter list" }
             emptyList()
@@ -251,19 +369,294 @@ class NovelSource(
     private fun parseReleaseTime(dateStr: String?): Long {
         if (dateStr.isNullOrBlank()) return 0L
         return try {
-            // Try ISO format first
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(dateStr)?.time ?: 0L
+            Instant.parse(dateStr).toEpochMilli()
         } catch (_: Exception) {
             try {
-                // Try simple date format
-                SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateStr)?.time ?: 0L
+                // Try ISO format without timezone
+                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(dateStr)?.time ?: 0L
             } catch (_: Exception) {
                 try {
-                    // Try as epoch millis
-                    dateStr.toLong()
+                    // Try simple date format
+                    SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateStr)?.time ?: 0L
                 } catch (_: Exception) {
-                    0L
+                    try {
+                        // Try as epoch millis/seconds
+                        val epoch = dateStr.toLong()
+                        if (dateStr.length <= 10) epoch * 1000 else epoch
+                    } catch (_: Exception) {
+                        0L
+                    }
                 }
+            }
+        }
+    }
+
+    private fun escapeJsString(value: String): String {
+        val escaped = value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+        return "\"$escaped\""
+    }
+
+    private sealed class LnFilterDefinition(
+        open val key: String,
+        open val label: String,
+    ) {
+        abstract fun toFilter(): Filter<*>
+        abstract fun toJson(filter: Filter<*>?): JsonObject
+    }
+
+    private data class LnFilterOption(
+        val label: String,
+        val value: String,
+    )
+
+    private data class LnTextFilterDefinition(
+        override val key: String,
+        override val label: String,
+        val defaultValue: String,
+    ) : LnFilterDefinition(key, label) {
+        override fun toFilter(): Filter<*> = LnTextFilter(key, label, defaultValue)
+
+        override fun toJson(filter: Filter<*>?): JsonObject {
+            val currentValue = (filter as? LnTextFilter)?.state ?: defaultValue
+            return buildJsonObject {
+                put("type", FILTER_TYPE_TEXT)
+                put("label", label)
+                put("value", currentValue)
+            }
+        }
+    }
+
+    private data class LnSwitchFilterDefinition(
+        override val key: String,
+        override val label: String,
+        val defaultValue: Boolean,
+    ) : LnFilterDefinition(key, label) {
+        override fun toFilter(): Filter<*> = LnSwitchFilter(key, label, defaultValue)
+
+        override fun toJson(filter: Filter<*>?): JsonObject {
+            val currentValue = (filter as? LnSwitchFilter)?.state ?: defaultValue
+            return buildJsonObject {
+                put("type", FILTER_TYPE_SWITCH)
+                put("label", label)
+                put("value", currentValue)
+            }
+        }
+    }
+
+    private data class LnPickerFilterDefinition(
+        override val key: String,
+        override val label: String,
+        val options: List<LnFilterOption>,
+        val defaultValue: String,
+    ) : LnFilterDefinition(key, label) {
+        override fun toFilter(): Filter<*> {
+            val normalizedOptions = if (options.any { it.value == defaultValue }) {
+                options
+            } else {
+                listOf(
+                    LnFilterOption(
+                        label = if (defaultValue.isBlank()) DEFAULT_PICKER_LABEL else defaultValue,
+                        value = defaultValue,
+                    ),
+                ) + options
+            }
+            val selectedIndex = normalizedOptions.indexOfFirst { it.value == defaultValue }.coerceAtLeast(0)
+            return LnPickerFilter(key, label, normalizedOptions, selectedIndex)
+        }
+
+        override fun toJson(filter: Filter<*>?): JsonObject {
+            val currentValue = (filter as? LnPickerFilter)?.selectedValue() ?: defaultValue
+            return buildJsonObject {
+                put("type", FILTER_TYPE_PICKER)
+                put("label", label)
+                put("value", currentValue)
+                putJsonArray("options") {
+                    options.forEach { add(optionToJson(it)) }
+                }
+            }
+        }
+    }
+
+    private data class LnCheckboxFilterDefinition(
+        override val key: String,
+        override val label: String,
+        val options: List<LnFilterOption>,
+        val defaultValues: Set<String>,
+    ) : LnFilterDefinition(key, label) {
+        override fun toFilter(): Filter<*> {
+            return LnCheckboxGroupFilter(
+                key = key,
+                name = label,
+                state = options.map { option ->
+                    LnCheckboxOption(
+                        optionValue = option.value,
+                        name = option.label,
+                        state = option.value in defaultValues,
+                    )
+                },
+            )
+        }
+
+        override fun toJson(filter: Filter<*>?): JsonObject {
+            val currentValues = (filter as? LnCheckboxGroupFilter)?.state
+                ?.filter { it.state }
+                ?.map { it.optionValue }
+                ?: orderedValues(options, defaultValues)
+
+            return buildJsonObject {
+                put("type", FILTER_TYPE_CHECKBOX)
+                put("label", label)
+                putJsonArray("value") {
+                    currentValues.forEach { add(JsonPrimitive(it)) }
+                }
+                putJsonArray("options") {
+                    options.forEach { add(optionToJson(it)) }
+                }
+            }
+        }
+    }
+
+    private data class LnXCheckboxFilterDefinition(
+        override val key: String,
+        override val label: String,
+        val options: List<LnFilterOption>,
+        val defaultInclude: Set<String>,
+        val defaultExclude: Set<String>,
+        val includePresent: Boolean,
+        val excludePresent: Boolean,
+    ) : LnFilterDefinition(key, label) {
+        override fun toFilter(): Filter<*> {
+            return LnXCheckboxGroupFilter(
+                key = key,
+                name = label,
+                state = options.map { option ->
+                    val state = when {
+                        option.value in defaultInclude -> Filter.TriState.STATE_INCLUDE
+                        option.value in defaultExclude -> Filter.TriState.STATE_EXCLUDE
+                        else -> Filter.TriState.STATE_IGNORE
+                    }
+                    LnXCheckboxOption(
+                        optionValue = option.value,
+                        name = option.label,
+                        state = state,
+                    )
+                },
+            )
+        }
+
+        override fun toJson(filter: Filter<*>?): JsonObject {
+            val group = filter as? LnXCheckboxGroupFilter
+            val included = group?.state
+                ?.filter { it.state == Filter.TriState.STATE_INCLUDE }
+                ?.map { it.optionValue }
+                ?: orderedValues(options, defaultInclude)
+            val excluded = group?.state
+                ?.filter { it.state == Filter.TriState.STATE_EXCLUDE }
+                ?.map { it.optionValue }
+                ?: orderedValues(options, defaultExclude)
+
+            return buildJsonObject {
+                put("type", FILTER_TYPE_XCHECKBOX)
+                put("label", label)
+                putJsonObject("value") {
+                    if (includePresent || included.isNotEmpty()) {
+                        putJsonArray("include") {
+                            included.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
+                    if (excludePresent || excluded.isNotEmpty()) {
+                        putJsonArray("exclude") {
+                            excluded.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
+                }
+                putJsonArray("options") {
+                    options.forEach { add(optionToJson(it)) }
+                }
+            }
+        }
+    }
+
+    private class LnTextFilter(
+        val key: String,
+        name: String,
+        state: String,
+    ) : Filter.Text(name, state)
+
+    private class LnSwitchFilter(
+        val key: String,
+        name: String,
+        state: Boolean,
+    ) : Filter.CheckBox(name, state)
+
+    private class LnPickerFilter(
+        val key: String,
+        name: String,
+        private val options: List<LnFilterOption>,
+        state: Int,
+    ) : Filter.Select<String>(name, options.map { it.label }.toTypedArray(), state) {
+        fun selectedValue(): String {
+            return options.getOrNull(state)?.value ?: options.firstOrNull()?.value.orEmpty()
+        }
+    }
+
+    private class LnCheckboxOption(
+        val optionValue: String,
+        name: String,
+        state: Boolean,
+    ) : Filter.CheckBox(name, state)
+
+    private class LnCheckboxGroupFilter(
+        val key: String,
+        name: String,
+        state: List<LnCheckboxOption>,
+    ) : Filter.Group<LnCheckboxOption>(name, state)
+
+    private class LnXCheckboxOption(
+        val optionValue: String,
+        name: String,
+        state: Int,
+    ) : Filter.TriState(name, state)
+
+    private class LnXCheckboxGroupFilter(
+        val key: String,
+        name: String,
+        state: List<LnXCheckboxOption>,
+    ) : Filter.Group<LnXCheckboxOption>(name, state)
+
+    companion object {
+        private const val FILTER_TYPE_TEXT = "Text"
+        private const val FILTER_TYPE_SWITCH = "Switch"
+        private const val FILTER_TYPE_PICKER = "Picker"
+        private const val FILTER_TYPE_CHECKBOX = "Checkbox"
+        private const val FILTER_TYPE_XCHECKBOX = "XCheckbox"
+        private const val DEFAULT_PICKER_LABEL = "Any"
+
+        private fun orderedValues(options: List<LnFilterOption>, selected: Set<String>): List<String> {
+            if (selected.isEmpty()) {
+                return emptyList()
+            }
+
+            val ordered = options.mapNotNull { option ->
+                option.value.takeIf { it in selected }
+            }.toMutableList()
+
+            selected.forEach { value ->
+                if (value !in ordered) {
+                    ordered.add(value)
+                }
+            }
+            return ordered
+        }
+
+        private fun optionToJson(option: LnFilterOption): JsonObject {
+            return buildJsonObject {
+                put("label", option.label)
+                put("value", option.value)
             }
         }
     }

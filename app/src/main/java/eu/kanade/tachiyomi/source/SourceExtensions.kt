@@ -13,7 +13,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 fun Source.includeLangInName(enabledLanguages: Set<String>, extensionManager: ExtensionManager? = null): Boolean {
-    val httpSource = this as? HttpSource ?: return true
+    val httpSource = this as? HttpSource ?: return false
     val extManager = extensionManager ?: Injekt.get()
     val allExt = httpSource.getExtension(extManager)?.lang == "all"
     val onlyAll = httpSource.extOnlyHasAllLanguage(extManager)
@@ -22,7 +22,7 @@ fun Source.includeLangInName(enabledLanguages: Set<String>, extensionManager: Ex
 }
 
 fun Source.nameBasedOnEnabledLanguages(enabledLanguages: Set<String>, extensionManager: ExtensionManager? = null): String {
-    return if (includeLangInName(enabledLanguages, extensionManager)) toString() else name
+    return if (this is HttpSource && includeLangInName(enabledLanguages, extensionManager)) toString() else name
 }
 
 fun Source.icon(): Drawable? {
