@@ -312,9 +312,27 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
         }
     }
 
+    fun updateNovelPlugins(plugins: List<NovelPluginIndex>) {
+        if (plugins.isEmpty()) return
+        presenterScope.launch {
+            plugins.forEach { plugin ->
+                novelPluginManager.installPlugin(plugin)
+            }
+            refreshNovelPlugins()
+        }
+    }
+
+    fun uninstallNovelPlugin(pluginId: String) {
+        presenterScope.launch {
+            novelPluginManager.uninstallPlugin(pluginId)
+            refreshNovelPlugins()
+        }
+    }
+
     private fun toNovelPluginItems(available: List<NovelPluginIndex>): List<NovelPluginItem> {
         val context = view?.context ?: return emptyList()
         val activeLangs = preferences.enabledLanguages().get()
+        val installedSortOrder = InstalledExtensionsOrder.fromPreference(preferences)
         val items = mutableListOf<NovelPluginItem>()
 
         // Separate installed (with updates) from available
@@ -323,10 +341,29 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
             val installedVersion = novelPluginManager.getInstalledVersion(it.id)
             installedVersion != null && installedVersion != it.version
         }.sortedBy { it.name }
-        val installedUpToDate = installedPlugins.filter {
+        val installedUpToDateUnsorted = installedPlugins.filter {
             val installedVersion = novelPluginManager.getInstalledVersion(it.id)
             installedVersion == null || installedVersion == it.version
-        }.sortedBy { it.name }
+        }
+        val installedUpToDate = when (installedSortOrder) {
+            InstalledExtensionsOrder.Name -> {
+                installedUpToDateUnsorted.sortedBy { it.name }
+            }
+            InstalledExtensionsOrder.Language -> {
+                installedUpToDateUnsorted.sortedWith(
+                    compareBy<NovelPluginIndex> { NovelPluginManager.langFromLnReaderLang(it.lang) }
+                        .thenBy { it.name },
+                )
+            }
+            InstalledExtensionsOrder.RecentlyInstalled,
+            InstalledExtensionsOrder.RecentlyUpdated,
+            -> {
+                installedUpToDateUnsorted.sortedWith(
+                    compareByDescending<NovelPluginIndex> { novelPluginManager.getPluginLastModified(it.id) }
+                        .thenBy { it.name },
+                )
+            }
+        }
 
         // Filter available by enabled languages
         val availablePlugins = available.filter { plugin ->
@@ -339,6 +376,7 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
             val header = NovelPluginGroupItem(
                 context.getString(MR.plurals._updates_pending, installedWithUpdates.size, installedWithUpdates.size),
                 installedWithUpdates.size,
+                canUpdate = true,
             )
             installedWithUpdates.forEach { plugin ->
                 items.add(NovelPluginItem(plugin, header, true, novelPluginManager.getInstalledVersion(plugin.id)))
@@ -347,7 +385,11 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
 
         // Installed section
         if (installedUpToDate.isNotEmpty()) {
-            val header = NovelPluginGroupItem(context.getString(MR.strings.installed), installedUpToDate.size)
+            val header = NovelPluginGroupItem(
+                context.getString(MR.strings.installed),
+                installedUpToDate.size,
+                installedSorting = preferences.installedExtensionsOrder().get(),
+            )
             installedUpToDate.forEach { plugin ->
                 items.add(NovelPluginItem(plugin, header, true, novelPluginManager.getInstalledVersion(plugin.id)))
             }

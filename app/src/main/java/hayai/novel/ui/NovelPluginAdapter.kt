@@ -2,6 +2,9 @@ package hayai.novel.ui
 
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import uy.kohesive.injekt.injectLazy
+import android.widget.TextView
 
 /**
  * Adapter for the novel plugins list in the browse bottom sheet.
@@ -10,11 +13,17 @@ import eu.davidea.flexibleadapter.items.IFlexible
 class NovelPluginAdapter(val listener: OnButtonClickListener) :
     FlexibleAdapter<IFlexible<*>>(null, listener, true) {
 
+    private val preferences: PreferencesHelper by injectLazy()
+
+    var installedSortOrder = preferences.installedExtensionsOrder().get()
+
     init {
         setDisplayHeadersAtStartUp(true)
     }
 
     interface OnButtonClickListener {
         fun onNovelPluginButtonClick(position: Int)
+        fun onNovelUpdateAllClicked(position: Int)
+        fun onNovelSortClicked(view: TextView, position: Int)
     }
 }

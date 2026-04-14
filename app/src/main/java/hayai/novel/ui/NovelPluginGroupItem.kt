@@ -14,6 +14,8 @@ import eu.kanade.tachiyomi.R
 data class NovelPluginGroupItem(
     val name: String,
     val size: Int,
+    var canUpdate: Boolean? = null,
+    var installedSorting: Int? = null,
 ) : AbstractHeaderItem<NovelPluginGroupHolder>() {
 
     override fun getLayoutRes(): Int = R.layout.extension_card_header

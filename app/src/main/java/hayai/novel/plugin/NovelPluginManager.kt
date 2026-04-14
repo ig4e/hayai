@@ -254,6 +254,11 @@ class NovelPluginManager(
         return _installedPluginsFlow.value.find { it.id == pluginId }?.version
     }
 
+    fun getPluginLastModified(pluginId: String): Long {
+        val pluginDir = File(pluginsDir, pluginId)
+        return if (pluginDir.exists()) pluginDir.lastModified() else 0L
+    }
+
     private fun getUserAgent(): String {
         return try {
             android.webkit.WebSettings.getDefaultUserAgent(context)

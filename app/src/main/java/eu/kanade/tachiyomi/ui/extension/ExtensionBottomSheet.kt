@@ -181,6 +181,9 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                     this@ExtensionBottomSheet.sheetBehavior?.expand()
                     getFrameLayoutForTab(tab?.position)?.binding?.recycler?.isNestedScrollingEnabled = true
                     sheetBehavior?.isDraggable = true
+                    if (tab?.position == 1) {
+                        presenter.refreshNovelPlugins()
+                    }
                     if (!isExpanding) {
                         getFrameLayoutForTab(tab?.position)?.binding?.recycler?.smoothScrollToTop()
                     }
@@ -327,10 +330,18 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     }
 
     override fun onItemLongClick(position: Int) {
-        if (binding.tabs.selectedTabPosition == 0) {
-            val extension = (extAdapter?.getItem(position) as? ExtensionItem)?.extension ?: return
-            if (extension is Extension.Installed || extension is Extension.Untrusted) {
-                uninstallExtension(extension.name, extension.pkgName)
+        when (binding.tabs.selectedTabPosition) {
+            0 -> {
+                val extension = (extAdapter?.getItem(position) as? ExtensionItem)?.extension ?: return
+                if (extension is Extension.Installed || extension is Extension.Untrusted) {
+                    uninstallExtension(extension.name, extension.pkgName)
+                }
+            }
+            1 -> {
+                val item = (novelPluginAdapter?.getItem(position) as? NovelPluginItem) ?: return
+                if (item.isInstalled) {
+                    uninstallNovelPlugin(item.plugin.name, item.plugin.id)
+                }
             }
         }
     }
@@ -471,6 +482,16 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
         }
     }
 
+    private fun uninstallNovelPlugin(pluginName: String, pluginId: String) {
+        controller.activity!!.materialAlertDialog()
+            .setTitle(pluginName)
+            .setPositiveButton(MR.strings.remove) { _, _ ->
+                presenter.uninstallNovelPlugin(pluginId)
+            }
+            .setNegativeButton(AR.string.cancel, null)
+            .show()
+    }
+
     fun setCanInstallPrivately(installPrivately: Boolean) {
         extAdapter?.installPrivately = installPrivately
     }
@@ -510,6 +531,30 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
         val item = (novelPluginAdapter?.getItem(position) as? NovelPluginItem) ?: return
         if (!item.isInstalled || item.hasUpdate) {
             presenter.installNovelPlugin(item.plugin)
+        }
+    }
+
+    override fun onNovelUpdateAllClicked(position: Int) {
+        val header = novelPluginAdapter?.getSectionHeader(position) as? NovelPluginGroupItem ?: return
+        if (header.canUpdate != true) return
+
+        val items = novelPluginAdapter?.getSectionItemPositions(header).orEmpty()
+        val pluginsToUpdate = items.mapNotNull { index ->
+            val pluginItem = novelPluginAdapter?.getItem(index) as? NovelPluginItem ?: return@mapNotNull null
+            if (pluginItem.isInstalled && pluginItem.hasUpdate) pluginItem.plugin else null
+        }
+        presenter.updateNovelPlugins(pluginsToUpdate)
+    }
+
+    override fun onNovelSortClicked(view: TextView, position: Int) {
+        view.popupMenu(
+            InstalledExtensionsOrder.entries.map { it.value to it.nameRes },
+            presenter.preferences.installedExtensionsOrder().get(),
+        ) {
+            presenter.preferences.installedExtensionsOrder().set(itemId)
+            novelPluginAdapter?.installedSortOrder = itemId
+            view.setText(InstalledExtensionsOrder.fromValue(itemId).nameRes)
+            presenter.refreshNovelPlugins()
         }
     }
     // NOVEL <--
