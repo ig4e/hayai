@@ -1,7 +1,5 @@
 package exh.ui.pagepreview.components
 
-import androidx.compose.animation.core.AnimationState
-import androidx.compose.animation.core.animateTo
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,21 +14,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.UTurnRight
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,40 +32,22 @@ import coil3.compose.AsyncImage
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import exh.ui.pagepreview.PagePreviewState
-import kotlinx.coroutines.launch
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
-import yokai.presentation.component.ToolTipButton
-import kotlin.math.roundToInt
 
 @Composable
 fun PagePreviewContent(
     state: PagePreviewState,
     imageLoader: ImageLoader? = null,
-    pageDialogOpen: Boolean,
-    onPageSelected: (Int) -> Unit,
     onOpenPage: (Int) -> Unit,
-    onOpenPageDialog: () -> Unit,
-    onDismissPageDialog: () -> Unit,
+    onLoadMore: () -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val showGoToAction = state is PagePreviewState.Success &&
-        (state.pageCount != null && state.pageCount > 1)
-
     YokaiScaffold(
         onNavigationIconClicked = navigateUp,
         title = stringResource(MR.strings.page_previews),
         appBarType = AppBarType.SMALL,
-        actions = {
-            if (showGoToAction) {
-                ToolTipButton(
-                    toolTipLabel = stringResource(MR.strings.page_preview_go_to),
-                    icon = Icons.Outlined.UTurnRight,
-                    buttonClicked = onOpenPageDialog,
-                )
-            }
-        },
     ) { paddingValues ->
         when (state) {
             is PagePreviewState.Error -> {
@@ -113,9 +86,20 @@ fun PagePreviewContent(
                     val chunkedItems = remember(state.pagePreviews, itemPerRowCount) {
                         state.pagePreviews.chunked(itemPerRowCount)
                     }
-                    val lazyListState = key(state.page) {
-                        rememberLazyListState()
+                    val lazyListState = rememberLazyListState()
+
+                    // Trigger load more when near bottom
+                    val shouldLoadMore by remember {
+                        derivedStateOf {
+                            val lastVisible = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            val totalItems = lazyListState.layoutInfo.totalItemsCount
+                            lastVisible >= totalItems - 3 && state.hasNextPage && !state.isLoadingMore
+                        }
                     }
+                    LaunchedEffect(shouldLoadMore) {
+                        if (shouldLoadMore) onLoadMore()
+                    }
+
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(),
@@ -137,9 +121,20 @@ fun PagePreviewContent(
                                         onOpenPage = onOpenPage,
                                     )
                                 }
-                                // Fill remaining space if row is not full
                                 repeat(itemPerRowCount - row.size) {
                                     Box(Modifier.weight(1F))
+                                }
+                            }
+                        }
+                        if (state.isLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
                                 }
                             }
                         }
@@ -147,15 +142,6 @@ fun PagePreviewContent(
                 }
             }
         }
-    }
-
-    if (pageDialogOpen && state is PagePreviewState.Success) {
-        PagePreviewPageDialog(
-            currentPage = state.page,
-            pageCount = state.pageCount!!,
-            onDismissPageDialog = onDismissPageDialog,
-            onPageSelected = onPageSelected,
-        )
     }
 }
 
@@ -201,62 +187,4 @@ private fun PagePreviewItem(
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
-}
-
-@Composable
-private fun PagePreviewPageDialog(
-    currentPage: Int,
-    pageCount: Int,
-    onDismissPageDialog: () -> Unit,
-    onPageSelected: (Int) -> Unit,
-) {
-    var page by remember(currentPage) {
-        mutableStateOf(currentPage.toFloat())
-    }
-    val scope = rememberCoroutineScope()
-    AlertDialog(
-        onDismissRequest = onDismissPageDialog,
-        confirmButton = {
-            TextButton(onClick = {
-                onPageSelected(page.roundToInt())
-                onDismissPageDialog()
-            }) {
-                Text(stringResource(MR.strings.action_ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissPageDialog) {
-                Text(stringResource(MR.strings.action_cancel))
-            }
-        },
-        title = {
-            Text(stringResource(MR.strings.page_preview_go_to))
-        },
-        text = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(text = page.roundToInt().toString())
-                Slider(
-                    modifier = Modifier.weight(1f),
-                    value = page,
-                    onValueChange = { page = it },
-                    onValueChangeFinished = {
-                        scope.launch {
-                            val newPage = page
-                            AnimationState(
-                                newPage,
-                            ).animateTo(newPage.roundToInt().toFloat()) {
-                                page = value
-                            }
-                        }
-                    },
-                    valueRange = 1F..pageCount.toFloat(),
-                )
-                Text(text = pageCount.toString())
-            }
-        },
-    )
 }

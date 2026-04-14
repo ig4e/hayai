@@ -1859,7 +1859,7 @@ class MangaDetailsController :
         val manga = presenter.manga
         val chapters = presenter.chapters
         val chapter = chapters.minByOrNull { it.chapter.source_order } ?: return
-        startActivity(ReaderActivity.newIntent(activity!!, manga, chapter.chapter))
+        startActivity(ReaderActivity.newIntent(activity!!, manga, chapter.chapter, page))
     }
 
     override fun searchFromMetadata(query: String) {

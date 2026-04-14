@@ -1,8 +1,5 @@
 package exh.ui.pagepreview
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -13,10 +10,6 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import exh.source.getMainSource
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
@@ -31,81 +24,87 @@ class PagePreviewScreenModel(
     private val sourceManager: SourceManager = Injekt.get(),
 ) : StateScreenModel<PagePreviewState>(PagePreviewState.Loading) {
 
-    private val page = MutableStateFlow(1)
-
-    var pageDialogOpen by mutableStateOf(false)
+    private var currentPage = 1
+    private var isLoadingMore = false
+    private var hasNextPage = true
+    private var previewSource: PagePreviewSource? = null
+    private var manga: Manga? = null
+    private var chapter: Chapter? = null
+    private var source: Source? = null
+    private var sortedChapters: List<Chapter> = emptyList()
 
     init {
         screenModelScope.launch(Dispatchers.IO) {
             val manga = getManga.awaitById(mangaId)
             if (manga == null) {
-                mutableState.update {
-                    PagePreviewState.Error(Exception("Manga not found"))
-                }
+                mutableState.update { PagePreviewState.Error(Exception("Manga not found")) }
                 return@launch
             }
+            this@PagePreviewScreenModel.manga = manga
             val chapters = getChapter.awaitAll(mangaId, filterScanlators = false)
             val chapter = chapters.minByOrNull { it.source_order }
             if (chapter == null) {
-                mutableState.update {
-                    PagePreviewState.Error(Exception("No chapters found"))
-                }
+                mutableState.update { PagePreviewState.Error(Exception("No chapters found")) }
                 return@launch
             }
+            this@PagePreviewScreenModel.chapter = chapter
+            this@PagePreviewScreenModel.sortedChapters = chapters.sortedByDescending { it.source_order }
             val source = sourceManager.getOrStub(manga.source)
+            this@PagePreviewScreenModel.source = source
             val previewSource = source.getMainSource<PagePreviewSource>()
             if (previewSource == null) {
-                mutableState.update {
-                    PagePreviewState.Error(Exception("Source does not support page previews"))
-                }
+                mutableState.update { PagePreviewState.Error(Exception("Source does not support page previews")) }
                 return@launch
             }
-            page
-                .onEach { currentPage ->
-                    try {
-                        val previewPage = previewSource.getPagePreviewList(
-                            manga,
-                            chapters.sortedByDescending { it.source_order },
-                            currentPage,
-                        )
-                        mutableState.update { currentState ->
-                            when (currentState) {
-                                PagePreviewState.Loading, is PagePreviewState.Error -> {
-                                    PagePreviewState.Success(
-                                        page = currentPage,
-                                        pagePreviews = previewPage.pagePreviews,
-                                        hasNextPage = previewPage.hasNextPage,
-                                        pageCount = previewPage.pagePreviewPages,
-                                        manga = manga,
-                                        chapter = chapter,
-                                        source = source,
-                                    )
-                                }
-                                is PagePreviewState.Success -> currentState.copy(
-                                    page = currentPage,
-                                    pagePreviews = previewPage.pagePreviews,
-                                    hasNextPage = previewPage.hasNextPage,
-                                    pageCount = previewPage.pagePreviewPages,
-                                )
-                            }
-                        }
-                    } catch (e: Exception) {
-                        mutableState.update {
-                            PagePreviewState.Error(e)
-                        }
-                    }
-                }
-                .catch { e ->
-                    mutableState.update {
-                        PagePreviewState.Error(e)
-                    }
-                }
-                .collect()
+            this@PagePreviewScreenModel.previewSource = previewSource
+            loadPage(1)
         }
     }
 
-    fun moveToPage(page: Int) {
-        this.page.value = page
+    private suspend fun loadPage(page: Int) {
+        try {
+            val previewPage = previewSource!!.getPagePreviewList(
+                manga!!,
+                sortedChapters,
+                page,
+            )
+            hasNextPage = previewPage.hasNextPage
+            currentPage = page
+            mutableState.update { currentState ->
+                when (currentState) {
+                    is PagePreviewState.Success -> currentState.copy(
+                        pagePreviews = currentState.pagePreviews + previewPage.pagePreviews,
+                        hasNextPage = previewPage.hasNextPage,
+                        isLoadingMore = false,
+                    )
+                    else -> PagePreviewState.Success(
+                        pagePreviews = previewPage.pagePreviews,
+                        hasNextPage = previewPage.hasNextPage,
+                        isLoadingMore = false,
+                        manga = manga!!,
+                        chapter = chapter!!,
+                        source = source!!,
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            if (state.value !is PagePreviewState.Success) {
+                mutableState.update { PagePreviewState.Error(e) }
+            } else {
+                mutableState.update { (it as? PagePreviewState.Success)?.copy(isLoadingMore = false) ?: it }
+            }
+        } finally {
+            isLoadingMore = false
+        }
+    }
+
+    fun loadMore() {
+        if (isLoadingMore || !hasNextPage) return
+        isLoadingMore = true
+        mutableState.update { (it as? PagePreviewState.Success)?.copy(isLoadingMore = true) ?: it }
+        screenModelScope.launch(Dispatchers.IO) {
+            loadPage(currentPage + 1)
+        }
     }
 }
 
@@ -113,10 +112,9 @@ sealed class PagePreviewState {
     data object Loading : PagePreviewState()
 
     data class Success(
-        val page: Int,
         val pagePreviews: List<PagePreviewInfo>,
         val hasNextPage: Boolean,
-        val pageCount: Int?,
+        val isLoadingMore: Boolean = false,
         val manga: Manga,
         val chapter: Chapter,
         val source: Source,

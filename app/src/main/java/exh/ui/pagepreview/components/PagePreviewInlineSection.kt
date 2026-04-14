@@ -1,5 +1,10 @@
 package exh.ui.pagepreview.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,8 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +54,9 @@ private sealed class PreviewState {
         val sourceClient: OkHttpClient? = null,
     ) : PreviewState()
 }
+
+private val THUMB_HEIGHT = 150.dp
+private val THUMB_WIDTH = 105.dp
 
 @Composable
 fun PagePreviewInlineSection(
@@ -93,11 +101,33 @@ fun PagePreviewInlineSection(
 
     when (val s = state) {
         PreviewState.Loading -> {
-            LinearProgressIndicator(
+            // Skeleton loading cards
+            val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+            val alpha by infiniteTransition.animateFloat(
+                initialValue = 0.15f,
+                targetValue = 0.4f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(800),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "shimmerAlpha",
+            )
+            LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-            )
+                    .padding(start = 16.dp, top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(5) {
+                    Surface(
+                        modifier = Modifier
+                            .height(THUMB_HEIGHT)
+                            .width(THUMB_WIDTH),
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
+                    ) {}
+                }
+            }
         }
         PreviewState.Unavailable -> { /* Don't show anything */ }
         is PreviewState.Success -> {
@@ -130,8 +160,8 @@ fun PagePreviewInlineSection(
                                 contentDescription = "Page ${preview.index}",
                                 imageLoader = imageLoader,
                                 modifier = Modifier
-                                    .height(112.dp)
-                                    .width(80.dp)
+                                    .height(THUMB_HEIGHT)
+                                    .width(THUMB_WIDTH)
                                     .clip(MaterialTheme.shapes.small),
                                 contentScale = ContentScale.FillWidth,
                             )
@@ -145,7 +175,7 @@ fun PagePreviewInlineSection(
                     item {
                         Box(
                             modifier = Modifier
-                                .height(112.dp)
+                                .height(THUMB_HEIGHT)
                                 .width(64.dp)
                                 .clickable { onOpenPagePreview() },
                             contentAlignment = Alignment.Center,

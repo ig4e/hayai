@@ -263,11 +263,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         const val TRANSITION_NAME = "${BuildConfig.APPLICATION_ID}.TRANSITION_NAME"
         const val VISIBLE_CHAPTERS = "${BuildConfig.APPLICATION_ID}.VISIBLE_CHAPTERS"
 
-        fun newIntent(context: Context, manga: Manga, chapter: Chapter): Intent {
+        fun newIntent(context: Context, manga: Manga, chapter: Chapter, page: Int = -1): Intent {
             MainActivity.chapterIdToExitTo = 0L
             val intent = Intent(context, ReaderActivity::class.java)
             intent.putExtra("manga", manga.id)
             intent.putExtra("chapter", chapter.id)
+            if (page >= 0) intent.putExtra("page", page)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             return intent
         }
@@ -359,10 +360,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             if (!fromUrl) {
                 val manga = intent.extras?.getLong("manga", -1L) ?: -1L
                 val chapter = intent.extras?.getLong("chapter", -1L) ?: -1L
+                val page = intent.extras?.getInt("page", -1) ?: -1
                 if (manga == -1L || chapter == -1L) {
                     finish()
                     return
                 }
+                if (page >= 0) viewModel.startingPage = page
                 lifecycleScope.launchNonCancellableIO {
                     val initResult = viewModel.init(manga, chapter)
                     if (!initResult.getOrDefault(false)) {

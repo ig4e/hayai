@@ -132,6 +132,9 @@ class ReaderViewModel(
     val source: Source?
         get() = manga?.source?.let { sourceManager.getOrStub(it) }
 
+    /** Starting page from intent, used once then reset to -1 */
+    var startingPage: Int = -1
+
     /**
      * The chapter id of the currently loaded chapter. Used to restore from process kill.
      */
@@ -177,7 +180,10 @@ class ReaderViewModel(
             .filterNotNull()
             .onEach { currentChapter ->
                 chapterId = currentChapter.chapter.id!!
-                if (secondRun || !currentChapter.chapter.read) {
+                if (startingPage >= 0) {
+                    currentChapter.requestedPage = startingPage
+                    startingPage = -1
+                } else if (secondRun || !currentChapter.chapter.read) {
                     currentChapter.requestedPage = currentChapter.chapter.last_page_read
                 }
                 secondRun = true

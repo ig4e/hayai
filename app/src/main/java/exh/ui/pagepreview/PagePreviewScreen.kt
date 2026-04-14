@@ -42,18 +42,15 @@ class PagePreviewScreen(private val mangaId: Long) : Screen() {
         PagePreviewContent(
             state = state,
             imageLoader = imageLoader,
-            pageDialogOpen = screenModel.pageDialogOpen,
-            onPageSelected = screenModel::moveToPage,
             onOpenPage = { openPage(context, state, it) },
-            onOpenPageDialog = { screenModel.pageDialogOpen = true },
-            onDismissPageDialog = { screenModel.pageDialogOpen = false },
+            onLoadMore = screenModel::loadMore,
             navigateUp = onBackPress,
         )
     }
 
     private fun openPage(context: Context, state: PagePreviewState, page: Int) {
         if (state !is PagePreviewState.Success) return
-        val intent = ReaderActivity.newIntent(context, state.manga, state.chapter)
+        val intent = ReaderActivity.newIntent(context, state.manga, state.chapter, page)
         context.startActivity(intent)
     }
 }
