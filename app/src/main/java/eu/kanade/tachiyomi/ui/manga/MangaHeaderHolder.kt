@@ -57,6 +57,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -535,11 +536,6 @@ class MangaHeaderHolder(
     }
 
     private fun setGenreTags(binding: MangaHeaderItemBinding, manga: Manga) {
-        // EH/EXH sources show namespace-grouped tags in metadata section instead
-        if (manga.source == EH_SOURCE_ID || manga.source == EXH_SOURCE_ID) {
-            binding.mangaGenresTags.isVisible = false
-            return
-        }
         val genres = if (manga.genre.isNullOrBlank()) emptyList() else (manga.getGenres() ?: emptyList())
         val delegate = adapter.delegate
         val context = binding.root.context
@@ -574,17 +570,29 @@ class MangaHeaderHolder(
                 if (dark) 0.945f else 0.175f,
             ),
         )
+        val isEH = manga.source == EH_SOURCE_ID || manga.source == EXH_SOURCE_ID
         binding.mangaGenresTags.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
         binding.mangaGenresTags.setContent {
             yokai.presentation.theme.YokaiTheme {
-                GenreTagsSection(
-                    genres = genres,
-                    containerColor = ComposeColor(containerColorInt),
-                    labelColor = ComposeColor(labelColorInt),
-                    isExpanded = descriptionExpandedState.value,
-                    onTagClick = { genre -> delegate.searchFromMetadata(genre) },
-                    onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
-                )
+                if (isEH) {
+                    NamespaceGenreTagsSection(
+                        genres = genres,
+                        containerColor = ComposeColor(containerColorInt),
+                        labelColor = ComposeColor(labelColorInt),
+                        isExpanded = descriptionExpandedState.value,
+                        onTagClick = { genre -> delegate.searchFromMetadata(genre) },
+                        onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
+                    )
+                } else {
+                    GenreTagsSection(
+                        genres = genres,
+                        containerColor = ComposeColor(containerColorInt),
+                        labelColor = ComposeColor(labelColorInt),
+                        isExpanded = descriptionExpandedState.value,
+                        onTagClick = { genre -> delegate.searchFromMetadata(genre) },
+                        onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
+                    )
+                }
             }
         }
     }
@@ -813,6 +821,93 @@ private fun GenreTagsSection(
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(genres) { genre -> Chip(genre) }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun NamespaceGenreTagsSection(
+    genres: List<String>,
+    containerColor: ComposeColor,
+    labelColor: ComposeColor,
+    isExpanded: Boolean,
+    onTagClick: (String) -> Unit,
+    onTagLongClick: (String) -> Unit,
+) {
+    // Parse "namespace: name" format into grouped map
+    val grouped = remember(genres) {
+        val map = linkedMapOf<String, MutableList<String>>()
+        genres.forEach { genre ->
+            val colonIdx = genre.indexOf(": ")
+            if (colonIdx > 0) {
+                val ns = genre.substring(0, colonIdx)
+                val name = genre.substring(colonIdx + 2)
+                map.getOrPut(ns) { mutableListOf() }.add(name)
+            } else {
+                map.getOrPut("") { mutableListOf() }.add(genre)
+            }
+        }
+        map.toMap()
+    }
+
+    @Composable
+    fun Chip(text: String, searchQuery: String, isLabel: Boolean = false) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            Surface(
+                modifier = Modifier
+                    .padding(vertical = 4.dp)
+                    .combinedClickable(
+                        onClick = { if (!isLabel) onTagClick(searchQuery) },
+                        onLongClick = { if (!isLabel) onTagLongClick(text) },
+                    ),
+                shape = CircleShape,
+                color = if (isLabel) ComposeColor.Transparent else containerColor,
+                border = if (isLabel) {
+                    BorderStroke(1.dp, labelColor.copy(alpha = 0.5f))
+                } else {
+                    BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                },
+            ) {
+                Text(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = labelColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        if (isExpanded) {
+            grouped.forEach { (namespace, tags) ->
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (namespace.isNotEmpty()) {
+                        Chip(text = namespace, searchQuery = "", isLabel = true)
+                    }
+                    tags.forEach { tag ->
+                        val searchQuery = if (namespace.isNotEmpty()) "$namespace:\"$tag\"" else tag
+                        Chip(text = tag, searchQuery = searchQuery)
+                    }
+                }
+            }
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                grouped.forEach { (namespace, tags) ->
+                    if (namespace.isNotEmpty()) {
+                        item(key = "ns_$namespace") {
+                            Chip(text = namespace, searchQuery = "", isLabel = true)
+                        }
+                    }
+                    items(tags, key = { "${namespace}_$it" }) { tag ->
+                        val searchQuery = if (namespace.isNotEmpty()) "$namespace:\"$tag\"" else tag
+                        Chip(text = tag, searchQuery = searchQuery)
+                    }
+                }
             }
         }
     }

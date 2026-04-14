@@ -161,7 +161,7 @@ class MangaDetailsPresenter(
     var allHistory: List<History> = emptyList()
         private set
 
-    val headerItem: MangaHeaderItem by lazy { MangaHeaderItem(mangaId, true)}
+    val headerItem: MangaHeaderItem by lazy { MangaHeaderItem(mangaId, false)}
     var tabletChapterHeaderItem: MangaHeaderItem? = null
         get() {
             when (view?.isTablet) {

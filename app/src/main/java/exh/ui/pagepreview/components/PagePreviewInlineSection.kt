@@ -70,9 +70,6 @@ fun PagePreviewInlineSection(
                     state = PreviewState.Unavailable; return@withContext
                 }
                 val chapters = getChapter.awaitAll(mangaId, filterScanlators = false)
-                if (chapters.isEmpty()) {
-                    state = PreviewState.Unavailable; return@withContext
-                }
                 val source = sourceManager.getOrStub(manga.source)
                 val previewSource = source.getMainSource<PagePreviewSource>() ?: run {
                     state = PreviewState.Unavailable; return@withContext
