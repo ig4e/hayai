@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
@@ -318,9 +319,11 @@ class EHentai(
     private fun genericMangaParse(
         response: Response,
     ) = extendedGenericMangaParse(response.asJsoup()).let { (parsedManga, nextPage) ->
-        MangasPage(
+        MetadataMangasPage(
             parsedManga.map { it.manga },
             nextPage != null,
+            parsedManga.map { it.metadata },
+            nextPage,
         )
     }
 
@@ -466,7 +469,7 @@ class EHentai(
     }
 
     override fun popularMangaRequest(page: Int): Request {
-        return exGet("$baseUrl/popular")
+        return exGet("$baseUrl/popular", page)
     }
 
     private fun <T : MangasPage> Observable<T>.checkValid(): Observable<MangasPage> = map {

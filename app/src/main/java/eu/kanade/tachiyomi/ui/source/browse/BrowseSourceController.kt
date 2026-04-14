@@ -663,6 +663,7 @@ open class BrowseSourceController(bundle: Bundle) :
             )
         } else {
             snack = binding.sourceLayout.snack(message, Snackbar.LENGTH_INDEFINITE) {
+                anchorView = activityBinding?.bottomNav
                 setAction(MR.strings.retry) { retryAction() }
             }
         }
@@ -677,7 +678,7 @@ open class BrowseSourceController(bundle: Bundle) :
         }
 
         return when {
-            error.message == null -> ""
+            error.message == null -> activity!!.getString(MR.strings.unknown_error)
             error.message!!.startsWith("HTTP error") -> "${error.message}: ${activity!!.getString(MR.strings.check_site_in_web)}"
             else -> error.message!!
         }

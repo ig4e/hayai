@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.manga
 
 import android.animation.ValueAnimator
+import exh.source.isEhBasedSource
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.PendingIntent
@@ -1846,8 +1847,13 @@ class MangaDetailsController :
 
     override fun searchFromMetadata(query: String) {
         val source = presenter.source as? CatalogueSource ?: return
+        val normalizedQuery = if (source.isEhBasedSource()) {
+            query.replace(": ", ":")
+        } else {
+            query
+        }
         router.pushController(
-            BrowseSourceController(source, query).withFadeTransaction(),
+            BrowseSourceController(source, normalizedQuery).withFadeTransaction(),
         )
     }
     //endregion

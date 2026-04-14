@@ -28,6 +28,9 @@ import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.ui.metadata.GenreChip
 import exh.ui.metadata.MetadataUIUtil
 import exh.ui.metadata.getRatingColor
+import java.text.DateFormat
+import java.text.NumberFormat
+import java.util.Date
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -80,12 +83,11 @@ fun EHentaiDescription(
             }
         }
 
-        // Row 2: uploader · stats · [ⓘ]
+        // Row 2: uploader + info button
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Uploader (clickable, searchable)
             Text(
                 text = meta.uploader ?: "Unknown",
                 style = MaterialTheme.typography.bodySmall,
@@ -95,26 +97,7 @@ fun EHentaiDescription(
                     onLongClick = { clipboardManager.setText(AnnotatedString(meta.uploader ?: "")) },
                 ),
             )
-
-            // Stats: pages · size · language
-            val dimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            meta.length?.let { pages ->
-                Text(text = " · ${pages}p", style = MaterialTheme.typography.bodySmall, color = dimColor)
-            }
-            meta.size?.takeIf { it > 0 }?.let { size ->
-                Text(
-                    text = " · ${MetadataUtil.humanReadableByteCount(size, true)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = dimColor,
-                )
-            }
-            meta.language?.let { lang ->
-                Text(text = " · $lang", style = MaterialTheme.typography.bodySmall, color = dimColor)
-            }
-
             Spacer(Modifier.weight(1f))
-
-            // Info button — opens full metadata viewer
             IconButton(
                 onClick = openMetadataViewer,
                 modifier = Modifier.size(32.dp),
@@ -127,5 +110,45 @@ fun EHentaiDescription(
                 )
             }
         }
+
+        // Row 3: labeled stats (pages · size · favorites · posted · language)
+        val hasAnyStats = meta.length != null ||
+            (meta.size != null && meta.size!! > 0) ||
+            meta.favorites != null ||
+            meta.datePosted != null ||
+            meta.language != null
+        if (hasAnyStats) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                meta.length?.let {
+                    StatItem("Pages", "$it")
+                }
+                meta.size?.takeIf { it > 0 }?.let {
+                    StatItem("Size", MetadataUtil.humanReadableByteCount(it, true))
+                }
+                meta.favorites?.let {
+                    StatItem("♡", NumberFormat.getInstance().format(it))
+                }
+                meta.datePosted?.let {
+                    val formatted = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it))
+                    StatItem("Posted", formatted)
+                }
+                meta.language?.let {
+                    StatItem("Lang", it)
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun StatItem(label: String, value: String) {
+    Text(
+        text = "$label: $value",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

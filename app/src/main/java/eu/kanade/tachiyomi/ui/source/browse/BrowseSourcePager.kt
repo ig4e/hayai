@@ -6,7 +6,7 @@ import eu.kanade.tachiyomi.source.model.FilterList
 open class BrowseSourcePager(val source: CatalogueSource, val query: String, val filters: FilterList) : Pager() {
 
     override suspend fun requestNextPage() {
-        val page = currentPage
+        val page = nextCursor?.toInt() ?: currentPage
 
         val mangasPage = if (query.isBlank() && filters.isEmpty()) {
             source.getPopularManga(page)

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.source.browse
 
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -14,6 +15,9 @@ abstract class Pager(var currentPage: Int = 1) {
     var hasNextPage = true
         private set
 
+    var nextCursor: Long? = null
+        private set
+
     protected val results = MutableSharedFlow<Pair<Int, List<SManga>>>()
 
     fun asFlow(): SharedFlow<Pair<Int, List<SManga>>> {
@@ -25,6 +29,9 @@ abstract class Pager(var currentPage: Int = 1) {
     suspend fun onPageReceived(mangasPage: MangasPage) {
         val page = currentPage
         currentPage++
+        if (mangasPage is MetadataMangasPage) {
+            nextCursor = mangasPage.nextKey
+        }
         hasNextPage = mangasPage.hasNextPage && mangasPage.mangas.isNotEmpty()
         results.emit(Pair(page, mangasPage.mangas))
     }

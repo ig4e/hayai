@@ -336,21 +336,17 @@
         android:layout_height="wrap_content"
         app:constraint_referenced_ids="manga_summary,manga_summary_label,sub_button_scroll" />
 
-    <com.google.android.material.chip.ChipGroup
+    <androidx.compose.ui.platform.ComposeView
         android:id="@+id/manga_genres_tags"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
         android:layout_marginTop="8dp"
-        app:chipSpacingVertical="-12dp"
-        android:layout_marginEnd="16dp"
         android:visibility="gone"
         app:layout_constrainedHeight="true"
         app:layout_constraintBottom_toTopOf="@id/less_button"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/manga_summary"
-        tools:layout_height="100dp" />
+        app:layout_constraintTop_toBottomOf="@id/manga_summary" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/less_button"

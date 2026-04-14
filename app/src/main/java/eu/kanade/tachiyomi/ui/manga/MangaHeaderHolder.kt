@@ -9,7 +9,6 @@ import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.graphics.drawable.BitmapDrawable
 import android.os.Build
-import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.widget.TextView
@@ -30,7 +29,6 @@ import coil3.request.CachePolicy
 import coil3.request.error
 import coil3.request.placeholder
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.chip.Chip
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.databinding.ChapterHeaderItemBinding
@@ -49,8 +47,33 @@ import eu.kanade.tachiyomi.util.view.resetStrokeColor
 import io.noties.markwon.Markwon
 import io.noties.markwon.SoftBreakAddsNewLinePlugin
 import android.text.method.LinkMovementMethod
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import yokai.i18n.MR
 import yokai.util.coil.loadManga
 import yokai.util.lang.getString
@@ -495,73 +518,50 @@ class MangaHeaderHolder(
     }
 
     private fun setGenreTags(binding: MangaHeaderItemBinding, manga: Manga) {
-        with(binding.mangaGenresTags) {
-            removeAllViews()
-            val dark = context.isInNightMode()
-            val amoled = adapter.delegate.mangaPresenter().preferences.themeDarkAmoled().get()
-            val baseTagColor = context.getResourceColor(R.attr.background)
-            val bgArray = FloatArray(3)
-            val accentArray = FloatArray(3)
-
-            ColorUtils.colorToHSL(baseTagColor, bgArray)
-            ColorUtils.colorToHSL(adapter.delegate.accentColor() ?: context.getResourceColor(R.attr.colorSecondary), accentArray)
-            val downloadedColor = ColorUtils.setAlphaComponent(
-                ColorUtils.HSLToColor(
-                    floatArrayOf(
-                        if (adapter.delegate.accentColor() != null) accentArray[0] else bgArray[0],
-                        bgArray[1],
-                        (
-                            when {
-                                amoled && dark -> 0.1f
-                                dark -> 0.225f
-                                else -> 0.85f
-                            }
-                            ),
-                    ),
-                ),
-                199,
-            )
-            val textColor = ColorUtils.HSLToColor(
+        val genres = if (manga.genre.isNullOrBlank()) emptyList() else (manga.getGenres() ?: emptyList())
+        val delegate = adapter.delegate
+        val context = binding.root.context
+        val dark = context.isInNightMode()
+        val amoled = adapter.delegate.mangaPresenter().preferences.themeDarkAmoled().get()
+        val baseTagColor = context.getResourceColor(R.attr.background)
+        val bgArray = FloatArray(3)
+        val accentArray = FloatArray(3)
+        ColorUtils.colorToHSL(baseTagColor, bgArray)
+        ColorUtils.colorToHSL(
+            adapter.delegate.accentColor() ?: context.getResourceColor(R.attr.colorSecondary),
+            accentArray,
+        )
+        val containerColorInt = ColorUtils.setAlphaComponent(
+            ColorUtils.HSLToColor(
                 floatArrayOf(
-                    accentArray[0],
-                    accentArray[1],
-                    if (dark) 0.945f else 0.175f,
+                    if (adapter.delegate.accentColor() != null) accentArray[0] else bgArray[0],
+                    bgArray[1],
+                    when {
+                        amoled && dark -> 0.1f
+                        dark -> 0.225f
+                        else -> 0.85f
+                    },
                 ),
-            )
-            val states = arrayOf(
-                intArrayOf(-AR.attr.state_activated),
-                intArrayOf(),
-            )
-            val colors = intArrayOf(
-                downloadedColor,
-                ColorUtils.blendARGB(
-                    downloadedColor,
-                    context.getResourceColor(R.attr.colorControlNormal),
-                    0.25f,
-                ),
-            )
-            val colorStateList = ColorStateList(states, colors)
-            if (manga.genre.isNullOrBlank().not()) {
-                (manga.getGenres() ?: emptyList()).map { genreText ->
-                    val chip = LayoutInflater.from(binding.root.context).inflate(
-                        R.layout.genre_chip,
-                        this,
-                        false,
-                    ) as Chip
-                    val id = View.generateViewId()
-                    chip.id = id
-                    chip.chipBackgroundColor = colorStateList
-                    chip.setTextColor(textColor)
-                    chip.text = genreText
-                    chip.setOnClickListener {
-                        adapter.delegate.showFloatingActionMode(chip, isTag = true)
-                    }
-                    chip.setOnLongClickListener {
-                        adapter.delegate.copyContentToClipboard(genreText, genreText)
-                        true
-                    }
-                    this.addView(chip)
-                }
+            ),
+            199,
+        )
+        val labelColorInt = ColorUtils.HSLToColor(
+            floatArrayOf(
+                accentArray[0],
+                accentArray[1],
+                if (dark) 0.945f else 0.175f,
+            ),
+        )
+        binding.mangaGenresTags.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+        binding.mangaGenresTags.setContent {
+            yokai.presentation.theme.YokaiTheme {
+                GenreTagsSection(
+                    genres = genres,
+                    containerColor = ComposeColor(containerColorInt),
+                    labelColor = ComposeColor(labelColorInt),
+                    onTagClick = { genre -> delegate.searchFromMetadata(genre) },
+                    onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
+                )
             }
         }
     }
@@ -743,5 +743,70 @@ class MangaHeaderHolder(
     override fun onLongClick(view: View?): Boolean {
         super.onLongClick(view)
         return false
+    }
+}
+
+private const val GENRE_COLLAPSE_THRESHOLD = 8
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun GenreTagsSection(
+    genres: List<String>,
+    containerColor: ComposeColor,
+    labelColor: ComposeColor,
+    onTagClick: (String) -> Unit,
+    onTagLongClick: (String) -> Unit,
+) {
+    val totalCount = genres.size
+    var expanded by rememberSaveable { mutableStateOf(totalCount <= GENRE_COLLAPSE_THRESHOLD) }
+
+    @Composable
+    fun Chip(genre: String) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            Surface(
+                modifier = Modifier
+                    .padding(vertical = 4.dp)
+                    .combinedClickable(
+                        onClick = { onTagClick(genre) },
+                        onLongClick = { onTagLongClick(genre) },
+                    ),
+                shape = CircleShape,
+                color = containerColor,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            ) {
+                Text(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    text = genre,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = labelColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (expanded) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                genres.forEach { genre -> Chip(genre) }
+            }
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(genres) { genre -> Chip(genre) }
+            }
+        }
+
+        if (totalCount > GENRE_COLLAPSE_THRESHOLD) {
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(
+                    text = if (expanded) "Show less" else "Show all ($totalCount)",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
     }
 }
