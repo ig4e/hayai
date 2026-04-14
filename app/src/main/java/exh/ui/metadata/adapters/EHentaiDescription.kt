@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
@@ -71,13 +70,12 @@ fun EHentaiDescription(
                 if (hasHalf) append("½")
                 repeat(5 - fullStars - if (hasHalf) 1 else 0) { append("☆") }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = starText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = ratingColor,
                 )
-                Spacer(Modifier.width(4.dp))
                 Text(
                     text = "%.2f".format(ratingFloat),
                     style = MaterialTheme.typography.bodySmall,
