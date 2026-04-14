@@ -1,5 +1,10 @@
 package exh.ui.pagepreview.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,12 +21,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import exh.ui.pagepreview.PagePreviewState
@@ -152,6 +161,8 @@ private fun PagePreviewItem(
     imageLoader: ImageLoader? = null,
     onOpenPage: (Int) -> Unit,
 ) {
+    var isLoading by remember { mutableStateOf(true) }
+
     Column(
         modifier
             .clip(MaterialTheme.shapes.small)
@@ -159,27 +170,47 @@ private fun PagePreviewItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        if (imageLoader != null) {
-            AsyncImage(
-                model = page.imageUrl,
-                contentDescription = stringResource(MR.strings.page_preview_image, page.index),
-                imageLoader = imageLoader,
-                modifier = Modifier
-                    .height(200.dp)
-                    .width(120.dp)
-                    .clip(MaterialTheme.shapes.small),
-                contentScale = ContentScale.FillWidth,
-            )
-        } else {
-            AsyncImage(
-                model = page.imageUrl,
-                contentDescription = stringResource(MR.strings.page_preview_image, page.index),
-                modifier = Modifier
-                    .height(200.dp)
-                    .width(120.dp)
-                    .clip(MaterialTheme.shapes.small),
-                contentScale = ContentScale.FillWidth,
-            )
+        Box(
+            modifier = Modifier
+                .height(200.dp)
+                .width(120.dp)
+                .clip(MaterialTheme.shapes.small),
+        ) {
+            if (imageLoader != null) {
+                AsyncImage(
+                    model = page.imageUrl,
+                    contentDescription = stringResource(MR.strings.page_preview_image, page.index),
+                    imageLoader = imageLoader,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.FillWidth,
+                    onState = { state -> isLoading = state is AsyncImagePainter.State.Loading },
+                )
+            } else {
+                AsyncImage(
+                    model = page.imageUrl,
+                    contentDescription = stringResource(MR.strings.page_preview_image, page.index),
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.FillWidth,
+                    onState = { state -> isLoading = state is AsyncImagePainter.State.Loading },
+                )
+            }
+            if (isLoading) {
+                val infiniteTransition = rememberInfiniteTransition(label = "imgShimmer")
+                val alpha by infiniteTransition.animateFloat(
+                    initialValue = 0.15f,
+                    targetValue = 0.4f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+                    label = "imgShimmerAlpha",
+                )
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
+                ) {}
+            }
         }
         Text(
             text = page.index.toString(),

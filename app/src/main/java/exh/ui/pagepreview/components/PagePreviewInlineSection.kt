@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.SourceManager
@@ -45,6 +46,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
+import yokai.i18n.MR
 
 private sealed class PreviewState {
     data object Loading : PreviewState()
@@ -172,21 +174,19 @@ fun PagePreviewInlineSection(
                             )
                         }
                     }
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .height(THUMB_HEIGHT)
-                                .width(64.dp)
-                                .clickable { onOpenPagePreview() },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "View all",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenPagePreview() }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(MR.strings.view_all),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         }

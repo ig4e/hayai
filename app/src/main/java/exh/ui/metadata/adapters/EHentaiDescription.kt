@@ -61,6 +61,8 @@ fun EHentaiDescription(
             val genreColor = genreInfo?.first
             GenreChip(genre = genreText, color = genreColor)
 
+            Spacer(Modifier.weight(1f, fill = true))
+
             val ratingFloat = meta.averageRating?.toFloat() ?: 0F
             val ratingColor = getRatingColor(ratingFloat)
             val fullStars = ratingFloat.toInt()
@@ -70,16 +72,21 @@ fun EHentaiDescription(
                 if (hasHalf) append("½")
                 repeat(5 - fullStars - if (hasHalf) 1 else 0) { append("☆") }
             }
-            Column(horizontalAlignment = Alignment.End) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier.padding(end = 12.dp),
+            ) {
                 Text(
                     text = starText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = ratingColor,
+                    maxLines = 1,
                 )
                 Text(
                     text = "%.2f".format(ratingFloat),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                 )
             }
         }
