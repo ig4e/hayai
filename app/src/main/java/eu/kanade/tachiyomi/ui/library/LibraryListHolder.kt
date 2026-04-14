@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import coil3.dispose
+import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.kanade.tachiyomi.databinding.MangaListItemBinding
 import eu.kanade.tachiyomi.util.lang.highlightText
 import eu.kanade.tachiyomi.util.system.dpToPx
@@ -90,12 +91,21 @@ class LibraryListHolder(
                 ).joinToString(", ")
             }
 
-        binding.subtitle.text = authorArtist.highlightText(item.filter, color)
+        val subtitle = buildString {
+            if (item.manga.manga.isNovel()) {
+                append(itemView.context.getString(MR.strings.novel))
+                if (authorArtist.isNotBlank()) {
+                    append(" • ")
+                }
+            }
+            append(authorArtist)
+        }
+        binding.subtitle.text = subtitle.highlightText(item.filter, color)
         binding.title.maxLines = 2
         binding.title.post {
             val hasAuthorInFilter =
                 item.filter.isNotBlank() && authorArtist.contains(item.filter, true)
-            binding.subtitle.isVisible = binding.title.lineCount <= 1 || hasAuthorInFilter
+            binding.subtitle.isVisible = subtitle.isNotBlank() && (binding.title.lineCount <= 1 || hasAuthorInFilter || item.manga.manga.isNovel())
             binding.title.maxLines = if (hasAuthorInFilter) 1 else 2
         }
 

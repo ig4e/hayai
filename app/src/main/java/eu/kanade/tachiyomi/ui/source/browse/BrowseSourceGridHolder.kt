@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.recyclerview.widget.RecyclerView
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -36,11 +37,21 @@ class BrowseSourceGridHolder(
 
     var title by mutableStateOf("")
     var cover by mutableStateOf(MangaCover(0L, 0L, "", 0L, false))
+    var isNovel by mutableStateOf(false)
 
     init {
         view.setContent {
             YokaiTheme {
                 val badgeSegments = buildList {
+                    if (isNovel) {
+                        add(
+                            BadgeSegment.text(
+                                backgroundColor = MaterialTheme.colorScheme.tertiary,
+                                text = stringResource(MR.strings.novel),
+                                textColor = MaterialTheme.colorScheme.onTertiary,
+                            ),
+                        )
+                    }
                     if (cover.inLibrary)
                         add(
                             BadgeSegment.text(
@@ -82,6 +93,7 @@ class BrowseSourceGridHolder(
         // Update the title of the manga.
         title = manga.title
         cover = manga.cover()
+        isNovel = manga.isNovel()
 
         // Update the cover.
         setImage(manga)

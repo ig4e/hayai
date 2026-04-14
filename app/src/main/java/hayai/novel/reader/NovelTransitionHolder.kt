@@ -1,5 +1,7 @@
 package hayai.novel.reader
 
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -63,7 +65,21 @@ class NovelTransitionHolder(
     }
 
     fun bind(transition: ChapterTransition) {
-        transitionView.bind(viewer.config.readerTheme, transition, viewer.downloadManager, viewer.activity.viewModel.manga)
+        val colors = viewer.config.getColors()
+        val backgroundColor = Color.parseColor(colors.backgroundColor)
+        val textColor = Color.parseColor(colors.textColor)
+
+        layout.setBackgroundColor(backgroundColor)
+        pagesContainer.setBackgroundColor(backgroundColor)
+        transitionView.setBackgroundColor(backgroundColor)
+        transitionView.bind(
+            viewer.config.readerTheme,
+            transition,
+            viewer.downloadManager,
+            viewer.activity.viewModel.manga,
+            contentColor = textColor,
+            containerColor = backgroundColor,
+        )
         transition.to?.let { observeStatus(it, transition) }
     }
 
@@ -88,6 +104,7 @@ class NovelTransitionHolder(
     }
 
     private fun setLoading() {
+        val textColor = Color.parseColor(viewer.config.getColors().textColor)
         val progress = ComposeView(context).apply {
             layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER)
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
@@ -99,6 +116,7 @@ class NovelTransitionHolder(
         val textView = AppCompatTextView(context).apply {
             wrapContent()
             setText(MR.strings.loading_pages)
+            setTextColor(textColor)
         }
 
         pagesContainer.addView(progress)
@@ -106,14 +124,18 @@ class NovelTransitionHolder(
     }
 
     private fun setError(error: Throwable, transition: ChapterTransition) {
+        val textColor = Color.parseColor(viewer.config.getColors().textColor)
         val textView = AppCompatTextView(context).apply {
             wrapContent()
             text = context.getString(MR.strings.failed_to_load_pages_, error.message ?: "")
+            setTextColor(textColor)
         }
 
         val retryBtn = AppCompatButton(context).apply {
             wrapContent()
             setText(MR.strings.retry)
+            setTextColor(textColor)
+            backgroundTintList = ColorStateList.valueOf(adjustAlpha(textColor, 0.2f))
             setOnClickListener {
                 val toChapter = transition.to
                 if (toChapter != null) {
@@ -124,5 +146,14 @@ class NovelTransitionHolder(
 
         pagesContainer.addView(textView)
         pagesContainer.addView(retryBtn)
+    }
+
+    private fun adjustAlpha(color: Int, factor: Float): Int {
+        return Color.argb(
+            (Color.alpha(color) * factor).toInt().coerceIn(0, 255),
+            Color.red(color),
+            Color.green(color),
+            Color.blue(color),
+        )
     }
 }

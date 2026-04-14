@@ -205,7 +205,7 @@ class ExtensionRepoScreen(
                     EmptyScreen(
                         modifier = Modifier.fillParentMaxSize(),
                         image = Icons.Filled.ExtensionOff,
-                        message = stringResource(MR.strings.information_empty_repos),
+                        message = stringResource(MR.strings.information_empty_novel_repos),
                         isTablet = isTablet(),
                     )
                 }

@@ -9,6 +9,8 @@ import androidx.core.animation.doOnStart
 import androidx.core.view.isVisible
 import androidx.core.widget.TextViewCompat
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.database.models.isNovel
+import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.databinding.ChaptersItemBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -54,14 +56,19 @@ class ChapterHolder(
         ChapterUtil.relativeDate(chapter)?.let { statuses.add(it) }
 
         val showPagesLeft = !chapter.read && chapter.last_page_read > 0 && !isLocked
+        val isNovel = manga.isNovel()
 
         if (showPagesLeft) {
             statuses.add(
-                itemView.context.getString(
-                    MR.strings.page_x_of_y,
-                    chapter.last_page_read + 1,
-                    chapter.pages_left + chapter.last_page_read,
-                ),
+                if (isNovel) {
+                    "${itemView.context.getString(MR.strings.resume)} ${chapter.last_page_read}%"
+                } else {
+                    itemView.context.getString(
+                        MR.strings.page_x_of_y,
+                        chapter.last_page_read + 1,
+                        chapter.pages_left + chapter.last_page_read,
+                    )
+                },
             )
         }
 

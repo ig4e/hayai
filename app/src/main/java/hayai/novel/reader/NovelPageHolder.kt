@@ -1,6 +1,7 @@
 package hayai.novel.reader
 
 import android.annotation.SuppressLint
+import android.graphics.Color
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -97,16 +98,28 @@ class NovelPageHolder(
 
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
-                    // Expand WebView to full content height
                     val boundPage = page ?: return
-                    view.evaluateJavascript("document.body.scrollHeight") { heightStr ->
-                        val contentHeight = heightStr
+                    view.evaluateJavascript(
+                        """
+                        (function() {
+                            const body = document.body;
+                            const doc = document.documentElement;
+                            return Math.max(
+                                body ? body.scrollHeight : 0,
+                                body ? body.offsetHeight : 0,
+                                doc ? doc.scrollHeight : 0,
+                                doc ? doc.offsetHeight : 0
+                            );
+                        })();
+                        """.trimIndent(),
+                    ) { heightStr ->
+                        val domHeight = heightStr
                             ?.replace("\"", "")
-                            ?.toFloatOrNull()
-                            ?.toInt()
-                            ?: view.contentHeight
-                        val density = view.resources.displayMetrics.density
-                        val pixelHeight = (maxOf(contentHeight, 1) * density).toInt().coerceAtLeast(1)
+                            ?.toFloatOrNull() ?: 0f
+                        val contentHeight = maxOf(view.contentHeight.toFloat(), domHeight)
+                        val pixelHeight = kotlin.math.ceil(maxOf(contentHeight * view.scale, 1f).toDouble())
+                            .toInt()
+                            .coerceAtLeast(1)
                         view.layoutParams = view.layoutParams.apply {
                             height = pixelHeight
                         }
@@ -205,10 +218,12 @@ class NovelPageHolder(
         try {
             val html = stream().bufferedReader(Charsets.UTF_8).use { it.readText() }
             val styledHtml = applyReaderStyles(html)
+            val colors = viewer.config.getColors()
 
             webView.isVisible = false
             progressView.isVisible = true
             errorLayout.isVisible = false
+            webView.setBackgroundColor(Color.parseColor(colors.backgroundColor))
             webView.loadDataWithBaseURL(null, styledHtml, "text/html", "UTF-8", null)
         } catch (e: Exception) {
             Logger.e(e) { "NovelPageHolder: Failed to render content" }
@@ -266,6 +281,11 @@ class NovelPageHolder(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
+html, body {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
     font-family: '${config.fontFamily}', serif;
@@ -279,6 +299,7 @@ body {
     overflow-wrap: break-word;
     -webkit-user-select: text;
     -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
 }
 p { margin-bottom: 1em; }
 h1, h2, h3, h4, h5, h6 {

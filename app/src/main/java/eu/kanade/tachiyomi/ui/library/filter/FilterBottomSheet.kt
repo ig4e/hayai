@@ -378,10 +378,11 @@ class FilterBottomSheet @JvmOverloads constructor(context: Context, attrs: Attri
                     Manga.TYPE_MANHWA, Manga.TYPE_WEBTOON -> types.add(MR.strings.manhwa)
                     Manga.TYPE_MANHUA -> types.add(MR.strings.manhua)
                     Manga.TYPE_COMIC -> types.add(MR.strings.comic)
+                    Manga.TYPE_NOVEL -> types.add(MR.strings.novel)
                 }
-                if (types.size == 3) return@forEach
+                if (types.size == 4) return@forEach
             }
-            val sortedTypes = arrayOf(MR.strings.manhwa, MR.strings.manhua, MR.strings.comic)
+            val sortedTypes = arrayOf(MR.strings.manhwa, MR.strings.manhua, MR.strings.comic, MR.strings.novel)
             types = types.sortedBy { sortedTypes.indexOf(it) }.toMutableSet()
             if (types.isNotEmpty()) {
                 launchUI {
@@ -403,6 +404,7 @@ class FilterBottomSheet @JvmOverloads constructor(context: Context, attrs: Attri
                         Manga.TYPE_MANHUA -> context.getString(MR.strings.manhua)
                         Manga.TYPE_MANHWA -> context.getString(MR.strings.manhwa)
                         Manga.TYPE_COMIC -> context.getString(MR.strings.comic)
+                        Manga.TYPE_NOVEL -> context.getString(MR.strings.novel)
                         else -> ""
                     },
                 )
@@ -540,6 +542,7 @@ class FilterBottomSheet @JvmOverloads constructor(context: Context, attrs: Attri
                     context.getString(MR.strings.manhua) -> Manga.TYPE_MANHUA
                     context.getString(MR.strings.manhwa) -> Manga.TYPE_MANHWA
                     context.getString(MR.strings.comic) -> Manga.TYPE_COMIC
+                    context.getString(MR.strings.novel) -> Manga.TYPE_NOVEL
                     else -> 0
                 }
                 preferences.filterMangaType().set(newIndex)

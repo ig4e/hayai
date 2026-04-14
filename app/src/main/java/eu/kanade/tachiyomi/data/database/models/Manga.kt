@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.domain.manga.models.Manga.Companion.TYPE_COMIC
 import eu.kanade.tachiyomi.domain.manga.models.Manga.Companion.TYPE_MANGA
 import eu.kanade.tachiyomi.domain.manga.models.Manga.Companion.TYPE_MANHUA
 import eu.kanade.tachiyomi.domain.manga.models.Manga.Companion.TYPE_MANHWA
+import eu.kanade.tachiyomi.domain.manga.models.Manga.Companion.TYPE_NOVEL
 import eu.kanade.tachiyomi.domain.manga.models.Manga.Companion.TYPE_WEBTOON
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
@@ -16,6 +17,7 @@ import eu.kanade.tachiyomi.ui.reader.settings.ReadingModeType
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.manga.MangaCoverMetadata
 import eu.kanade.tachiyomi.util.system.withIOContext
+import hayai.novel.source.TextSource
 import java.util.Locale
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -44,6 +46,7 @@ fun Manga.hideChapterTitle(preferences: PreferencesHelper): Boolean =
 fun Manga.seriesType(context: Context, sourceManager: SourceManager? = null): String {
     return context.getString(
         when (seriesType(sourceManager = sourceManager)) {
+            TYPE_NOVEL -> MR.strings.novel
             TYPE_WEBTOON -> MR.strings.webtoon
             TYPE_MANHWA -> MR.strings.manhwa
             TYPE_MANHUA -> MR.strings.manhua
@@ -57,7 +60,11 @@ fun Manga.seriesType(context: Context, sourceManager: SourceManager? = null): St
  * The type of comic the manga is (ie. manga, manhwa, manhua)
  */
 fun Manga.seriesType(useOriginalTags: Boolean = false, customTags: String? = null, sourceManager: SourceManager? = null): Int {
-    val sourceName by lazy { (sourceManager ?: Injekt.get()).getOrStub(source).name }
+    val source = (sourceManager ?: Injekt.get()).getOrStub(this.source)
+    if (source is TextSource) {
+        return TYPE_NOVEL
+    }
+    val sourceName = source.name
     val tags = customTags ?: if (useOriginalTags) originalGenre else genre
     val currentTags = tags?.split(",")?.map { it.trim().lowercase(Locale.US) } ?: emptyList()
     return if (currentTags.any { tag -> isMangaTag(tag) }) {
@@ -85,6 +92,10 @@ fun Manga.seriesType(useOriginalTags: Boolean = false, customTags: String? = nul
     } else {
         TYPE_MANGA
     }
+}
+
+fun Manga.isNovel(sourceManager: SourceManager? = null): Boolean {
+    return seriesType(sourceManager = sourceManager) == TYPE_NOVEL
 }
 
 /**

@@ -14,6 +14,7 @@ import coil3.dispose
 import coil3.size.Scale
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.dominantCoverColors
+import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.kanade.tachiyomi.databinding.MangaGridItemBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.lang.highlightText
@@ -23,7 +24,9 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.backgroundColor
 import eu.kanade.tachiyomi.util.view.setCards
 import eu.kanade.tachiyomi.widget.AutofitRecyclerView
+import yokai.i18n.MR
 import yokai.util.coil.loadManga
+import yokai.util.lang.getString
 
 /**
  * Class used to hold the displayed data of a manga in the library, like the cover or the title.
@@ -84,15 +87,30 @@ class LibraryGridHolder(
                 item.manga.manga.artist?.trim()?.takeIf { it.isNotBlank() },
             ).joinToString(", ")
         }
-        binding.subtitle.text = authorArtist.highlightText(item.filter, color)
+        val subtitle = buildString {
+            if (item.manga.manga.isNovel()) {
+                append(itemView.context.getString(MR.strings.novel))
+                if (authorArtist.isNotBlank()) {
+                    append(" • ")
+                }
+            }
+            append(authorArtist)
+        }
+        binding.subtitle.text = subtitle.highlightText(item.filter, color)
 
-        binding.compactTitle.text = binding.title.text?.toString()?.highlightText(item.filter, color)
+        binding.compactTitle.text = (
+            if (item.manga.manga.isNovel()) {
+                "${itemView.context.getString(MR.strings.novel)} • ${binding.title.text}"
+            } else {
+                binding.title.text
+            }
+            )?.toString()?.highlightText(item.filter, color)
 
         binding.title.post {
             val hasAuthorInFilter =
                 item.filter.isNotBlank() && authorArtist.contains(item.filter, true)
             binding.subtitle.isVisible =
-                (binding.title.lineCount <= 1 || hasAuthorInFilter) && authorArtist.isNotBlank()
+                subtitle.isNotBlank() && (binding.title.lineCount <= 1 || hasAuthorInFilter || item.manga.manga.isNovel())
             binding.title.maxLines = if (hasAuthorInFilter) 1 else 2
         }
 

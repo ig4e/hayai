@@ -621,6 +621,13 @@ open class BrowseSourceController(bundle: Bundle) :
         adapter.onLoadMoreComplete(null)
         hideProgressBar()
 
+        if (error is NoResultsException && !adapter.isEmpty) {
+            adapter.endlessTargetCount = 1
+            snack?.dismiss()
+            snack = null
+            return
+        }
+
         snack?.dismiss()
 
         val message = getErrorMessage(error)

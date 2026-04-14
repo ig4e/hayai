@@ -6,11 +6,14 @@ import androidx.recyclerview.widget.RecyclerView
 import coil3.dispose
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
+import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.kanade.tachiyomi.databinding.MangaListItemBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.view.setCards
 import yokai.domain.manga.models.cover
+import yokai.i18n.MR
 import yokai.util.coil.loadManga
+import yokai.util.lang.getString
 
 /**
  * Class used to hold the displayed data of a manga in the catalogue, like the cover or the title.
@@ -42,6 +45,12 @@ class BrowseSourceListHolder(
     override fun onSetValues(manga: Manga) {
         binding.title.text = manga.title
         binding.inLibraryBadge.badge.isVisible = manga.favorite
+        binding.subtitle.isVisible = manga.isNovel()
+        binding.subtitle.text = if (manga.isNovel()) {
+            view.context.getString(MR.strings.novel)
+        } else {
+            null
+        }
 
         setImage(manga)
     }

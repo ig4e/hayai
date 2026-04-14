@@ -83,6 +83,8 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
 
     private var pendingRestoreChapterId: Long? = null
     private var pendingRestorePercent: Int? = null
+    private var pendingRestoreAttempts: Int = 0
+    private var lastRestoreMeasuredCount: Int = 0
 
     private var lastReportedChapterId: Long? = null
     private var lastReportedProgress: Int = -1
@@ -246,6 +248,8 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         pendingRestorePercent = chapters.currChapter.chapter.last_page_read
             .coerceIn(0, 100)
             .takeIf { it > 0 }
+        pendingRestoreAttempts = 0
+        lastRestoreMeasuredCount = 0
 
         if (recycler.isGone) {
             val pages = chapters.currChapter.pages ?: return
@@ -364,8 +368,7 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
 
     fun moveToProgress(progressPercent: Int) {
         val clampedProgress = progressPercent.coerceIn(0, 100)
-        pendingRestoreChapterId = null
-        pendingRestorePercent = null
+        clearPendingRestore()
 
         if (!scrollToChapterProgress(clampedProgress)) {
             recycler.post { scrollToChapterProgress(clampedProgress) }
@@ -378,15 +381,40 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         val currentChapter = adapter.currentChapter ?: return
         if (currentChapter.chapter.id != chapterId) return
 
-        if (scrollToChapterProgress(savedProgress)) {
-            pendingRestoreChapterId = null
-            pendingRestorePercent = null
-        } else {
+        val pages = currentChapter.pages ?: return
+        val measuredCount = pages.count { getPageHeight(it) > 0 }
+
+        if (measuredCount == 0) {
+            if (pendingRestoreAttempts++ < MAX_PENDING_RESTORE_ATTEMPTS) {
+                recycler.post { restoreSavedProgressIfReady() }
+            } else {
+                clearPendingRestore()
+            }
+            return
+        }
+
+        val restored = scrollToChapterProgress(savedProgress, allowEstimatedHeights = true)
+        if (!restored) {
+            if (pendingRestoreAttempts++ < MAX_PENDING_RESTORE_ATTEMPTS) {
+                recycler.post { restoreSavedProgressIfReady() }
+            } else {
+                clearPendingRestore()
+            }
+            return
+        }
+
+        if (measuredCount == pages.size || pendingRestoreAttempts >= MAX_PENDING_RESTORE_ATTEMPTS) {
+            clearPendingRestore()
+        } else if (measuredCount > lastRestoreMeasuredCount) {
+            lastRestoreMeasuredCount = measuredCount
+            pendingRestoreAttempts++
             recycler.post { restoreSavedProgressIfReady() }
+        } else {
+            clearPendingRestore()
         }
     }
 
-    private fun scrollToChapterProgress(progressPercent: Int): Boolean {
+    private fun scrollToChapterProgress(progressPercent: Int, allowEstimatedHeights: Boolean = false): Boolean {
         val currentChapter = adapter.currentChapter ?: return false
 
         val pages = currentChapter.pages ?: return false
@@ -407,11 +435,18 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
             }
         }
 
-        if (pageHeights.any { it <= 0 }) {
+        val measuredHeights = pageHeights.filter { it > 0 }
+        if (measuredHeights.isEmpty()) {
+            return false
+        }
+        if (!allowEstimatedHeights && measuredHeights.size != pageHeights.size) {
             return false
         }
 
-        val chapterHeight = pageHeights.sum()
+        val estimatedHeight = measuredHeights.average().roundToInt().coerceAtLeast(recyclerHeight)
+        val resolvedHeights = pageHeights.map { if (it > 0) it else estimatedHeight }
+
+        val chapterHeight = resolvedHeights.sum()
         val maxScrollable = max(chapterHeight - recyclerHeight, 0)
         val targetOffset = if (maxScrollable <= 0) 0 else {
             (maxScrollable * (progressPercent / 100f)).roundToInt().coerceIn(0, maxScrollable)
@@ -420,7 +455,7 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         var remainingOffset = targetOffset
         var targetPageIndex = 0
         for (index in pages.indices) {
-            val pageHeight = pageHeights[index]
+            val pageHeight = resolvedHeights[index]
             if (index == pages.lastIndex || remainingOffset < pageHeight) {
                 targetPageIndex = index
                 break
@@ -429,7 +464,7 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         }
 
         if (targetPageIndex == pages.lastIndex) {
-            remainingOffset = remainingOffset.coerceIn(0, max(pageHeights[targetPageIndex] - recyclerHeight, 0))
+            remainingOffset = remainingOffset.coerceIn(0, max(resolvedHeights[targetPageIndex] - recyclerHeight, 0))
         }
 
         val targetPage = pages[targetPageIndex]
@@ -439,6 +474,13 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         layoutManager.scrollToPositionWithOffset(targetPosition, -remainingOffset)
         onScrolled(targetPosition)
         return true
+    }
+
+    private fun clearPendingRestore() {
+        pendingRestoreChapterId = null
+        pendingRestorePercent = null
+        pendingRestoreAttempts = 0
+        lastRestoreMeasuredCount = 0
     }
 
     override fun moveToPrevious() {
@@ -496,3 +538,4 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
 
 private const val RECYCLER_VIEW_CACHE_SIZE = 4
 private const val NOVEL_READ_THRESHOLD_PERCENT = 95
+private const val MAX_PENDING_RESTORE_ATTEMPTS = 4

@@ -259,5 +259,6 @@ interface Manga : SManga {
         const val TYPE_MANHUA = 3
         const val TYPE_COMIC = 4
         const val TYPE_WEBTOON = 5
+        const val TYPE_NOVEL = 6
     }
 }

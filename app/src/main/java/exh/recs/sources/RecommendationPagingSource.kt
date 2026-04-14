@@ -1,6 +1,7 @@
 package exh.recs.sources
 
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -47,6 +48,13 @@ abstract class RecommendationPagingSource(
 
     companion object {
         fun createSources(manga: Manga, source: CatalogueSource): List<RecommendationPagingSource> {
+            if (manga.seriesType() == Manga.TYPE_NOVEL) {
+                return listOf(
+                    MangaUpdatesCommunityPagingSource(manga),
+                    MangaUpdatesSimilarPagingSource(manga),
+                ).sortedWith(compareBy({ it.name }, { it.category.resourceId }))
+            }
+
             return buildList {
                 add(AniListPagingSource(manga))
                 add(MangaUpdatesCommunityPagingSource(manga))

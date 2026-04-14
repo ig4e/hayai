@@ -515,6 +515,7 @@ fun Context.mapStatus(status: Int): String {
 fun Context.mapSeriesType(seriesType: Int): String {
     return getString(
         when (seriesType) {
+            Manga.TYPE_NOVEL -> MR.strings.novel
             Manga.TYPE_MANGA -> MR.strings.manga
             Manga.TYPE_MANHWA -> MR.strings.manhwa
             Manga.TYPE_MANHUA -> MR.strings.manhua

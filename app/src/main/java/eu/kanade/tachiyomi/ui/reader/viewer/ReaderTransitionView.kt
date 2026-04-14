@@ -5,11 +5,13 @@ import android.util.AttributeSet
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.AbstractComposeView
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -28,12 +30,21 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
     }
 
-    fun bind(theme: Int, transition: ChapterTransition, downloadManager: DownloadManager, manga: Manga?) {
+    fun bind(
+        theme: Int,
+        transition: ChapterTransition,
+        downloadManager: DownloadManager,
+        manga: Manga?,
+        contentColor: Int? = null,
+        containerColor: Int? = null,
+    ) {
         data = if (manga != null) {
             Data(
                 theme = theme,
                 manga = manga,
                 transition = transition,
+                contentColor = contentColor,
+                containerColor = containerColor,
                 currChapterDownloaded = transition.from.pageLoader?.isLocal == true,
                 goingToChapterDownloaded = manga.isLocal() ||
                     transition.to?.chapter?.let { goingToChapter ->
@@ -55,14 +66,19 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
             YokaiTheme {
                 CompositionLocalProvider (
                     LocalTextStyle provides MaterialTheme.typography.bodySmall,
-                    LocalContentColor provides ThemeUtil.readerContentColor(it.theme, MaterialTheme.colorScheme.onBackground),
+                    LocalContentColor provides (
+                        it.contentColor?.let(::ComposeColor)
+                            ?: ThemeUtil.readerContentColor(it.theme, MaterialTheme.colorScheme.onBackground)
+                        ),
                 ) {
-                    ChapterTransition(
-                        manga = it.manga,
-                        transition = it.transition,
-                        currChapterDownloaded = it.currChapterDownloaded,
-                        goingToChapterDownloaded = it.goingToChapterDownloaded,
-                    )
+                    Surface(color = it.containerColor?.let(::ComposeColor) ?: ComposeColor.Transparent) {
+                        ChapterTransition(
+                            manga = it.manga,
+                            transition = it.transition,
+                            currChapterDownloaded = it.currChapterDownloaded,
+                            goingToChapterDownloaded = it.goingToChapterDownloaded,
+                        )
+                    }
                 }
             }
         }
@@ -72,6 +88,8 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
         val theme: Int,
         val manga: Manga,
         val transition: ChapterTransition,
+        val contentColor: Int?,
+        val containerColor: Int?,
         val currChapterDownloaded: Boolean,
         val goingToChapterDownloaded: Boolean,
     )

@@ -9,32 +9,44 @@ class CreateNovelRepo(
     sealed class Result {
         data object Success : Result()
         data object InvalidUrl : Result()
+        data object InvalidIndex : Result()
+        data object EmptyRepo : Result()
         data object RepoAlreadyExists : Result()
     }
 
     suspend fun await(url: String): Result {
-        val trimmedUrl = url.trim()
+        val trimmedUrl = normalizeUrl(url) ?: return Result.InvalidUrl
 
-        // Basic URL validation
-        if (!trimmedUrl.startsWith("https://") && !trimmedUrl.startsWith("http://")) {
-            return Result.InvalidUrl
-        }
-
-        // Check if repo already exists
         val existing = repository.getAll()
         if (existing.any { it.baseUrl == trimmedUrl }) {
             return Result.RepoAlreadyExists
         }
 
-        // Extract name from URL
-        val name = try {
-            val segments = trimmedUrl.split("/")
-            segments.getOrElse(segments.size - 3) { "Novel Repo" }
-        } catch (_: Exception) {
-            "Novel Repo"
-        }
-
-        repository.insert(NovelRepo(baseUrl = trimmedUrl, name = name))
+        repository.insert(
+            NovelRepo(
+                baseUrl = trimmedUrl,
+                name = deriveName(trimmedUrl),
+            ),
+        )
         return Result.Success
+    }
+
+    private fun normalizeUrl(url: String): String? {
+        val trimmedUrl = url.trim()
+        if (!trimmedUrl.startsWith("https://") && !trimmedUrl.startsWith("http://")) {
+            return null
+        }
+        return trimmedUrl.trimEnd('/')
+    }
+
+    private fun deriveName(indexUrl: String): String {
+        val host = indexUrl
+            .removePrefix("https://")
+            .removePrefix("http://")
+            .substringBefore('/')
+            .removePrefix("www.")
+            .substringBefore('.')
+            .ifBlank { "Novel" }
+        return host.replaceFirstChar { it.titlecase() } + " Novel Repo"
     }
 }

@@ -10,9 +10,11 @@ import eu.kanade.tachiyomi.util.system.withUIContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -34,6 +36,7 @@ class SourcePresenter(
 
     private var scope = CoroutineScope(Job() + Dispatchers.Default)
     var sources = getEnabledSources()
+    private var sourcesJob: Job? = null
 
     var sourceItems = emptyList<SourceItem>()
     var lastUsedItem: SourceItem? = null
@@ -50,7 +53,7 @@ class SourcePresenter(
             lastUsedItemRem = null
         }
 
-        // Load enabled and last used sources
+        observeSources()
         loadSources()
     }
 
@@ -135,14 +138,33 @@ class SourcePresenter(
      * @return list containing enabled sources.
      */
     private fun getEnabledSources(): List<CatalogueSource> {
+        return getEnabledSources(sourceManager.getCatalogueSources())
+    }
+
+    private fun getEnabledSources(catalogueSources: List<CatalogueSource>): List<CatalogueSource> {
         val languages = preferences.enabledLanguages().get()
         val hiddenCatalogues = preferences.hiddenSources().get()
 
-        return sourceManager.getCatalogueSources()
+        return catalogueSources
             .filter { it.lang in languages || it.id == LocalSource.ID }
             .filterNot { it.id.toString() in hiddenCatalogues }
             .filterNot { it.id in BlacklistedSources.HIDDEN_SOURCES }
             .sortedBy { "(${it.lang}) ${it.name}" }
+    }
+
+    private fun observeSources() {
+        sourcesJob?.cancel()
+        sourcesJob = combine(
+            sourceManager.catalogueSources,
+            preferences.enabledLanguages().changes().onStart { emit(preferences.enabledLanguages().get()) },
+            preferences.hiddenSources().changes().onStart { emit(preferences.hiddenSources().get()) },
+            preferences.pinnedCatalogues().changes().onStart { emit(preferences.pinnedCatalogues().get()) },
+        ) { catalogueSources, _, _, _ ->
+            getEnabledSources(catalogueSources)
+        }.onEach {
+            sources = it
+            loadSources()
+        }.launchIn(scope)
     }
 
     companion object {

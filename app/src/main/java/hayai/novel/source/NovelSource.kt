@@ -303,8 +303,9 @@ class NovelSource(
                     null
                 }
             }
-            // LNReader plugins return empty array when no more pages
-            MangasPage(mangas, mangas.isNotEmpty())
+            // Keep novel catalogue/search paging single-page until plugins expose
+            // an explicit next-page signal instead of relying on non-empty results.
+            MangasPage(mangas, false)
         } catch (e: Exception) {
             Logger.e(e) { "NovelSource: Failed to parse novel items" }
             MangasPage(emptyList(), false)
