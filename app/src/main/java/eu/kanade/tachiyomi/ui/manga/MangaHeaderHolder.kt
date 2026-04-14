@@ -62,12 +62,10 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -105,6 +103,7 @@ class MangaHeaderHolder(
     var hadSelection = false
     private var canCollapse = true
     private val accentColorState = mutableStateOf<Int?>(null)
+    private val descriptionExpandedState = mutableStateOf(false)
 
     init {
 
@@ -228,7 +227,7 @@ class MangaHeaderHolder(
             binding.mangaSummary.maxLines = Integer.MAX_VALUE
             binding.mangaSummary.setTextIsSelectable(true)
             setDescription()
-            binding.mangaGenresTags.isVisible = true
+            descriptionExpandedState.value = true
             binding.lessButton.isVisible = !isTablet
             binding.moreButtonGroup.isVisible = false
             if (animated) {
@@ -287,7 +286,7 @@ class MangaHeaderHolder(
         binding.mangaSummary.isClickable = true
         binding.mangaSummary.maxLines = 3
         setDescription()
-        binding.mangaGenresTags.isVisible = isTablet
+        descriptionExpandedState.value = false
         binding.lessButton.isVisible = false
         binding.title.maxLines = 4
         binding.mangaAuthor.maxLines = 2
@@ -461,9 +460,25 @@ class MangaHeaderHolder(
                 MangaMetadataSection(
                     mangaId = manga.id ?: -1L,
                     sourceId = manga.source,
+                    isExpanded = descriptionExpandedState.value,
                     openMetadataViewer = { adapter.delegate.openMetadataViewer() },
                     onSearch = { query -> adapter.delegate.searchFromMetadata(query) },
                 )
+            }
+        }
+
+        // Page preview strip (above chapters)
+        binding?.pagePreviewCompose?.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            setContent {
+                yokai.presentation.theme.YokaiTheme {
+                    exh.ui.pagepreview.components.PagePreviewInlineSection(
+                        mangaId = manga.id ?: -1L,
+                        sourceId = manga.source,
+                        onOpenPagePreview = { adapter.delegate.openPagePreview() },
+                        onOpenReaderAtPage = { page -> adapter.delegate.openReaderAtPage(page) },
+                    )
+                }
             }
         }
 
@@ -559,6 +574,7 @@ class MangaHeaderHolder(
                     genres = genres,
                     containerColor = ComposeColor(containerColorInt),
                     labelColor = ComposeColor(labelColorInt),
+                    isExpanded = descriptionExpandedState.value,
                     onTagClick = { genre -> delegate.searchFromMetadata(genre) },
                     onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
                 )
@@ -680,11 +696,11 @@ class MangaHeaderHolder(
         binding.subItemGroup.isVisible = false
         binding.buttonGroupCompose?.isVisible = false
         binding.metadataCompose?.isVisible = false
+        binding.mangaGenresTags.isVisible = false
         if (binding.moreButton.isVisible || binding.moreButton.isInvisible) {
             binding.moreButtonGroup.isInvisible = !isTablet
         } else {
             binding.lessButton.isVisible = false
-            binding.mangaGenresTags.isVisible = isTablet
         }
     }
 
@@ -726,6 +742,7 @@ class MangaHeaderHolder(
     fun expand() {
         binding ?: return
         binding.subItemGroup.isVisible = true
+        binding.mangaGenresTags.isVisible = true
         if (!showMoreButton) {
             binding.moreButtonGroup.isVisible = false
         } else {
@@ -733,7 +750,6 @@ class MangaHeaderHolder(
                 binding.moreButtonGroup.isVisible = !isTablet
             } else {
                 binding.lessButton.isVisible = !isTablet
-                binding.mangaGenresTags.isVisible = true
             }
         }
         binding.buttonGroupCompose?.isVisible = showReadingButton
@@ -746,20 +762,16 @@ class MangaHeaderHolder(
     }
 }
 
-private const val GENRE_COLLAPSE_THRESHOLD = 8
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun GenreTagsSection(
     genres: List<String>,
     containerColor: ComposeColor,
     labelColor: ComposeColor,
+    isExpanded: Boolean,
     onTagClick: (String) -> Unit,
     onTagLongClick: (String) -> Unit,
 ) {
-    val totalCount = genres.size
-    var expanded by rememberSaveable { mutableStateOf(totalCount <= GENRE_COLLAPSE_THRESHOLD) }
-
     @Composable
     fun Chip(genre: String) {
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
@@ -786,26 +798,14 @@ private fun GenreTagsSection(
         }
     }
 
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        if (expanded) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        if (isExpanded) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 genres.forEach { genre -> Chip(genre) }
             }
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(genres) { genre -> Chip(genre) }
-            }
-        }
-
-        if (totalCount > GENRE_COLLAPSE_THRESHOLD) {
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(
-                    text = if (expanded) "Show less" else "Show all ($totalCount)",
-                    style = MaterialTheme.typography.labelMedium,
-                )
             }
         }
     }

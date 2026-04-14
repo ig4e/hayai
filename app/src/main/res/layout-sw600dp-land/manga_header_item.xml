@@ -342,7 +342,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:visibility="gone"
+        android:visibility="visible"
         app:layout_constrainedHeight="true"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -377,6 +377,15 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/less_button" />
 
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/page_preview_compose"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/button_group_compose" />
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/chapter_layout"
         android:layout_width="match_parent"
@@ -387,7 +396,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/button_group_compose">
+        app:layout_constraintTop_toBottomOf="@id/page_preview_compose">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/chapters_title"

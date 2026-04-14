@@ -14,14 +14,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,8 +26,6 @@ import exh.metadata.metadata.base.RaisedTag
 import exh.source.EH_SOURCE_ID
 import exh.source.EXH_SOURCE_ID
 import exh.util.SourceTagsUtil
-
-private const val COLLAPSE_THRESHOLD = 8
 
 @Immutable
 data class DisplayTag(
@@ -109,13 +102,11 @@ value class SearchMetadataChips(
 @Composable
 fun NamespaceTags(
     tags: SearchMetadataChips,
+    isExpanded: Boolean,
     onClick: (item: String) -> Unit,
 ) {
-    val totalCount = tags.tags.values.sumOf { it.size }
-    var expanded by rememberSaveable { mutableStateOf(totalCount <= COLLAPSE_THRESHOLD) }
-
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (expanded) {
+        if (isExpanded) {
             // Expanded: namespace-grouped FlowRow layout
             tags.tags.forEach { (namespace, displayTags) ->
                 Row(Modifier.padding(start = 16.dp)) {
@@ -180,18 +171,6 @@ fun NamespaceTags(
                         )
                     }
                 }
-            }
-        }
-
-        if (totalCount > COLLAPSE_THRESHOLD) {
-            TextButton(
-                onClick = { expanded = !expanded },
-                modifier = Modifier.padding(start = 8.dp),
-            ) {
-                Text(
-                    text = if (expanded) "Show less" else "Show all ($totalCount)",
-                    style = MaterialTheme.typography.labelMedium,
-                )
             }
         }
     }

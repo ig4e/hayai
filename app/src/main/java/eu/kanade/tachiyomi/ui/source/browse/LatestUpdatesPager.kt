@@ -8,7 +8,12 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 class LatestUpdatesPager(val source: CatalogueSource) : Pager() {
 
     override suspend fun requestNextPage() {
-        val mangasPage = source.getLatestUpdates(currentPage)
-        onPageReceived(mangasPage)
+        val page = nextCursor?.toInt() ?: currentPage
+        val mangasPage = source.getLatestUpdates(page)
+        if (mangasPage.mangas.isNotEmpty()) {
+            onPageReceived(mangasPage)
+        } else {
+            throw NoResultsException()
+        }
     }
 }

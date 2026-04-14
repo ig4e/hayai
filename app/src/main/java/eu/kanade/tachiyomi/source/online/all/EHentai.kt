@@ -18,6 +18,9 @@ import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.PagePreviewInfo
+import eu.kanade.tachiyomi.source.PagePreviewPage
+import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.NamespaceSource
@@ -94,7 +97,8 @@ class EHentai(
 ) : HttpSource(),
     MetadataSource<EHentaiSearchMetadata, Document>,
     UrlImportableSource,
-    NamespaceSource {
+    NamespaceSource,
+    PagePreviewSource {
 
     override val metaClass = EHentaiSearchMetadata::class
 
@@ -571,6 +575,78 @@ class EHentai(
     override fun popularMangaParse(response: Response) = genericMangaParse(response)
     override fun searchMangaParse(response: Response) = genericMangaParse(response)
     override fun latestUpdatesParse(response: Response) = genericMangaParse(response)
+
+    // region PagePreviewSource
+
+    override suspend fun getPagePreviewList(
+        manga: SManga,
+        chapters: List<SChapter>,
+        page: Int,
+    ): PagePreviewPage {
+        val galleryUrl = (baseUrl + (chapters.lastOrNull()?.url ?: manga.url))
+            .toHttpUrl()
+            .newBuilder()
+            .removeAllQueryParameters("nw")
+            .addQueryParameter("p", (page - 1).toString())
+            .build()
+            .toString()
+
+        val doc = client.newCall(exGet(galleryUrl)).awaitSuccess().asJsoup()
+        val body = doc.body()
+
+        val previews = body.select("#gdt > div > div")
+            .plus(body.select("#gdt > a"))
+            .mapNotNull { parseNormalPreview(it) }
+            .map { PagePreviewInfo(it.index, imageUrl = it.toUrl()) }
+            .ifEmpty {
+                body.select("#gdt div a img").mapNotNull {
+                    val pageNum = it.attr("alt").toIntOrNull() ?: return@mapNotNull null
+                    PagePreviewInfo(pageNum, imageUrl = it.attr("src"))
+                }
+            }
+
+        return PagePreviewPage(
+            page = page,
+            pagePreviews = previews,
+            hasNextPage = doc.select("table.ptt tbody tr td")
+                .lastOrNull()
+                ?.hasClass("ptdd")
+                ?.not() ?: false,
+            pagePreviewPages = doc.select("table.ptt tbody tr td a").asReversed()
+                .firstNotNullOfOrNull { it.text().toIntOrNull() },
+        )
+    }
+
+    override suspend fun fetchPreviewImage(page: PagePreviewInfo, cacheControl: CacheControl?): Response {
+        return client.newCachelessCallWithProgress(
+            exGet(page.imageUrl, cacheControl = cacheControl),
+            page,
+        ).awaitSuccess()
+    }
+
+    private fun parseNormalPreview(element: Element): EHentaiThumbnailPreview? {
+        val imgElement = element.selectFirst("img")
+        val index = imgElement?.attr("alt")?.toIntOrNull()
+            ?: element.child(0).attr("title").removePrefix("Page ").substringBefore(":").toIntOrNull()
+            ?: return null
+        val styleElement = if (imgElement != null) element else element.child(0)
+        val styles = styleElement.attr("style").split(";").mapNotNull { it.trimOrNull() }
+
+        val width = styles.firstOrNull { it.startsWith("width:") }
+            ?.removePrefix("width:")?.removeSuffix("px")?.toIntOrNull() ?: return null
+        val height = styles.firstOrNull { it.startsWith("height:") }
+            ?.removePrefix("height:")?.removeSuffix("px")?.toIntOrNull() ?: return null
+        val background = styles.firstOrNull { it.startsWith("background:") }
+            ?.removePrefix("background:")?.split(" ") ?: return null
+        val url = background.firstOrNull { it.startsWith("url(") }
+            ?.removePrefix("url(")?.removeSuffix(")") ?: return null
+        val widthOffset = background.firstOrNull { it.startsWith("-") }
+            ?.removePrefix("-")?.removeSuffix("px")?.toIntOrNull() ?: 0
+
+        return EHentaiThumbnailPreview(url, width, height, widthOffset, index)
+    }
+
+    // endregion
 
     private fun exGet(
         url: String,

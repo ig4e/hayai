@@ -14,11 +14,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,8 +26,6 @@ import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.FlatMetadata
 import exh.ui.metadata.adapters.EHentaiDescription
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import yokai.domain.manga.metadata.MangaMetadataRepository
@@ -89,27 +85,26 @@ fun MangaContinueReadingButton(
 fun MangaMetadataSection(
     mangaId: Long,
     sourceId: Long,
+    isExpanded: Boolean,
     openMetadataViewer: () -> Unit,
     onSearch: (String) -> Unit,
 ) {
-    var metadata by remember { mutableStateOf<RaisedSearchMetadata?>(null) }
+    val repo = remember { MetadataLoader.metadataRepository }
 
-    LaunchedEffect(mangaId) {
-        withContext(Dispatchers.IO) {
-            try {
-                val repo = MetadataLoader.metadataRepository
-                val searchMeta = repo.getMetadataById(mangaId) ?: return@withContext
-                val tags = repo.getTagsById(mangaId)
-                val titles = repo.getTitlesById(mangaId)
-                val flat = FlatMetadata(metadata = searchMeta, tags = tags, titles = titles)
-                metadata = flat.raise<RaisedSearchMetadata>()
-            } catch (_: Exception) {
-                // No metadata available
-            }
-        }
-    }
+    val searchMetadata by repo.subscribeMetadataById(mangaId)
+        .collectAsState(initial = null)
+    val searchTags by repo.subscribeTagsById(mangaId)
+        .collectAsState(initial = emptyList())
+    val searchTitles by repo.subscribeTitlesById(mangaId)
+        .collectAsState(initial = emptyList())
 
-    val meta = metadata ?: return
+    val meta = remember(searchMetadata, searchTags, searchTitles) {
+        val sm = searchMetadata ?: return@remember null
+        try {
+            FlatMetadata(metadata = sm, tags = searchTags, titles = searchTitles)
+                .raise<RaisedSearchMetadata>()
+        } catch (_: Exception) { null }
+    } ?: return
 
     when (meta) {
         is EHentaiSearchMetadata -> {

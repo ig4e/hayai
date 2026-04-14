@@ -152,6 +152,8 @@ class MangaDetailsAdapter(
         fun setFavButtonPopup(popupView: View)
         fun openRecommendations()
         fun openMetadataViewer()
+        fun openPagePreview()
+        fun openReaderAtPage(page: Int)
         fun searchFromMetadata(query: String)
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -118,26 +119,25 @@ fun EHentaiDescription(
             meta.datePosted != null ||
             meta.language != null
         if (hasAnyStats) {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 meta.length?.let {
-                    StatItem("Pages", "$it")
+                    StatItem("$it pages")
                 }
                 meta.size?.takeIf { it > 0 }?.let {
-                    StatItem("Size", MetadataUtil.humanReadableByteCount(it, true))
+                    StatItem(MetadataUtil.humanReadableByteCount(it, true))
                 }
                 meta.favorites?.let {
-                    StatItem("♡", NumberFormat.getInstance().format(it))
+                    StatItem("♡ ${NumberFormat.getInstance().format(it)}")
                 }
                 meta.datePosted?.let {
-                    val formatted = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it))
-                    StatItem("Posted", formatted)
+                    StatItem(DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it)))
                 }
                 meta.language?.let {
-                    StatItem("Lang", it)
+                    StatItem(it)
                 }
             }
         }
@@ -145,9 +145,9 @@ fun EHentaiDescription(
 }
 
 @Composable
-private fun StatItem(label: String, value: String) {
+private fun StatItem(text: String) {
     Text(
-        text = "$label: $value",
+        text = text,
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

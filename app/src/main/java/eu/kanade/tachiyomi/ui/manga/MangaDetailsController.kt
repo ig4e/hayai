@@ -1845,6 +1845,21 @@ class MangaDetailsController :
         )
     }
 
+    override fun openPagePreview() {
+        val manga = presenter.manga
+        router.pushController(
+            exh.ui.pagepreview.PagePreviewViewController(manga.id!!)
+                .withFadeTransaction(),
+        )
+    }
+
+    override fun openReaderAtPage(page: Int) {
+        val manga = presenter.manga
+        val chapters = presenter.chapters
+        val chapter = chapters.minByOrNull { it.chapter.source_order } ?: return
+        startActivity(ReaderActivity.newIntent(activity!!, manga, chapter.chapter))
+    }
+
     override fun searchFromMetadata(query: String) {
         val source = presenter.source as? CatalogueSource ?: return
         val normalizedQuery = if (source.isEhBasedSource()) {
