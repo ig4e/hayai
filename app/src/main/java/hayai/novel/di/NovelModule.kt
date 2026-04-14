@@ -6,6 +6,7 @@ import hayai.novel.repo.NovelRepoRepository
 import hayai.novel.repo.interactor.CreateNovelRepo
 import hayai.novel.repo.interactor.DeleteNovelRepo
 import hayai.novel.repo.interactor.GetNovelRepo
+import android.app.Application
 import org.koin.dsl.module
 
 fun novelModule() = module {
@@ -17,7 +18,7 @@ fun novelModule() = module {
 
     single {
         NovelPluginManager(
-            context = get(),
+            context = get<Application>(),
             repoRepository = get(),
             networkHelper = get(),
         )
