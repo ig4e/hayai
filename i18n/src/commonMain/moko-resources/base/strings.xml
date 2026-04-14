@@ -897,6 +897,7 @@
     <string name="does_not_prevent_unofficial_nsfw">This does not prevent unofficial or potentially incorrectly flagged extensions from surfacing NSFW (18+) content within the app.</string>
 
     <!-- Extension repos -->
+    <string name="repos">Repos</string>
     <string name="source_repos">Extension Repos</string>
     <string name="label_add_repo">Add new repo</string>
     <string name="action_add_repo">Add repo</string>

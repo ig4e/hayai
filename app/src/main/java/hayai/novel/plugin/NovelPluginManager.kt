@@ -78,13 +78,22 @@ class NovelPluginManager(
                 val code = jsFile.readText()
                 val metadata = pluginLoader.extractMetadata(code) ?: continue
 
+                // Read saved metadata for iconUrl and lang
+                val savedMeta = try {
+                    val metaFile = File(dir, "meta.json")
+                    if (metaFile.exists()) json.decodeFromString<NovelPluginIndex>(metaFile.readText()) else null
+                } catch (_: Exception) { null }
+
+                val iconUrl = savedMeta?.iconUrl
+                val lang = savedMeta?.let { langFromLnReaderLang(it.lang) } ?: getLangCode(dir.name, metadata)
+
                 val source = NovelSource(
                     pluginId = metadata.id,
                     pluginName = metadata.name,
-                    lang = getLangCode(dir.name, metadata),
+                    lang = lang,
                     siteUrl = metadata.site,
                     pluginCode = code,
-                    iconUrl = null, // Will be resolved from available plugins list
+                    iconUrl = iconUrl,
                     context = context,
                     bridge = bridge,
                     userAgent = getUserAgent(),
@@ -96,10 +105,10 @@ class NovelPluginManager(
                     NovelPlugin.Installed(
                         id = metadata.id,
                         name = metadata.name,
-                        lang = getLangCode(dir.name, metadata),
+                        lang = lang,
                         version = metadata.version,
                         siteUrl = metadata.site,
-                        iconUrl = null,
+                        iconUrl = iconUrl,
                         source = source,
                     ),
                 )

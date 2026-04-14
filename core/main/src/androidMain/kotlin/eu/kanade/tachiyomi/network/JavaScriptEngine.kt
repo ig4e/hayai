@@ -1,8 +1,9 @@
 package eu.kanade.tachiyomi.network
 
 import android.content.Context
-import app.cash.quickjs.QuickJs
+import com.dokar.quickjs.QuickJs
 import eu.kanade.tachiyomi.util.system.withIOContext
+import kotlinx.coroutines.Dispatchers
 
 /**
  * Util for evaluating JavaScript in sources.
@@ -19,8 +20,11 @@ class JavaScriptEngine(context: Context) {
      */
     @Suppress("UNUSED", "UNCHECKED_CAST")
     suspend fun <T> evaluate(script: String): T = withIOContext {
-        QuickJs.create().use {
-            it.evaluate(script) as T
+        val qjs = QuickJs.create(Dispatchers.IO)
+        try {
+            qjs.evaluate<Any?>(script) as T
+        } finally {
+            qjs.close()
         }
     }
 }

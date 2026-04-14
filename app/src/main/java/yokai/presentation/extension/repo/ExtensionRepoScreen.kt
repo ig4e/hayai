@@ -1,14 +1,20 @@
 package yokai.presentation.extension.repo
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExtensionOff
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,7 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.stringResource as androidStringResource
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import dev.icerock.moko.resources.compose.stringResource
@@ -56,96 +62,91 @@ class ExtensionRepoScreen(
         val alertDialog = LocalDialogHostState.currentOrThrow
 
         val scope = rememberCoroutineScope()
-        val screenModel = rememberScreenModel { ExtensionRepoScreenModel() }
-        val state by screenModel.state.collectAsState()
+        val extensionScreenModel = rememberScreenModel { ExtensionRepoScreenModel() }
+        val novelScreenModel = rememberScreenModel { NovelRepoScreenModel() }
+        val extensionState by extensionScreenModel.state.collectAsState()
+        val novelState by novelScreenModel.state.collectAsState()
 
-        var inputText by remember { mutableStateOf("") }
-        val listState = rememberLazyListState()
+        val pagerState = rememberPagerState(pageCount = { 2 })
 
         YokaiScaffold(
             onNavigationIconClicked = onBackPress,
             title = title,
             appBarType = AppBarType.SMALL,
-            scrollBehavior = enterAlwaysAppBarScrollBehavior(
-                canScroll = { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 },
-            ),
+            scrollBehavior = enterAlwaysAppBarScrollBehavior(),
             actions = {
-                ToolTipButton(
-                    toolTipLabel = stringResource(MR.strings.refresh),
-                    icon = Icons.Outlined.Refresh,
-                    buttonClicked = {
-                        context.toast("Refreshing...")  // TODO: Should be loading animation instead
-                        screenModel.refreshRepos()
-                    },
-                )
+                if (pagerState.currentPage == 0) {
+                    ToolTipButton(
+                        toolTipLabel = stringResource(MR.strings.refresh),
+                        icon = Icons.Outlined.Refresh,
+                        buttonClicked = {
+                            context.toast("Refreshing...")
+                            extensionScreenModel.refreshRepos()
+                        },
+                    )
+                }
             },
         ) { innerPadding ->
-            if (state is ExtensionRepoScreenModel.State.Loading) return@YokaiScaffold
-
-            val repos = (state as ExtensionRepoScreenModel.State.Success).repos
-
-            LazyColumn(
-                modifier = Modifier.padding(innerPadding),
-                userScrollEnabled = true,
-                verticalArrangement = Arrangement.Top,
-                state = listState,
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
             ) {
-                item {
-                    ExtensionRepoInput(
-                        inputText = inputText,
-                        inputHint = stringResource(MR.strings.label_add_repo),
-                        onInputChange = { inputText = it },
-                        onAddClick = { screenModel.addRepo(it) },
+                TabRow(selectedTabIndex = pagerState.currentPage) {
+                    Tab(
+                        selected = pagerState.currentPage == 0,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                        text = { Text(stringResource(MR.strings.extensions)) },
+                    )
+                    Tab(
+                        selected = pagerState.currentPage == 1,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                        text = { Text(stringResource(MR.strings.novels)) },
                     )
                 }
 
-                if (repos.isEmpty()) {
-                    item {
-                        EmptyScreen(
-                            modifier = Modifier.fillParentMaxSize(),
-                            image = Icons.Filled.ExtensionOff,
-                            message = stringResource(MR.strings.information_empty_repos),
-                            isTablet = isTablet(),
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                ) { page ->
+                    when (page) {
+                        0 -> ExtensionRepoTab(
+                            state = extensionState,
+                            screenModel = extensionScreenModel,
+                            alertDialog = alertDialog,
+                            scope = scope,
                         )
-                    }
-                    return@LazyColumn
-                }
-
-                repos.forEach { repo ->
-                    item {
-                        ExtensionRepoItem(
-                            extensionRepo = repo,
-                            onDeleteClick = { repoToDelete ->
-                                scope.launch { alertDialog.awaitExtensionRepoDeletePrompt(repoToDelete, screenModel) }
-                            },
+                        1 -> NovelRepoTab(
+                            state = novelState,
+                            screenModel = novelScreenModel,
+                            alertDialog = alertDialog,
+                            scope = scope,
                         )
                     }
                 }
             }
-
-            alertDialog.value?.invoke()
         }
 
         LaunchedEffect(repoUrl) {
             repoUrl?.let {
-                screenModel.addRepo(repoUrl!!)
+                extensionScreenModel.addRepo(repoUrl!!)
                 repoUrl = null
             }
         }
 
         LaunchedEffect(Unit) {
-            screenModel.event.collectLatest { event ->
+            extensionScreenModel.event.collectLatest { event ->
                 when (event) {
                     is ExtensionRepoEvent.NoOp -> {}
                     is ExtensionRepoEvent.LocalizedMessage -> context.toast(event.stringRes)
-                    is ExtensionRepoEvent.Success -> inputText = ""
+                    is ExtensionRepoEvent.Success -> {}
                     is ExtensionRepoEvent.ShowDialog -> {
                         when(event.dialog) {
                             is RepoDialog.Conflict -> {
                                 alertDialog.awaitExtensionRepoReplacePrompt(
                                     oldRepo = event.dialog.oldRepo,
                                     newRepo = event.dialog.newRepo,
-                                    onMigrate = { screenModel.replaceRepo(event.dialog.newRepo) },
+                                    onMigrate = { extensionScreenModel.replaceRepo(event.dialog.newRepo) },
                                 )
                             }
                         }
@@ -153,42 +154,156 @@ class ExtensionRepoScreen(
                 }
             }
         }
+
+        LaunchedEffect(Unit) {
+            novelScreenModel.event.collectLatest { event ->
+                when (event) {
+                    is ExtensionRepoEvent.NoOp -> {}
+                    is ExtensionRepoEvent.LocalizedMessage -> context.toast(event.stringRes)
+                    is ExtensionRepoEvent.Success -> {}
+                    is ExtensionRepoEvent.ShowDialog -> {}
+                }
+            }
+        }
+
+        alertDialog.value?.invoke()
     }
 
-    private suspend fun DialogHostState.awaitExtensionRepoReplacePrompt(
-        oldRepo: ExtensionRepo,
-        newRepo: ExtensionRepo,
-        onMigrate: () -> Unit,
-    ): Unit = dialog { cont ->
-        AlertDialog(
-            onDismissRequest = { cont.cancel() },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onMigrate()
-                        cont.cancel()
+    @Composable
+    private fun ExtensionRepoTab(
+        state: ExtensionRepoScreenModel.State,
+        screenModel: ExtensionRepoScreenModel,
+        alertDialog: DialogHostState,
+        scope: kotlinx.coroutines.CoroutineScope,
+    ) {
+        if (state is ExtensionRepoScreenModel.State.Loading) return
+
+        val repos = (state as ExtensionRepoScreenModel.State.Success).repos
+        var inputText by remember { mutableStateOf("") }
+        val listState = rememberLazyListState()
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = true,
+            verticalArrangement = Arrangement.Top,
+            state = listState,
+        ) {
+            item {
+                ExtensionRepoInput(
+                    inputText = inputText,
+                    inputHint = stringResource(MR.strings.label_add_repo),
+                    onInputChange = { inputText = it },
+                    onAddClick = {
+                        screenModel.addRepo(it)
+                        inputText = ""
                     },
-                ) {
-                    Text(text = stringResource(MR.strings.action_replace_repo))
+                )
+            }
+
+            if (repos.isEmpty()) {
+                item {
+                    EmptyScreen(
+                        modifier = Modifier.fillParentMaxSize(),
+                        image = Icons.Filled.ExtensionOff,
+                        message = stringResource(MR.strings.information_empty_repos),
+                        isTablet = isTablet(),
+                    )
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { cont.cancel() }) {
-                    Text(text = stringResource(AR.string.cancel))
+                return@LazyColumn
+            }
+
+            repos.forEach { repo ->
+                item {
+                    ExtensionRepoItem(
+                        extensionRepo = repo,
+                        onDeleteClick = { repoToDelete ->
+                            scope.launch { alertDialog.awaitRepoDeletePrompt(repoToDelete) { screenModel.deleteRepo(it) } }
+                        },
+                    )
                 }
-            },
-            title = {
-                Text(text = stringResource(MR.strings.action_replace_repo_title))
-            },
-            text = {
-                Text(text = stringResource(MR.strings.action_replace_repo_message, newRepo.name, oldRepo.name))
-            },
+            }
+        }
+    }
+
+    @Composable
+    private fun NovelRepoTab(
+        state: NovelRepoScreenModel.State,
+        screenModel: NovelRepoScreenModel,
+        alertDialog: DialogHostState,
+        scope: kotlinx.coroutines.CoroutineScope,
+    ) {
+        if (state is NovelRepoScreenModel.State.Loading) return
+
+        val repos = (state as NovelRepoScreenModel.State.Success).repos
+        var inputText by remember { mutableStateOf("") }
+        val listState = rememberLazyListState()
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = true,
+            verticalArrangement = Arrangement.Top,
+            state = listState,
+        ) {
+            item {
+                ExtensionRepoInput(
+                    inputText = inputText,
+                    inputHint = stringResource(MR.strings.label_add_repo),
+                    onInputChange = { inputText = it },
+                    onAddClick = {
+                        screenModel.addRepo(it)
+                        inputText = ""
+                    },
+                )
+            }
+
+            if (repos.isEmpty()) {
+                item {
+                    EmptyScreen(
+                        modifier = Modifier.fillParentMaxSize(),
+                        image = Icons.Filled.ExtensionOff,
+                        message = stringResource(MR.strings.information_empty_repos),
+                        isTablet = isTablet(),
+                    )
+                }
+                return@LazyColumn
+            }
+
+            repos.forEach { repo ->
+                item {
+                    NovelRepoItem(
+                        name = repo.name,
+                        baseUrl = repo.baseUrl,
+                        onDeleteClick = { repoToDelete ->
+                            scope.launch { alertDialog.awaitRepoDeletePrompt(repoToDelete) { screenModel.deleteRepo(it) } }
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun NovelRepoItem(
+        name: String,
+        baseUrl: String,
+        onDeleteClick: (String) -> Unit,
+    ) {
+        // Reuse the same layout as ExtensionRepoItem but with NovelRepo data
+        ExtensionRepoItem(
+            extensionRepo = ExtensionRepo(
+                baseUrl = baseUrl,
+                name = name,
+                shortName = null,
+                website = "",
+                signingKeyFingerprint = "",
+            ),
+            onDeleteClick = onDeleteClick,
         )
     }
 
-    private suspend fun DialogHostState.awaitExtensionRepoDeletePrompt(
+    private suspend fun DialogHostState.awaitRepoDeletePrompt(
         repoToDelete: String,
-        screenModel: ExtensionRepoScreenModel,
+        onDelete: (String) -> Unit,
     ): Unit = dialog { cont ->
         AlertDialog(
             containerColor = MaterialTheme.colorScheme.surface,
@@ -212,7 +327,7 @@ class ExtensionRepoScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        screenModel.deleteRepo(repoToDelete)
+                        onDelete(repoToDelete)
                         cont.cancel()
                     }
                 ) {
@@ -231,6 +346,37 @@ class ExtensionRepoScreen(
                         fontSize = 14.sp,
                     )
                 }
+            },
+        )
+    }
+
+    private suspend fun DialogHostState.awaitExtensionRepoReplacePrompt(
+        oldRepo: ExtensionRepo,
+        newRepo: ExtensionRepo,
+        onMigrate: () -> Unit,
+    ): Unit = dialog { cont ->
+        AlertDialog(
+            onDismissRequest = { cont.cancel() },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onMigrate()
+                        cont.cancel()
+                    },
+                ) {
+                    Text(text = stringResource(MR.strings.action_replace_repo))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { cont.cancel() }) {
+                    Text(text = androidStringResource(AR.string.cancel))
+                }
+            },
+            title = {
+                Text(text = stringResource(MR.strings.action_replace_repo_title))
+            },
+            text = {
+                Text(text = stringResource(MR.strings.action_replace_repo_message, newRepo.name, oldRepo.name))
             },
         )
     }

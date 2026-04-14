@@ -89,13 +89,16 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
 
     val adapters
         // NOVEL -->
-        get() = listOf(extAdapter, migAdapter, novelPluginAdapter)
+        get() = listOf(extAdapter, novelPluginAdapter, migAdapter)
         // NOVEL <--
 
     val presenter = ExtensionBottomPresenter()
     var currentSourceTitle: String? = null
 
     private var extensions: List<ExtensionItem> = emptyList()
+    // NOVEL -->
+    private var novelPlugins: List<NovelPluginItem> = emptyList()
+    // NOVEL <--
     var canExpand = false
     private lateinit var binding: ExtensionsBottomSheetBinding
 
@@ -104,12 +107,12 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
 
     val extensionFrameLayout: RecyclerWithScrollerView?
         get() = binding.pager.findViewWithTag("TabbedRecycler0") as? RecyclerWithScrollerView
-    val migrationFrameLayout: RecyclerWithScrollerView?
-        get() = binding.pager.findViewWithTag("TabbedRecycler1") as? RecyclerWithScrollerView
     // NOVEL -->
     val novelPluginFrameLayout: RecyclerWithScrollerView?
-        get() = binding.pager.findViewWithTag("TabbedRecycler2") as? RecyclerWithScrollerView
+        get() = binding.pager.findViewWithTag("TabbedRecycler1") as? RecyclerWithScrollerView
     // NOVEL <--
+    val migrationFrameLayout: RecyclerWithScrollerView?
+        get() = binding.pager.findViewWithTag("TabbedRecycler2") as? RecyclerWithScrollerView
 
     var isExpanding = false
 
@@ -160,7 +163,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                     getFrameLayoutForTab(tab?.position)?.binding?.recycler?.requestLayout()
                     sheetBehavior?.isDraggable = true
                     // NOVEL -->
-                    if (tab?.position == 2) {
+                    if (tab?.position == 1) {
                         presenter.refreshNovelPlugins()
                     }
                     // NOVEL <--
@@ -168,7 +171,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
 
                 override fun onTabUnselected(tab: TabLayout.Tab?) {
                     getFrameLayoutForTab(tab?.position)?.binding?.recycler?.isNestedScrollingEnabled = false
-                    if (tab?.position == 1) {
+                    if (tab?.position == 2) {
                         presenter.deselectSource()
                     }
                 }
@@ -203,7 +206,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     }
 
     fun updatedNestedRecyclers() {
-        listOf(extensionFrameLayout, migrationFrameLayout).forEachIndexed { index, recyclerWithScrollerBinding ->
+        listOf(extensionFrameLayout, novelPluginFrameLayout, migrationFrameLayout).forEachIndexed { index, recyclerWithScrollerBinding ->
             recyclerWithScrollerBinding?.binding?.recycler?.isNestedScrollingEnabled = binding.pager.currentItem == index
         }
     }
@@ -306,7 +309,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                     openTrustDialog(extension)
                 }
             }
-            else -> {
+            2 -> {
                 val item = migAdapter?.getItem(position) ?: return false
 
                 if (item is MangaItem) {
@@ -407,15 +410,18 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
         }
         updateExtTitle()
         updateExtUpdateAllButton()
+        // NOVEL -->
+        drawNovelPlugins()
+        // NOVEL <--
     }
 
     fun canStillGoBack(): Boolean {
-        return (binding.tabs.selectedTabPosition == 1 && migAdapter is MangaAdapter) ||
-            (binding.tabs.selectedTabPosition == 0 && binding.sheetToolbar.hasExpandedActionView())
+        return (binding.tabs.selectedTabPosition == 2 && migAdapter is MangaAdapter) ||
+            (binding.tabs.selectedTabPosition in 0..1 && binding.sheetToolbar.hasExpandedActionView())
     }
 
     fun canGoBack(): Boolean {
-        return if (binding.tabs.selectedTabPosition == 1 && migAdapter is MangaAdapter) {
+        return if (binding.tabs.selectedTabPosition == 2 && migAdapter is MangaAdapter) {
             presenter.deselectSource()
             false
         } else if (binding.sheetToolbar.hasExpandedActionView()) {
@@ -477,19 +483,32 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     private fun getFrameLayoutForTab(position: Int?): RecyclerWithScrollerView? {
         return when (position) {
             0 -> extensionFrameLayout
-            1 -> migrationFrameLayout
-            2 -> novelPluginFrameLayout
+            1 -> novelPluginFrameLayout
+            2 -> migrationFrameLayout
             else -> null
         }
     }
 
     fun setNovelPlugins(items: List<NovelPluginItem>) {
-        novelPluginAdapter?.updateDataSet(items)
+        novelPlugins = items
+        drawNovelPlugins()
+    }
+
+    private fun drawNovelPlugins() {
+        if (controller.extQuery.isNotBlank()) {
+            novelPluginAdapter?.updateDataSet(
+                novelPlugins.filter {
+                    it.plugin.name.contains(controller.extQuery, ignoreCase = true)
+                },
+            )
+        } else {
+            novelPluginAdapter?.updateDataSet(novelPlugins)
+        }
     }
 
     override fun onNovelPluginButtonClick(position: Int) {
         val item = (novelPluginAdapter?.getItem(position) as? NovelPluginItem) ?: return
-        if (!item.isInstalled) {
+        if (!item.isInstalled || item.hasUpdate) {
             presenter.installNovelPlugin(item.plugin)
         }
     }
@@ -507,7 +526,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
             return when (position) {
                 0 -> context.getString(MR.strings.extensions)
                 // NOVEL -->
-                2 -> context.getString(MR.strings.novels)
+                1 -> context.getString(MR.strings.novels)
                 // NOVEL <--
                 else -> context.getString(MR.strings.migration)
             }

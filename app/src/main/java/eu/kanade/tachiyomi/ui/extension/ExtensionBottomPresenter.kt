@@ -313,17 +313,54 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
     }
 
     private fun toNovelPluginItems(available: List<NovelPluginIndex>): List<NovelPluginItem> {
+        val context = view?.context ?: return emptyList()
+        val activeLangs = preferences.enabledLanguages().get()
         val items = mutableListOf<NovelPluginItem>()
 
-        // Group by language
-        val byLang = available.groupBy { it.lang }.toSortedMap()
+        // Separate installed (with updates) from available
+        val installedPlugins = available.filter { novelPluginManager.isInstalled(it.id) }
+        val installedWithUpdates = installedPlugins.filter {
+            val installedVersion = novelPluginManager.getInstalledVersion(it.id)
+            installedVersion != null && installedVersion != it.version
+        }.sortedBy { it.name }
+        val installedUpToDate = installedPlugins.filter {
+            val installedVersion = novelPluginManager.getInstalledVersion(it.id)
+            installedVersion == null || installedVersion == it.version
+        }.sortedBy { it.name }
 
-        for ((lang, plugins) in byLang) {
-            val header = NovelPluginGroupItem(lang.ifBlank { "Other" }, plugins.size)
-            plugins.sortedBy { it.name }.forEach { plugin ->
-                val installed = novelPluginManager.isInstalled(plugin.id)
-                val installedVersion = novelPluginManager.getInstalledVersion(plugin.id)
-                items.add(NovelPluginItem(plugin, header, installed, installedVersion))
+        // Filter available by enabled languages
+        val availablePlugins = available.filter { plugin ->
+            !novelPluginManager.isInstalled(plugin.id) &&
+                NovelPluginManager.langFromLnReaderLang(plugin.lang) in activeLangs
+        }.sortedBy { it.name }
+
+        // Updates section
+        if (installedWithUpdates.isNotEmpty()) {
+            val header = NovelPluginGroupItem(
+                context.getString(MR.plurals._updates_pending, installedWithUpdates.size, installedWithUpdates.size),
+                installedWithUpdates.size,
+            )
+            installedWithUpdates.forEach { plugin ->
+                items.add(NovelPluginItem(plugin, header, true, novelPluginManager.getInstalledVersion(plugin.id)))
+            }
+        }
+
+        // Installed section
+        if (installedUpToDate.isNotEmpty()) {
+            val header = NovelPluginGroupItem(context.getString(MR.strings.installed), installedUpToDate.size)
+            installedUpToDate.forEach { plugin ->
+                items.add(NovelPluginItem(plugin, header, true, novelPluginManager.getInstalledVersion(plugin.id)))
+            }
+        }
+
+        // Available, grouped by language
+        if (availablePlugins.isNotEmpty()) {
+            val byLang = availablePlugins.groupBy { it.lang.ifBlank { "Other" } }.toSortedMap()
+            for ((lang, plugins) in byLang) {
+                val header = NovelPluginGroupItem(lang, plugins.size)
+                plugins.forEach { plugin ->
+                    items.add(NovelPluginItem(plugin, header, false, null))
+                }
             }
         }
 

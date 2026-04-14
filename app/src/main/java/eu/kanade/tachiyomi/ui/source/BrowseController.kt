@@ -292,22 +292,26 @@ class BrowseController :
     }
 
     private fun updateSheetMenu() {
+        val tabPosition = binding.bottomSheet.tabs.selectedTabPosition
+        val onMigrationTab = tabPosition == 2
         binding.bottomSheet.sheetToolbar.title =
-            if (binding.bottomSheet.tabs.selectedTabPosition != 0) {
+            if (onMigrationTab) {
                 binding.bottomSheet.root.currentSourceTitle
                     ?: view?.context?.getString(MR.strings.source_migration)
+            } else if (tabPosition == 1) {
+                view?.context?.getString(MR.strings.novels)
             } else {
                 view?.context?.getString(MR.strings.extensions)
             }
-        val onExtensionTab = binding.bottomSheet.tabs.selectedTabPosition == 0
-        if (binding.bottomSheet.sheetToolbar.menu.findItem(if (onExtensionTab) R.id.action_search else R.id.action_migration_guide) != null) {
+        val onExtensionOrNovelTab = tabPosition == 0 || tabPosition == 1
+        if (binding.bottomSheet.sheetToolbar.menu.findItem(if (onExtensionOrNovelTab) R.id.action_search else R.id.action_migration_guide) != null) {
             return
         }
         val oldSearchView = binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.actionView as? SearchView
         oldSearchView?.setOnQueryTextListener(null)
         binding.bottomSheet.sheetToolbar.menu.clear()
         binding.bottomSheet.sheetToolbar.inflateMenu(
-            if (binding.bottomSheet.tabs.selectedTabPosition == 0) {
+            if (onExtensionOrNovelTab) {
                 R.menu.extension_main
             } else {
                 R.menu.migration_main
@@ -538,6 +542,9 @@ class BrowseController :
         if (!type.isPush) {
             binding.bottomSheet.root.updateExtTitle()
             binding.bottomSheet.root.presenter.refreshExtensions()
+            // NOVEL -->
+            binding.bottomSheet.root.presenter.refreshNovelPlugins()
+            // NOVEL <--
             presenter.updateSources()
             if (type.isEnter && isControllerVisible) {
                 activityBinding?.appBar?.doOnNextLayout {

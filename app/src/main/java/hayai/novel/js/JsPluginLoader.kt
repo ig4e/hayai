@@ -2,6 +2,8 @@ package hayai.novel.js
 
 import android.content.Context
 import co.touchlab.kermit.Logger
+import com.dokar.quickjs.QuickJs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -34,67 +36,111 @@ class JsPluginLoader(
      * @param pluginCode Raw JavaScript source of the plugin
      * @return PluginMetadata if valid, null if plugin fails to load
      */
-    fun extractMetadata(pluginCode: String): PluginMetadata? {
+    suspend fun extractMetadata(pluginCode: String): PluginMetadata? {
         val bridge = NoopJsBridge()
-        val runtime = NovelJsRuntime(context, bridge, "__metadata_extract__")
 
         return try {
-            // Use a blocking init since this is for validation only
-            runtime.run {
-                // Initialize manually in a simpler way for metadata extraction
-                val qjs = app.cash.quickjs.QuickJs.create()
-                try {
-                    qjs.set("__bridge", NovelJsBridge::class.java, bridge)
-
-                    // Load minimal shims needed for plugin instantiation
-                    evaluateAssetSync(qjs, "novel/shims/constants.js")
-                    evaluateAssetSync(qjs, "novel/shims/storage_shim.js")
-                    evaluateAssetSync(qjs, "novel/runtime/cheerio.min.js")
-                    evaluateAssetSync(qjs, "novel/runtime/dayjs.min.js")
-                    evaluateAssetSync(qjs, "novel/runtime/urlencode.min.js")
-                    evaluateAssetSync(qjs, "novel/runtime/noble-ciphers-aes.min.js")
-
-                    qjs.evaluate("var __userAgent = '';")
-                    evaluateAssetSync(qjs, "novel/shims/fetch_bridge.js")
-
-                    qjs.evaluate("var __pluginId = '__metadata_extract__';")
-                    evaluateAssetSync(qjs, "novel/shims/require_impl.js")
-
-                    // Load plugin
-                    val wrappedCode = """
-                        var __plugin = (function() {
-                            var module = {};
-                            var exports = module.exports = {};
-                            $pluginCode;
-                            return exports.default || module.exports.default || module.exports;
-                        })();
-                    """.trimIndent()
-                    qjs.evaluate(wrappedCode, "plugin.js")
-
-                    // Extract metadata
-                    val metadataJson = qjs.evaluate("""
-                        JSON.stringify({
-                            id: __plugin.id || '',
-                            name: __plugin.name || '',
-                            version: __plugin.version || '',
-                            site: __plugin.site || '',
-                            icon: __plugin.icon || null,
-                            hasFilters: !!__plugin.filters,
-                            hasResolveUrl: typeof __plugin.resolveUrl === 'function',
-                            supportsPagePlugin: typeof __plugin.parsePage === 'function'
-                        })
-                    """.trimIndent())
-
-                    val result = json.decodeFromString<PluginMetadata>(metadataJson.toString())
-                    if (result.id.isBlank() || result.name.isBlank()) {
-                        Logger.w { "JsPluginLoader: Plugin has empty id or name" }
-                        null
-                    } else {
-                        result
+            val qjs = QuickJs.create(Dispatchers.IO)
+            try {
+                // Register no-op bridge
+                qjs.define("__bridge") {
+                    function("fetch") { args ->
+                        bridge.fetch(args[0] as String, args[1] as String)
                     }
-                } finally {
-                    qjs.close()
+                    function("fetchText") { args ->
+                        bridge.fetchText(args[0] as String, args[1] as String, args[2] as String)
+                    }
+                    function("fetchFile") { args ->
+                        bridge.fetchFile(args[0] as String, args[1] as String)
+                    }
+                    function("fetchProto") { args ->
+                        bridge.fetchProto(args[0] as String, args[1] as String, args[2] as String)
+                    }
+                    function("storageGet") { args ->
+                        bridge.storageGet(args[0] as String, args[1] as String)
+                    }
+                    function("storageSet") { args ->
+                        bridge.storageSet(args[0] as String, args[1] as String, args[2] as String)
+                        Unit
+                    }
+                    function("storageDelete") { args ->
+                        bridge.storageDelete(args[0] as String, args[1] as String)
+                        Unit
+                    }
+                    function("storageGetAllKeys") { args ->
+                        bridge.storageGetAllKeys(args[0] as String)
+                    }
+                    function("storageClearAll") { args ->
+                        bridge.storageClearAll(args[0] as String)
+                        Unit
+                    }
                 }
+
+                // Load minimal shims needed for plugin instantiation
+                evaluateAsset(qjs, "novel/shims/constants.js")
+                evaluateAsset(qjs, "novel/shims/storage_shim.js")
+
+                // Pre-require stub: urlencode.min.js needs require("iconv-lite")
+                qjs.evaluate<Any?>("""
+                    if (typeof require === 'undefined') {
+                        var require = function(name) {
+                            if (name === 'iconv-lite') {
+                                return {
+                                    decode: function(buf, enc) { return typeof buf === 'string' ? buf : String(buf); },
+                                    encode: function(str, enc) { return str; },
+                                    encodingExists: function(enc) { return true; }
+                                };
+                            }
+                            throw new Error('Module not found: ' + name);
+                        };
+                    }
+                """.trimIndent(), filename = "pre_require_stub.js")
+
+                evaluateAsset(qjs, "novel/runtime/cheerio.min.js")
+                evaluateAsset(qjs, "novel/runtime/dayjs.min.js")
+                evaluateAsset(qjs, "novel/runtime/urlencode.min.js")
+                evaluateAsset(qjs, "novel/runtime/noble-ciphers-aes.min.js")
+
+                qjs.evaluate<Any?>("var __userAgent = '';")
+                evaluateAsset(qjs, "novel/shims/fetch_bridge.js")
+
+                qjs.evaluate<Any?>("var __pluginId = '__metadata_extract__';")
+                evaluateAsset(qjs, "novel/shims/require_impl.js")
+
+                // Load plugin
+                val wrappedCode = """
+                    var __plugin = (function() {
+                        var module = {};
+                        var exports = module.exports = {};
+                        $pluginCode;
+                        return exports.default || module.exports.default || module.exports;
+                    })();
+                """.trimIndent()
+                qjs.evaluate<Any?>(wrappedCode, filename = "plugin.js")
+
+                // Extract metadata
+                val metadataJson = qjs.evaluate<Any?>("""
+                    JSON.stringify({
+                        id: __plugin.id || '',
+                        name: __plugin.name || '',
+                        version: __plugin.version || '',
+                        site: __plugin.site || '',
+                        icon: __plugin.icon || null,
+                        hasFilters: !!__plugin.filters,
+                        hasResolveUrl: typeof __plugin.resolveUrl === 'function',
+                        supportsPagePlugin: typeof __plugin.parsePage === 'function'
+                    })
+                """.trimIndent())
+
+                val result = json.decodeFromString<PluginMetadata>(metadataJson.toString())
+                if (result.id.isBlank() || result.name.isBlank()) {
+                    Logger.w { "JsPluginLoader: Plugin has empty id or name" }
+                    null
+                } else {
+                    result
+                }
+            } finally {
+                qjs.close()
             }
         } catch (e: Exception) {
             Logger.e(e) { "JsPluginLoader: Failed to extract metadata" }
@@ -102,9 +148,9 @@ class JsPluginLoader(
         }
     }
 
-    private fun evaluateAssetSync(qjs: app.cash.quickjs.QuickJs, assetPath: String) {
+    private suspend fun evaluateAsset(qjs: QuickJs, assetPath: String) {
         val code = context.assets.open(assetPath).bufferedReader().use { it.readText() }
-        qjs.evaluate(code, assetPath)
+        qjs.evaluate<Any?>(code, filename = assetPath)
     }
 
     /**

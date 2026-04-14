@@ -82,6 +82,7 @@ class NovelSource(
     override suspend fun getPopularManga(page: Int): MangasPage {
         val rt = ensureRuntime()
         val resultJson = rt.callMethod("popularNovels", "$page, {showLatestNovels: false, filters: undefined}")
+        Logger.d { "NovelSource($pluginId): popularNovels result (first 500 chars): ${resultJson.take(500)}" }
         return parseNovelItems(resultJson)
     }
 

@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.source
 import android.content.res.ColorStateList
 import android.view.View
 import androidx.core.view.isVisible
+import coil3.load
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -14,6 +15,9 @@ import eu.kanade.tachiyomi.source.includeLangInName
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.compatToolTipText
+// NOVEL -->
+import hayai.novel.source.NovelSource
+// NOVEL <--
 import android.R as AR
 
 class SourceHolder(view: View, val adapter: SourceAdapter) :
@@ -67,6 +71,12 @@ class SourceHolder(view: View, val adapter: SourceAdapter) :
             when {
                 icon != null -> binding.sourceImage.setImageDrawable(icon)
                 item.source.id == LocalSource.ID -> binding.sourceImage.setImageResource(R.mipmap.ic_local_source)
+                // NOVEL -->
+                source is NovelSource && !source.iconUrl.isNullOrBlank() -> {
+                    binding.sourceImage.load(source.iconUrl)
+                }
+                source is NovelSource -> binding.sourceImage.setImageResource(R.drawable.ic_book_24dp)
+                // NOVEL <--
             }
         }
 
