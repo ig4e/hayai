@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,14 +23,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil3.ImageLoader
 import coil3.compose.AsyncImage
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.source.getMainSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
@@ -40,7 +44,10 @@ import yokai.domain.manga.interactor.GetManga
 private sealed class PreviewState {
     data object Loading : PreviewState()
     data object Unavailable : PreviewState()
-    data class Success(val previews: List<PagePreviewInfo>) : PreviewState()
+    data class Success(
+        val previews: List<PagePreviewInfo>,
+        val sourceClient: OkHttpClient? = null,
+    ) : PreviewState()
 }
 
 @Composable
@@ -70,13 +77,14 @@ fun PagePreviewInlineSection(
                 val previewSource = source.getMainSource<PagePreviewSource>() ?: run {
                     state = PreviewState.Unavailable; return@withContext
                 }
+                val httpClient = (previewSource as? HttpSource)?.client
                 val previewPage = previewSource.getPagePreviewList(
                     manga,
                     chapters.sortedByDescending { it.source_order },
                     page = 1,
                 )
                 state = if (previewPage.pagePreviews.isNotEmpty()) {
-                    PreviewState.Success(previewPage.pagePreviews)
+                    PreviewState.Success(previewPage.pagePreviews, httpClient)
                 } else {
                     PreviewState.Unavailable
                 }
@@ -96,6 +104,15 @@ fun PagePreviewInlineSection(
         }
         PreviewState.Unavailable -> { /* Don't show anything */ }
         is PreviewState.Success -> {
+            val context = LocalContext.current
+            val imageLoader = remember(s.sourceClient) {
+                val clientLazy = lazy { s.sourceClient ?: okhttp3.OkHttpClient() }
+                ImageLoader.Builder(context)
+                    .components {
+                        add(OkHttpNetworkFetcherFactory(clientLazy::value))
+                    }
+                    .build()
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -114,6 +131,7 @@ fun PagePreviewInlineSection(
                             AsyncImage(
                                 model = preview.imageUrl,
                                 contentDescription = "Page ${preview.index}",
+                                imageLoader = imageLoader,
                                 modifier = Modifier
                                     .height(112.dp)
                                     .width(80.dp)
@@ -123,6 +141,7 @@ fun PagePreviewInlineSection(
                             Text(
                                 text = preview.index.toString(),
                                 style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
                     }

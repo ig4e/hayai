@@ -63,6 +63,8 @@ class MetadataHeaderHolder(
                 when (meta) {
                     is EHentaiSearchMetadata -> EHentaiDescription(
                         meta = meta,
+                        sourceId = sourceId,
+                        isExpanded = true,
                         openMetadataViewer = {
                             openMetadataViewer(mangaId, sourceId)
                         },

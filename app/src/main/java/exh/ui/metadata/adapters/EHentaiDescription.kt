@@ -28,6 +28,8 @@ import exh.metadata.MetadataUtil
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.ui.metadata.GenreChip
 import exh.ui.metadata.MetadataUIUtil
+import exh.ui.metadata.NamespaceTags
+import exh.ui.metadata.SearchMetadataChips
 import exh.ui.metadata.getRatingColor
 import java.text.DateFormat
 import java.text.NumberFormat
@@ -37,6 +39,8 @@ import java.util.Date
 @Composable
 fun EHentaiDescription(
     meta: EHentaiSearchMetadata,
+    sourceId: Long,
+    isExpanded: Boolean,
     openMetadataViewer: () -> Unit,
     onSearch: (String) -> Unit,
 ) {
@@ -140,6 +144,16 @@ fun EHentaiDescription(
                     StatItem(it)
                 }
             }
+        }
+
+        // Namespace-grouped tags
+        val chips = SearchMetadataChips(meta, sourceId, null)
+        if (chips != null) {
+            NamespaceTags(
+                tags = chips,
+                isExpanded = isExpanded,
+                onClick = onSearch,
+            )
         }
     }
 }

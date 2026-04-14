@@ -110,6 +110,8 @@ fun MangaMetadataSection(
         is EHentaiSearchMetadata -> {
             EHentaiDescription(
                 meta = meta,
+                sourceId = sourceId,
+                isExpanded = isExpanded,
                 openMetadataViewer = openMetadataViewer,
                 onSearch = onSearch,
             )

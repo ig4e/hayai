@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
@@ -50,6 +51,7 @@ import kotlin.math.roundToInt
 @Composable
 fun PagePreviewContent(
     state: PagePreviewState,
+    imageLoader: ImageLoader? = null,
     pageDialogOpen: Boolean,
     onPageSelected: (Int) -> Unit,
     onOpenPage: (Int) -> Unit,
@@ -131,6 +133,7 @@ fun PagePreviewContent(
                                     PagePreviewItem(
                                         modifier = Modifier.weight(1F),
                                         page = page,
+                                        imageLoader = imageLoader,
                                         onOpenPage = onOpenPage,
                                     )
                                 }
@@ -160,6 +163,7 @@ fun PagePreviewContent(
 private fun PagePreviewItem(
     modifier: Modifier,
     page: PagePreviewInfo,
+    imageLoader: ImageLoader? = null,
     onOpenPage: (Int) -> Unit,
 ) {
     Column(
@@ -169,18 +173,32 @@ private fun PagePreviewItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        AsyncImage(
-            model = page.imageUrl,
-            contentDescription = stringResource(MR.strings.page_preview_image, page.index),
-            modifier = Modifier
-                .height(200.dp)
-                .width(120.dp)
-                .clip(MaterialTheme.shapes.small),
-            contentScale = ContentScale.FillWidth,
-        )
+        if (imageLoader != null) {
+            AsyncImage(
+                model = page.imageUrl,
+                contentDescription = stringResource(MR.strings.page_preview_image, page.index),
+                imageLoader = imageLoader,
+                modifier = Modifier
+                    .height(200.dp)
+                    .width(120.dp)
+                    .clip(MaterialTheme.shapes.small),
+                contentScale = ContentScale.FillWidth,
+            )
+        } else {
+            AsyncImage(
+                model = page.imageUrl,
+                contentDescription = stringResource(MR.strings.page_preview_image, page.index),
+                modifier = Modifier
+                    .height(200.dp)
+                    .width(120.dp)
+                    .clip(MaterialTheme.shapes.small),
+                contentScale = ContentScale.FillWidth,
+            )
+        }
         Text(
             text = page.index.toString(),
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

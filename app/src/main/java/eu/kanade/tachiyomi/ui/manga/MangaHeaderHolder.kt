@@ -75,6 +75,8 @@ import androidx.compose.ui.unit.dp
 import yokai.i18n.MR
 import yokai.util.coil.loadManga
 import yokai.util.lang.getString
+import exh.source.EH_SOURCE_ID
+import exh.source.EXH_SOURCE_ID
 import android.R as AR
 
 @SuppressLint("ClickableViewAccessibility")
@@ -533,6 +535,11 @@ class MangaHeaderHolder(
     }
 
     private fun setGenreTags(binding: MangaHeaderItemBinding, manga: Manga) {
+        // EH/EXH sources show namespace-grouped tags in metadata section instead
+        if (manga.source == EH_SOURCE_ID || manga.source == EXH_SOURCE_ID) {
+            binding.mangaGenresTags.isVisible = false
+            return
+        }
         val genres = if (manga.genre.isNullOrBlank()) emptyList() else (manga.getGenres() ?: emptyList())
         val delegate = adapter.delegate
         val context = binding.root.context

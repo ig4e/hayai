@@ -4,8 +4,12 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import coil3.ImageLoader
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
@@ -20,8 +24,24 @@ class PagePreviewScreen(private val mangaId: Long) : Screen() {
         val context = LocalContext.current
         val state by screenModel.state.collectAsState()
         val onBackPress = LocalBackPress.currentOrThrow
+
+        val imageLoader = remember(state) {
+            val sourceClient = ((state as? PagePreviewState.Success)?.source as? HttpSource)?.client
+            if (sourceClient != null) {
+                val clientLazy = lazy { sourceClient }
+                ImageLoader.Builder(context)
+                    .components {
+                        add(OkHttpNetworkFetcherFactory(clientLazy::value))
+                    }
+                    .build()
+            } else {
+                null
+            }
+        }
+
         PagePreviewContent(
             state = state,
+            imageLoader = imageLoader,
             pageDialogOpen = screenModel.pageDialogOpen,
             onPageSelected = screenModel::moveToPage,
             onOpenPage = { openPage(context, state, it) },

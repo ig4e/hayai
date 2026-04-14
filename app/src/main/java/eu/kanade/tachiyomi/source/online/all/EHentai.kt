@@ -473,7 +473,8 @@ class EHentai(
     }
 
     override fun popularMangaRequest(page: Int): Request {
-        return exGet("$baseUrl/popular", page)
+        // /popular has no pagination, use main page with cursor-based ?next= instead
+        return exGet(baseUrl, page)
     }
 
     private fun <T : MangasPage> Observable<T>.checkValid(): Observable<MangasPage> = map {
