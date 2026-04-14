@@ -1,0 +1,13 @@
+CREATE TABLE novel_repos (
+    base_url TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+findAll:
+SELECT * FROM novel_repos ORDER BY name;
+
+insert:
+INSERT OR REPLACE INTO novel_repos(base_url, name) VALUES (?, ?);
+
+deleteByUrl:
+DELETE FROM novel_repos WHERE base_url = ?;

@@ -1666,4 +1666,27 @@
     <string name="rec_source_mangaupdates_community">MangaUpdates Community</string>
     <string name="rec_source_mangaupdates_similar">MangaUpdates Similar</string>
     <string name="rec_source_mangadex_similar">MangaDex Similar</string>
+
+    <!-- NOVEL -->
+    <string name="novels">Novels</string>
+    <string name="novel_reader">Novel</string>
+    <string name="novel_plugins">Novel Plugins</string>
+    <string name="novel_font_size">Font size</string>
+    <string name="novel_font_family">Font family</string>
+    <string name="novel_line_height">Line height</string>
+    <string name="novel_text_align">Text alignment</string>
+    <string name="novel_padding">Padding</string>
+    <string name="novel_reader_theme">Reader theme</string>
+    <string name="novel_theme_dark">Dark</string>
+    <string name="novel_theme_light">Light</string>
+    <string name="novel_theme_sepia">Sepia</string>
+    <string name="novel_theme_amoled">AMOLED</string>
+    <string name="novel_theme_cool">Cool</string>
+    <string name="font_serif">Serif</string>
+    <string name="font_sans_serif">Sans Serif</string>
+    <string name="font_monospace">Monospace</string>
+    <string name="font_system_default">System Default</string>
+    <string name="align_start">Start</string>
+    <string name="align_center">Center</string>
+    <string name="align_justify">Justify</string>
 </resources>

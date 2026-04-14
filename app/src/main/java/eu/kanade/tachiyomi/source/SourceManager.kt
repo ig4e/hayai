@@ -20,6 +20,10 @@ import exh.source.EnhancedHttpSource
 import exh.source.ExhPreferences
 import exh.source.MERGED_SOURCE_ID
 // EXH <--
+// NOVEL -->
+import hayai.novel.plugin.NovelPluginManager
+import hayai.novel.source.TextSource
+// NOVEL <--
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineScope
@@ -53,6 +57,10 @@ class SourceManager(
     // EXH -->
     private val exhPreferences: ExhPreferences by injectLazy()
     // EXH <--
+
+    // NOVEL -->
+    private val novelPluginManager: NovelPluginManager by injectLazy()
+    // NOVEL <--
 
     // FIXME: Delegated source, unused at the moment, J2K only delegate deep links
     private val delegatedSources = emptyList<DelegatedSource>().associateBy { it.sourceId }
@@ -93,6 +101,19 @@ class SourceManager(
                     sourcesMapFlow.value = mutableMap
                 }
         }
+
+        // NOVEL -->
+        scope.launch {
+            novelPluginManager.installedSourcesFlow.collectLatest { novelSources ->
+                val currentMap = ConcurrentHashMap(sourcesMapFlow.value)
+                // Remove old novel sources
+                currentMap.entries.removeIf { it.value is TextSource }
+                // Add current novel sources
+                novelSources.forEach { currentMap[it.id] = it }
+                sourcesMapFlow.value = currentMap
+            }
+        }
+        // NOVEL <--
     }
 
     fun get(sourceKey: Long): Source? {

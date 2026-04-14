@@ -426,4 +426,13 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     fun coverColors() = preferenceStore.getStringSet(Keys.coverColors, emptySet())
 
     fun useStaggeredGrid() = preferenceStore.getBoolean("use_staggered_grid", false)
+
+    // NOVEL -->
+    fun novelFontSize() = preferenceStore.getInt(Keys.novelFontSize, 18)
+    fun novelFontFamily() = preferenceStore.getInt(Keys.novelFontFamily, 0)
+    fun novelLineHeight() = preferenceStore.getInt(Keys.novelLineHeight, 18)
+    fun novelTextAlign() = preferenceStore.getInt(Keys.novelTextAlign, 0)
+    fun novelPadding() = preferenceStore.getInt(Keys.novelPadding, 16)
+    fun novelReaderTheme() = preferenceStore.getInt(Keys.novelReaderTheme, 0)
+    // NOVEL <--
 }

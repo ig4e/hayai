@@ -99,7 +99,7 @@ class DownloadStore(
                 val manga = cachedManga.getOrPut(mangaId) {
                     getManga.awaitById(mangaId)
                 } ?: continue
-                val source = sourceManager.get(manga.source) as? HttpSource ?: continue
+                val source = sourceManager.get(manga.source) as? eu.kanade.tachiyomi.source.CatalogueSource ?: continue
                 val chapter = getChapter.awaitById(chapterId) ?: continue
                 downloads.add(Download(source, manga, chapter))
             }

@@ -78,6 +78,9 @@ import yokai.core.RollingUniFileLogWriter
 // EXH -->
 import exh.di.exhModule
 // EXH <--
+// NOVEL -->
+import hayai.novel.di.novelModule
+// NOVEL <--
 import yokai.core.di.appModule
 import yokai.core.di.domainModule
 import yokai.core.di.initExpensiveComponents
@@ -115,8 +118,11 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
 
         startKoin {
             // EXH -->
-            modules(preferenceModule(this@App), appModule(this@App), domainModule(), exhModule())
+            modules(preferenceModule(this@App), appModule(this@App), domainModule(), exhModule(),
             // EXH <--
+            // NOVEL -->
+            novelModule())
+            // NOVEL <--
         }
         initExpensiveComponents(this)
 

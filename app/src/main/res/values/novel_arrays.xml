@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="novel_font_size_entries">
+        <item>12</item>
+        <item>14</item>
+        <item>16</item>
+        <item>18</item>
+        <item>20</item>
+        <item>22</item>
+        <item>24</item>
+        <item>28</item>
+        <item>32</item>
+    </string-array>
+    <integer-array name="novel_font_size_values">
+        <item>12</item>
+        <item>14</item>
+        <item>16</item>
+        <item>18</item>
+        <item>20</item>
+        <item>22</item>
+        <item>24</item>
+        <item>28</item>
+        <item>32</item>
+    </integer-array>
+
+    <string-array name="novel_font_family_entries">
+        <item>@string/font_serif</item>
+        <item>@string/font_sans_serif</item>
+        <item>@string/font_monospace</item>
+        <item>@string/font_system_default</item>
+    </string-array>
+
+    <string-array name="novel_line_height_entries">
+        <item>1.0</item>
+        <item>1.2</item>
+        <item>1.4</item>
+        <item>1.6</item>
+        <item>1.8</item>
+        <item>2.0</item>
+        <item>2.2</item>
+        <item>2.5</item>
+    </string-array>
+    <integer-array name="novel_line_height_values">
+        <item>10</item>
+        <item>12</item>
+        <item>14</item>
+        <item>16</item>
+        <item>18</item>
+        <item>20</item>
+        <item>22</item>
+        <item>25</item>
+    </integer-array>
+
+    <string-array name="novel_text_align_entries">
+        <item>@string/align_start</item>
+        <item>@string/align_center</item>
+        <item>@string/align_justify</item>
+    </string-array>
+
+    <string-array name="novel_padding_entries">
+        <item>0</item>
+        <item>8</item>
+        <item>12</item>
+        <item>16</item>
+        <item>20</item>
+        <item>24</item>
+        <item>32</item>
+        <item>48</item>
+    </string-array>
+    <integer-array name="novel_padding_values">
+        <item>0</item>
+        <item>8</item>
+        <item>12</item>
+        <item>16</item>
+        <item>20</item>
+        <item>24</item>
+        <item>32</item>
+        <item>48</item>
+    </integer-array>
+
+    <string-array name="novel_theme_entries">
+        <item>@string/novel_theme_dark</item>
+        <item>@string/novel_theme_light</item>
+        <item>@string/novel_theme_sepia</item>
+        <item>@string/novel_theme_amoled</item>
+        <item>@string/novel_theme_cool</item>
+    </string-array>
+</resources>

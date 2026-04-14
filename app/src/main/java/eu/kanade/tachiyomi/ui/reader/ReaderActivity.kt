@@ -1229,6 +1229,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             ReadingModeType.VERTICAL.flagValue -> VerticalPagerViewer(this)
             ReadingModeType.LONG_STRIP.flagValue -> WebtoonViewer(this)
             ReadingModeType.CONTINUOUS_VERTICAL.flagValue -> WebtoonViewer(this, hasMargins = true)
+            // NOVEL -->
+            ReadingModeType.NOVEL.flagValue -> hayai.novel.reader.NovelViewer(this)
+            // NOVEL <--
             else -> R2LPagerViewer(this)
         }
 

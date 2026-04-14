@@ -1,0 +1,191 @@
+package hayai.novel.js
+
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.Base64
+import co.touchlab.kermit.Logger
+import eu.kanade.tachiyomi.network.NetworkHelper
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import java.nio.charset.Charset
+
+/**
+ * Kotlin implementation of the JS bridge.
+ * Bridges fetch calls to OkHttp and storage calls to SharedPreferences.
+ */
+class NovelJsBridgeImpl(
+    private val context: Context,
+) : NovelJsBridge {
+
+    private val networkHelper: NetworkHelper = Injekt.get()
+    private val client get() = networkHelper.client
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private fun getPrefs(pluginId: String): SharedPreferences {
+        return context.getSharedPreferences("novel_plugin_$pluginId", Context.MODE_PRIVATE)
+    }
+
+    @Serializable
+    private data class FetchInit(
+        val method: String? = null,
+        val headers: Map<String, String>? = null,
+        val body: String? = null,
+    )
+
+    override fun fetch(url: String, initJson: String): String {
+        return try {
+            val init = json.decodeFromString<FetchInit>(initJson)
+            val request = buildRequest(url, init)
+            val response = client.newCall(request).execute()
+
+            val bodyBytes = response.body?.bytes() ?: ByteArray(0)
+            val bodyText = String(bodyBytes, Charsets.UTF_8)
+            val bodyBase64 = Base64.encodeToString(bodyBytes, Base64.NO_WRAP)
+
+            val headersMap = mutableMapOf<String, String>()
+            response.headers.forEach { (name, value) ->
+                headersMap[name.lowercase()] = value
+            }
+
+            buildJsonResponse(response.code, response.message, bodyText, bodyBase64, headersMap)
+        } catch (e: Exception) {
+            Logger.e(e) { "NovelJsBridge.fetch failed: $url" }
+            buildJsonResponse(0, e.message ?: "Error", "", "", emptyMap())
+        }
+    }
+
+    override fun fetchText(url: String, initJson: String, encoding: String): String {
+        return try {
+            val init = json.decodeFromString<FetchInit>(initJson)
+            val request = buildRequest(url, init)
+            val response = client.newCall(request).execute()
+
+            val bodyBytes = response.body?.bytes() ?: ByteArray(0)
+            val charset = try {
+                Charset.forName(encoding)
+            } catch (_: Exception) {
+                Charsets.UTF_8
+            }
+            String(bodyBytes, charset)
+        } catch (e: Exception) {
+            Logger.e(e) { "NovelJsBridge.fetchText failed: $url" }
+            ""
+        }
+    }
+
+    override fun fetchFile(url: String, initJson: String): String {
+        return try {
+            val init = json.decodeFromString<FetchInit>(initJson)
+            val request = buildRequest(url, init)
+            val response = client.newCall(request).execute()
+
+            val bodyBytes = response.body?.bytes() ?: ByteArray(0)
+            Base64.encodeToString(bodyBytes, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            Logger.e(e) { "NovelJsBridge.fetchFile failed: $url" }
+            ""
+        }
+    }
+
+    override fun fetchProto(protoInitJson: String, url: String, initJson: String): String {
+        // Protobuf support is complex and used by very few plugins.
+        // Return empty for now; can be implemented when needed.
+        Logger.w { "NovelJsBridge.fetchProto called but not yet implemented" }
+        return "{}"
+    }
+
+    // --- Storage ---
+
+    override fun storageGet(pluginId: String, key: String): String? {
+        return getPrefs(pluginId).getString(key, null)
+    }
+
+    override fun storageSet(pluginId: String, key: String, valueJson: String) {
+        getPrefs(pluginId).edit().putString(key, valueJson).apply()
+    }
+
+    override fun storageDelete(pluginId: String, key: String) {
+        getPrefs(pluginId).edit().remove(key).apply()
+    }
+
+    override fun storageGetAllKeys(pluginId: String): String {
+        val keys = getPrefs(pluginId).all.keys.toList()
+        return "[" + keys.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" } + "]"
+    }
+
+    override fun storageClearAll(pluginId: String) {
+        getPrefs(pluginId).edit().clear().apply()
+    }
+
+    // --- Helpers ---
+
+    private fun buildRequest(url: String, init: FetchInit): Request {
+        val builder = Request.Builder().url(url)
+
+        init.headers?.forEach { (key, value) ->
+            builder.addHeader(key, value)
+        }
+
+        val method = (init.method ?: "GET").uppercase()
+        val body = init.body
+
+        when (method) {
+            "GET" -> builder.get()
+            "HEAD" -> builder.head()
+            "POST" -> {
+                val contentType = init.headers?.entries
+                    ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+                    ?.value ?: "application/x-www-form-urlencoded"
+                builder.post((body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
+            }
+            "PUT" -> {
+                val contentType = init.headers?.entries
+                    ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+                    ?.value ?: "application/x-www-form-urlencoded"
+                builder.put((body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
+            }
+            "DELETE" -> {
+                if (body != null) {
+                    val contentType = init.headers?.entries
+                        ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+                        ?.value ?: "application/x-www-form-urlencoded"
+                    builder.delete((body).toRequestBody(contentType.toMediaTypeOrNull()))
+                } else {
+                    builder.delete()
+                }
+            }
+            "PATCH" -> {
+                val contentType = init.headers?.entries
+                    ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+                    ?.value ?: "application/x-www-form-urlencoded"
+                builder.patch((body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
+            }
+            else -> builder.method(method, body?.toRequestBody())
+        }
+
+        return builder.build()
+    }
+
+    private fun buildJsonResponse(
+        status: Int,
+        statusText: String,
+        body: String,
+        bodyBase64: String,
+        headers: Map<String, String>,
+    ): String {
+        @Serializable
+        data class FetchResponse(
+            val status: Int,
+            val statusText: String,
+            val body: String,
+            val bodyBase64: String,
+            val headers: Map<String, String>,
+        )
+        return json.encodeToString(FetchResponse.serializer(), FetchResponse(status, statusText, body, bodyBase64, headers))
+    }
+}

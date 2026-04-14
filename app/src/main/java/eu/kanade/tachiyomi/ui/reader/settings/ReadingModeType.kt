@@ -18,6 +18,9 @@ enum class ReadingModeType(val prefValue: Int, val stringRes: StringResource, @D
     VERTICAL(3, MR.strings.vertical_viewer, R.drawable.ic_reader_vertical_24dp),
     LONG_STRIP(4, MR.strings.long_strip, R.drawable.ic_reader_webtoon_24dp),
     CONTINUOUS_VERTICAL(5, MR.strings.continuous_vertical, R.drawable.ic_reader_continuous_vertical_24dp),
+    // NOVEL -->
+    NOVEL(6, MR.strings.novel_reader, R.drawable.ic_book_24dp),
+    // NOVEL <--
     ;
 
     val flagValue = prefValue shl SHIFT
@@ -40,6 +43,12 @@ enum class ReadingModeType(val prefValue: Int, val stringRes: StringResource, @D
             val mode = fromPreference(preference)
             return mode == LONG_STRIP || mode == CONTINUOUS_VERTICAL
         }
+
+        // NOVEL -->
+        fun isNovelType(preference: Int): Boolean {
+            return fromPreference(preference) == NOVEL
+        }
+        // NOVEL <--
 
         fun fromSpinner(position: Int?) = entries.find { value -> value.prefValue == position } ?: DEFAULT
     }

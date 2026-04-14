@@ -233,4 +233,13 @@ object PreferenceKeys {
     const val hideChapterTitles = "hide_chapter_titles"
 
     const val chaptersDescAsDefault = "chapters_desc_as_default"
+
+    // NOVEL -->
+    const val novelFontSize = "novel_font_size"
+    const val novelFontFamily = "novel_font_family"
+    const val novelLineHeight = "novel_line_height"
+    const val novelTextAlign = "novel_text_align"
+    const val novelPadding = "novel_padding"
+    const val novelReaderTheme = "novel_reader_theme"
+    // NOVEL <--
 }

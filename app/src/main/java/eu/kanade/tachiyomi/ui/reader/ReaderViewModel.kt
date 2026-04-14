@@ -740,6 +740,15 @@ class ReaderViewModel(
     fun getMangaReadingMode(): Int {
         val default = preferences.defaultReadingMode().get()
         val manga = manga ?: return default
+
+        // NOVEL -->
+        // Auto-detect novel sources and force novel reading mode
+        val source = sourceManager.get(manga.source)
+        if (source is hayai.novel.source.TextSource) {
+            return ReadingModeType.NOVEL.flagValue
+        }
+        // NOVEL <--
+
         val readerType = manga.defaultReaderType()
         if (manga.viewer_flags == -1) {
             val cantSwitchToLTR =

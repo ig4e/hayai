@@ -20,6 +20,12 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.util.lang.getString
+// NOVEL -->
+import hayai.novel.plugin.NovelPluginManager
+import hayai.novel.plugin.model.NovelPluginIndex
+import hayai.novel.ui.NovelPluginGroupItem
+import hayai.novel.ui.NovelPluginItem
+// NOVEL <--
 
 typealias ExtensionTuple =
     Triple<List<Extension.Installed>, List<Extension.Untrusted>, List<Extension.Available>>
@@ -286,4 +292,42 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
             extensionManager.trust(pkgName, versionCode, signatureHash)
         }
     }
+
+    // NOVEL -->
+    private val novelPluginManager: NovelPluginManager = Injekt.get()
+
+    fun refreshNovelPlugins() {
+        presenterScope.launch {
+            novelPluginManager.refreshAvailablePlugins()
+            val available = novelPluginManager.availablePluginsFlow.value
+            val items = toNovelPluginItems(available)
+            withUIContext { view?.setNovelPlugins(items) }
+        }
+    }
+
+    fun installNovelPlugin(plugin: NovelPluginIndex) {
+        presenterScope.launch {
+            novelPluginManager.installPlugin(plugin)
+            refreshNovelPlugins()
+        }
+    }
+
+    private fun toNovelPluginItems(available: List<NovelPluginIndex>): List<NovelPluginItem> {
+        val items = mutableListOf<NovelPluginItem>()
+
+        // Group by language
+        val byLang = available.groupBy { it.lang }.toSortedMap()
+
+        for ((lang, plugins) in byLang) {
+            val header = NovelPluginGroupItem(lang.ifBlank { "Other" }, plugins.size)
+            plugins.sortedBy { it.name }.forEach { plugin ->
+                val installed = novelPluginManager.isInstalled(plugin.id)
+                val installedVersion = novelPluginManager.getInstalledVersion(plugin.id)
+                items.add(NovelPluginItem(plugin, header, installed, installedVersion))
+            }
+        }
+
+        return items
+    }
+    // NOVEL <--
 }

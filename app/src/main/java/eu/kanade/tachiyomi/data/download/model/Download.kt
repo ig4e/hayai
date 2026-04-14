@@ -2,8 +2,8 @@ package eu.kanade.tachiyomi.data.download.model
 
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
-import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 
-class Download(val source: HttpSource, val manga: Manga, val chapter: Chapter) {
+class Download(val source: Source, val manga: Manga, val chapter: Chapter) {
 
     var pages: List<Page>? = null
 
