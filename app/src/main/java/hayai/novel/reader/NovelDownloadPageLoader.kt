@@ -24,7 +24,7 @@ class NovelDownloadPageLoader(
     override val isLocal: Boolean = true
 
     override suspend fun getPages(): List<ReaderPage> {
-        return listOf(ReaderPage(index = 0).apply {
+        return listOf(ReaderPage(index = 0, url = source.resolveUrl(chapter.chapter.url)).apply {
             this.chapter = this@NovelDownloadPageLoader.chapter
         })
     }

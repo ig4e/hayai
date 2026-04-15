@@ -18,6 +18,7 @@ import androidx.transition.TransitionSet
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.ChapterHistory
+import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.databinding.RecentMangaItemBinding
 import eu.kanade.tachiyomi.databinding.RecentSubChapterItemBinding
@@ -203,12 +204,21 @@ class RecentMangaHolder(
                 }
             }
             item.chapter.id != item.mch.chapter.id -> readLastText(!moreVisible)
-            item.chapter.last_page_read > 0 && !item.chapter.read -> context.timeSpanFromNow(MR.strings.read_, item.mch.history.last_read) +
-                "\n" + itemView.context.getString(
-                MR.strings.page_x_of_y,
-                item.chapter.last_page_read + 1,
-                item.chapter.pages_left + item.chapter.last_page_read,
-            )
+            item.chapter.last_page_read > 0 && !item.chapter.read -> {
+                val progressText = if (item.mch.manga.isNovel()) {
+                    itemView.context.getString(
+                        MR.strings.resume_progress_percent,
+                        item.chapter.last_page_read,
+                    )
+                } else {
+                    itemView.context.getString(
+                        MR.strings.page_x_of_y,
+                        item.chapter.last_page_read + 1,
+                        item.chapter.pages_left + item.chapter.last_page_read,
+                    )
+                }
+                context.timeSpanFromNow(MR.strings.read_, item.mch.history.last_read) + "\n" + progressText
+            }
             else -> context.timeSpanFromNow(MR.strings.read_, item.mch.history.last_read)
         }
         if ((context as? Activity)?.isDestroyed != true) {

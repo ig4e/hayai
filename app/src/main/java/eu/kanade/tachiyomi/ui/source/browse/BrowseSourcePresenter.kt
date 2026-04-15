@@ -127,7 +127,7 @@ open class BrowseSourcePresenter(
     override fun onCreate() {
         super.onCreate()
         if (!::pager.isInitialized) {
-            source = sourceManager.get(sourceId) as? CatalogueSource ?: return
+            source = runBlocking { sourceManager.awaitCatalogueSource(sourceId) } ?: return
 
             sourceFilters = source.getFilterList()
 

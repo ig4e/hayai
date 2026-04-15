@@ -31,7 +31,7 @@ import uy.kohesive.injekt.injectLazy
 /**
  * Novel text viewer following the exact same architecture as WebtoonViewer.
  *
- * Uses RecyclerView with NovelAdapter for chapter content (WebView-based)
+ * Uses RecyclerView with NovelAdapter for chapter content
  * and transitions. Supports the same navigation, key events, and lifecycle
  * patterns as the manga viewers.
  */
@@ -183,7 +183,7 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         scope.cancel()
     }
 
-    fun onWebContentTouch(event: MotionEvent): Boolean {
+    fun onContentTouch(event: MotionEvent): Boolean {
         return gestureDetector.onTouchEvent(event)
     }
 
@@ -302,9 +302,6 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         val progress = computeChapterProgress(page) ?: return
         chapter.last_page_read = progress
         chapter.pages_left = (100 - progress).coerceIn(0, 100)
-        if (progress >= NOVEL_READ_THRESHOLD_PERCENT) {
-            chapter.read = true
-        }
 
         if (chapterId == null) {
             activity.onNovelProgressChanged(page, progress)
@@ -332,8 +329,8 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         val pagePosition = adapter.items.indexOf(page)
         if (pagePosition == -1) return null
 
-        val pageView = layoutManager.findViewByPosition(pagePosition)
-        val currentPageHeight = getPageHeight(page, pageView)
+        val pageView = layoutManager.findViewByPosition(pagePosition) ?: return null
+        val currentPageHeight = getPageHeight(page)
         if (currentPageHeight <= 0) return null
 
         val cumulativeOffset = pages
@@ -341,29 +338,26 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
             .sumOf { getPageHeight(it) }
 
         val maxOffsetInPage = max(currentPageHeight - recyclerHeight, 0)
-        val offsetInPage = pageView?.let { (-it.top).coerceIn(0, maxOffsetInPage) } ?: 0
+        val offsetInPage = (-pageView.top).coerceIn(0, maxOffsetInPage)
 
         val chapterHeight = pages.sumOf { getPageHeight(it) }
         if (chapterHeight <= 0) return null
 
         val maxScrollable = max(chapterHeight - recyclerHeight, 0)
-        if (maxScrollable <= 0) return 100
+        if (maxScrollable <= 0) {
+            // If content fits on screen, keep existing progress instead of auto-marking as fully read.
+            return page.chapter.chapter.last_page_read.coerceIn(0, 100)
+        }
 
         val offset = (cumulativeOffset + offsetInPage).coerceIn(0, maxScrollable)
         return ((offset.toFloat() / maxScrollable) * 100f).roundToInt().coerceIn(0, 100)
     }
 
-    private fun getPageHeight(page: ReaderPage, view: View? = null): Int {
+    private fun getPageHeight(page: ReaderPage): Int {
         measuredPageHeights[page]?.let { measured ->
             if (measured > 0) return measured
         }
-
-        val measuredFromView = view?.height ?: run {
-            val index = adapter.items.indexOf(page)
-            if (index == -1) null else layoutManager.findViewByPosition(index)?.height
-        }
-
-        return measuredFromView?.takeIf { it > 0 } ?: 0
+        return 0
     }
 
     fun moveToProgress(progressPercent: Int) {
@@ -537,5 +531,4 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
 }
 
 private const val RECYCLER_VIEW_CACHE_SIZE = 4
-private const val NOVEL_READ_THRESHOLD_PERCENT = 95
 private const val MAX_PENDING_RESTORE_ATTEMPTS = 4

@@ -98,6 +98,10 @@ class SourceManager(
                             // EXH <--
                         }
                     }
+                    novelPluginManager.ensureInstalledPluginsLoaded()
+                    novelPluginManager.installedSourcesFlow.value.forEach {
+                        mutableMap[it.id] = it
+                    }
                     sourcesMapFlow.value = mutableMap
                 }
         }
@@ -120,8 +124,31 @@ class SourceManager(
         return sourcesMapFlow.value[sourceKey]
     }
 
+    suspend fun awaitCatalogueSource(sourceKey: Long): CatalogueSource? {
+        (get(sourceKey) as? CatalogueSource)?.let { return it }
+
+        novelPluginManager.ensureInstalledPluginsLoaded()
+
+        return (sourcesMapFlow.value[sourceKey] as? CatalogueSource)
+            ?: novelPluginManager.installedSourcesFlow.value.firstOrNull { it.id == sourceKey }
+    }
+
     fun getOrStub(sourceKey: Long): Source {
-        return sourcesMapFlow.value[sourceKey] ?: stubSourcesMap.getOrPut(sourceKey) {
+        sourcesMapFlow.value[sourceKey]?.let { return it }
+
+        val novelSource = runBlocking {
+            novelPluginManager.ensureInstalledPluginsLoaded()
+            novelPluginManager.installedSourcesFlow.value.firstOrNull { it.id == sourceKey }
+        }
+        if (novelSource != null) {
+            val currentMap = ConcurrentHashMap(sourcesMapFlow.value)
+            currentMap[sourceKey] = novelSource
+            sourcesMapFlow.value = currentMap
+            stubSourcesMap.remove(sourceKey)
+            return novelSource
+        }
+
+        return stubSourcesMap.getOrPut(sourceKey) {
             runBlocking { StubSource(sourceKey) }
         }
     }

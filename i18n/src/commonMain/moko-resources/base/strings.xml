@@ -1161,6 +1161,7 @@
     <string name="reset">Reset</string>
     <string name="restore">Restore</string>
     <string name="resume">Resume</string>
+    <string name="resume_progress_percent">Resume %1$d%%</string>
     <string name="retry">Retry</string>
     <string name="right">Right</string>
     <string name="rotation">Rotation</string>

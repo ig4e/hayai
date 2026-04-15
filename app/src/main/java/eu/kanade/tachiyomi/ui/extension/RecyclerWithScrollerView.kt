@@ -3,11 +3,13 @@ package eu.kanade.tachiyomi.ui.extension
 import android.content.Context
 import android.util.AttributeSet
 import android.widget.FrameLayout
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.view.updatePaddingRelative
 import androidx.recyclerview.widget.RecyclerView
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.databinding.RecyclerWithScrollerBinding
+import eu.kanade.tachiyomi.widget.EmptyView
 
 class RecyclerWithScrollerView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
     FrameLayout(context, attrs) {
@@ -39,5 +41,13 @@ class RecyclerWithScrollerView @JvmOverloads constructor(context: Context, attrs
     fun onBind(adapter: FlexibleAdapter<IFlexible<*>>) {
         binding?.recycler?.adapter = adapter
         adapter.fastScroller = binding?.fastScroller
+    }
+
+    fun showEmptyState(image: ImageVector, message: String, actions: List<EmptyView.Action> = emptyList()) {
+        binding?.emptyView?.show(image, message, actions)
+    }
+
+    fun hideEmptyState() {
+        binding?.emptyView?.hide()
     }
 }

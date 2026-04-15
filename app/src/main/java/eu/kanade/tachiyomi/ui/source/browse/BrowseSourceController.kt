@@ -194,6 +194,16 @@ open class BrowseSourceController(bundle: Bundle) :
         adapter = FlexibleAdapter(null, this, false)
         setupRecycler(view)
 
+        if (!presenter.sourceIsInitialized) {
+            activity?.toast(MR.strings.source_not_installed)
+            if (activity is SearchActivity) {
+                activity?.finish()
+            } else {
+                router.popCurrentController()
+            }
+            return
+        }
+
         if (presenter.sourceFilters.isEmpty() && !presenter.source.supportsLatest) {
             binding.floatingBrowseBar.isVisible = false
         } else {
@@ -224,15 +234,6 @@ open class BrowseSourceController(bundle: Bundle) :
         activityBinding?.appBar?.y = 0f
         activityBinding?.appBar?.updateAppBarAfterY(recycler)
         activityBinding?.appBar?.lockYPos = true
-        if (!presenter.sourceIsInitialized) {
-            activity?.toast(MR.strings.source_not_installed)
-            if (activity is SearchActivity) {
-                activity?.finish()
-            } else {
-                router.popCurrentController()
-            }
-            return
-        }
 
         binding.progress.isVisible = true
 

@@ -1,16 +1,21 @@
 package hayai.novel.reader
 
-import android.annotation.SuppressLint
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
+import android.os.Build
+import android.text.Layout
+import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatButton
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,7 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.core.text.HtmlCompat
 import androidx.core.view.isVisible
+import coil3.asDrawable
+import coil3.dispose
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
@@ -35,11 +46,8 @@ import yokai.presentation.theme.YokaiTheme
 import yokai.util.lang.getString
 
 /**
- * Holder for novel chapter content. Contains a WebView that renders HTML text.
- * The WebView expands to its full content height so the parent RecyclerView
- * handles all scrolling (not the WebView).
- *
- * Follows the same bind/load/status pattern as WebtoonPageHolder.
+ * Holder for native novel chapter content. Raw chapter HTML is parsed into
+ * native text/image blocks so RecyclerView owns all scrolling and measurement.
  */
 class NovelPageHolder(
     private val container: FrameLayout,
@@ -50,93 +58,39 @@ class NovelPageHolder(
     private var page: ReaderPage? = null
     private var loadJob: Job? = null
 
-    private val webView: WebView
+    private val contentLayout: LinearLayout
     private val progressView: ComposeView
     private val errorLayout: LinearLayout
+    private val imageViews = mutableListOf<AppCompatImageView>()
 
     init {
         container.layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
 
-        webView = createWebView()
+        contentLayout = createContentLayout()
         progressView = createProgressView()
         errorLayout = createErrorLayout()
 
-        container.addView(webView)
+        container.addView(contentLayout)
         container.addView(progressView)
         container.addView(errorLayout)
 
-        // Start with progress visible, content hidden
-        webView.isVisible = false
+        contentLayout.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            reportMeasuredHeight()
+        }
+
+        contentLayout.isVisible = false
         progressView.isVisible = false
         errorLayout.isVisible = false
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun createWebView(): WebView {
-        return WebView(context).apply {
+    private fun createContentLayout(): LinearLayout {
+        return LinearLayout(context).apply {
             layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-
-            settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = false
-                allowFileAccess = false
-                setSupportZoom(false)
-                loadWithOverviewMode = false
-                useWideViewPort = false
-                cacheMode = WebSettings.LOAD_NO_CACHE
-            }
-
-            // Disable WebView's own scrolling - parent RecyclerView handles it
-            isVerticalScrollBarEnabled = false
-            isHorizontalScrollBarEnabled = false
-            overScrollMode = WebView.OVER_SCROLL_NEVER
-
-            setOnTouchListener { _, event ->
-                viewer.onWebContentTouch(event)
+            orientation = LinearLayout.VERTICAL
+            clipToPadding = false
+            setOnTouchListener { _, event: MotionEvent ->
+                viewer.onContentTouch(event)
                 false
-            }
-
-            webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView, url: String) {
-                    val boundPage = page ?: return
-                    view.evaluateJavascript(
-                        """
-                        (function() {
-                            const body = document.body;
-                            const doc = document.documentElement;
-                            return Math.max(
-                                body ? body.scrollHeight : 0,
-                                body ? body.offsetHeight : 0,
-                                doc ? doc.scrollHeight : 0,
-                                doc ? doc.offsetHeight : 0
-                            );
-                        })();
-                        """.trimIndent(),
-                    ) { heightStr ->
-                        val domHeight = heightStr
-                            ?.replace("\"", "")
-                            ?.toFloatOrNull() ?: 0f
-                        val contentHeight = maxOf(view.contentHeight.toFloat(), domHeight)
-                        val pixelHeight = kotlin.math.ceil(maxOf(contentHeight * view.scale, 1f).toDouble())
-                            .toInt()
-                            .coerceAtLeast(1)
-                        view.layoutParams = view.layoutParams.apply {
-                            height = pixelHeight
-                        }
-                        view.requestLayout()
-
-                        if (page == boundPage) {
-                            viewer.onPageContentMeasured(boundPage, pixelHeight)
-                            webView.isVisible = true
-                            progressView.isVisible = false
-                            errorLayout.isVisible = false
-                        }
-                    }
-                }
-
-                override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                    return true // Don't navigate away
-                }
             }
         }
     }
@@ -201,7 +155,9 @@ class NovelPageHolder(
     }
 
     private fun setLoading() {
-        webView.isVisible = false
+        applyReaderColors()
+        clearContent()
+        contentLayout.isVisible = false
         progressView.isVisible = true
         errorLayout.isVisible = false
     }
@@ -217,35 +173,54 @@ class NovelPageHolder(
 
         try {
             val html = stream().bufferedReader(Charsets.UTF_8).use { it.readText() }
-            val styledHtml = applyReaderStyles(html)
-            val colors = viewer.config.getColors()
+            val blocks = NovelHtmlParser.parse(html, currentPage.url.takeIf { it.isNotBlank() })
 
-            webView.isVisible = false
-            progressView.isVisible = true
+            applyReaderColors()
+            clearContent()
+
+            if (blocks.isEmpty()) {
+                addTextView(
+                    html = context.getString(MR.strings.no_pages_found),
+                    style = TextStyle.Paragraph,
+                )
+            } else {
+                blocks.forEach { block -> renderBlock(block) }
+            }
+
+            contentLayout.isVisible = true
+            progressView.isVisible = false
             errorLayout.isVisible = false
-            webView.setBackgroundColor(Color.parseColor(colors.backgroundColor))
-            webView.loadDataWithBaseURL(null, styledHtml, "text/html", "UTF-8", null)
+            contentLayout.requestLayout()
+            contentLayout.post { reportMeasuredHeight() }
         } catch (e: Exception) {
-            Logger.e(e) { "NovelPageHolder: Failed to render content" }
+            Logger.e(e) { "NovelPageHolder: Failed to render native content" }
             setError()
         }
     }
 
     private fun setError() {
-        webView.isVisible = false
+        applyReaderColors()
+        clearContent()
+        contentLayout.isVisible = false
         progressView.isVisible = false
         errorLayout.isVisible = true
 
         errorLayout.removeAllViews()
 
+        val colors = viewer.config.getColors()
+        val textColor = Color.parseColor(colors.textColor)
+
         val textView = AppCompatTextView(context).apply {
             wrapContent()
             text = context.getString(MR.strings.failed_to_load_pages_, page?.status?.toString() ?: "")
+            setTextColor(textColor)
         }
 
         val retryBtn = AppCompatButton(context).apply {
             wrapContent()
             setText(MR.strings.retry)
+            setTextColor(textColor)
+            backgroundTintList = ColorStateList.valueOf(adjustAlpha(textColor, 0.2f))
             setOnClickListener {
                 page?.let { p ->
                     val loader = p.chapter.pageLoader
@@ -265,71 +240,213 @@ class NovelPageHolder(
 
     override fun recycle() {
         loadJob?.cancel()
-        webView.stopLoading()
-        webView.loadUrl("about:blank")
-        webView.isVisible = false
+        clearContent()
+        contentLayout.isVisible = false
         progressView.isVisible = false
         errorLayout.isVisible = false
     }
 
-    private fun applyReaderStyles(html: String): String {
+    private fun renderBlock(block: NovelBlock) {
+        when (block) {
+            is NovelBlock.Text -> addTextView(block.html, block.style)
+            is NovelBlock.ListItems -> addListView(block)
+            is NovelBlock.Image -> addImageView(block)
+            NovelBlock.Divider -> addDivider()
+        }
+    }
+
+    private fun addTextView(html: String, style: TextStyle) {
         val config = viewer.config
         val colors = config.getColors()
+        val textColor = Color.parseColor(colors.textColor)
 
-        return """<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-html, body {
-    width: 100%;
-    height: auto;
-    min-height: 0;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-    font-family: '${config.fontFamily}', serif;
-    font-size: ${config.fontSize}px;
-    line-height: ${config.lineHeight};
-    color: ${colors.textColor};
-    background-color: ${colors.backgroundColor};
-    padding: ${config.paddingVertical}px ${config.paddingHorizontal}px;
-    text-align: ${config.textAlign};
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    -webkit-user-select: text;
-    -webkit-text-size-adjust: 100%;
-    overflow-x: hidden;
-}
-p { margin-bottom: 1em; }
-h1, h2, h3, h4, h5, h6 {
-    margin: 1.2em 0 0.6em 0;
-    line-height: 1.3;
-}
-a { color: #82B1FF; text-decoration: none; }
-img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
-hr { border: none; border-top: 1px solid rgba(128,128,128,0.3); margin: 2em 0; }
-blockquote {
-    border-left: 3px solid rgba(128,128,128,0.4);
-    padding-left: 1em;
-    margin: 1em 0;
-    opacity: 0.85;
-    font-style: italic;
-}
-table { width: 100%; border-collapse: collapse; margin: 1em 0; }
-td, th { border: 1px solid rgba(128,128,128,0.3); padding: 8px; text-align: left; }
-pre, code {
-    font-family: monospace;
-    background: rgba(128,128,128,0.1);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 0.9em;
-}
-pre { padding: 12px; overflow-x: auto; margin: 1em 0; }
-</style>
-</head>
-<body>
-$html
-</body></html>"""
+        val view = AppCompatTextView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                val bottom = when (style) {
+                    TextStyle.Heading1,
+                    TextStyle.Heading2,
+                    TextStyle.Heading3,
+                    TextStyle.Heading4,
+                    TextStyle.Heading5,
+                    TextStyle.Heading6,
+                    -> 14.dpToPx
+                    TextStyle.Quote,
+                    TextStyle.Code,
+                    -> 12.dpToPx
+                    TextStyle.Paragraph -> 12.dpToPx
+                }
+                setMargins(0, 0, 0, bottom)
+            }
+            includeFontPadding = true
+            setTextColor(textColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeForStyle(style, config.fontSize))
+            typeface = typefaceForStyle(style, config.fontFamily)
+            setLineSpacing(0f, config.lineHeight)
+            textAlignment = textAlignmentForConfig(config.textAlign)
+            gravity = gravityForConfig(config.textAlign)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && config.textAlign == "justify") {
+                justificationMode = Layout.JUSTIFICATION_MODE_INTER_WORD
+            }
+            text = HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT)
+        }
+
+        when (style) {
+            TextStyle.Quote -> {
+                view.setPadding(16.dpToPx, 8.dpToPx, 0, 8.dpToPx)
+                view.setTextColor(adjustAlpha(textColor, 0.88f))
+                view.setBackgroundColor(adjustAlpha(textColor, 0.08f))
+            }
+            TextStyle.Code -> {
+                view.setPadding(10.dpToPx, 8.dpToPx, 10.dpToPx, 8.dpToPx)
+                view.setBackgroundColor(adjustAlpha(textColor, 0.10f))
+            }
+            else -> Unit
+        }
+
+        contentLayout.addView(view)
+    }
+
+    private fun addListView(block: NovelBlock.ListItems) {
+        block.items.forEachIndexed { index, item ->
+            val prefix = if (block.ordered) "${index + 1}. " else "- "
+            addTextView(prefix + item, TextStyle.Paragraph)
+        }
+    }
+
+    private fun addImageView(block: NovelBlock.Image) {
+        val imageView = AppCompatImageView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                setMargins(0, 8.dpToPx, 0, 16.dpToPx)
+            }
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = block.alt
+            setBackgroundColor(Color.TRANSPARENT)
+            isVisible = false
+        }
+        imageViews.add(imageView)
+        contentLayout.addView(imageView)
+
+        val request = ImageRequest.Builder(context)
+            .data(block.url)
+            .target(
+                onSuccess = { result ->
+                    imageView.setImageDrawable(result.asDrawable(context.resources))
+                    imageView.isVisible = true
+                    imageView.post { reportMeasuredHeight() }
+                },
+                onError = {
+                    imageView.isVisible = false
+                    imageView.post { reportMeasuredHeight() }
+                },
+            )
+            .crossfade(false)
+            .build()
+        context.imageLoader.enqueue(request)
+    }
+
+    private fun addDivider() {
+        val colors = viewer.config.getColors()
+        val textColor = Color.parseColor(colors.textColor)
+        val divider = View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 1.dpToPx).apply {
+                setMargins(0, 18.dpToPx, 0, 18.dpToPx)
+            }
+            setBackgroundColor(adjustAlpha(textColor, 0.25f))
+        }
+        contentLayout.addView(divider)
+    }
+
+    private fun clearContent() {
+        imageViews.forEach { it.dispose() }
+        imageViews.clear()
+        contentLayout.removeAllViews()
+    }
+
+    private fun applyReaderColors() {
+        val config = viewer.config
+        val colors = config.getColors()
+        val backgroundColor = Color.parseColor(colors.backgroundColor)
+        container.setBackgroundColor(backgroundColor)
+        contentLayout.setBackgroundColor(backgroundColor)
+        contentLayout.setPadding(
+            config.paddingHorizontal.dpToPx,
+            config.paddingVertical.dpToPx,
+            config.paddingHorizontal.dpToPx,
+            config.paddingVertical.dpToPx,
+        )
+        progressView.setBackgroundColor(backgroundColor)
+        errorLayout.setBackgroundColor(backgroundColor)
+    }
+
+    private fun reportMeasuredHeight() {
+        val currentPage = page ?: return
+        if (!contentLayout.isVisible) return
+        val height = contentLayout.measuredHeight.takeIf { it > 0 } ?: contentLayout.height
+        if (height > 0) {
+            viewer.onPageContentMeasured(currentPage, height)
+        }
+    }
+
+    private fun textSizeForStyle(style: TextStyle, baseSize: Int): Float {
+        val multiplier = when (style) {
+            TextStyle.Heading1 -> 1.45f
+            TextStyle.Heading2 -> 1.32f
+            TextStyle.Heading3 -> 1.22f
+            TextStyle.Heading4 -> 1.12f
+            TextStyle.Heading5 -> 1.05f
+            TextStyle.Heading6 -> 1.0f
+            TextStyle.Code -> 0.9f
+            TextStyle.Paragraph,
+            TextStyle.Quote,
+            -> 1.0f
+        }
+        return (baseSize * multiplier).coerceAtLeast(10f)
+    }
+
+    private fun typefaceForStyle(style: TextStyle, configuredFamily: String): Typeface {
+        val base = when {
+            style == TextStyle.Code -> Typeface.MONOSPACE
+            configuredFamily == "sans-serif" -> Typeface.SANS_SERIF
+            configuredFamily == "monospace" -> Typeface.MONOSPACE
+            configuredFamily == "system-ui" -> Typeface.DEFAULT
+            else -> Typeface.SERIF
+        }
+        val typefaceStyle = when (style) {
+            TextStyle.Heading1,
+            TextStyle.Heading2,
+            TextStyle.Heading3,
+            TextStyle.Heading4,
+            TextStyle.Heading5,
+            TextStyle.Heading6,
+            -> Typeface.BOLD
+            TextStyle.Quote -> Typeface.ITALIC
+            else -> Typeface.NORMAL
+        }
+        return Typeface.create(base, typefaceStyle)
+    }
+
+    private fun textAlignmentForConfig(textAlign: String): Int {
+        return when (textAlign) {
+            "center" -> View.TEXT_ALIGNMENT_CENTER
+            "justify" -> View.TEXT_ALIGNMENT_TEXT_START
+            else -> View.TEXT_ALIGNMENT_TEXT_START
+        }
+    }
+
+    private fun gravityForConfig(textAlign: String): Int {
+        return when (textAlign) {
+            "center" -> Gravity.CENTER_HORIZONTAL
+            else -> Gravity.START
+        }
+    }
+
+    private fun adjustAlpha(color: Int, factor: Float): Int {
+        return Color.argb(
+            (Color.alpha(color) * factor).toInt().coerceIn(0, 255),
+            Color.red(color),
+            Color.green(color),
+            Color.blue(color),
+        )
     }
 }

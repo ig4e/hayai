@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import okhttp3.Request
 import java.io.File
@@ -48,11 +50,14 @@ class NovelPluginManager(
     val installedPluginsFlow = _installedPluginsFlow.asStateFlow()
 
     private val installedSources = mutableMapOf<String, NovelSource>()
+    private val loadInstalledPluginsMutex = Mutex()
+    @Volatile
+    private var installedPluginsLoaded = false
 
     init {
         // Load installed plugins on startup
         scope.launch {
-            loadInstalledPlugins()
+            ensureInstalledPluginsLoaded()
         }
         // Watch repos for changes
         scope.launch {
@@ -122,6 +127,16 @@ class NovelPluginManager(
 
         _installedSourcesFlow.value = sources
         _installedPluginsFlow.value = installed
+    }
+
+    suspend fun ensureInstalledPluginsLoaded() {
+        if (installedPluginsLoaded) return
+
+        loadInstalledPluginsMutex.withLock {
+            if (installedPluginsLoaded) return
+            loadInstalledPlugins()
+            installedPluginsLoaded = true
+        }
     }
 
     /**

@@ -61,7 +61,10 @@ class ChapterHolder(
         if (showPagesLeft) {
             statuses.add(
                 if (isNovel) {
-                    "${itemView.context.getString(MR.strings.resume)} ${chapter.last_page_read}%"
+                    itemView.context.getString(
+                        MR.strings.resume_progress_percent,
+                        chapter.last_page_read,
+                    )
                 } else {
                     itemView.context.getString(
                         MR.strings.page_x_of_y,

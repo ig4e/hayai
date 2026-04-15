@@ -7,6 +7,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExtensionOff
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.core.view.updatePaddingRelative
 import androidx.recyclerview.widget.RecyclerView
@@ -45,6 +47,7 @@ import eu.kanade.tachiyomi.util.view.setText
 import eu.kanade.tachiyomi.util.view.setTitle
 import eu.kanade.tachiyomi.util.view.smoothScrollToTop
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import eu.kanade.tachiyomi.widget.EmptyView
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -60,6 +63,7 @@ import hayai.novel.ui.NovelPluginAdapter
 import hayai.novel.ui.NovelPluginGroupItem
 import hayai.novel.ui.NovelPluginItem
 // NOVEL <--
+import yokai.presentation.extension.repo.ExtensionRepoController
 
 class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
     LinearLayout(context, attrs),
@@ -516,15 +520,15 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     }
 
     private fun drawNovelPlugins() {
-        if (controller.extQuery.isNotBlank()) {
-            novelPluginAdapter?.updateDataSet(
-                novelPlugins.filter {
-                    it.plugin.name.contains(controller.extQuery, ignoreCase = true)
-                },
-            )
+        val displayedPlugins = if (controller.extQuery.isNotBlank()) {
+            novelPlugins.filter {
+                it.plugin.name.contains(controller.extQuery, ignoreCase = true)
+            }
         } else {
-            novelPluginAdapter?.updateDataSet(novelPlugins)
+            novelPlugins
         }
+        novelPluginAdapter?.updateDataSet(displayedPlugins)
+        updateNovelPluginsEmptyState(displayedPlugins.isEmpty())
     }
 
     override fun onNovelPluginButtonClick(position: Int) {
@@ -556,6 +560,36 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
             view.setText(InstalledExtensionsOrder.fromValue(itemId).nameRes)
             presenter.refreshNovelPlugins()
         }
+    }
+
+    private fun updateNovelPluginsEmptyState(displayedPluginsEmpty: Boolean) {
+        val frameLayout = novelPluginFrameLayout ?: return
+        if (!displayedPluginsEmpty) {
+            frameLayout.hideEmptyState()
+            return
+        }
+
+        val actions = if (novelPlugins.isEmpty()) {
+            listOf(
+                EmptyView.Action(MR.strings.repos) {
+                    controller.router.pushController(ExtensionRepoController().withFadeTransaction())
+                },
+            )
+        } else {
+            emptyList()
+        }
+
+        val message = if (novelPlugins.isEmpty()) {
+            context.getString(MR.strings.information_empty_novel_repos)
+        } else {
+            context.getString(MR.strings.no_results_found)
+        }
+
+        frameLayout.showEmptyState(
+            image = Icons.Filled.ExtensionOff,
+            message = message,
+            actions = actions,
+        )
     }
     // NOVEL <--
 
@@ -606,6 +640,11 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
             (view as RecyclerWithScrollerView).onBind(adapters[position]!!)
             view.setTag("TabbedRecycler$position")
             boundViews.add(view)
+            if (position == 1) {
+                updateNovelPluginsEmptyState(novelPluginAdapter?.mainItemCount == 0)
+            } else {
+                view.hideEmptyState()
+            }
         }
 
         /**
