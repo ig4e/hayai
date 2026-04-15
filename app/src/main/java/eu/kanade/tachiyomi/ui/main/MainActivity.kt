@@ -1004,7 +1004,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         if (isUpdaterEnabled && router.backstack.lastOrNull()?.controller !is AboutController) {
             lifecycleScope.launchIO {
                 try {
-                    val result = updateChecker.checkForUpdate(this@MainActivity)
+                    val result = updateChecker.checkForUpdate(this@MainActivity, isUserPrompt = true)
                     if (result is AppUpdateResult.NewUpdate) {
                         val body = result.release.info
                         val url = result.release.downloadLink
