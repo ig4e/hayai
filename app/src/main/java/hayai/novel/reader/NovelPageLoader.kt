@@ -12,10 +12,14 @@ import java.io.ByteArrayInputStream
  * Fetches chapter text via NovelSource.getChapterText() and serves it
  * as a single-page stream (UTF-8 encoded HTML).
  */
+interface NovelImageUrlResolver {
+    fun resolveNovelImageUrl(url: String): String
+}
+
 class NovelPageLoader(
     private val chapter: ReaderChapter,
     private val source: NovelSource,
-) : PageLoader() {
+) : PageLoader(), NovelImageUrlResolver {
 
     override val isLocal: Boolean = false
 
@@ -42,5 +46,9 @@ class NovelPageLoader(
 
     override fun retryPage(page: ReaderPage) {
         page.status = Page.State.Queue
+    }
+
+    override fun resolveNovelImageUrl(url: String): String {
+        return source.resolveUrl(url)
     }
 }

@@ -522,11 +522,23 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
 
     private fun refreshAdapter() {
-        val position = layoutManager.findLastVisibleItemPosition()
-        adapter.notifyItemRangeChanged(
-            max(0, position - 1),
-            min(position + 1, adapter.itemCount - 1),
-        )
+        if (adapter.itemCount == 0) return
+
+        val firstVisible = layoutManager.findFirstVisibleItemPosition()
+            .takeIf { it != RecyclerView.NO_POSITION }
+            ?: layoutManager.findLastVisibleItemPosition()
+        if (firstVisible == RecyclerView.NO_POSITION) return
+
+        val start = max(0, firstVisible - 1)
+        val end = min(adapter.itemCount - 1, layoutManager.findLastVisibleItemPosition().coerceAtLeast(firstVisible) + 1)
+        val count = end - start + 1
+
+        adapter.items
+            .subList(start, end + 1)
+            .filterIsInstance<ReaderPage>()
+            .forEach { measuredPageHeights.remove(it) }
+        lastReportedProgress = -1
+        adapter.notifyItemRangeChanged(start, count)
     }
 }
 

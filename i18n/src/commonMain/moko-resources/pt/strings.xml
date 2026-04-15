@@ -1004,6 +1004,7 @@
     <string name="invalid_location">Local inválido: %s</string>
     <string name="invalid_location_generic">Local inválido</string>
     <string name="page_x_of_y">Página %1$d de %2$d</string>
+    <string name="resume_progress_percent">Retomar %1$d%%</string>
     <string name="not_selected">Não escolhido</string>
     <string name="selected">Escolhido</string>
     <string name="pref_behavior">Comportamento</string>

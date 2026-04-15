@@ -1072,6 +1072,7 @@
     <string name="random">無作為</string>
     <string name="action_menu_overflow_description">もっと設定</string>
     <string name="page_x_of_y">ページ%1$dから%2$d</string>
+    <string name="resume_progress_percent">%1$d%%から再開</string>
     <string name="not_selected">不選択</string>
     <string name="selected">選択</string>
     <string name="label_recent_updates">更新</string>

@@ -123,7 +123,7 @@ interface Manga : SManga {
     fun isSeriesTag(tag: String): Boolean {
         val tagLower = tag.lowercase(Locale.ROOT)
         return isMangaTag(tagLower) || isManhuaTag(tagLower) ||
-            isManhwaTag(tagLower) || isComicTag(tagLower) || isWebtoonTag(tagLower)
+            isManhwaTag(tagLower) || isComicTag(tagLower) || isWebtoonTag(tagLower) || isNovelTag(tagLower)
     }
 
     fun isMangaTag(tag: String): Boolean {
@@ -150,6 +150,10 @@ interface Manga : SManga {
 
     fun isWebtoonTag(tag: String): Boolean {
         return tag.startsWith("webtoon")
+    }
+
+    fun isNovelTag(tag: String): Boolean {
+        return tag == "novel" || tag == "light novel" || tag == "web novel"
     }
 
     fun isWebtoonSource(sourceName: String): Boolean {

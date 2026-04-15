@@ -5,6 +5,7 @@ import hayai.novel.repo.model.NovelRepo
 
 class CreateNovelRepo(
     private val repository: NovelRepoRepository,
+    private val validator: NovelRepoIndexValidator,
 ) {
     sealed class Result {
         data object Success : Result()
@@ -15,28 +16,26 @@ class CreateNovelRepo(
     }
 
     suspend fun await(url: String): Result {
-        val trimmedUrl = normalizeUrl(url) ?: return Result.InvalidUrl
+        val validation = validator.validate(url)
+        val indexUrl = when (validation) {
+            NovelRepoIndexValidation.EmptyRepo -> return Result.EmptyRepo
+            NovelRepoIndexValidation.InvalidIndex -> return Result.InvalidIndex
+            NovelRepoIndexValidation.InvalidUrl -> return Result.InvalidUrl
+            is NovelRepoIndexValidation.Valid -> validation.indexUrl
+        }
 
         val existing = repository.getAll()
-        if (existing.any { it.baseUrl == trimmedUrl }) {
+        if (existing.any { it.baseUrl == indexUrl }) {
             return Result.RepoAlreadyExists
         }
 
         repository.insert(
             NovelRepo(
-                baseUrl = trimmedUrl,
-                name = deriveName(trimmedUrl),
+                baseUrl = indexUrl,
+                name = deriveName(indexUrl),
             ),
         )
         return Result.Success
-    }
-
-    private fun normalizeUrl(url: String): String? {
-        val trimmedUrl = url.trim()
-        if (!trimmedUrl.startsWith("https://") && !trimmedUrl.startsWith("http://")) {
-            return null
-        }
-        return trimmedUrl.trimEnd('/')
     }
 
     private fun deriveName(indexUrl: String): String {
@@ -49,4 +48,15 @@ class CreateNovelRepo(
             .ifBlank { "Novel" }
         return host.replaceFirstChar { it.titlecase() } + " Novel Repo"
     }
+}
+
+interface NovelRepoIndexValidator {
+    suspend fun validate(rawUrl: String): NovelRepoIndexValidation
+}
+
+sealed interface NovelRepoIndexValidation {
+    data object InvalidUrl : NovelRepoIndexValidation
+    data object InvalidIndex : NovelRepoIndexValidation
+    data object EmptyRepo : NovelRepoIndexValidation
+    data class Valid(val indexUrl: String) : NovelRepoIndexValidation
 }

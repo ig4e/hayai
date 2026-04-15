@@ -998,6 +998,7 @@
     <string name="action_add_repo">Добавить репозиторий</string>
     <string name="onboarding_description">Давайте установим начальные параметры. Вы всегда можете позже изменить их в настройках.</string>
     <string name="page_x_of_y">Стр. %1$d из %2$d</string>
+    <string name="resume_progress_percent">Продолжить %1$d%%</string>
     <string name="onboarding_storage_help_info">Обновились со старой версии и не уверены, что выбрать? Для более подробного объяснения прочтите пункт \"обновление с Tachiyomi\" в инструкции по настройке хранилища Mihon.</string>
     <string name="onboarding_permission_install_apps_description">Переустановка при обновлении.</string>
     <string name="crop_borders_long_strip">Обрезать поля (Длинные страницы)</string>

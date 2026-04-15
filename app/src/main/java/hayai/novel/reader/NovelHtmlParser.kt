@@ -34,23 +34,11 @@ object NovelHtmlParser {
         "embed",
         "svg",
     )
-    private val removableClassTokens = setOf(
-        "ad",
-        "ads",
-        "advert",
-        "advertisement",
-        "breadcrumb",
-        "chapter-nav",
-        "footer",
-        "header",
-        "nav",
-        "navigation",
-        "pagination",
-        "share",
-        "social",
-    )
-
-    fun parse(html: String, baseUrl: String?): List<NovelBlock> {
+    fun parse(
+        html: String,
+        baseUrl: String?,
+        imageUrlResolver: ((String) -> String?)? = null,
+    ): List<NovelBlock> {
         val document = Jsoup.parseBodyFragment(html, baseUrl.orEmpty())
         document.outputSettings()
             .prettyPrint(false)
@@ -61,7 +49,7 @@ object NovelHtmlParser {
 
         val blocks = buildList {
             document.body().children().forEach { element ->
-                collectBlocks(element, this)
+                collectBlocks(element, this, imageUrlResolver)
             }
         }
 
@@ -86,56 +74,62 @@ object NovelHtmlParser {
                     element.attr("style").contains("display:none", ignoreCase = true) ||
                     element.attr("style").contains("display: none", ignoreCase = true) ||
                     element.attr("style").contains("visibility:hidden", ignoreCase = true) ||
-                    element.attr("style").contains("visibility: hidden", ignoreCase = true) ||
-                    element.classNames().any { className ->
-                        val normalized = className.lowercase()
-                        normalized in removableClassTokens ||
-                            normalized.startsWith("ad-") ||
-                            normalized.endsWith("-ad") ||
-                            normalized.contains("advert")
-                    }
+                    element.attr("style").contains("visibility: hidden", ignoreCase = true)
             }
             .toList()
             .forEach { it.remove() }
     }
 
-    private fun collectBlocks(element: Element, output: MutableList<NovelBlock>) {
+    private fun collectBlocks(
+        element: Element,
+        output: MutableList<NovelBlock>,
+        imageUrlResolver: ((String) -> String?)?,
+    ) {
         when (element.normalName()) {
-            "h1" -> addTextBlock(element, TextStyle.Heading1, output)
-            "h2" -> addTextBlock(element, TextStyle.Heading2, output)
-            "h3" -> addTextBlock(element, TextStyle.Heading3, output)
-            "h4" -> addTextBlock(element, TextStyle.Heading4, output)
-            "h5" -> addTextBlock(element, TextStyle.Heading5, output)
-            "h6" -> addTextBlock(element, TextStyle.Heading6, output)
-            "p" -> addParagraphWithImages(element, output)
-            "blockquote" -> addTextBlock(element, TextStyle.Quote, output)
-            "pre", "code" -> addTextBlock(element, TextStyle.Code, output)
-            "ul" -> addListBlock(element, ordered = false, output)
-            "ol" -> addListBlock(element, ordered = true, output)
-            "img" -> addImageBlock(element, output)
+            "h1" -> addTextBlock(element, TextStyle.Heading1, output, imageUrlResolver)
+            "h2" -> addTextBlock(element, TextStyle.Heading2, output, imageUrlResolver)
+            "h3" -> addTextBlock(element, TextStyle.Heading3, output, imageUrlResolver)
+            "h4" -> addTextBlock(element, TextStyle.Heading4, output, imageUrlResolver)
+            "h5" -> addTextBlock(element, TextStyle.Heading5, output, imageUrlResolver)
+            "h6" -> addTextBlock(element, TextStyle.Heading6, output, imageUrlResolver)
+            "p" -> addParagraphWithImages(element, output, imageUrlResolver)
+            "blockquote" -> addTextBlock(element, TextStyle.Quote, output, imageUrlResolver)
+            "pre", "code" -> addTextBlock(element, TextStyle.Code, output, imageUrlResolver)
+            "ul" -> addListBlock(element, ordered = false, output, imageUrlResolver)
+            "ol" -> addListBlock(element, ordered = true, output, imageUrlResolver)
+            "img" -> addImageBlock(element, output, imageUrlResolver)
             "hr" -> output.add(NovelBlock.Divider)
             "br" -> Unit
             else -> {
                 if (element.hasStructuralChildren()) {
-                    element.children().forEach { collectBlocks(it, output) }
+                    element.children().forEach { collectBlocks(it, output, imageUrlResolver) }
                 } else {
-                    addParagraphWithImages(element, output)
+                    addParagraphWithImages(element, output, imageUrlResolver)
                 }
             }
         }
     }
 
-    private fun addParagraphWithImages(element: Element, output: MutableList<NovelBlock>) {
+    private fun addParagraphWithImages(
+        element: Element,
+        output: MutableList<NovelBlock>,
+        imageUrlResolver: ((String) -> String?)?,
+    ) {
         val clone = element.clone()
         clone.select("img").remove()
         val html = clone.html().trim()
         if (clone.text().cleanVisibleText().isNotBlank()) {
             output.add(NovelBlock.Text(html))
         }
-        element.select("img").forEach { addImageBlock(it, output) }
+        element.select("img").forEach { addImageBlock(it, output, imageUrlResolver) }
     }
 
-    private fun addTextBlock(element: Element, style: TextStyle, output: MutableList<NovelBlock>) {
+    private fun addTextBlock(
+        element: Element,
+        style: TextStyle,
+        output: MutableList<NovelBlock>,
+        imageUrlResolver: ((String) -> String?)?,
+    ) {
         val clone = element.clone()
         clone.select("img").remove()
         val html = when (style) {
@@ -145,10 +139,15 @@ object NovelHtmlParser {
         if (clone.text().cleanVisibleText().isNotBlank() || style == TextStyle.Code && html.isNotBlank()) {
             output.add(NovelBlock.Text(html, style))
         }
-        element.select("img").forEach { addImageBlock(it, output) }
+        element.select("img").forEach { addImageBlock(it, output, imageUrlResolver) }
     }
 
-    private fun addListBlock(element: Element, ordered: Boolean, output: MutableList<NovelBlock>) {
+    private fun addListBlock(
+        element: Element,
+        ordered: Boolean,
+        output: MutableList<NovelBlock>,
+        imageUrlResolver: ((String) -> String?)?,
+    ) {
         val items = element.children()
             .filter { it.normalName() == "li" }
             .mapNotNull { item ->
@@ -159,22 +158,32 @@ object NovelHtmlParser {
         if (items.isNotEmpty()) {
             output.add(NovelBlock.ListItems(ordered, items))
         }
-        element.select("img").forEach { addImageBlock(it, output) }
+        element.select("img").forEach { addImageBlock(it, output, imageUrlResolver) }
     }
 
-    private fun addImageBlock(element: Element, output: MutableList<NovelBlock>) {
-        val url = resolveImageUrl(element) ?: return
+    private fun addImageBlock(
+        element: Element,
+        output: MutableList<NovelBlock>,
+        imageUrlResolver: ((String) -> String?)?,
+    ) {
+        val url = resolveImageUrl(element, imageUrlResolver) ?: return
         val alt = element.attr("alt").trim().takeIf { it.isNotBlank() }
         output.add(NovelBlock.Image(url, alt))
     }
 
-    private fun resolveImageUrl(element: Element): String? {
+    private fun resolveImageUrl(element: Element, imageUrlResolver: ((String) -> String?)?): String? {
         val attrs = listOf("src", "data-src", "data-original", "data-lazy-src", "data-url")
         attrs.forEach { attr ->
+            val raw = element.attr(attr).trim()
+            if (raw.isNotBlank()) {
+                val resolved = imageUrlResolver
+                    ?.let { resolver -> runCatching { resolver(raw)?.trim() }.getOrNull() }
+                if (resolved?.isHttpUrl() == true) return resolved
+            }
+
             val absolute = element.absUrl(attr).trim()
             if (absolute.isHttpUrl()) return absolute
 
-            val raw = element.attr(attr).trim()
             when {
                 raw.isHttpUrl() -> return raw
                 raw.startsWith("//") -> return "https:$raw"

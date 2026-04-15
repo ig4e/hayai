@@ -50,8 +50,7 @@ abstract class RecommendationPagingSource(
         fun createSources(manga: Manga, source: CatalogueSource): List<RecommendationPagingSource> {
             if (manga.seriesType() == Manga.TYPE_NOVEL) {
                 return listOf(
-                    MangaUpdatesCommunityPagingSource(manga),
-                    MangaUpdatesSimilarPagingSource(manga),
+                    NovelUpdatesPagingSource(manga),
                 ).sortedWith(compareBy({ it.name }, { it.category.resourceId }))
             }
 

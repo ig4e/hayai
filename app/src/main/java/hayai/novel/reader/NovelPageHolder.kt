@@ -27,8 +27,8 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.text.HtmlCompat
 import androidx.core.view.isVisible
 import coil3.asDrawable
-import coil3.dispose
 import coil3.imageLoader
+import coil3.request.Disposable
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import co.touchlab.kermit.Logger
@@ -62,6 +62,7 @@ class NovelPageHolder(
     private val progressView: ComposeView
     private val errorLayout: LinearLayout
     private val imageViews = mutableListOf<AppCompatImageView>()
+    private val imageRequests = mutableListOf<Disposable>()
 
     init {
         container.layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -173,7 +174,16 @@ class NovelPageHolder(
 
         try {
             val html = stream().bufferedReader(Charsets.UTF_8).use { it.readText() }
-            val blocks = NovelHtmlParser.parse(html, currentPage.url.takeIf { it.isNotBlank() })
+            if (page != currentPage) return
+
+            val imageUrlResolver = currentPage.chapter.pageLoader as? NovelImageUrlResolver
+            val blocks = NovelHtmlParser.parse(
+                html = html,
+                baseUrl = currentPage.url.takeIf { it.isNotBlank() },
+                imageUrlResolver = imageUrlResolver?.let { resolver ->
+                    { url -> resolver.resolveNovelImageUrl(url) }
+                },
+            )
 
             applyReaderColors()
             clearContent()
@@ -241,6 +251,7 @@ class NovelPageHolder(
     override fun recycle() {
         loadJob?.cancel()
         clearContent()
+        page = null
         contentLayout.isVisible = false
         progressView.isVisible = false
         errorLayout.isVisible = false
@@ -314,6 +325,7 @@ class NovelPageHolder(
     }
 
     private fun addImageView(block: NovelBlock.Image) {
+        val boundPage = page ?: return
         val imageView = AppCompatImageView(context).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                 setMargins(0, 8.dpToPx, 0, 16.dpToPx)
@@ -331,18 +343,22 @@ class NovelPageHolder(
             .data(block.url)
             .target(
                 onSuccess = { result ->
-                    imageView.setImageDrawable(result.asDrawable(context.resources))
-                    imageView.isVisible = true
-                    imageView.post { reportMeasuredHeight() }
+                    if (page == boundPage) {
+                        imageView.setImageDrawable(result.asDrawable(context.resources))
+                        imageView.isVisible = true
+                        imageView.post { reportMeasuredHeight() }
+                    }
                 },
                 onError = {
-                    imageView.isVisible = false
-                    imageView.post { reportMeasuredHeight() }
+                    if (page == boundPage) {
+                        imageView.isVisible = false
+                        imageView.post { reportMeasuredHeight() }
+                    }
                 },
             )
             .crossfade(false)
             .build()
-        context.imageLoader.enqueue(request)
+        imageRequests.add(context.imageLoader.enqueue(request))
     }
 
     private fun addDivider() {
@@ -358,7 +374,9 @@ class NovelPageHolder(
     }
 
     private fun clearContent() {
-        imageViews.forEach { it.dispose() }
+        imageRequests.forEach { it.dispose() }
+        imageRequests.clear()
+        imageViews.forEach { it.setImageDrawable(null) }
         imageViews.clear()
         contentLayout.removeAllViews()
     }

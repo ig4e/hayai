@@ -1002,6 +1002,7 @@
     <string name="onboarding_description">Mari kita pilih beberapa pengaturan default. Anda dapat mengubah hal-hal ini kapan saja di dalam pengaturan.</string>
     <string name="onboarding_storage_info">Pilih folder dimana %1$s akan menyimpan bab unduhan, cadangan, dan lainnya.\n\nSebaiknya gunakan folder khusus.\n\nFolder yang dipilih: %2$s</string>
     <string name="page_x_of_y">Halaman %1$d dari %2$d</string>
+    <string name="resume_progress_percent">Lanjutkan %1$d%%</string>
     <string name="not_selected">Tidak dipilih</string>
     <string name="selected">Dipilih</string>
     <string name="open_random_series_global">Buka seri acak (Global)</string>

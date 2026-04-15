@@ -985,6 +985,7 @@
     <string name="invalid_location">无效位置：%s</string>
     <string name="invalid_location_generic">无效位置</string>
     <string name="page_x_of_y">第%1$d页，共%2$d页</string>
+    <string name="resume_progress_percent">继续 %1$d%%</string>
     <string name="enable_chapter_swipe_action">启用章节左右滑动操作</string>
     <string name="recents_long_tap_default">显示下载队列</string>
     <string name="recents_long_tap">长按“最近”</string>

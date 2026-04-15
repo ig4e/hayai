@@ -866,6 +866,7 @@
     <string name="invalid_location_generic">Virheellinen sijainti</string>
     <string name="library_entries">Kirjaston merkinnät</string>
     <string name="page_x_of_y">Sivu %1$d/%2$d</string>
+    <string name="resume_progress_percent">Jatka %1$d%%</string>
     <string name="new_beta_version_available">Uusi beta-versio saatavilla!</string>
     <string name="not_selected">Ei valittu</string>
     <string name="selected">Valittu</string>

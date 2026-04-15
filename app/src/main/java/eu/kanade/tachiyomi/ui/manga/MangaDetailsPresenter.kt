@@ -883,6 +883,7 @@ class MangaDetailsPresenter(
             Manga.TYPE_MANHWA -> tags.add("Manhwa")
             Manga.TYPE_COMIC -> tags.add("Comic")
             Manga.TYPE_WEBTOON -> tags.add("Webtoon")
+            Manga.TYPE_NOVEL -> tags.add("Novel")
         }
         return tags.toTypedArray()
     }

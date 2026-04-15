@@ -1015,6 +1015,7 @@
     <string name="action_revoke_all_extensions">Révoquer toutes les extensions de confiance</string>
     <string name="confirm_revoke_all_extensions">Révoquer toutes les extensions de confiance ?</string>
     <string name="page_x_of_y">Page %1$d de %2$d</string>
+    <string name="resume_progress_percent">Reprendre %1$d%%</string>
     <string name="not_selected">Non sélectionné</string>
     <string name="selected">Sélectionné</string>
     <string name="open_random_series_global">Ouvre une série aléatoire (Global)</string>

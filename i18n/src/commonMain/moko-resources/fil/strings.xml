@@ -979,6 +979,7 @@
     <string name="invalid_location">Imbalidong lokasyon: %s</string>
     <string name="invalid_location_generic">Imbalidong lokasyon</string>
     <string name="page_x_of_y">Pahina %1$d ng %2$d</string>
+    <string name="resume_progress_percent">Ipagpatuloy %1$d%%</string>
     <string name="open_random_series_global">Magbukas ng random na serye (Pangkahalatan)</string>
     <string name="enable_chapter_swipe_action">Paganahin ang pagkilos na pag-swipe ng kabanata</string>
     <string name="label_recent_updates">Mga update</string>

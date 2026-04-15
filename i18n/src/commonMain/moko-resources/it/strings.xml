@@ -1005,6 +1005,7 @@
     <string name="invalid_location">Posizione invalida: %s</string>
     <string name="invalid_location_generic">Posizione invalida</string>
     <string name="page_x_of_y">Pagina %1$d di %2$d</string>
+    <string name="resume_progress_percent">Riprendi %1$d%%</string>
     <string name="not_selected">Non selezionato</string>
     <string name="selected">Selezionato</string>
     <string name="open_random_series_global">Apri una serie casuale (Globale)</string>

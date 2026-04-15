@@ -19,7 +19,7 @@ class NovelDownloadPageLoader(
     private val manga: Manga,
     private val source: NovelSource,
     private val downloadProvider: DownloadProvider,
-) : PageLoader() {
+) : PageLoader(), NovelImageUrlResolver {
 
     override val isLocal: Boolean = true
 
@@ -53,5 +53,9 @@ class NovelDownloadPageLoader(
 
     override fun retryPage(page: ReaderPage) {
         page.status = Page.State.Queue
+    }
+
+    override fun resolveNovelImageUrl(url: String): String {
+        return source.resolveUrl(url)
     }
 }

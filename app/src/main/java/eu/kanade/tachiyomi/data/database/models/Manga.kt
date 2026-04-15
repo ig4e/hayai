@@ -67,7 +67,9 @@ fun Manga.seriesType(useOriginalTags: Boolean = false, customTags: String? = nul
     val sourceName = source.name
     val tags = customTags ?: if (useOriginalTags) originalGenre else genre
     val currentTags = tags?.split(",")?.map { it.trim().lowercase(Locale.US) } ?: emptyList()
-    return if (currentTags.any { tag -> isMangaTag(tag) }) {
+    return if (currentTags.any { tag -> isNovelTag(tag) }) {
+        TYPE_NOVEL
+    } else if (currentTags.any { tag -> isMangaTag(tag) }) {
         TYPE_MANGA
     } else if (currentTags.any { tag -> isComicTag(tag) } ||
         isComicSource(sourceName)

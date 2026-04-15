@@ -1048,6 +1048,7 @@
     <string name="invalid_location">Ubicación no válida: %s</string>
     <string name="invalid_location_generic">Ubicación no válida</string>
     <string name="page_x_of_y">Página %1$d de %2$d</string>
+    <string name="resume_progress_percent">Continuar %1$d%%</string>
     <string name="not_selected">No seleccionado</string>
     <string name="selected">Seleccionado</string>
     <string name="open_random_series_global">Abrir una serie aleatoria (Global)</string>
