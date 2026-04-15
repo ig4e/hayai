@@ -6,6 +6,7 @@ import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.AbstractSectionableItem
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.R
+import hayai.novel.plugin.NovelPluginManager
 import hayai.novel.plugin.model.NovelPluginIndex
 
 /**
@@ -17,11 +18,15 @@ data class NovelPluginItem(
     val header: NovelPluginGroupItem? = null,
     val isInstalled: Boolean = false,
     val installedVersion: String? = null,
+    val isObsolete: Boolean = false,
     val isInstalling: Boolean = false,
 ) : AbstractSectionableItem<NovelPluginHolder, NovelPluginGroupItem>(header) {
 
     val hasUpdate: Boolean
-        get() = isInstalled && installedVersion != null && installedVersion != plugin.version
+        get() = isInstalled &&
+            !isObsolete &&
+            installedVersion != null &&
+            NovelPluginManager.isVersionNewer(plugin.version, installedVersion)
 
     override fun getLayoutRes(): Int = R.layout.extension_card_item
 

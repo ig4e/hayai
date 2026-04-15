@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import okhttp3.Request
 import java.io.File
+import yokai.domain.base.models.Version
 
 /**
  * Manages LNReader JavaScript novel plugins.
@@ -36,6 +37,7 @@ class NovelPluginManager(
     private val json = Json { ignoreUnknownKeys = true }
     private val bridge = NovelJsBridgeImpl(context)
     private val pluginLoader = JsPluginLoader(context)
+    private val cache = NovelPluginCache(context, json)
 
     private val pluginsDir: File
         get() = File(context.filesDir, "novel_plugins/plugins").also { it.mkdirs() }
@@ -81,45 +83,53 @@ class NovelPluginManager(
 
             try {
                 val code = jsFile.readText()
-                val metadata = pluginLoader.extractMetadata(code) ?: continue
+                val savedMeta = readPluginIndex(dir)
+                val cachedSource = cache.readInstalledSource(dir)
+                val metadata = pluginLoader.extractMetadata(code)
 
-                // Read saved metadata for iconUrl and lang
-                val savedMeta = try {
-                    val metaFile = File(dir, "meta.json")
-                    if (metaFile.exists()) json.decodeFromString<NovelPluginIndex>(metaFile.readText()) else null
-                } catch (_: Exception) { null }
+                val sourceId = cachedSource?.id ?: metadata?.id ?: continue
+                val sourceName = cachedSource?.name ?: metadata?.name ?: continue
+                val sourceSiteUrl = cachedSource?.siteUrl ?: metadata?.site ?: continue
+                val sourceVersion = cachedSource?.version ?: metadata?.version ?: ""
+                val sourceFilters = cachedSource?.filters ?: metadata?.filters
 
-                val iconUrl = savedMeta?.iconUrl
-                val lang = savedMeta?.let { langFromLnReaderLang(it.lang) } ?: getLangCode(dir.name, metadata)
+                val lang = savedMeta?.let { langFromLnReaderLang(it.lang) }
+                    ?: cachedSource?.lang?.takeIf { it.isNotBlank() }?.let(::langFromLnReaderLang)
+                    ?: getLangCode(sourceId)
+                val iconUrl = savedMeta?.iconUrl ?: cachedSource?.iconUrl
 
                 val source = NovelSource(
-                    pluginId = metadata.id,
-                    pluginName = metadata.name,
+                    pluginId = sourceId,
+                    pluginName = sourceName,
                     lang = lang,
-                    siteUrl = metadata.site,
+                    siteUrl = sourceSiteUrl,
                     pluginCode = code,
-                    pluginFilters = metadata.filters,
+                    pluginFilters = sourceFilters,
                     iconUrl = iconUrl,
                     context = context,
                     bridge = bridge,
                     userAgent = getUserAgent(),
                 )
 
-                installedSources[metadata.id] = source
+                installedSources[sourceId] = source
                 sources.add(source)
                 installed.add(
                     NovelPlugin.Installed(
-                        id = metadata.id,
-                        name = metadata.name,
+                        id = sourceId,
+                        name = sourceName,
                         lang = lang,
-                        version = metadata.version,
-                        siteUrl = metadata.site,
+                        version = sourceVersion,
+                        siteUrl = sourceSiteUrl,
                         iconUrl = iconUrl,
                         source = source,
                     ),
                 )
 
-                Logger.d { "NovelPluginManager: Loaded plugin '${metadata.name}' (${metadata.id})" }
+                if (metadata != null) {
+                    cache.writeInstalledSource(dir, savedMeta, metadata)
+                }
+
+                Logger.d { "NovelPluginManager: Loaded plugin '$sourceName' ($sourceId)" }
             } catch (e: Exception) {
                 Logger.e(e) { "NovelPluginManager: Failed to load plugin from ${dir.name}" }
             }
@@ -144,6 +154,16 @@ class NovelPluginManager(
      */
     suspend fun refreshAvailablePlugins() {
         val repos = repoRepository.getAll()
+        if (repos.isEmpty()) {
+            _availablePluginsFlow.value = emptyList()
+            return
+        }
+
+        val cachedPlugins = repos.flatMap { cache.readRepoPlugins(it.baseUrl) }
+        if (cachedPlugins.isNotEmpty()) {
+            _availablePluginsFlow.value = dedupePlugins(cachedPlugins)
+        }
+
         val allPlugins = mutableListOf<NovelPluginIndex>()
 
         for (repo in repos) {
@@ -155,18 +175,25 @@ class NovelPluginManager(
                     .build()
 
                 val response = networkHelper.client.newCall(request).execute()
-                val body = response.body?.string() ?: continue
+                val body = response.use { it.body.string() }
+                if (body.isNullOrBlank()) {
+                    allPlugins += cache.readRepoPlugins(repo.baseUrl)
+                    continue
+                }
 
                 val plugins = json.decodeFromString<List<NovelPluginIndex>>(body)
+                cache.writeRepoPlugins(repo.baseUrl, plugins)
                 allPlugins.addAll(plugins)
 
                 Logger.d { "NovelPluginManager: Fetched ${plugins.size} plugins from ${repo.baseUrl}" }
             } catch (e: Exception) {
                 Logger.e(e) { "NovelPluginManager: Failed to fetch plugins from ${repo.baseUrl}" }
+                allPlugins += cache.readRepoPlugins(repo.baseUrl)
             }
         }
 
-        _availablePluginsFlow.value = allPlugins
+        val resolvedPlugins = dedupePlugins(allPlugins)
+        _availablePluginsFlow.value = resolvedPlugins
     }
 
     /**
@@ -181,7 +208,7 @@ class NovelPluginManager(
                 .build()
 
             val response = networkHelper.client.newCall(request).execute()
-            val code = response.body?.string() ?: return false
+            val code = response.use { it.body.string() }
 
             // Validate plugin loads correctly
             val metadata = pluginLoader.extractMetadata(code) ?: return false
@@ -194,6 +221,7 @@ class NovelPluginManager(
             File(pluginDir, "meta.json").writeText(
                 json.encodeToString(NovelPluginIndex.serializer(), plugin),
             )
+            cache.writeInstalledSource(pluginDir, plugin, metadata)
 
             // Create source and register
             val source = NovelSource(
@@ -285,17 +313,35 @@ class NovelPluginManager(
     /**
      * Get language code from LNReader's plugin directory name or metadata.
      */
-    private fun getLangCode(dirName: String, metadata: hayai.novel.js.JsPluginLoader.PluginMetadata): String {
-        // Try to read saved metadata
-        val metaFile = File(pluginsDir, "${metadata.id}/meta.json")
-        if (metaFile.exists()) {
-            try {
-                val index = json.decodeFromString<NovelPluginIndex>(metaFile.readText())
-                return langFromLnReaderLang(index.lang)
-            } catch (_: Exception) {
+    private fun getLangCode(pluginId: String): String {
+        val pluginDir = File(pluginsDir, pluginId)
+        val savedMeta = readPluginIndex(pluginDir)
+        return savedMeta?.let { langFromLnReaderLang(it.lang) } ?: "en"
+    }
+
+    private fun readPluginIndex(pluginDir: File): NovelPluginIndex? {
+        val metaFile = File(pluginDir, "meta.json")
+        if (!metaFile.exists()) return null
+        return runCatching {
+            json.decodeFromString<NovelPluginIndex>(metaFile.readText())
+        }.getOrNull()
+    }
+
+    private fun dedupePlugins(plugins: List<NovelPluginIndex>): List<NovelPluginIndex> {
+        return plugins
+            .groupBy { it.id }
+            .values
+            .map { candidates ->
+                candidates.reduce { preferred, candidate ->
+                    when {
+                        comparePluginVersions(candidate.version, preferred.version) > 0 -> candidate
+                        comparePluginVersions(candidate.version, preferred.version) == 0 &&
+                            preferred.url.isBlank() && candidate.url.isNotBlank() -> candidate
+                        else -> preferred
+                    }
+                }
             }
-        }
-        return "en" // default
+            .sortedWith(compareBy({ langFromLnReaderLang(it.lang) }, { it.name }))
     }
 
     companion object {
@@ -322,6 +368,18 @@ class NovelPluginManager(
             "vietnamese" -> "vi"
             "multilingual" -> "all"
             else -> lang.take(2).lowercase()
+        }
+
+        fun isVersionNewer(candidate: String, installed: String): Boolean {
+            return comparePluginVersions(candidate, installed) > 0
+        }
+
+        private fun comparePluginVersions(left: String, right: String): Int {
+            return runCatching {
+                Version.parse(left).compareTo(Version.parse(right))
+            }.getOrElse {
+                left.compareTo(right)
+            }
         }
     }
 }

@@ -13,8 +13,9 @@ import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.resetStrokeColor
 import eu.kanade.tachiyomi.util.view.setText
-import hayai.novel.plugin.NovelPluginManager
 import yokai.i18n.MR
+import yokai.util.lang.getString
+import java.util.Locale
 
 /**
  * Holder for a novel plugin item in the browse bottom sheet.
@@ -40,7 +41,10 @@ class NovelPluginHolder(view: View, val adapter: NovelPluginAdapter) :
         binding.lang.text = plugin.lang
         binding.lang.isVisible = true
         binding.date.isVisible = false
-        binding.warning.text = ""
+        binding.warning.text = when {
+            item.isObsolete -> itemView.context.getString(MR.strings.obsolete).uppercase(Locale.ROOT)
+            else -> ""
+        }
         binding.installProgress.isVisible = item.isInstalling
         binding.cancelButton.isVisible = false
 

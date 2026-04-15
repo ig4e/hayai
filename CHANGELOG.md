@@ -69,6 +69,10 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Add APNG support for Android 9+ (@lalalasupa0)
 - Add markdown support to entry description (@luigidotmoe)
   - Fix text disappeared when it's surrounded by `<>` (@lalalasupa0)
+- Add first-class novel source support with plugin repos, install/update/uninstall flow, and LNReader-compatible QuickJS runtime
+- Add native novel reader with themed chapter transitions, percentage-based resume/progress, and downloaded chapter support
+- Add novel type integration across badges, library filters, statistics, chapter/recents progress text, and source/detail surfaces
+- Add novel-only recommendation flow using NovelUpdates
 
 ### Changes
 - Temporarily disable log file
@@ -81,6 +85,9 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Show FAB button to read/resume chapter when start/continue reading button is off-screen
 - LocalSource entries no longer auto-refresh when opened (@lalalasupa0)
 - Long tap chapters on Reader now mark it as read (@lalalasupa0)
+- Browse source list now reacts to novel source install/remove changes without reopening the tab
+- Novel repo validation now normalizes and probes candidate indexes before saving a repo
+- Novel HTML parsing is now app-side and strips only unsafe/hidden content instead of broad content heuristics
 
 ### Fixes
 - Allow users to bypass onboarding's permission step if Shizuku is installed
@@ -105,6 +112,11 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Fix extension download stuck on pending state
 - Only solve Cloudflare with WebView if it's not geoblock (@AwkwardPeak7)
 - Fix cover from LocalSource sometimes didn't load (@lalalasupa0)
+- Fix novel reader oversized blank scroll regions and inaccurate progress caused by WebView-based sizing
+- Fix novel reader restore loops, stale image callbacks, and premature 100% read state on chapter open
+- Fix novel source search showing page 1 results and then an incorrect "nothing found" follow-up state
+- Fix invalid or empty novel repos being accepted and later surfacing as silent empty source lists
+- Fix edit-manga series type handling for novels and preserve explicit novel tagging cleanly
 
 ### Translation
 - Update translations from Weblate

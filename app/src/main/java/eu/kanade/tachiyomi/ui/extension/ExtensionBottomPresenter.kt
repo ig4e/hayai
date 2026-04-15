@@ -298,6 +298,7 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
 
     fun refreshNovelPlugins() {
         presenterScope.launch {
+            novelPluginManager.ensureInstalledPluginsLoaded()
             novelPluginManager.refreshAvailablePlugins()
             val available = novelPluginManager.availablePluginsFlow.value
             val items = toNovelPluginItems(available)
@@ -334,40 +335,56 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
         val activeLangs = preferences.enabledLanguages().get()
         val installedSortOrder = InstalledExtensionsOrder.fromPreference(preferences)
         val items = mutableListOf<NovelPluginItem>()
+        val availableById = available.associateBy { it.id }
+        val installedPlugins = novelPluginManager.installedPluginsFlow.value
+        val installedIds = installedPlugins.map { it.id }.toSet()
 
-        // Separate installed (with updates) from available
-        val installedPlugins = available.filter { novelPluginManager.isInstalled(it.id) }
-        val installedWithUpdates = installedPlugins.filter {
-            val installedVersion = novelPluginManager.getInstalledVersion(it.id)
-            installedVersion != null && installedVersion != it.version
-        }.sortedBy { it.name }
-        val installedUpToDateUnsorted = installedPlugins.filter {
-            val installedVersion = novelPluginManager.getInstalledVersion(it.id)
-            installedVersion == null || installedVersion == it.version
+        val installedItems = installedPlugins.map { installed ->
+            val availablePlugin = availableById[installed.id]
+            NovelPluginItem(
+                plugin = availablePlugin ?: NovelPluginIndex(
+                    id = installed.id,
+                    name = installed.name,
+                    site = installed.siteUrl,
+                    lang = installed.lang,
+                    version = installed.version,
+                    iconUrl = installed.iconUrl,
+                ),
+                isInstalled = true,
+                installedVersion = installed.version,
+                isObsolete = availablePlugin == null,
+            )
         }
+        val installedWithUpdates = installedItems
+            .filter { it.hasUpdate }
+            .sortedBy { it.plugin.name }
+        val installedUpToDateUnsorted = installedItems.filter { !it.hasUpdate }
         val installedUpToDate = when (installedSortOrder) {
             InstalledExtensionsOrder.Name -> {
-                installedUpToDateUnsorted.sortedBy { it.name }
+                installedUpToDateUnsorted.sortedWith(
+                    compareBy<NovelPluginItem>({ it.isObsolete }, { it.plugin.name }),
+                )
             }
             InstalledExtensionsOrder.Language -> {
                 installedUpToDateUnsorted.sortedWith(
-                    compareBy<NovelPluginIndex> { NovelPluginManager.langFromLnReaderLang(it.lang) }
-                        .thenBy { it.name },
+                    compareBy<NovelPluginItem>({ it.isObsolete }, { NovelPluginManager.langFromLnReaderLang(it.plugin.lang) })
+                        .thenBy { it.plugin.name },
                 )
             }
             InstalledExtensionsOrder.RecentlyInstalled,
             InstalledExtensionsOrder.RecentlyUpdated,
             -> {
                 installedUpToDateUnsorted.sortedWith(
-                    compareByDescending<NovelPluginIndex> { novelPluginManager.getPluginLastModified(it.id) }
-                        .thenBy { it.name },
+                    compareBy<NovelPluginItem> { it.isObsolete }
+                        .thenByDescending { novelPluginManager.getPluginLastModified(it.plugin.id) }
+                        .thenBy { it.plugin.name },
                 )
             }
         }
 
         // Filter available by enabled languages
         val availablePlugins = available.filter { plugin ->
-            !novelPluginManager.isInstalled(plugin.id) &&
+            plugin.id !in installedIds &&
                 NovelPluginManager.langFromLnReaderLang(plugin.lang) in activeLangs
         }.sortedBy { it.name }
 
@@ -379,7 +396,7 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
                 canUpdate = true,
             )
             installedWithUpdates.forEach { plugin ->
-                items.add(NovelPluginItem(plugin, header, true, novelPluginManager.getInstalledVersion(plugin.id)))
+                items.add(plugin.copy(header = header))
             }
         }
 
@@ -391,7 +408,7 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
                 installedSorting = preferences.installedExtensionsOrder().get(),
             )
             installedUpToDate.forEach { plugin ->
-                items.add(NovelPluginItem(plugin, header, true, novelPluginManager.getInstalledVersion(plugin.id)))
+                items.add(plugin.copy(header = header))
             }
         }
 
