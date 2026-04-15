@@ -3,13 +3,13 @@ package exh.recs.sources
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.source.model.MangasPage
-import eu.kanade.tachiyomi.source.model.SManga
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.FormBody
+import okhttp3.Headers
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -24,15 +24,30 @@ class NovelUpdatesPagingSource(manga: Manga?) : RecommendationPagingSource(manga
         }
 
         val query = manga?.title?.takeIf { it.isNotBlank() } ?: throw NoResultsException()
-        val url = "https://www.novelupdates.com/".toHttpUrl()
-            .newBuilder()
-            .addQueryParameter("s", query)
-            .addQueryParameter("post_type", "seriesplans")
-            .build()
+        val seriesUrl = resolveSeriesUrl(query) ?: throw NoResultsException()
+        val seriesDocument = fetchDocument(seriesUrl)
 
-        val response = client.newCall(GET(url)).awaitSuccess()
-        val html = response.body.string()
-        val results = parseResults(Jsoup.parse(html, url.toString()))
+        val results = buildList {
+            addAll(NovelUpdatesParser.parseSeriesRecommendations(seriesDocument, excludeUrl = seriesUrl))
+            if (isEmpty()) {
+                for (recommendationListUrl in NovelUpdatesParser.parseRecommendationListUrls(seriesDocument)
+                    .take(MAX_RECOMMENDATION_LISTS)
+                ) {
+                    runCatching {
+                        NovelUpdatesParser.parseRecommendationListEntries(
+                            fetchDocument(recommendationListUrl),
+                            excludeUrl = seriesUrl,
+                        )
+                    }.getOrNull()?.let(::addAll)
+
+                    if (size >= MAX_RESULTS) {
+                        break
+                    }
+                }
+            }
+        }
+            .distinctBy { it.url }
+            .take(MAX_RESULTS)
 
         if (results.isEmpty()) {
             throw NoResultsException()
@@ -41,43 +56,68 @@ class NovelUpdatesPagingSource(manga: Manga?) : RecommendationPagingSource(manga
         return MangasPage(results, false)
     }
 
-    private fun parseResults(document: Document): List<SManga> {
-        val containerResults = document.select("div.search_main_box_nu, div.search_body_nu, div.search_body")
-            .mapNotNull(::parseResultContainer)
+    private suspend fun resolveSeriesUrl(query: String): String? {
+        NovelUpdatesParser.buildSearchQueries(query).forEach { searchQuery ->
+            val searchResults = runCatching {
+                val body = FormBody.Builder()
+                    .add("action", "nd_ajaxsearchmain")
+                    .add("strType", "desktop")
+                    .add("strOne", searchQuery)
+                    .add("strSearchType", "series")
+                    .build()
 
-        val results = containerResults.ifEmpty {
-            document.select("a[href*=/series/]")
-                .mapNotNull { link -> parseResultLink(link, link.parent()) }
+                client.newCall(
+                    POST(
+                        SEARCH_ENDPOINT,
+                        headers = ajaxHeaders,
+                        body = body,
+                    ),
+                ).awaitSuccess().use { response ->
+                    NovelUpdatesParser.parseSearchResults(response.body.string())
+                }
+            }.getOrDefault(emptyList())
+
+            val bestMatch = NovelUpdatesParser.selectBestSearchResult(searchResults, query)
+            if (bestMatch != null) {
+                return bestMatch.url
+            }
         }
 
-        return results
-            .distinctBy { it.url }
-            .take(MAX_RESULTS)
-    }
+        NovelUpdatesParser.buildSlugCandidates(query).forEach { slug ->
+            val url = BASE_URL.toHttpUrl()
+                .newBuilder()
+                .addPathSegment("series")
+                .addPathSegment(slug)
+                .build()
+                .toString()
 
-    private fun parseResultContainer(container: Element): SManga? {
-        val link = container.selectFirst("a[href*=/series/][title], a[href*=/series/]")
-            ?: return null
-        return parseResultLink(link, container)
-    }
-
-    private fun parseResultLink(link: Element, container: Element?): SManga? {
-        val title = link.attr("title").ifBlank { link.text() }.trim()
-        val url = link.absUrl("href").takeIf { it.isNotBlank() } ?: return null
-        if (title.isBlank()) return null
-
-        return SManga.create().also { manga ->
-            manga.title = title
-            manga.url = url
-            manga.thumbnail_url = container
-                ?.selectFirst("img")
-                ?.absUrl("src")
-                ?.takeIf { it.isNotBlank() }
-            manga.initialized = true
+            val document = runCatching { fetchDocument(url) }.getOrNull() ?: return@forEach
+            if (NovelUpdatesParser.isValidSeriesPage(document, query)) {
+                return url
+            }
         }
+
+        return null
     }
 
-    private companion object {
+    private suspend fun fetchDocument(url: String) = client.newCall(GET(url, ajaxHeaders))
+        .awaitSuccess()
+        .use { response ->
+            Jsoup.parse(response.body.string(), response.request.url.toString())
+        }
+
+    private val ajaxHeaders by lazy {
+        Headers.Builder()
+            .add("Referer", BASE_URL)
+            .add("X-Requested-With", "XMLHttpRequest")
+            .build()
+    }
+
+    companion object {
+        const val BASE_URL = "https://www.novelupdates.com/"
+
+        private const val SEARCH_ENDPOINT = "${BASE_URL}wp-admin/admin-ajax.php"
         const val MAX_RESULTS = 20
+        private const val MAX_RECOMMENDATION_LISTS = 3
     }
 }
