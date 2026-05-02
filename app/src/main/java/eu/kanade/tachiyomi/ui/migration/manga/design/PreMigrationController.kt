@@ -21,8 +21,10 @@ import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.PreMigrationControllerBinding
+import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
@@ -33,7 +35,15 @@ import eu.kanade.tachiyomi.util.view.doOnApplyWindowInsetsCompat
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.liftAppbarWith
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import exh.source.BlacklistedSources
+// NOVEL -->
+import hayai.novel.source.TextSource
+// NOVEL <--
+import kotlinx.coroutines.runBlocking
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import yokai.domain.manga.interactor.GetManga
 
 class PreMigrationController(bundle: Bundle? = null) :
     BaseLegacyController<PreMigrationControllerBinding>(bundle),
@@ -46,6 +56,22 @@ class PreMigrationController(bundle: Bundle? = null) :
     private var adapter: MigrationSourceAdapter? = null
 
     private val config: LongArray = args.getLongArray(MANGA_IDS_EXTRA) ?: LongArray(0)
+
+    /**
+     * True when every selected manga is a novel — controls whether the source picker
+     * shows novel sources (`TextSource`) or the regular `HttpSource` manga catalogue.
+     * Mixed selections fall back to manga sources.
+     */
+    private val isNovelMigration: Boolean by lazy {
+        if (config.isEmpty()) {
+            false
+        } else {
+            val getManga = Injekt.get<GetManga>()
+            runBlocking {
+                config.all { id -> getManga.awaitById(id)?.isNovel(sourceManager) == true }
+            }
+        }
+    }
 
     private var showingOptions = false
 
@@ -140,11 +166,14 @@ class PreMigrationController(bundle: Bundle? = null) :
      *
      * @return list containing enabled sources.
      */
-    private fun getEnabledSources(): List<HttpSource> {
+    private fun getEnabledSources(): List<CatalogueSource> {
         val languages = prefs.enabledLanguages().get()
         val sourcesSaved = prefs.migrationSources().get().split("/")
         var sources = sourceManager.getCatalogueSources()
-            .filterIsInstance<HttpSource>()
+            .filterNot { it.id in BlacklistedSources.HIDDEN_SOURCES }
+            .filter { source ->
+                if (isNovelMigration) source is TextSource else source is HttpSource
+            }
             .filter { it.lang in languages }
             .sortedBy { "(${it.lang}) ${it.name}" }
         sources =

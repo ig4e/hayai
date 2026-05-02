@@ -2,11 +2,16 @@ package eu.kanade.tachiyomi.ui.migration.manga.design
 
 import android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
 import android.view.View
+import coil3.load
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.databinding.MigrationSourceItemBinding
+import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.icon
 import eu.kanade.tachiyomi.source.nameBasedOnEnabledLanguages
-import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
+// NOVEL -->
+import hayai.novel.source.NovelSource
+// NOVEL <--
 
 class MigrationSourceHolder(view: View, val adapter: MigrationSourceAdapter) :
     BaseFlexibleViewHolder(view, adapter) {
@@ -16,12 +21,20 @@ class MigrationSourceHolder(view: View, val adapter: MigrationSourceAdapter) :
         setDragHandleView(binding.reorder)
     }
 
-    fun bind(source: HttpSource, sourceEnabled: Boolean) {
+    fun bind(source: CatalogueSource, sourceEnabled: Boolean) {
         binding.title.text = source.nameBasedOnEnabledLanguages(adapter.enabledLanguages, adapter.extensionManager)
         // Update circle letter image.
         itemView.post {
             val icon = source.icon()
-            if (icon != null) binding.sourceImage.setImageDrawable(icon)
+            when {
+                icon != null -> binding.sourceImage.setImageDrawable(icon)
+                // NOVEL -->
+                source is NovelSource && !source.iconUrl.isNullOrBlank() -> {
+                    binding.sourceImage.load(source.iconUrl)
+                }
+                source is NovelSource -> binding.sourceImage.setImageResource(R.drawable.ic_book_24dp)
+                // NOVEL <--
+            }
         }
 
         if (sourceEnabled) {

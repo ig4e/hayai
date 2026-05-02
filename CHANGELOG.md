@@ -34,6 +34,9 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Fall back to the system installer on MIUI devices when in-app install is unreliable
 
 ### Fixes
+- Fix novel sources rendering without their icon in the Migrations tab — the migration `SourceHolder` now falls back to the plugin's `iconUrl` (or a book glyph) when the manga `ExtensionManager` has no app icon, matching the regular browse list. The same fallback was added to the per-manga Migrate target list.
+- Fix `MergedSource` appearing in the per-manga Migrate target source list — `PreMigrationController` now filters out `BlacklistedSources.HIDDEN_SOURCES` for both manga and novel migrations.
+- Per-manga Migrate now picks the right catalogue for the entry being migrated: novels see only novel (`TextSource`) sources, manga see only `HttpSource` sources. `MigrationSourceItem`/`MigrationSourceHolder` widened from `HttpSource` to `CatalogueSource`.
 - Fix tapping a page-preview thumbnail opening page 1 instead of the tapped page (race between two state observers in `ReaderViewModel`; now the requested page is plumbed through `ChapterLoader` before `viewerChapters` is published).
 - Fix recommendation card clicks being silently dropped for external sources (AniList / MyAnimeList / NovelUpdates / etc.); they now route to global search by title across installed sources, matching TachiyomiSY's behavior.
 - Fix `NovelUpdatesParser.<clinit>` and `MdUtil.<clinit>` crashes (`PatternSyntaxException` on Android's ICU regex engine: `[^]]` is invalid; escaped to `[^\]]`). The first crash also took down anything that loaded the recommendations screen.

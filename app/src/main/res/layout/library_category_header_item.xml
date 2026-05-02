@@ -45,7 +45,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         tools:alpha="0.5"
-        android:background="@drawable/list_item_selector"
+        android:background="@drawable/library_header_background"
+        android:paddingTop="6dp"
+        android:paddingBottom="10dp"
         android:gravity="center_vertical">
 
         <Space
@@ -75,10 +77,10 @@
 
         <ImageView
             android:id="@+id/collapse_arrow"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:layout_marginStart="8dp"
-            android:padding="1dp"
+            android:padding="2dp"
             android:contentDescription="@string/select_all"
             android:src="@drawable/ic_expand_less_24dp"
             app:tint="?attr/colorOnBackground"
@@ -127,6 +129,7 @@
             app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toEndOf="@+id/start_barrier"
             app:layout_constraintTop_toTopOf="parent"
+            android:layout_marginStart="10dp"
             tools:text="Title dfdsfsfsfsfsfdsfsfsfs" />
 
 
@@ -134,7 +137,8 @@
             android:id="@+id/category_sort"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/rounded_ripple"
+            android:minHeight="36dp"
+            android:background="@drawable/library_header_action_chip"
             android:clickable="true"
             android:drawablePadding="6dp"
             app:drawableTint="?attr/colorOnBackground"
@@ -142,9 +146,12 @@
             android:focusable="true"
             android:gravity="center_vertical"
             android:maxLines="1"
-            android:padding="6dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:textAlignment="textStart"
-            style="?textAppearanceBodyMedium"
+            style="?textAppearanceLabelLarge"
             android:textColor="?attr/colorOnBackground"
             android:textSize="13sp"
             android:textStyle="normal"
@@ -159,13 +166,16 @@
 
         <ImageButton
             android:id="@+id/update_button"
-            style="@style/Theme.Widget.ImageBorderless"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="2dp"
+            android:background="@drawable/library_header_action_button"
             android:clickable="true"
             android:contentDescription="@string/update"
             android:focusable="true"
             android:padding="8dp"
+            android:scaleType="centerInside"
             android:src="@drawable/ic_refresh_24dp"
             app:tint="?attr/colorOnBackground"
             android:tooltipText="@string/update"

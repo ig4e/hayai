@@ -10,11 +10,11 @@ import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
-import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.parcelize.Parcelize
 
-class MigrationSourceItem(val source: HttpSource, var sourceEnabled: Boolean) : AbstractFlexibleItem<MigrationSourceHolder>() {
+class MigrationSourceItem(val source: CatalogueSource, var sourceEnabled: Boolean) : AbstractFlexibleItem<MigrationSourceHolder>() {
     override fun getLayoutRes() = R.layout.migration_source_item
 
     override fun createViewHolder(view: View, adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>): MigrationSourceHolder {
@@ -66,7 +66,7 @@ class MigrationSourceItem(val source: HttpSource, var sourceEnabled: Boolean) : 
 
     companion object {
         fun fromParcelable(sourceManager: SourceManager, si: ParcelableSI): MigrationSourceItem? {
-            val source = sourceManager.get(si.sourceId) as? HttpSource ?: return null
+            val source = sourceManager.get(si.sourceId) as? CatalogueSource ?: return null
 
             return MigrationSourceItem(
                 source,

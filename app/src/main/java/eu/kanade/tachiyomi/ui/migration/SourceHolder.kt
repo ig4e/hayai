@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.migration
 import android.view.View
 import androidx.core.text.buildSpannedString
 import androidx.core.text.color
+import coil3.load
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -13,6 +14,9 @@ import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import eu.kanade.tachiyomi.util.lang.withColor
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.getResourceColor
+// NOVEL -->
+import hayai.novel.source.NovelSource
+// NOVEL <--
 import java.util.Locale
 
 class SourceHolder(view: View, val adapter: SourceAdapter) :
@@ -46,7 +50,16 @@ class SourceHolder(view: View, val adapter: SourceAdapter) :
 
         // Set circle letter image.
         itemView.post {
-            binding.sourceImage.setImageDrawable(source.icon())
+            val icon = source.icon()
+            when {
+                icon != null -> binding.sourceImage.setImageDrawable(icon)
+                // NOVEL -->
+                source is NovelSource && !source.iconUrl.isNullOrBlank() -> {
+                    binding.sourceImage.load(source.iconUrl)
+                }
+                source is NovelSource -> binding.sourceImage.setImageResource(R.drawable.ic_book_24dp)
+                // NOVEL <--
+            }
         }
     }
 }
