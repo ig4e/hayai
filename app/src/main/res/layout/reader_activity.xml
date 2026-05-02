@@ -85,6 +85,18 @@
             android:id="@+id/reader_nav" />
     </FrameLayout>
 
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/novel_control_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone"
+        app:layout_anchorGravity="top"
+        android:layout_gravity="top"
+        app:layout_anchor="@id/nav_layout" />
+
     <include layout="@layout/reader_chapters_sheet"
         android:id="@+id/chapters_sheet"/>
 

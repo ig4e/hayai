@@ -64,6 +64,45 @@ class NovelPageHolder(
     private val imageViews = mutableListOf<AppCompatImageView>()
     private val imageRequests = mutableListOf<Disposable>()
 
+    /**
+     * Per-block list of (TextView, charStartInBlock) pairs. Index = local block index inside
+     * this page (matches the page's [hayai.novel.reader.NovelBlock] order). Used by the TTS
+     * highlight pipeline to find the right TextView for a given (blockIndex, charInBlock).
+     *
+     * - Plain text blocks contribute one entry of (textView, 0).
+     * - List item blocks contribute one entry per item with the running char offset (each item's
+     *   plain text + 1 for the joining newline that the segmenter inserts).
+     * - Image / divider blocks contribute an empty list (no TextView, not narratable).
+     */
+    private val blockTextSegments = mutableListOf<List<BlockTextSegment>>()
+
+    /** Number of [hayai.novel.reader.NovelBlock]s currently rendered for this page. */
+    val renderedBlockCount: Int get() = blockTextSegments.size
+
+    fun textViewForBlockChar(localBlockIndex: Int, charInBlock: Int): hayai.novel.tts.playback.HighlightDispatcher.TextSegment? {
+        val segments = blockTextSegments.getOrNull(localBlockIndex) ?: return null
+        for (segment in segments) {
+            if (charInBlock in segment.charStartInBlock until segment.charEndInBlock) {
+                return hayai.novel.tts.playback.HighlightDispatcher.TextSegment(
+                    textView = segment.textView,
+                    charInTextView = charInBlock - segment.charStartInBlock,
+                )
+            }
+        }
+        // Fallback: highlight at the end of the last segment if the requested offset overshoots.
+        val last = segments.lastOrNull() ?: return null
+        return hayai.novel.tts.playback.HighlightDispatcher.TextSegment(
+            textView = last.textView,
+            charInTextView = (last.charEndInBlock - last.charStartInBlock).coerceAtLeast(0),
+        )
+    }
+
+    private data class BlockTextSegment(
+        val textView: android.widget.TextView,
+        val charStartInBlock: Int,
+        val charEndInBlock: Int,
+    )
+
     init {
         container.layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
 
@@ -266,21 +305,35 @@ class NovelPageHolder(
     }
 
     private fun renderBlock(block: NovelBlock) {
-        when (block) {
-            is NovelBlock.Text -> addTextView(block.html, block.style)
+        val segments = when (block) {
+            is NovelBlock.Text -> {
+                val view = addTextView(block.html, block.style)
+                val plainLen = view.text?.length ?: 0
+                listOf(BlockTextSegment(view, 0, plainLen))
+            }
             is NovelBlock.ListItems -> addListView(block)
-            is NovelBlock.Image -> addImageView(block)
-            NovelBlock.Divider -> addDivider()
+            is NovelBlock.Image -> {
+                addImageView(block)
+                emptyList()
+            }
+            NovelBlock.Divider -> {
+                addDivider()
+                emptyList()
+            }
         }
+        blockTextSegments += segments
     }
 
-    private fun addTextView(html: String, style: TextStyle) {
+    private fun addTextView(html: String, style: TextStyle): AppCompatTextView {
         val config = viewer.config
         val colors = config.getColors()
         val textColor = Color.parseColor(colors.textColor)
 
         val view = AppCompatTextView(context).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                // Headings get a slight extra gap to keep them visually separated from body text
+                // even when paragraph spacing is dialed down.
+                val baseSpacing = config.paragraphSpacing
                 val bottom = when (style) {
                     TextStyle.Heading1,
                     TextStyle.Heading2,
@@ -288,18 +341,15 @@ class NovelPageHolder(
                     TextStyle.Heading4,
                     TextStyle.Heading5,
                     TextStyle.Heading6,
-                    -> 14.dpToPx
-                    TextStyle.Quote,
-                    TextStyle.Code,
-                    -> 12.dpToPx
-                    TextStyle.Paragraph -> 12.dpToPx
+                    -> (baseSpacing + 2).dpToPx
+                    else -> baseSpacing.dpToPx
                 }
                 setMargins(0, 0, 0, bottom)
             }
             includeFontPadding = true
             setTextColor(textColor)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeForStyle(style, config.fontSize))
-            typeface = typefaceForStyle(style, config.fontFamily)
+            typeface = typefaceForStyle(style, config.fontFamily, config.fontWeight)
             setLineSpacing(0f, config.lineHeight)
             textAlignment = textAlignmentForConfig(config.textAlign)
             gravity = gravityForConfig(config.textAlign)
@@ -323,13 +373,23 @@ class NovelPageHolder(
         }
 
         contentLayout.addView(view)
+        return view
     }
 
-    private fun addListView(block: NovelBlock.ListItems) {
+    private fun addListView(block: NovelBlock.ListItems): List<BlockTextSegment> {
+        // Mirror the segmenter's flat-text layout: each item joined by a single newline. The
+        // returned segments map block-relative char offsets back to the right per-item TextView
+        // for highlighting.
+        val segments = mutableListOf<BlockTextSegment>()
+        var charOffset = 0
         block.items.forEachIndexed { index, item ->
             val prefix = if (block.ordered) "${index + 1}. " else "- "
-            addTextView(prefix + item, TextStyle.Paragraph)
+            val view = addTextView(prefix + item, TextStyle.Paragraph)
+            val plainLen = view.text?.length ?: 0
+            segments += BlockTextSegment(view, charOffset, charOffset + plainLen)
+            charOffset += plainLen + 1 // +1 for the joining newline the segmenter inserts
         }
+        return segments
     }
 
     private fun addImageView(block: NovelBlock.Image) {
@@ -386,6 +446,7 @@ class NovelPageHolder(
         imageRequests.clear()
         imageViews.forEach { it.setImageDrawable(null) }
         imageViews.clear()
+        blockTextSegments.clear()
         contentLayout.removeAllViews()
     }
 
@@ -430,7 +491,7 @@ class NovelPageHolder(
         return (baseSize * multiplier).coerceAtLeast(10f)
     }
 
-    private fun typefaceForStyle(style: TextStyle, configuredFamily: String): Typeface {
+    private fun typefaceForStyle(style: TextStyle, configuredFamily: String, weight: Int): Typeface {
         val base = when {
             style == TextStyle.Code -> Typeface.MONOSPACE
             configuredFamily == "sans-serif" -> Typeface.SANS_SERIF
@@ -438,18 +499,29 @@ class NovelPageHolder(
             configuredFamily == "system-ui" -> Typeface.DEFAULT
             else -> Typeface.SERIF
         }
-        val typefaceStyle = when (style) {
-            TextStyle.Heading1,
-            TextStyle.Heading2,
-            TextStyle.Heading3,
-            TextStyle.Heading4,
-            TextStyle.Heading5,
-            TextStyle.Heading6,
-            -> Typeface.BOLD
-            TextStyle.Quote -> Typeface.ITALIC
-            else -> Typeface.NORMAL
+        val italic = style == TextStyle.Quote
+        // Headings always render bold regardless of the user's body weight; body text uses the
+        // configured weight verbatim.
+        val isHeading = when (style) {
+            TextStyle.Heading1, TextStyle.Heading2, TextStyle.Heading3,
+            TextStyle.Heading4, TextStyle.Heading5, TextStyle.Heading6,
+            -> true
+            else -> false
         }
-        return Typeface.create(base, typefaceStyle)
+        val effectiveWeight = if (isHeading) weight.coerceAtLeast(700) else weight
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            Typeface.create(base, effectiveWeight, italic)
+        } else {
+            // Pre-API 28: collapse to NORMAL/BOLD/ITALIC/BOLD_ITALIC.
+            val typefaceStyle = when {
+                effectiveWeight >= 600 && italic -> Typeface.BOLD_ITALIC
+                effectiveWeight >= 600 -> Typeface.BOLD
+                italic -> Typeface.ITALIC
+                else -> Typeface.NORMAL
+            }
+            Typeface.create(base, typefaceStyle)
+        }
     }
 
     private fun textAlignmentForConfig(textAlign: String): Int {

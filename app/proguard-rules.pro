@@ -13,6 +13,7 @@
 -keep,allowoptimization class tachiyomi.**
 -keep,allowoptimization class yokai.**
 -keep,allowoptimization class exh.**
+-keep,allowoptimization class hayai.**
 
 # Keep common dependencies used in extensions
 -keep,allowoptimization class androidx.preference.** { public protected *; }
@@ -116,3 +117,6 @@
 # EXH metadata serialization
 -keep class exh.metadata.metadata.** { *; }
 -keep class exh.md.dto.** { *; }
+
+# Novel TTS — sherpa-onnx native bridge classes (loaded reflectively until the AAR is
+# vendored, then directly). Keep the JNI surface so R8 do<

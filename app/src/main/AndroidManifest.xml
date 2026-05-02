@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- For managing extensions -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -423,6 +424,11 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+
+        <service
+            android:name="hayai.novel.tts.playback.TtsPlaybackService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
 
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
