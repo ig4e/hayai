@@ -22,7 +22,11 @@ README_IMAGES = ROOT / ".github" / "readme-images"
 APP_ROOT = ROOT / "app" / "src" / "main"
 
 ICON_SVG = (BRANDING / "app-icon.svg").read_text(encoding="utf-8")
+ROUND_SVG = (BRANDING / "app-icon-round.svg").read_text(encoding="utf-8")
 FG_SVG = (BRANDING / "app-icon-foreground.svg").read_text(encoding="utf-8")
+
+# Master SVG canvas size (square + round + foreground all share the same viewport).
+ICON_VIEWPORT = 2201
 
 DENSITY_SIZES = {
     "mdpi": 48,
@@ -124,13 +128,16 @@ def write_vector_drawables() -> None:
 
     print("== vector drawables ==")
 
-    # Adaptive-icon foreground: white silhouette inside 108dp safe canvas
+    # Adaptive-icon foreground: white silhouette inside 108dp safe canvas.
+    # The new master SVG already builds in generous padding (logo bbox sits
+    # well inside 192dp / 288dp safe area), so we keep the launcher pieces at
+    # the standard 108dp adaptive size.
     fg_xml = vector_drawable(
         fg_paths,
         width_dp=108,
         height_dp=108,
-        viewport_w=1343,
-        viewport_h=1343,
+        viewport_w=ICON_VIEWPORT,
+        viewport_h=ICON_VIEWPORT,
     )
     write_text(RES / "drawable" / "ic_launcher_foreground.xml", fg_xml)
 
@@ -144,20 +151,23 @@ def write_vector_drawables() -> None:
             icon_paths,
             width_dp=108,
             height_dp=108,
-            viewport_w=1343,
-            viewport_h=1343,
+            viewport_w=ICON_VIEWPORT,
+            viewport_h=ICON_VIEWPORT,
         ),
     )
 
-    # Splash-screen vector — silhouette only (windowSplashScreenBackground sets the fill)
+    # Splash-screen vector — silhouette only (windowSplashScreenBackground
+    # sets the rosé fill). 288dp is the Android 12 spec for foreground-only
+    # splash icons; the new SVG's extra padding keeps the visible logo well
+    # within the 192dp safe area so nothing gets clipped.
     write_text(
         RES / "drawable" / "ic_hayai.xml",
         vector_drawable(
             fg_paths,
             width_dp=288,
             height_dp=288,
-            viewport_w=1343,
-            viewport_h=1343,
+            viewport_w=ICON_VIEWPORT,
+            viewport_h=ICON_VIEWPORT,
         ),
     )
 
@@ -166,32 +176,42 @@ def main() -> None:
     write_vector_drawables()
 
     print("== mipmap launchers (PNG) ==")
-    for variant in ("ic_launcher", "ic_launcher_round"):
+    # Square master → ic_launcher.png, rounded master → ic_launcher_round.png.
+    # Pre-Oreo launchers fall back to these rasters as-is (no adaptive mask),
+    # so the file's shape needs to match the launcher's expectation.
+    raster_sources = {
+        "ic_launcher": ICON_SVG,
+        "ic_launcher_round": ROUND_SVG,
+    }
+    for variant, source_svg in raster_sources.items():
         for density, size in DENSITY_SIZES.items():
             for res_root in (RES, DEBUG_RES, NIGHTLY_RES):
                 target = res_root / f"mipmap-{density}" / f"{variant}.png"
                 if not target.parent.exists():
                     continue
-                save_png(ICON_SVG, target, size)
+                save_png(source_svg, target, size)
 
     print("== alternate-color launcher rasters (.webp) ==")
     for variant_name, color in LAUNCHER_COLOR_VARIANTS.items():
-        variant_svg = ICON_SVG.replace(f'"{BRAND_BG_HEX}"', f'"{color}"')
+        square_variant = ICON_SVG.replace(f'"{BRAND_BG_HEX}"', f'"{color}"')
+        round_variant = ROUND_SVG.replace(f'"{BRAND_BG_HEX}"', f'"{color}"')
         # Sanity: every variant must have actually swapped the bg color.
-        assert color in variant_svg, f"bg fill swap failed for {variant_name}"
+        assert color in square_variant, f"bg fill swap failed (square) for {variant_name}"
+        assert color in round_variant, f"bg fill swap failed (round) for {variant_name}"
         for density, size in DENSITY_SIZES.items():
-            for stem in (f"ic_launcher_{variant_name}", f"ic_launcher_round_{variant_name}"):
-                target = RES / f"mipmap-{density}" / f"{stem}.webp"
-                save_webp(variant_svg, target, size, lossless=True)
-        # Branding preview at 512 for design reviews.
-        save_png(variant_svg, BRANDING / f"app-icon-{variant_name}.png", 512)
+            save_webp(square_variant, RES / f"mipmap-{density}" / f"ic_launcher_{variant_name}.webp", size, lossless=True)
+            save_webp(round_variant, RES / f"mipmap-{density}" / f"ic_launcher_round_{variant_name}.webp", size, lossless=True)
+        # Branding preview at 512 for design reviews (square version).
+        save_png(square_variant, BRANDING / f"app-icon-{variant_name}.png", 512)
 
     print("== Play Store / web icons ==")
+    # Play Store requires a 512×512 square; Google rounds it for the listing.
     save_png(ICON_SVG, APP_ROOT / "ic_launcher-playstore.png", 512)
     save_png(ICON_SVG, APP_ROOT / "ic_launcher-web.png", 512)
 
     print("== README marketplace asset ==")
-    save_webp(ICON_SVG, README_IMAGES / "app-icon.webp", 1024, lossless=True)
+    # README badge looks better as a circle since it's displayed standalone.
+    save_webp(ROUND_SVG, README_IMAGES / "app-icon.webp", 1024, lossless=True)
 
     print("== monochrome preview (debug aid only) ==")
     save_png(desaturate_to_white(FG_SVG), BRANDING / "app-icon-monochrome.png", 512)
