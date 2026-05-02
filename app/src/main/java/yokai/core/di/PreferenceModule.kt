@@ -9,8 +9,6 @@ import eu.kanade.tachiyomi.core.storage.AndroidStorageFolderProvider
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackPreferences
 import eu.kanade.tachiyomi.network.NetworkPreferences
-import hayai.novel.preferences.NovelPreferences
-import hayai.novel.tts.engine.TtsEngineFactory
 import org.koin.dsl.module
 import yokai.domain.backup.BackupPreferences
 import yokai.domain.base.BasePreferences
@@ -65,7 +63,4 @@ fun preferenceModule(application: Application) = module {
             preferenceStore = get(),
         )
     }
-
-    single { NovelPreferences(get()) }
-    single { TtsEngineFactory(application) }
 }

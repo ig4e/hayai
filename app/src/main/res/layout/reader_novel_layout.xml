@@ -15,12 +15,6 @@
         android:paddingTop="0dp"
         android:paddingEnd="@dimen/material_component_dialogs_padding_around_content_area">
 
-        <hayai.novel.theme.ui.NovelThemeRowView
-            android:id="@+id/novel_reader_theme"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" />
-
         <eu.kanade.tachiyomi.widget.MaterialSpinnerView
             android:id="@+id/novel_font_size"
             android:layout_width="match_parent"
@@ -37,16 +31,6 @@
             android:entries="@array/novel_font_family_entries"
             app:title="@string/novel_font_family" />
 
-        <hayai.novel.widget.NovelSliderView
-            android:id="@+id/novel_font_weight"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            app:novelSliderTitle="@string/novel_font_weight"
-            app:novelSliderValueFrom="100"
-            app:novelSliderValueTo="900"
-            app:novelSliderStepSize="100" />
-
         <eu.kanade.tachiyomi.widget.MaterialSpinnerView
             android:id="@+id/novel_line_height"
             android:layout_width="match_parent"
@@ -55,16 +39,13 @@
             android:entries="@array/novel_line_height_entries"
             app:title="@string/novel_line_height" />
 
-        <hayai.novel.widget.NovelSliderView
-            android:id="@+id/novel_paragraph_spacing"
+        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
+            android:id="@+id/novel_text_align"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            app:novelSliderTitle="@string/novel_paragraph_spacing"
-            app:novelSliderValueFrom="0"
-            app:novelSliderValueTo="32"
-            app:novelSliderStepSize="2"
-            app:novelSliderValueSuffix=" dp" />
+            android:entries="@array/novel_text_align_entries"
+            app:title="@string/novel_text_align" />
 
         <eu.kanade.tachiyomi.widget.MaterialSpinnerView
             android:id="@+id/novel_padding"
@@ -75,23 +56,11 @@
             app:title="@string/novel_padding" />
 
         <eu.kanade.tachiyomi.widget.MaterialSpinnerView
-            android:id="@+id/novel_text_align"
+            android:id="@+id/novel_reader_theme"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:entries="@array/novel_text_align_entries"
-            app:title="@string/novel_text_align" />
-
-        <hayai.novel.widget.NovelAutoScrollRow
-            android:id="@+id/novel_auto_scroll"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" />
-
-        <hayai.novel.tts.ui.NovelTtsRowView
-            android:id="@+id/novel_tts_row"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" />
+            android:entries="@array/novel_theme_entries"
+            app:title="@string/novel_reader_theme" />
     </LinearLayout>
 </hayai.novel.reader.ReaderNovelView>

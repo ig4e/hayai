@@ -162,12 +162,6 @@ dependencies {
     implementation(libs.compose.theme.adapter3)
     implementation(compose.webview)
 
-    // Color picker for novel custom themes
-    implementation(libs.skydoves.colorpicker.compose)
-
-    // Novel TTS: media session for lockscreen / notification controls.
-    implementation("androidx.media:media:1.7.0")
-
     // EXH -->
     implementation(libs.accompanist.webview)
     // EXH <--

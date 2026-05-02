@@ -497,7 +497,6 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         bottomSheet = null
         snackbar?.dismiss()
         snackbar = null
-        hayai.novel.reader.controlbar.NovelControlBarController.release(this)
     }
 
     /**
@@ -641,7 +640,6 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             binding.toolbar.menu.findItem(R.id.action_shift_double_page)?.isVisible =
                 ((viewer as? PagerViewer)?.config?.doublePages ?: false) && !canShowSplitAtBottom()
         }
-        hayai.novel.reader.controlbar.NovelControlBarController.bind(this, binding, viewer)
     }
 
     /**
