@@ -158,6 +158,16 @@ class SettingsAppearanceController : SettingsLegacyController() {
         }
 
         preferenceCategory {
+            titleRes = MR.strings.motion
+
+            switchPreference {
+                bindTo(preferences.reducedMotion())
+                titleRes = MR.strings.reduce_motion
+                summaryRes = MR.strings.reduce_motion_summary
+            }
+        }
+
+        preferenceCategory {
             titleRes = MR.strings.details_page
             switchPreference {
                 key = Keys.themeMangaDetails

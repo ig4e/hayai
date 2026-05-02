@@ -46,6 +46,7 @@ import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
 import com.bluelinelabs.conductor.Router
 import com.bluelinelabs.conductor.RouterTransaction
+import com.bluelinelabs.conductor.changehandler.SimpleSwapChangeHandler
 import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -776,6 +777,10 @@ fun Controller.setAppBarBG(value: Float, includeTabView: Boolean = false) {
     }
 }
 
+private val transitionPreferences: PreferencesHelper by injectLazy()
+
+private fun isReducedMotion(): Boolean = transitionPreferences.reducedMotion().get()
+
 fun Controller.withFadeTransaction(): RouterTransaction {
     return RouterTransaction.with(this)
         .pushChangeHandler(fadeTransactionHandler())
@@ -783,6 +788,7 @@ fun Controller.withFadeTransaction(): RouterTransaction {
 }
 
 fun Controller.fadeTransactionHandler(): ControllerChangeHandler {
+    if (isReducedMotion()) return SimpleSwapChangeHandler()
     val isLowRam = activity?.getSystemService<ActivityManager>()?.isLowRamDevice == true
     return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || isLowRam) {
         FadeChangeHandler(isLowRam)
@@ -792,6 +798,11 @@ fun Controller.fadeTransactionHandler(): ControllerChangeHandler {
 }
 
 fun Controller.withFadeInTransaction(): RouterTransaction {
+    if (isReducedMotion()) {
+        return RouterTransaction.with(this)
+            .pushChangeHandler(SimpleSwapChangeHandler())
+            .popChangeHandler(SimpleSwapChangeHandler())
+    }
     return RouterTransaction.with(this)
         .pushChangeHandler(FadeChangeHandler())
         .popChangeHandler(OneWayFadeChangeHandler())

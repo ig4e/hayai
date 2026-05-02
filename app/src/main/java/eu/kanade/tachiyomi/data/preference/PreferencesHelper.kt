@@ -392,6 +392,8 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun useLargeToolbar() = preferenceStore.getBoolean("use_large_toolbar", true)
 
+    fun reducedMotion() = preferenceStore.getBoolean("reduced_motion", false)
+
     fun showSeriesInShortcuts() = preferenceStore.getBoolean(Keys.showSeriesInShortcuts, true)
     fun showSourcesInShortcuts() = preferenceStore.getBoolean(Keys.showSourcesInShortcuts, true)
     fun openChapterInShortcuts() = preferenceStore.getBoolean(Keys.openChapterInShortcuts, true)

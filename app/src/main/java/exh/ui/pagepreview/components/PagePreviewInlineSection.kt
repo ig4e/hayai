@@ -47,6 +47,7 @@ import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.i18n.MR
+import yokai.presentation.theme.LocalReducedMotion
 
 private sealed class PreviewState {
     data object Loading : PreviewState()
@@ -104,16 +105,22 @@ fun PagePreviewInlineSection(
     when (val s = state) {
         PreviewState.Loading -> {
             // Skeleton loading cards
-            val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-            val alpha by infiniteTransition.animateFloat(
-                initialValue = 0.15f,
-                targetValue = 0.4f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(800),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-                label = "shimmerAlpha",
-            )
+            val reducedMotion = LocalReducedMotion.current
+            val alpha = if (reducedMotion) {
+                0.25f
+            } else {
+                val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+                val animatedAlpha by infiniteTransition.animateFloat(
+                    initialValue = 0.15f,
+                    targetValue = 0.4f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+                    label = "shimmerAlpha",
+                )
+                animatedAlpha
+            }
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()

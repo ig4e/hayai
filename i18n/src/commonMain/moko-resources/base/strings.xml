@@ -732,6 +732,9 @@
     <string name="theme_buttons_based_on_cover">Theme buttons based on cover</string>
     <string name="expanded_toolbar">Expanded toolbar</string>
     <string name="show_larger_toolbar">Show a larger, expanded toolbar at the top of most pages (does not show on smaller devices regardless of setting)</string>
+    <string name="motion">Motion</string>
+    <string name="reduce_motion">Reduce motion</string>
+    <string name="reduce_motion_summary">Disable screen transitions and other in-app animations</string>
     <string name="hides_on_scroll">Hides when scrolling</string>
     <string name="hide_notification_content">Hide notification content</string>
     <string name="security">Security</string>

@@ -44,6 +44,7 @@ import exh.ui.pagepreview.PagePreviewState
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
+import yokai.presentation.theme.LocalReducedMotion
 
 @Composable
 fun PagePreviewContent(
@@ -195,16 +196,22 @@ private fun PagePreviewItem(
                 )
             }
             if (isLoading) {
-                val infiniteTransition = rememberInfiniteTransition(label = "imgShimmer")
-                val alpha by infiniteTransition.animateFloat(
-                    initialValue = 0.15f,
-                    targetValue = 0.4f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(800),
-                        repeatMode = RepeatMode.Reverse,
-                    ),
-                    label = "imgShimmerAlpha",
-                )
+                val reducedMotion = LocalReducedMotion.current
+                val alpha = if (reducedMotion) {
+                    0.25f
+                } else {
+                    val infiniteTransition = rememberInfiniteTransition(label = "imgShimmer")
+                    val animatedAlpha by infiniteTransition.animateFloat(
+                        initialValue = 0.15f,
+                        targetValue = 0.4f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800),
+                            repeatMode = RepeatMode.Reverse,
+                        ),
+                        label = "imgShimmerAlpha",
+                    )
+                    animatedAlpha
+                }
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     shape = MaterialTheme.shapes.small,
