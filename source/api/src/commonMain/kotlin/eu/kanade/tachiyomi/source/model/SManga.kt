@@ -26,7 +26,10 @@ interface SManga : Serializable {
 
     fun getGenres(): List<String>? {
         if (genre.isNullOrBlank()) return null
-        return genre?.split(", ")?.map { it.trim() }?.filterNot { it.isBlank() }?.distinct()
+        // Split on comma only, then trim — sources are inconsistent: some emit "A, B, C", others
+        // "A,B,C" (notably most LNReader-style novel plugins use .join(',')). Splitting strictly
+        // on ", " would lump the latter into a single chip. The trim handles either form.
+        return genre?.split(",")?.map { it.trim() }?.filterNot { it.isBlank() }?.distinct()
     }
 
     fun copy() = create().also {
