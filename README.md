@@ -19,7 +19,7 @@ A free and open source manga & novel reader
 
 [![Hayai Stable](https://img.shields.io/github/v/release/ig4e/hayai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69&filter=v*)](https://github.com/ig4e/hayai/releases)
 [![Hayai Beta](https://img.shields.io/github/v/release/ig4e/hayai?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39&filter=v*-b*)](https://github.com/ig4e/hayai/releases)
-[![Hayai Nightly](https://img.shields.io/github/v/release/ig4e/hayai-nightly?maxAge=3600&labelColor=B11A3B&color=1c1c39&filter=v*-b*)](https://github.com/ig4e/hayai-nightly/releases)
+[![Hayai Nightly](https://img.shields.io/github/v/release/ig4e/hayai-nightly?maxAge=3600&label=Nightly&labelColor=B11A3B&color=1c1c39)](https://github.com/ig4e/hayai-nightly/releases)
 
 *Requires Android 6.0 or higher.*
 
