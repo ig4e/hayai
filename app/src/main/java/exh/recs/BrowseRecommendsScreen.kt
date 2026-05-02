@@ -36,7 +36,6 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.domain.manga.models.Manga
-import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
@@ -131,12 +130,9 @@ class BrowseRecommendsScreen(
                             mangas = currentState.mangas,
                             contentPadding = contentPadding,
                             onClickItem = { manga ->
-                                if (router != null && manga.id != null) {
-                                    router.pushController(
-                                        MangaDetailsController(manga, fromCatalogue = true)
-                                            .withFadeTransaction(),
-                                    )
-                                }
+                                router?.pushController(
+                                    recommendationDestination(manga).withFadeTransaction(),
+                                )
                             },
                         )
                     }
