@@ -1,10 +1,5 @@
 package exh.ui.pagepreview.components
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +42,7 @@ import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.i18n.MR
-import yokai.presentation.theme.LocalReducedMotion
+import yokai.presentation.theme.rememberShimmerAlpha
 
 private sealed class PreviewState {
     data object Loading : PreviewState()
@@ -105,22 +100,7 @@ fun PagePreviewInlineSection(
     when (val s = state) {
         PreviewState.Loading -> {
             // Skeleton loading cards
-            val reducedMotion = LocalReducedMotion.current
-            val alpha = if (reducedMotion) {
-                0.25f
-            } else {
-                val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-                val animatedAlpha by infiniteTransition.animateFloat(
-                    initialValue = 0.15f,
-                    targetValue = 0.4f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(800),
-                        repeatMode = RepeatMode.Reverse,
-                    ),
-                    label = "shimmerAlpha",
-                )
-                animatedAlpha
-            }
+            val alpha by rememberShimmerAlpha()
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()

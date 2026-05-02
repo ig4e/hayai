@@ -327,7 +327,9 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
                     .build(),
             )
 
-            crossfade(true)
+            // Crossfade is gated by the user's reduced-motion preference. Since the ImageLoader
+            // is built once at app start, toggling the setting takes effect after the next launch.
+            crossfade(!yokai.presentation.theme.ReducedMotion.isEnabled())
             allowRgb565(this@App.getSystemService<ActivityManager>()!!.isLowRamDevice)
             // allowHardware(true)
             if (networkPreferences.verboseLogging().get()) {

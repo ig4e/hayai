@@ -13,6 +13,7 @@ import androidx.interpolator.view.animation.LinearOutSlowInInterpolator
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.changehandler.AnimatorChangeHandler
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import yokai.presentation.theme.ReducedMotion
 import kotlin.math.roundToLong
 
 class CrossFadeChangeHandler : AnimatorChangeHandler {
@@ -83,10 +84,10 @@ class CrossFadeChangeHandler : AnimatorChangeHandler {
                 )
             }
         }
-        animatorSet.duration = if (isPush) {
-            200
-        } else {
-            try {
+        animatorSet.duration = when {
+            ReducedMotion.isEnabled() -> 0L
+            isPush -> 200
+            else -> try {
                 from?.let {
                     val startX = from.width.toFloat() * 0.2f
                     ((startX - it.x) / startX) * 150f

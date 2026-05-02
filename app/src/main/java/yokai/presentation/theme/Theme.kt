@@ -5,13 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.LayoutDirection
 import com.google.accompanist.themeadapter.material3.createMdc3Theme
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 @Composable
 fun YokaiTheme(content: @Composable () -> Unit) {
@@ -26,8 +22,8 @@ fun YokaiTheme(content: @Composable () -> Unit) {
             readTypography = false,
         )
 
-    val reducedMotionPref = remember { Injekt.get<PreferencesHelper>().reducedMotion() }
-    val reducedMotion by reducedMotionPref.changes().collectAsState(initial = reducedMotionPref.get())
+    // Observe via the central accessor so toggling reduced motion recomposes the tree.
+    val reducedMotion by ReducedMotion.changes().collectAsState(initial = ReducedMotion.isEnabled())
 
     MaterialTheme(colorScheme = colourScheme!!) {
         CompositionLocalProvider(LocalReducedMotion provides reducedMotion) {

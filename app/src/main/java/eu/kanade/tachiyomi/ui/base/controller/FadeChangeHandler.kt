@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.changehandler.AnimatorChangeHandler
 import com.bluelinelabs.conductor.changehandler.FadeChangeHandler
+import yokai.presentation.theme.ReducedMotion
 
 /**
  * A variation of the original [FadeChangeHandler] that will cross fade two views, but keep
@@ -34,6 +35,7 @@ class FadeChangeHandler : AnimatorChangeHandler {
         if (from != null && (!isPush || removesFromViewOnPush)) {
             animator.play(ObjectAnimator.ofFloat(from, View.ALPHA, 0f))
         }
+        if (ReducedMotion.isEnabled()) animator.duration = 0L
         return animator
     }
 

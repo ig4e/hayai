@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.base.activity
 
 import android.animation.ValueAnimator
+import android.content.Intent
 import android.content.res.Resources
 import android.os.Build
 import android.os.Bundle
@@ -24,6 +25,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.SplashState
+import yokai.presentation.theme.ReducedMotion
 import android.R as AR
 
 abstract class BaseActivity<VB : ViewBinding> : AppCompatActivity() {
@@ -41,6 +43,44 @@ abstract class BaseActivity<VB : ViewBinding> : AppCompatActivity() {
         setThemeByPref(preferences)
         super.onCreate(savedInstanceState)
         SecureActivityDelegate.setSecure(this)
+        applyReducedMotionTransitions()
+    }
+
+    /**
+     * Strips this activity's open/close transitions when the user has reduced motion enabled.
+     * On Android 14+ a single `overrideActivityTransition` call covers both directions; on older
+     * platforms we fall back to `overridePendingTransition` from [startActivity] / [finish].
+     */
+    private fun applyReducedMotionTransitions() {
+        if (!ReducedMotion.isEnabled()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, 0, 0)
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun startActivity(intent: Intent) {
+        super.startActivity(intent)
+        if (ReducedMotion.isEnabled() && Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overridePendingTransition(0, 0)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun startActivity(intent: Intent, options: Bundle?) {
+        super.startActivity(intent, options)
+        if (ReducedMotion.isEnabled() && Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overridePendingTransition(0, 0)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun finish() {
+        super.finish()
+        if (ReducedMotion.isEnabled() && Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overridePendingTransition(0, 0)
+        }
     }
 
     fun maybeInstallSplashScreen(savedInstanceState: Bundle?): SplashScreen? {
