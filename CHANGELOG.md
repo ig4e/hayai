@@ -10,6 +10,38 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixes` - Bugfixes
 - `Other` - Technical changes/updates
 
+## [Unreleased]
+
+### Additions
+- Add source navigation from recommendation card headers (tap a source header to open `BrowseRecommendsScreen` for that source)
+- Add `MetadataMangasPage` and Compose-based genre tags on manga details
+- Migrate manga details grid and color filters to Compose
+- Add migration parallelism with concurrency limits for faster batch source migration
+- Add NovelUpdates dedicated parser and refactor of the NovelUpdates source
+- Add novel plugin cache and improved plugin manager integration
+
+### Changes
+- Improve page previews: bigger thumbnails, skeleton loading, and infinite scroll
+- Reduce top spacing for app bar title
+- Recommendation cards now use a transparent container color to better blend with the surface
+- Revert filter sheet to the stable View-based implementation while the Compose version is hardened (replaces the temporary 1.15.0 Compose filter sheet)
+- Fall back to the system installer on MIUI devices when in-app install is unreliable
+
+### Fixes
+- Fix null `transitionName` crash when opening a chapter from the header button
+- Fix AutoComplete filter crash, dark mode handling, and live chip updates
+- Fix Injekt `TypeReference` crash and null-safety issues across EXH handlers and `SettingsEhScreen`
+- Harden EXH recommendation sources and config parsing against crashes
+- Harden general crash handling and extension loading
+- Handle source popups as separate WebView instances (#608)
+- Fix E-Hentai previews and description layout
+- Fix namespace tag position/style, page preview, and description state
+- Fix preview images, popular pagination, and manga detail UX
+- Manga detail and EHentai miscellaneous fixes
+
+### Other
+- Speed up CI builds with Gradle caching and parallelism
+
 ## [1.14.0]
 
 ### Additions
@@ -58,7 +90,9 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Additions
 - Add configurable preload-ahead slider in reader settings (1–20 pages, applies immediately while reading)
-- Add Compose-based filter sheet for source browsing with saved search support
+- Add Compose-based metadata and continue/start-reading UI on manga details
+- Add Compose-based filter UI, E-Hentai settings, and source icons
+- Allow sharing crash logs directly from the crash screen
 - Add "Refresh igneous cookie" option in E-Hentai advanced login settings
 - Add custom igneous cookie dialog in E-Hentai login
 - Add random library sort
