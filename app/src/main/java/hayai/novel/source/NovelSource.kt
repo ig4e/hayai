@@ -123,8 +123,41 @@ class NovelSource(
 
     override suspend fun getChapterList(manga: SManga): List<SChapter> {
         val rt = ensureRuntime()
-        val resultJson = rt.callMethod("parseNovel", escapeJsString(manga.url))
-        return parseChapterList(resultJson)
+        val novelJson = rt.callMethod("parseNovel", escapeJsString(manga.url))
+
+        val novelObject = try {
+            json.decodeFromString<JsonObject>(novelJson)
+        } catch (e: Exception) {
+            Logger.e(e) { "NovelSource($pluginId): Failed to decode parseNovel JSON" }
+            return emptyList()
+        }
+
+        val collected = mutableListOf<SChapter>()
+        novelObject["chapters"]?.jsonArray?.let { collected += parseChapterArray(it) }
+
+        val totalPages = novelObject["totalPages"]
+            ?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+            ?: 1
+        if (totalPages > 1) {
+            for (pageNum in 2..totalPages) {
+                val pageChapters = try {
+                    val pageJson = rt.callMethod(
+                        "parsePage",
+                        "${escapeJsString(manga.url)}, ${escapeJsString(pageNum.toString())}",
+                    )
+                    json.decodeFromString<JsonObject>(pageJson)["chapters"]?.jsonArray
+                        ?.let(::parseChapterArray)
+                        .orEmpty()
+                } catch (e: Exception) {
+                    Logger.w(e) { "NovelSource($pluginId): parsePage($pageNum) failed for ${manga.url}" }
+                    emptyList()
+                }
+                collected += pageChapters
+            }
+        }
+
+        // LNReader plugins emit chapters chronologically; tachiyomi expects newest-first.
+        return collected.reversed()
     }
 
     override suspend fun getPageList(chapter: SChapter): List<Page> {
@@ -303,9 +336,10 @@ class NovelSource(
                     null
                 }
             }
-            // Keep novel catalogue/search paging single-page until plugins expose
-            // an explicit next-page signal instead of relying on non-empty results.
-            MangasPage(mangas, false)
+            // LNReader plugins don't expose a hasNextPage flag — the convention is to keep
+            // requesting incrementing pages until popularNovels/searchNovels returns []. Signal
+            // that to the pager by reporting hasNextPage = mangas.isNotEmpty().
+            MangasPage(mangas, hasNextPage = mangas.isNotEmpty())
         } catch (e: Exception) {
             Logger.e(e) { "NovelSource: Failed to parse novel items" }
             MangasPage(emptyList(), false)
@@ -319,10 +353,10 @@ class NovelSource(
                 obj["name"]?.jsonPrimitive?.contentOrNull?.let { title = it }
                 obj["author"]?.jsonPrimitive?.contentOrNull?.let { author = it }
                 obj["artist"]?.jsonPrimitive?.contentOrNull?.let { artist = it }
-                obj["summary"]?.jsonPrimitive?.contentOrNull?.let { description = it }
+                obj["summary"]?.jsonPrimitive?.contentOrNull?.let { description = stripHtmlIfPresent(it) }
                 obj["cover"]?.jsonPrimitive?.contentOrNull?.let { thumbnail_url = resolveUrl(it) }
 
-                genre = obj["genres"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                genre = obj["genres"]?.jsonPrimitive?.contentOrNull?.let(::normalizeGenres)
 
                 status = when (obj["status"]?.jsonPrimitive?.contentOrNull) {
                     "Ongoing" -> SManga.ONGOING
@@ -342,28 +376,64 @@ class NovelSource(
         }
     }
 
-    private fun parseChapterList(jsonStr: String): List<SChapter> {
-        return try {
-            val obj = json.decodeFromString<JsonObject>(jsonStr)
-            val chapters = obj["chapters"]?.jsonArray ?: return emptyList()
+    /**
+     * Per the LNReader contract `genres` is a single comma-separated string, but plugins
+     * sometimes concatenate multiple tag sources without dedup (e.g. "Xianxia,Action,Fantasy,
+     * Action,Adventure,Fantasy,VIDEO GAMES"). Split, trim each, dedupe case-insensitively
+     * (keeping the first occurrence's original casing), and rejoin with a consistent separator.
+     * Returns null if the cleaned list is empty so callers can skip the field.
+     */
+    private fun normalizeGenres(raw: String): String? {
+        if (raw.isBlank()) return null
+        val seen = LinkedHashMap<String, String>()
+        raw.splitToSequence(',', ';', '|', '\n')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .forEach { tag ->
+                val key = tag.lowercase(Locale.ROOT)
+                if (key !in seen) seen[key] = tag
+            }
+        return seen.values.takeIf { it.isNotEmpty() }?.joinToString(", ")
+    }
 
-            chapters.mapNotNull { element ->
-                try {
-                    val ch = element.jsonObject
-                    SChapter.create().apply {
-                        name = ch["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                        url = ch["path"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                        chapter_number = ch["chapterNumber"]?.jsonPrimitive?.floatOrNull ?: -1f
-                        date_upload = parseReleaseTime(ch["releaseTime"]?.jsonPrimitive?.contentOrNull)
-                    }
-                } catch (e: Exception) {
-                    Logger.w(e) { "NovelSource: Failed to parse chapter" }
-                    null
+    /**
+     * LNReader plugins may emit `summary` as HTML (per contract). Most plugins call `.text()` in
+     * cheerio so plain text is the common case, but a few return raw markup — strip tags then so
+     * users don't see `<p>...</p>` literally in the details panel.
+     */
+    private fun stripHtmlIfPresent(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty() || !trimmed.contains('<')) return trimmed
+        return try {
+            // Replace block-ending tags with newlines BEFORE entity decoding — Jsoup.text() would
+            // otherwise collapse the inserted whitespace, losing paragraph structure entirely.
+            val withBreaks = trimmed
+                .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+                .replace(Regex("</(p|div|li|h[1-6])\\s*>", RegexOption.IGNORE_CASE), "\n\n")
+            val withoutTags = withBreaks.replace(Regex("<[^>]+>"), "")
+            org.jsoup.parser.Parser.unescapeEntities(withoutTags, false)
+                .replace(" ", " ")
+                .replace(Regex("\n{3,}"), "\n\n")
+                .trim()
+        } catch (_: Exception) {
+            trimmed
+        }
+    }
+
+    private fun parseChapterArray(chapters: JsonArray): List<SChapter> {
+        return chapters.mapNotNull { element ->
+            try {
+                val ch = element.jsonObject
+                SChapter.create().apply {
+                    name = ch["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                    url = ch["path"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                    chapter_number = ch["chapterNumber"]?.jsonPrimitive?.floatOrNull ?: -1f
+                    date_upload = parseReleaseTime(ch["releaseTime"]?.jsonPrimitive?.contentOrNull)
                 }
-            }.reversed()
-        } catch (e: Exception) {
-            Logger.e(e) { "NovelSource: Failed to parse chapter list" }
-            emptyList()
+            } catch (e: Exception) {
+                Logger.w(e) { "NovelSource: Failed to parse chapter" }
+                null
+            }
         }
     }
 
