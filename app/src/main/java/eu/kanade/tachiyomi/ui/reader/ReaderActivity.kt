@@ -366,9 +366,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     finish()
                     return
                 }
-                if (page >= 0) viewModel.startingPage = page
+                val startingPage = page.takeIf { it >= 0 }
                 lifecycleScope.launchNonCancellableIO {
-                    val initResult = viewModel.init(manga, chapter)
+                    val initResult = viewModel.init(manga, chapter, startingPage)
                     if (!initResult.getOrDefault(false)) {
                         val exception = initResult.exceptionOrNull() ?: IllegalStateException("Unknown err")
                         withUIContext {

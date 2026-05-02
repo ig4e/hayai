@@ -1,5 +1,6 @@
 package hayai.novel.reader
 
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.model.Page
@@ -7,6 +8,7 @@ import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import hayai.novel.source.NovelSource
+import kotlinx.coroutines.CancellationException
 import java.io.ByteArrayInputStream
 import java.io.File
 
@@ -45,9 +47,10 @@ class NovelDownloadPageLoader(
             val bytes = htmlFile.openInputStream().readBytes()
             page.stream = { ByteArrayInputStream(bytes) }
             page.status = Page.State.Ready
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             page.status = Page.State.Error
-            throw e
+            if (e is CancellationException) throw e
+            Logger.e(e) { "NovelDownloadPageLoader: Failed to load chapter ${chapter.chapter.url}" }
         }
     }
 

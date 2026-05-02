@@ -5,13 +5,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.recyclerview.widget.RecyclerView
+import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import exh.source.isEhBasedManga
+import exh.util.SourceTagsUtil
 import yokai.domain.manga.models.MangaCover
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
@@ -38,6 +42,7 @@ class BrowseSourceGridHolder(
     var title by mutableStateOf("")
     var cover by mutableStateOf(MangaCover(0L, 0L, "", 0L, false))
     var isNovel by mutableStateOf(false)
+    var ehCategory by mutableStateOf<Pair<Color, StringResource>?>(null)
 
     init {
         view.setContent {
@@ -49,6 +54,15 @@ class BrowseSourceGridHolder(
                                 backgroundColor = MaterialTheme.colorScheme.tertiary,
                                 text = stringResource(MR.strings.novel),
                                 textColor = MaterialTheme.colorScheme.onTertiary,
+                            ),
+                        )
+                    }
+                    ehCategory?.let { (color, label) ->
+                        add(
+                            BadgeSegment.text(
+                                backgroundColor = color,
+                                text = stringResource(label),
+                                textColor = Color.White,
                             ),
                         )
                     }
@@ -94,6 +108,14 @@ class BrowseSourceGridHolder(
         title = manga.title
         cover = manga.cover()
         isNovel = manga.isNovel()
+        ehCategory = if (manga.isEhBasedManga()) {
+            val token = manga.genre?.substringBefore(',')?.trim()?.lowercase()
+            SourceTagsUtil.getEhCategoryDisplay(token)?.let { (genreColor, label) ->
+                Color(genreColor.color) to label
+            }
+        } else {
+            null
+        }
 
         // Update the cover.
         setImage(manga)

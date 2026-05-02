@@ -142,6 +142,11 @@ class EHentai(
             val favElement = column2.children().find { it.attr("style").startsWith("border-color") }
             val infoElements = infoElement?.select("div")
             val parsedTags = mutableListOf<RaisedTag>()
+            val categoryToken = if (infoElements != null) {
+                getGenre(infoElements.getOrNull(1))
+            } else {
+                getGenre(body.selectFirst(".gl1c div"))
+            }
 
             ParsedManga(
                 fav = FAVORITES_BORDER_HEX_COLORS.indexOf(
@@ -186,13 +191,18 @@ class EHentai(
                         }
                     }
 
-                    genre = parsedTags.toGenreString()
+                    // Prepend the EH category token (e.g. "doujinshi", "manga", "imageset") so the
+                    // browse list/grid holders can render a colored category badge. The token is a
+                    // single lowercased word, distinct from namespaced tags like "language:english".
+                    val tagsString = parsedTags.toGenreString()
+                    genre = listOfNotNull(categoryToken, tagsString.ifBlank { null })
+                        .joinToString(", ")
                 },
                 metadata = EHentaiSearchMetadata().apply {
                     tags += parsedTags
 
                     if (infoElements != null) {
-                        genre = getGenre(infoElements.getOrNull(1))
+                        genre = categoryToken
 
                         datePosted = getDateTag(infoElements.getOrNull(2))
 
@@ -202,7 +212,7 @@ class EHentai(
 
                         length = getPageCount(infoElements.getOrNull(5))
                     } else {
-                        genre = getGenre(body.selectFirst(".gl1c div"))
+                        genre = categoryToken
 
                         val info = body.selectFirst(".gl2c")!!
                         val extraInfo = body.selectFirst(".gl4c")!!

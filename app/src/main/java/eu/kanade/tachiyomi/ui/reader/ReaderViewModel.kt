@@ -133,9 +133,6 @@ class ReaderViewModel(
     val source: Source?
         get() = manga?.source?.let { sourceManager.getOrStub(it) }
 
-    /** Starting page from intent, used once then reset to -1 */
-    var startingPage: Int = -1
-
     /**
      * The chapter id of the currently loaded chapter. Used to restore from process kill.
      */
@@ -174,20 +171,20 @@ class ReaderViewModel(
     private suspend fun checkTrackers(manga: Manga) = getTrack.awaitAllByMangaId(manga.id).isNotEmpty()
 
     init {
-        var secondRun = false
         // To save state
         state.map { it.viewerChapters?.currChapter }
             .distinctUntilChanged()
             .filterNotNull()
+            // Skip the first emission: ChapterLoader has already set requestedPage for the
+            // initial chapter (using the intent page or last_page_read). Re-applying
+            // last_page_read here would race with the activity's setChapters observer and
+            // overwrite an explicit starting page (e.g. when opened from a page preview).
+            .drop(1)
             .onEach { currentChapter ->
                 chapterId = currentChapter.chapter.id!!
-                if (startingPage >= 0) {
-                    currentChapter.requestedPage = startingPage
-                    startingPage = -1
-                } else if (source !is TextSource && (secondRun || !currentChapter.chapter.read)) {
+                if (source !is TextSource) {
                     currentChapter.requestedPage = currentChapter.chapter.last_page_read
                 }
-                secondRun = true
             }
             .launchIn(viewModelScope)
     }
@@ -220,7 +217,7 @@ class ReaderViewModel(
      * Initializes this presenter with the given [mangaId] and [initialChapterId]. This method will
      * fetch the manga from the database and initialize the initial chapter.
      */
-    suspend fun init(mangaId: Long, initialChapterId: Long): Result<Boolean> {
+    suspend fun init(mangaId: Long, initialChapterId: Long, page: Int? = null): Result<Boolean> {
         if (!needsInit()) return Result.success(true)
         return withIOContext {
             try {
@@ -244,7 +241,7 @@ class ReaderViewModel(
                     loader = ChapterLoader(context, downloadManager, downloadProvider, manga, source)
 
                     chapterList = getChapterList()
-                    loadChapter(loader!!, chapterList!!.first { chapterId == it.chapter.id })
+                    loadChapter(loader!!, chapterList!!.first { chapterId == it.chapter.id }, page)
                     Result.success(true)
                 } else {
                     // Unlikely but okay
@@ -401,8 +398,9 @@ class ReaderViewModel(
     private suspend fun loadChapter(
         loader: ChapterLoader,
         chapter: ReaderChapter,
+        page: Int? = null,
     ): ViewerChapters {
-        loader.loadChapter(chapter)
+        loader.loadChapter(chapter, page)
 
         val chapterPos = chapterList.indexOf(chapter) ?: -1
         val newChapters = ViewerChapters(

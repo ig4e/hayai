@@ -1,9 +1,11 @@
 package exh.util
 
 import androidx.core.graphics.toColorInt
+import dev.icerock.moko.resources.StringResource
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.EH_SOURCE_ID
 import exh.source.EXH_SOURCE_ID
+import yokai.i18n.MR
 import java.util.Locale
 
 object SourceTagsUtil {
@@ -68,6 +70,25 @@ object SourceTagsUtil {
         ;
 
         constructor(color: String) : this(color.toColorInt())
+    }
+
+    /**
+     * Map an EH category token (as returned by EHentai's parser) to its color and label.
+     * Tokens are the lowercased, no-space form: "doujinshi", "manga", "imageset", "artistcg",
+     * "gamecg", "western", "non-h", "cosplay", "asianporn", "misc".
+     */
+    fun getEhCategoryDisplay(token: String?): Pair<GenreColor, StringResource>? = when (token) {
+        "doujinshi" -> GenreColor.DOUJINSHI_COLOR to MR.strings.doujinshi
+        "manga" -> GenreColor.MANGA_COLOR to MR.strings.manga
+        "artistcg" -> GenreColor.ARTIST_CG_COLOR to MR.strings.artist_cg
+        "gamecg" -> GenreColor.GAME_CG_COLOR to MR.strings.game_cg
+        "western" -> GenreColor.WESTERN_COLOR to MR.strings.western
+        "non-h" -> GenreColor.NON_H_COLOR to MR.strings.non_h
+        "imageset" -> GenreColor.IMAGE_SET_COLOR to MR.strings.image_set
+        "cosplay" -> GenreColor.COSPLAY_COLOR to MR.strings.cosplay
+        "asianporn" -> GenreColor.ASIAN_PORN_COLOR to MR.strings.asian_porn
+        "misc" -> GenreColor.MISC_COLOR to MR.strings.misc
+        else -> null
     }
 
     fun getLocaleSourceUtil(language: String?) = when (language) {

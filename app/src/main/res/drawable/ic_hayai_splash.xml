@@ -3,7 +3,6 @@
 
     <item
         android:drawable="@drawable/ic_hayai"
-        android:gravity="center"
-        android:maxHeight="72dp" />
+        android:gravity="center" />
 
 </layer-list>

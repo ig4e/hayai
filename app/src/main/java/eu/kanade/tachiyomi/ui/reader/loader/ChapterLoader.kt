@@ -35,8 +35,11 @@ class ChapterLoader(
     /**
      * Assigns the chapter's page loader and loads the its pages. Returns immediately if the chapter
      * is already loaded.
+     *
+     * If [page] is provided, it overrides any read-progress restoration and is used as the
+     * starting page (e.g. when launching the reader from the page-preview grid).
      */
-    suspend fun loadChapter(chapter: ReaderChapter) {
+    suspend fun loadChapter(chapter: ReaderChapter, page: Int? = null) {
         if (chapterIsReady(chapter)) {
             return
         }
@@ -55,9 +58,10 @@ class ChapterLoader(
                     throw Exception(context.getString(MR.strings.no_pages_found))
                 }
 
-                // If the chapter is partially read, set the starting page to the last the user read
-                // otherwise use the requested page.
-                if (source !is TextSource && !chapter.chapter.read) {
+                if (page != null) {
+                    chapter.requestedPage = page
+                } else if (source !is TextSource && !chapter.chapter.read) {
+                    // If the chapter is partially read, set the starting page to the last the user read
                     chapter.requestedPage = chapter.chapter.last_page_read
                 }
 

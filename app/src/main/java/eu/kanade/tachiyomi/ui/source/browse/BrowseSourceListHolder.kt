@@ -10,6 +10,8 @@ import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.kanade.tachiyomi.databinding.MangaListItemBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.view.setCards
+import exh.source.isEhBasedManga
+import exh.util.SourceTagsUtil
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
 import yokai.util.coil.loadManga
@@ -45,14 +47,22 @@ class BrowseSourceListHolder(
     override fun onSetValues(manga: Manga) {
         binding.title.text = manga.title
         binding.inLibraryBadge.badge.isVisible = manga.favorite
-        binding.subtitle.isVisible = manga.isNovel()
-        binding.subtitle.text = if (manga.isNovel()) {
-            view.context.getString(MR.strings.novel)
-        } else {
-            null
+
+        val subtitleText = when {
+            manga.isNovel() -> view.context.getString(MR.strings.novel)
+            manga.isEhBasedManga() -> ehCategoryLabel(manga)
+            else -> null
         }
+        binding.subtitle.isVisible = !subtitleText.isNullOrEmpty()
+        binding.subtitle.text = subtitleText
 
         setImage(manga)
+    }
+
+    private fun ehCategoryLabel(manga: Manga): String? {
+        val token = manga.genre?.substringBefore(',')?.trim()?.lowercase()
+        val (_, label) = SourceTagsUtil.getEhCategoryDisplay(token) ?: return null
+        return view.context.getString(label)
     }
 
     override fun setImage(manga: Manga) {
