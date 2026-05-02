@@ -137,6 +137,14 @@ class NovelPageHolder(
     private suspend fun loadPageAndProcessStatus() {
         val page = page ?: return
         val loader = page.chapter.pageLoader ?: return
+
+        // Treat a stale Error state as a retry trigger rather than a value to render. Without
+        // this, the StateFlow's initial emission would flash setError() before the relaunched
+        // loadPage transitions through LoadPage -> Ready.
+        if (page.status == Page.State.Error) {
+            page.status = Page.State.Queue
+        }
+
         supervisorScope {
             launch(kotlinx.coroutines.Dispatchers.IO) { loader.loadPage(page) }
             page.statusFlow.collectLatest { status ->
