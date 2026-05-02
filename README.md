@@ -34,16 +34,26 @@ Hayai is a fork of [Yōkai](https://github.com/null2264/yokai), which itself is 
 <details open="">
     <summary><h3>From Hayai</h3></summary>
 
+* **Performance & accessibility**
+  * **Reduce motion** toggle (Settings → Appearance → Motion) — disables screen-transition animations, in-app fades, image crossfades, and skeleton-loader pulses across the whole app. Aimed at low-end devices, motion-sensitive users, and battery-saver scenarios. Wired centrally so every Conductor controller transition, Compose animation, Coil image load, and activity transition honors the toggle without per-screen opt-in.
 * **Novels**
   * Native novel reader with JS plugin support, sourcing extensions from [LNReader](https://github.com/LNReader/lnreader-plugins).
   * Novel plugin manager with install, update, sort, and uninstall.
   * Novel repo validation and per-repo plugin cache.
   * QuickJS-based on-device runtime for novel source plugins.
   * NovelUpdates source with dedicated parser.
+  * Browse infinite scroll: pages keep loading until a plugin returns an empty list (matching the LNReader convention).
+  * `parsePage` support for plugins that paginate chapter listings (rewayatclub, lnmtl, sunovels, etc.) — full chapter list is now fetched, not just page 1.
+  * Genre normalization: dedupes case-insensitively and tolerates plugins that emit `","` vs `", "`-separated lists (no more single-chip lumps containing every genre).
+  * HTML stripped from plugin-emitted summaries that return raw markup.
 * **Reader / browse**
+  * Page preview cards now open the reader at the clicked page instead of page 1.
   * Page preview improvements: bigger thumbnails, skeleton loading, infinite scroll.
   * Preload distance SeekBar in the reader.
+  * E-Hentai / ExHentai category badges in browse (Doujinshi / Manga / Image Set / Artist CG / Cosplay / Game CG / Western / Non-H / Asian Porn / Misc), color-coded.
   * Source navigation from recommendation card headers.
+* **Recommendations**
+  * Clicking an external recommendation (AniList / MyAnimeList / NovelUpdates / etc.) now triggers global search by title across installed sources, instead of silently dropping the click.
 * **Compose migrations**
   * Manga details metadata, continue/start reading UI, genre tags.
   * Grid and color filters.
@@ -52,8 +62,9 @@ Hayai is a fork of [Yōkai](https://github.com/null2264/yokai), which itself is 
   * Beta release channel alongside stable & nightly.
   * Firebase Crashlytics wired up for all build variants.
   * Share crash logs directly from the crash screen.
-  * Migration parallelism with concurrency limits for faster batch source migration.
+  * Migration parallelism with concurrency limits for faster batch source migration (1–10 concurrent, configurable in Advanced settings).
   * Fallback to system installer on MIUI devices.
+  * Hardened JS plugin error propagation: per-plugin chapter/parse errors now surface as a retryable error state in the reader instead of crashing the app.
 
 </details>
 

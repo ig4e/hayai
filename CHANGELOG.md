@@ -13,14 +13,20 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Additions
+- Add **Reduce motion** toggle in Settings → Appearance → Motion. Disables Conductor controller transitions, Compose animations (skeleton shimmers etc.), Coil image crossfade, and per-Activity open/close transitions in one switch — aimed at low-end devices, motion-sensitive users, and battery saver. Single source of truth (`ReducedMotion.isEnabled()` / `LocalReducedMotion`); call sites stay clean.
+- Add E-Hentai / ExHentai **category badges** to the browse list and grid (Doujinshi / Manga / Image Set / Artist CG / Cosplay / Game CG / Western / Non-H / Asian Porn / Misc), color-coded.
+- Add LNReader `parsePage` support for novel sources that paginate chapter listings (rewayatclub, lnmtl, sunovels, lightnoveltranslation, …) — full chapter list is now fetched, not just page 1.
 - Add source navigation from recommendation card headers (tap a source header to open `BrowseRecommendsScreen` for that source)
 - Add `MetadataMangasPage` and Compose-based genre tags on manga details
 - Migrate manga details grid and color filters to Compose
-- Add migration parallelism with concurrency limits for faster batch source migration
+- Add migration parallelism with concurrency limits for faster batch source migration (1–10 concurrent, configurable in Advanced settings)
 - Add NovelUpdates dedicated parser and refactor of the NovelUpdates source
 - Add novel plugin cache and improved plugin manager integration
 
 ### Changes
+- Novel browse pagination now follows the LNReader contract: keep loading until the plugin returns an empty list (was hard-stopped at page 1).
+- Tolerate plugins that emit `genres` joined with `","` instead of `", "` — they used to render as one big chip; now they split correctly. Duplicates and inconsistent casing are deduped at the novel parser too.
+- Novel summary is now HTML-stripped (preserving paragraph breaks) for plugins that return raw markup per the LNReader contract.
 - Improve page previews: bigger thumbnails, skeleton loading, and infinite scroll
 - Reduce top spacing for app bar title
 - Recommendation cards now use a transparent container color to better blend with the surface
@@ -28,6 +34,11 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Fall back to the system installer on MIUI devices when in-app install is unreliable
 
 ### Fixes
+- Fix tapping a page-preview thumbnail opening page 1 instead of the tapped page (race between two state observers in `ReaderViewModel`; now the requested page is plumbed through `ChapterLoader` before `viewerChapters` is published).
+- Fix recommendation card clicks being silently dropped for external sources (AniList / MyAnimeList / NovelUpdates / etc.); they now route to global search by title across installed sources, matching TachiyomiSY's behavior.
+- Fix `NovelUpdatesParser.<clinit>` and `MdUtil.<clinit>` crashes (`PatternSyntaxException` on Android's ICU regex engine: `[^]]` is invalid; escaped to `[^\]]`). The first crash also took down anything that loaded the recommendations screen.
+- Fix QuickJS plugin errors (e.g. `Could not find chapter content`) crashing the whole app — they were rethrown out of a `launch(IO)` with no `CoroutineExceptionHandler`. The novel page loaders now match `HttpPageLoader`'s pattern: set `Page.State.Error` and let the existing reader UI show the retry state.
+- Fix novel chapter list missing pages 2+ for plugins that report `totalPages` (`parsePage` is now called and merged before reversal).
 - Fix null `transitionName` crash when opening a chapter from the header button
 - Fix AutoComplete filter crash, dark mode handling, and live chip updates
 - Fix Injekt `TypeReference` crash and null-safety issues across EXH handlers and `SettingsEhScreen`
