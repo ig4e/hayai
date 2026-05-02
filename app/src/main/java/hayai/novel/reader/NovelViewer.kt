@@ -5,7 +5,6 @@ import android.os.Build
 import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -16,22 +15,17 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.download.DownloadManager
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.BaseViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
-import hayai.novel.preferences.NovelPreferences
-import hayai.novel.reader.autoscroll.AutoScroller
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -44,8 +38,6 @@ import uy.kohesive.injekt.injectLazy
 class NovelViewer(val activity: ReaderActivity) : BaseViewer {
 
     val downloadManager: DownloadManager by injectLazy()
-    private val preferences: PreferencesHelper by injectLazy()
-    private val novelPreferences: NovelPreferences by injectLazy()
 
     private val scope = MainScope()
 
@@ -103,114 +95,12 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
     val config = NovelConfig(scope)
 
     /**
-     * Choreographer-driven auto-scroll. Off by default; toggled from the reader settings sheet.
-     * Speed is read live from [NovelPreferences.autoScrollSpeed] so the in-sheet slider can adjust
-     * mid-flight without restarting the scroller.
-     */
-    val autoScroller = AutoScroller(
-        recycler = recycler,
-        initialSpeedPxPerSec = novelPreferences.autoScrollSpeed().get(),
-    )
-
-    /**
-     * Most recently parsed chapter content. Cached so the TTS highlight pipeline can walk pages
-     * → block ranges without re-parsing on every word transition. Refreshed on every call to
-     * [currentChapterBlocks]; the controller calls that on each playback start.
-     */
-    private var lastParsedChapter: ParsedChapter? = null
-
-    /**
-     * Parses the active chapter's HTML into [NovelBlock]s on demand. Used by the TTS controller
-     * to grab text for narration without having to wait for the page holder to render. Returns
-     * null when the chapter isn't loaded yet (no `Ready` page on the current chapter).
-     */
-    fun currentChapterBlocks(): List<NovelBlock>? {
-        val chapter = adapter.currentChapter ?: return null
-        val pages = chapter.pages ?: return null
-        val perPage = mutableListOf<ParsedPage>()
-        for (page in pages) {
-            val streamFn = page.stream ?: continue
-            val html = runCatching { streamFn().bufferedReader(Charsets.UTF_8).use { it.readText() } }
-                .getOrNull() ?: continue
-            val imageResolver = page.chapter.pageLoader as? NovelImageUrlResolver
-            val parsed = runCatching {
-                NovelHtmlParser.parse(
-                    html = html,
-                    baseUrl = page.url.takeIf { it.isNotBlank() },
-                    imageUrlResolver = imageResolver?.let { r -> { url -> r.resolveNovelImageUrl(url) } },
-                )
-            }.getOrNull() ?: continue
-            perPage += ParsedPage(page = page, blocks = parsed)
-        }
-        if (perPage.isEmpty()) return null
-        lastParsedChapter = ParsedChapter(perPage)
-        return perPage.flatMap { it.blocks }
-    }
-
-    /**
-     * Resolves a global block index (within [currentChapterBlocks]) to the [HighlightDispatcher.TextSegment]
-     * that's currently rendering the requested character within the block.
-     *
-     * Walks the cached per-page block layout to find the page containing the global index, looks
-     * up that page's `NovelPageHolder` in the recycler, and asks the holder for the right
-     * TextView. Returns null when the page isn't currently bound (recycled / scrolled off
-     * screen) — callers (the highlight dispatcher) handle that gracefully.
-     */
-    fun textSegmentForBlock(globalBlockIndex: Int, charInBlock: Int): hayai.novel.tts.playback.HighlightDispatcher.TextSegment? {
-        val parsed = lastParsedChapter ?: return null
-        var offset = 0
-        for (parsedPage in parsed.pages) {
-            val count = parsedPage.blocks.size
-            if (globalBlockIndex < offset + count) {
-                val localIndex = globalBlockIndex - offset
-                val adapterPos = adapter.items.indexOf(parsedPage.page)
-                if (adapterPos < 0) return null
-                val holder = recycler.findViewHolderForAdapterPosition(adapterPos) as? NovelPageHolder ?: return null
-                return holder.textViewForBlockChar(localIndex, charInBlock)
-            }
-            offset += count
-        }
-        return null
-    }
-
-    /**
-     * Programmatically advance to the next chapter for TTS continuous reading. Returns true if a
-     * next chapter exists in the current viewer-chapters set; the actual chapter swap happens
-     * asynchronously through the existing [eu.kanade.tachiyomi.ui.reader.ReaderViewModel.onPageSelected]
-     * flow once the recycler scrolls onto the next chapter's first page.
-     */
-    fun advanceToNextChapterForTts(): Boolean {
-        val nextChapter = adapter.items.asSequence()
-            .mapNotNull { it as? ChapterTransition.Next }
-            .firstOrNull()
-            ?.to ?: return false
-        val firstPage = nextChapter.pages?.firstOrNull() ?: return false
-        moveToPage(firstPage)
-        return true
-    }
-
-    private data class ParsedChapter(val pages: List<ParsedPage>)
-    private data class ParsedPage(val page: ReaderPage, val blocks: List<NovelBlock>)
-
-    /**
      * Gesture detector for tap navigation (avoids consuming scroll/fling events).
      */
     private val gestureDetector = GestureDetector(
         activity,
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                // A pinch-zoom that just ended also fires a single-tap event for the lifted
-                // finger; ignore it so the user doesn't get a stray page-nav tap.
-                if (suppressNextTap) {
-                    suppressNextTap = false
-                    return true
-                }
-                // A tap that paused auto-scroll (handled in the touch listener) shouldn't also
-                // navigate — the user's intent was just to pause.
-                if (autoScrollPausedByTouch) {
-                    autoScrollPausedByTouch = false
-                    return true
-                }
                 // Correct tap coordinates accounting for system insets
                 val viewPosition = IntArray(2)
                 recycler.getLocationOnScreen(viewPosition)
@@ -228,56 +118,6 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
                     -> moveToPrevious()
                 }
                 return true
-            }
-        },
-    )
-
-    /**
-     * Flag set by [scaleDetector]'s end callback so the trailing single-tap event from the
-     * gesture's lifted finger doesn't trigger page navigation.
-     */
-    private var suppressNextTap: Boolean = false
-
-    /**
-     * True when the most-recent ACTION_DOWN landed while [autoScroller] was running. The single-
-     * tap handler reads this to suppress page-nav: a tap on a running scroller is meant to
-     * pause, not navigate, so we consume that tap silently.
-     */
-    private var autoScrollPausedByTouch: Boolean = false
-
-    /**
-     * Pinch-to-zoom font size. We capture the baseline size at the start of the gesture, track
-     * the cumulative scale factor during the pinch, and only apply / persist the new size on
-     * gesture end — refreshing the recycler mid-pinch produces visible jank as visible items
-     * rebind.
-     */
-    private var pinchBaselineFontSize: Int = 0
-    private var pinchScaleAccumulator: Float = 1f
-
-    private val scaleDetector = ScaleGestureDetector(
-        activity,
-        object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-                pinchBaselineFontSize = config.fontSize
-                pinchScaleAccumulator = 1f
-                return true
-            }
-
-            override fun onScale(detector: ScaleGestureDetector): Boolean {
-                pinchScaleAccumulator *= detector.scaleFactor
-                // Bound the accumulator so a runaway gesture can't compute an absurd target size
-                // before the end-of-gesture clamp.
-                pinchScaleAccumulator = pinchScaleAccumulator.coerceIn(0.4f, 3f)
-                return true
-            }
-
-            override fun onScaleEnd(detector: ScaleGestureDetector) {
-                val proposed = (pinchBaselineFontSize * pinchScaleAccumulator).roundToInt()
-                    .coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE)
-                suppressNextTap = true
-                if (proposed != pinchBaselineFontSize) {
-                    preferences.novelFontSize().set(proposed)
-                }
             }
         },
     )
@@ -314,32 +154,11 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
             }
         })
 
-        // Tap navigation + pinch-to-zoom font size + auto-scroll pause. Scale detector first so
-        // it can claim multi-touch events before the tap detector sees them. ACTION_DOWN pauses
-        // the auto-scroller (when enabled) so the user can read freely; a subsequent single-tap
-        // is consumed silently by the gesture detector via `autoScrollPausedByTouch`.
+        // Tap navigation via gesture detector
         recycler.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN &&
-                autoScroller.isRunning.value &&
-                novelPreferences.autoScrollPauseOnTap().get()
-            ) {
-                autoScroller.stop()
-                autoScrollPausedByTouch = true
-            }
-            scaleDetector.onTouchEvent(event)
             gestureDetector.onTouchEvent(event)
             false // Don't consume - let RecyclerView handle scrolling
         }
-
-        // Live speed updates from the reader-sheet slider.
-        novelPreferences.autoScrollSpeed().changes()
-            .onEach { autoScroller.setSpeed(it) }
-            .launchIn(scope)
-
-        // Hide the reader chrome whenever auto-scroll starts so the page isn't covered.
-        autoScroller.isRunning
-            .onEach { running -> if (running) activity.hideMenu() }
-            .launchIn(scope)
 
         config.textPropertyChangedListener = {
             refreshAdapter()
@@ -756,7 +575,3 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
 
 private const val RECYCLER_VIEW_CACHE_SIZE = 4
 private const val MAX_PENDING_RESTORE_ATTEMPTS = 4
-
-// Pinch-to-zoom font-size bounds. Keep in sync with the font-size spinner array values.
-private const val MIN_FONT_SIZE = 10
-private const val MAX_FONT_SIZE = 32

@@ -1,6 +1,5 @@
 package hayai.novel.reader
 
-import android.graphics.Color
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerConfig
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
@@ -9,9 +8,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.navigation.EdgeNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.KindlishNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.LNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.RightAndLeftNavigation
-import hayai.novel.preferences.NovelPreferences
-import hayai.novel.theme.NovelTheme
-import hayai.novel.theme.NovelThemeRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
@@ -27,22 +23,18 @@ import uy.kohesive.injekt.api.get
 class NovelConfig(
     scope: CoroutineScope,
     preferences: PreferencesHelper = Injekt.get(),
-    private val novelPreferences: NovelPreferences = Injekt.get(),
 ) : ViewerConfig(preferences, scope) {
 
     // Text rendering
     var fontSize: Int = 18
     var fontFamily: String = "serif"
-    var fontWeight: Int = NovelPreferences.DEFAULT_FONT_WEIGHT
     var lineHeight: Float = 1.8f
     var textAlign: String = "start"
     var paddingHorizontal: Int = 16
     var paddingVertical: Int = 20
-    var paragraphSpacing: Int = NovelPreferences.DEFAULT_PARAGRAPH_SPACING_DP
 
-    // Theme — resolved from `selectedThemeId` against built-ins ∪ customThemes via NovelThemeRegistry.
-    var selectedThemeId: String = NovelThemeRegistry.DEFAULT_ID
-    var customThemes: List<NovelTheme> = emptyList()
+    // Theme (0=dark, 1=light, 2=sepia, 3=amoled, 4=cool)
+    var readerTheme: Int = 0
     var menuThreshold: Int = 75
 
     // Listener for text property changes (triggers WebView reload)
@@ -50,37 +42,15 @@ class NovelConfig(
 
     data class ReaderColors(val textColor: String, val backgroundColor: String)
 
-    /**
-     * Returns the colors for the currently-selected theme, resolved across built-ins and custom
-     * user-defined themes; falls back to the default built-in if the selected id no longer exists.
-     */
-    fun getColors(): ReaderColors {
-        val theme = NovelThemeRegistry.resolve(selectedThemeId, customThemes)
-        return ReaderColors(textColor = theme.textColor, backgroundColor = theme.backgroundColor)
-    }
+    val themes = mapOf(
+        0 to ReaderColors("#E0E0E0", "#1A1A1A"),    // Dark
+        1 to ReaderColors("#212121", "#FFFFFF"),      // Light
+        2 to ReaderColors("#5B4636", "#F4ECD8"),      // Sepia
+        3 to ReaderColors("#C8C8C8", "#0A0A0A"),      // AMOLED
+        4 to ReaderColors("#000000", "#DCE5E2"),      // Cool
+    )
 
-    /**
-     * Legacy 0..4 theme index passed to [eu.kanade.tachiyomi.ui.reader.viewer.ReaderTransitionView].
-     * Built-in themes map to their original index; custom themes pick the closest built-in based
-     * on background-color luminance so the transition view's palette still picks readable colors.
-     */
-    val readerTheme: Int
-        get() {
-            val resolved = NovelThemeRegistry.resolve(selectedThemeId, customThemes)
-            val builtInIndex = NovelThemeRegistry.builtIns.indexOfFirst { it.id == resolved.id }
-            if (builtInIndex >= 0) return builtInIndex
-            // Custom theme: pick dark (0) when the background is dark, otherwise light (1).
-            return if (isDarkColor(resolved.backgroundColor)) 0 else 1
-        }
-
-    private fun isDarkColor(hex: String): Boolean {
-        return runCatching {
-            val c = Color.parseColor(hex)
-            // Rec. 601 luma; threshold 0.5 maps "midnight blue" and similar to dark.
-            val luma = (Color.red(c) * 0.299f + Color.green(c) * 0.587f + Color.blue(c) * 0.114f) / 255f
-            luma < 0.5f
-        }.getOrDefault(true)
-    }
+    fun getColors(): ReaderColors = themes[readerTheme] ?: themes[0]!!
 
     companion object {
         val fontFamilies = arrayOf("serif", "sans-serif", "monospace", "system-ui")
@@ -99,14 +69,8 @@ class NovelConfig(
             .register({ textAlign = textAligns.getOrElse(it) { "start" } }, { textPropertyChangedListener?.invoke() })
         preferences.novelPadding()
             .register({ paddingHorizontal = it; paddingVertical = it }, { textPropertyChangedListener?.invoke() })
-        novelPreferences.fontWeight()
-            .register({ fontWeight = it }, { textPropertyChangedListener?.invoke() })
-        novelPreferences.paragraphSpacing()
-            .register({ paragraphSpacing = it }, { textPropertyChangedListener?.invoke() })
-        novelPreferences.selectedThemeId()
-            .register({ selectedThemeId = it }, { textPropertyChangedListener?.invoke() })
-        novelPreferences.customThemes()
-            .register({ customThemes = it }, { textPropertyChangedListener?.invoke() })
+        preferences.novelReaderTheme()
+            .register({ readerTheme = it }, { textPropertyChangedListener?.invoke() })
 
         // Navigation — reuse webtoon nav preferences (same scroll-based paradigm)
         preferences.navigationModeWebtoon()

@@ -24,14 +24,6 @@
         <attr name="summary" format="reference|string" />
     </declare-styleable>
 
-    <declare-styleable name="NovelSliderView">
-        <attr name="novelSliderTitle" format="reference|string"/>
-        <attr name="novelSliderValueFrom" format="float"/>
-        <attr name="novelSliderValueTo" format="float"/>
-        <attr name="novelSliderStepSize" format="float"/>
-        <attr name="novelSliderValueSuffix" format="reference|string"/>
-    </declare-styleable>
-
     <declare-styleable name="TriStateCheckBox">
         <attr name="android:text" format="reference|string"/>
         <attr name="android:maxLines"/>
