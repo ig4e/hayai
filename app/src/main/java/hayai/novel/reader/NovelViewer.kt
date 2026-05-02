@@ -286,25 +286,35 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
             }
         }
 
-        if (item is ReaderPage) {
-            updateChapterProgress(item)
-        }
+        updateChapterProgress()
     }
 
-    private fun updateChapterProgress(page: ReaderPage) {
-        val chapter = page.chapter.chapter
+    /**
+     * Computes and reports progress for [adapter.currentChapter].
+     *
+     * Progress is intentionally decoupled from the "last visible item": the adapter holds two
+     * teaser pages of each adjacent chapter, and using one of those as the progress anchor would
+     * walk a sibling chapter's full page list with mostly-unmeasured heights, producing bogus
+     * 0% / 100% values that then corrupt the sibling chapter's last_page_read.
+     */
+    private fun updateChapterProgress() {
+        val currChapter = adapter.currentChapter ?: return
+        val chapter = currChapter.chapter
         val chapterId = chapter.id
 
         if (pendingRestorePercent != null && pendingRestoreChapterId == chapterId) {
             return
         }
 
-        val progress = computeChapterProgress(page) ?: return
+        val progress = computeCurrentChapterProgress() ?: return
         chapter.last_page_read = progress
         chapter.pages_left = (100 - progress).coerceIn(0, 100)
 
+        val pages = currChapter.pages ?: return
+        val anchorPage = visibleCurrentChapterPage(pages) ?: pages.firstOrNull() ?: return
+
         if (chapterId == null) {
-            activity.onNovelProgressChanged(page, progress)
+            activity.onNovelProgressChanged(anchorPage, progress)
             return
         }
 
@@ -315,49 +325,90 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
 
         if (progress != lastReportedProgress) {
             lastReportedProgress = progress
-            activity.onNovelProgressChanged(page, progress)
+            activity.onNovelProgressChanged(anchorPage, progress)
         }
     }
 
-    private fun computeChapterProgress(page: ReaderPage): Int? {
-        val pages = page.chapter.pages ?: return null
+    private fun computeCurrentChapterProgress(): Int? {
+        val currChapter = adapter.currentChapter ?: return null
+        val pages = currChapter.pages ?: return null
         if (pages.isEmpty()) return null
 
         val recyclerHeight = recycler.height
         if (recyclerHeight <= 0) return null
 
-        val pagePosition = adapter.items.indexOf(page)
-        if (pagePosition == -1) return null
+        val firstPagePosition = adapter.items.indexOf(pages.first())
+        val lastPagePosition = adapter.items.indexOf(pages.last())
+        if (firstPagePosition == -1 || lastPagePosition == -1) return null
 
-        val pageView = layoutManager.findViewByPosition(pagePosition) ?: return null
-        val currentPageHeight = getPageHeight(page)
-        if (currentPageHeight <= 0) return null
-
-        val cumulativeOffset = pages
-            .takeWhile { it != page }
-            .sumOf { getPageHeight(it) }
-
-        val maxOffsetInPage = max(currentPageHeight - recyclerHeight, 0)
-        val offsetInPage = (-pageView.top).coerceIn(0, maxOffsetInPage)
-
-        val chapterHeight = pages.sumOf { getPageHeight(it) }
-        if (chapterHeight <= 0) return null
-
-        val maxScrollable = max(chapterHeight - recyclerHeight, 0)
-        if (maxScrollable <= 0) {
-            // If content fits on screen, keep existing progress instead of auto-marking as fully read.
-            return page.chapter.chapter.last_page_read.coerceIn(0, 100)
+        val firstVisible = layoutManager.findFirstVisibleItemPosition()
+        val lastVisible = layoutManager.findLastVisibleItemPosition()
+        if (firstVisible == RecyclerView.NO_POSITION || lastVisible == RecyclerView.NO_POSITION) {
+            return null
         }
 
-        val offset = (cumulativeOffset + offsetInPage).coerceIn(0, maxScrollable)
+        // Viewport sits entirely above the chapter (peeking back at prev's teaser pages).
+        if (lastVisible < firstPagePosition) return 0
+        // Viewport sits entirely below the chapter (peeking ahead at next's teaser pages).
+        if (firstVisible > lastPagePosition) return 100
+
+        val (resolvedHeights, _) = resolveChapterPageHeights(pages) ?: return null
+        val chapterHeight = resolvedHeights.sum()
+        val maxScrollable = max(chapterHeight - recyclerHeight, 0)
+        if (maxScrollable <= 0) {
+            // The whole chapter fits on screen; preserve existing progress so we don't
+            // auto-mark a short chapter as fully read just by opening it.
+            return currChapter.chapter.last_page_read.coerceIn(0, 100)
+        }
+
+        val anchorIndex = pages.indexOfFirst { p ->
+            adapter.items.indexOf(p) in firstVisible..lastVisible
+        }
+        if (anchorIndex < 0) return null
+        val anchorPos = adapter.items.indexOf(pages[anchorIndex])
+        val anchorView = layoutManager.findViewByPosition(anchorPos) ?: return null
+
+        val anchorOffsetInChapter = (0 until anchorIndex).sumOf { resolvedHeights[it] }
+        val viewportTopInChapter = anchorOffsetInChapter - anchorView.top
+        val offset = viewportTopInChapter.coerceIn(0, maxScrollable)
         return ((offset.toFloat() / maxScrollable) * 100f).roundToInt().coerceIn(0, 100)
     }
 
-    private fun getPageHeight(page: ReaderPage): Int {
-        measuredPageHeights[page]?.let { measured ->
-            if (measured > 0) return measured
+    private fun visibleCurrentChapterPage(pages: List<ReaderPage>): ReaderPage? {
+        val firstVisible = layoutManager.findFirstVisibleItemPosition()
+        val lastVisible = layoutManager.findLastVisibleItemPosition()
+        if (firstVisible == RecyclerView.NO_POSITION || lastVisible == RecyclerView.NO_POSITION) {
+            return null
         }
-        return 0
+        return pages.firstOrNull { p ->
+            adapter.items.indexOf(p) in firstVisible..lastVisible
+        }
+    }
+
+    /**
+     * Returns per-page heights for [pages]. Pages whose view hasn't been measured yet are filled
+     * in with the average of measured pages (floored at the recycler height) so that callers can
+     * compute progress / scroll targets before the entire chapter has been laid out. Returns null
+     * only when no page has been measured at all.
+     *
+     * Second component of the result is true iff every page in [pages] had a real measurement
+     * (no estimation was needed).
+     */
+    private fun resolveChapterPageHeights(pages: List<ReaderPage>): Pair<List<Int>, Boolean>? {
+        val raw = pages.map { page ->
+            measuredPageHeights[page]?.takeIf { it > 0 }
+                ?: adapter.items.indexOf(page).takeIf { it != -1 }
+                    ?.let { layoutManager.findViewByPosition(it)?.height }
+                    ?.takeIf { it > 0 }
+                ?: 0
+        }
+        val measured = raw.filter { it > 0 }
+        if (measured.isEmpty()) return null
+
+        val recyclerHeight = recycler.height.coerceAtLeast(1)
+        val estimate = measured.average().roundToInt().coerceAtLeast(recyclerHeight)
+        val resolved = raw.map { if (it > 0) it else estimate }
+        return resolved to (measured.size == pages.size)
     }
 
     fun moveToProgress(progressPercent: Int) {
@@ -376,7 +427,7 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         if (currentChapter.chapter.id != chapterId) return
 
         val pages = currentChapter.pages ?: return
-        val measuredCount = pages.count { getPageHeight(it) > 0 }
+        val measuredCount = pages.count { (measuredPageHeights[it] ?: 0) > 0 }
 
         if (measuredCount == 0) {
             if (pendingRestoreAttempts++ < MAX_PENDING_RESTORE_ATTEMPTS) {
@@ -415,30 +466,10 @@ class NovelViewer(val activity: ReaderActivity) : BaseViewer {
         if (pages.isEmpty()) return false
 
         val recyclerHeight = recycler.height
-        if (recyclerHeight <= 0) {
-            return false
-        }
+        if (recyclerHeight <= 0) return false
 
-        val pageHeights = pages.map { page ->
-            val measured = measuredPageHeights[page]
-            if (measured != null && measured > 0) {
-                measured
-            } else {
-                val index = adapter.items.indexOf(page)
-                if (index == -1) 0 else layoutManager.findViewByPosition(index)?.height ?: 0
-            }
-        }
-
-        val measuredHeights = pageHeights.filter { it > 0 }
-        if (measuredHeights.isEmpty()) {
-            return false
-        }
-        if (!allowEstimatedHeights && measuredHeights.size != pageHeights.size) {
-            return false
-        }
-
-        val estimatedHeight = measuredHeights.average().roundToInt().coerceAtLeast(recyclerHeight)
-        val resolvedHeights = pageHeights.map { if (it > 0) it else estimatedHeight }
+        val (resolvedHeights, fullyMeasured) = resolveChapterPageHeights(pages) ?: return false
+        if (!allowEstimatedHeights && !fullyMeasured) return false
 
         val chapterHeight = resolvedHeights.sum()
         val maxScrollable = max(chapterHeight - recyclerHeight, 0)
