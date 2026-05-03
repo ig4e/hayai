@@ -28,6 +28,12 @@ FG_SVG = (BRANDING / "app-icon-foreground.svg").read_text(encoding="utf-8")
 # Master SVG canvas size (square + round + foreground all share the same viewport).
 ICON_VIEWPORT = 2201
 
+# Extra padding applied around the logo silhouette inside the icon canvas.
+# 1.0 = paths fill the master SVG as-authored; smaller values shrink the logo
+# toward the canvas center so launcher / notification / splash renders aren't
+# visually cropped or "zoomed in." The brand background rect stays full-bleed.
+LOGO_SCALE = 0.72
+
 DENSITY_SIZES = {
     "mdpi": 48,
     "hdpi": 72,
@@ -75,6 +81,16 @@ def desaturate_to_white(svg: str) -> str:
     return re.sub(r'fill="#[0-9A-Fa-f]{3,8}"', 'fill="#FFFFFF"', svg)
 
 
+def with_backdrop(svg: str, color: str, viewport: int = ICON_VIEWPORT) -> str:
+    """Inject a full-bleed background <rect> right after the opening <svg> tag.
+
+    Used for the monochrome preview so the white silhouette renders against a
+    dark surface (otherwise it's white-on-transparent → invisible on white UIs).
+    """
+    backdrop = f'<rect width="{viewport}" height="{viewport}" fill="{color}"/>'
+    return re.sub(r"(<svg\b[^>]*>)", r"\1" + backdrop, svg, count=1)
+
+
 PATH_RE = re.compile(
     r'<path\s+d="(?P<d>[^"]+)"\s+fill="(?P<fill>#[0-9A-Fa-f]{3,8})"\s*/>',
     re.DOTALL,
@@ -90,6 +106,26 @@ def extract_paths(svg: str) -> list[tuple[str, str]]:
     return out
 
 
+def pad_paths(svg: str, scale: float = LOGO_SCALE, viewport: int = ICON_VIEWPORT) -> str:
+    """Wrap every <path/> in a <g transform> that scales the logo around the canvas center.
+
+    Leaves any <rect> (the brand background) untouched so it keeps full bleed.
+    """
+    if scale == 1.0:
+        return svg
+    matches = list(PATH_RE.finditer(svg))
+    if not matches:
+        return svg
+    pivot = viewport / 2.0
+    first_start = matches[0].start()
+    last_end = matches[-1].end()
+    transform = (
+        f'<g transform="translate({pivot:g} {pivot:g}) '
+        f'scale({scale:g}) translate({-pivot:g} {-pivot:g})">'
+    )
+    return svg[:first_start] + transform + svg[first_start:last_end] + "</g>" + svg[last_end:]
+
+
 def vector_drawable(
     paths: list[tuple[str, str]],
     *,
@@ -97,6 +133,7 @@ def vector_drawable(
     height_dp: int,
     viewport_w: float,
     viewport_h: float,
+    scale: float = LOGO_SCALE,
 ) -> str:
     lines = [
         '<?xml version="1.0" encoding="utf-8"?>',
@@ -106,10 +143,23 @@ def vector_drawable(
         f'    android:viewportWidth="{viewport_w:g}"',
         f'    android:viewportHeight="{viewport_h:g}">',
     ]
+    scaled = scale != 1.0
+    if scaled:
+        pivot_x = viewport_w / 2.0
+        pivot_y = viewport_h / 2.0
+        lines.append("    <group")
+        lines.append(f'        android:scaleX="{scale:g}"')
+        lines.append(f'        android:scaleY="{scale:g}"')
+        lines.append(f'        android:pivotX="{pivot_x:g}"')
+        lines.append(f'        android:pivotY="{pivot_y:g}">')
+    path_indent = "        " if scaled else "    "
+    attr_indent = "            " if scaled else "        "
     for d, fill in paths:
-        lines.append("    <path")
-        lines.append(f'        android:pathData="{d}"')
-        lines.append(f'        android:fillColor="{fill}" />')
+        lines.append(f"{path_indent}<path")
+        lines.append(f'{attr_indent}android:pathData="{d}"')
+        lines.append(f'{attr_indent}android:fillColor="{fill}" />')
+    if scaled:
+        lines.append("    </group>")
     lines.append("</vector>")
     lines.append("")
     return "\n".join(lines)
@@ -175,13 +225,19 @@ def write_vector_drawables() -> None:
 def main() -> None:
     write_vector_drawables()
 
+    # Padded variants share the LOGO_SCALE shrink so PNG/webp rasters match
+    # the in-app vector drawables (less zoomed-in launcher / notification logo).
+    icon_svg_padded = pad_paths(ICON_SVG)
+    round_svg_padded = pad_paths(ROUND_SVG)
+    fg_svg_padded = pad_paths(FG_SVG)
+
     print("== mipmap launchers (PNG) ==")
     # Square master → ic_launcher.png, rounded master → ic_launcher_round.png.
     # Pre-Oreo launchers fall back to these rasters as-is (no adaptive mask),
     # so the file's shape needs to match the launcher's expectation.
     raster_sources = {
-        "ic_launcher": ICON_SVG,
-        "ic_launcher_round": ROUND_SVG,
+        "ic_launcher": icon_svg_padded,
+        "ic_launcher_round": round_svg_padded,
     }
     for variant, source_svg in raster_sources.items():
         for density, size in DENSITY_SIZES.items():
@@ -193,8 +249,8 @@ def main() -> None:
 
     print("== alternate-color launcher rasters (.webp) ==")
     for variant_name, color in LAUNCHER_COLOR_VARIANTS.items():
-        square_variant = ICON_SVG.replace(f'"{BRAND_BG_HEX}"', f'"{color}"')
-        round_variant = ROUND_SVG.replace(f'"{BRAND_BG_HEX}"', f'"{color}"')
+        square_variant = icon_svg_padded.replace(f'"{BRAND_BG_HEX}"', f'"{color}"')
+        round_variant = round_svg_padded.replace(f'"{BRAND_BG_HEX}"', f'"{color}"')
         # Sanity: every variant must have actually swapped the bg color.
         assert color in square_variant, f"bg fill swap failed (square) for {variant_name}"
         assert color in round_variant, f"bg fill swap failed (round) for {variant_name}"
@@ -206,15 +262,18 @@ def main() -> None:
 
     print("== Play Store / web icons ==")
     # Play Store requires a 512×512 square; Google rounds it for the listing.
-    save_png(ICON_SVG, APP_ROOT / "ic_launcher-playstore.png", 512)
-    save_png(ICON_SVG, APP_ROOT / "ic_launcher-web.png", 512)
+    save_png(icon_svg_padded, APP_ROOT / "ic_launcher-playstore.png", 512)
+    save_png(icon_svg_padded, APP_ROOT / "ic_launcher-web.png", 512)
 
     print("== README marketplace asset ==")
     # README badge looks better as a circle since it's displayed standalone.
-    save_webp(ROUND_SVG, README_IMAGES / "app-icon.webp", 1024, lossless=True)
+    save_webp(round_svg_padded, README_IMAGES / "app-icon.webp", 1024, lossless=True)
 
     print("== monochrome preview (debug aid only) ==")
-    save_png(desaturate_to_white(FG_SVG), BRANDING / "app-icon-monochrome.png", 512)
+    # Themed-icon layer is white silhouette on transparent — preview it on a
+    # dark backdrop so designers can actually see the shape.
+    monochrome_preview = with_backdrop(desaturate_to_white(fg_svg_padded), "#1F1F1F")
+    save_png(monochrome_preview, BRANDING / "app-icon-monochrome.png", 512)
 
     print("done.")
 
