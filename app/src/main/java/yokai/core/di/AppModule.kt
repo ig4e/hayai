@@ -1,7 +1,6 @@
 package yokai.core.di
 
 import android.app.Application
-import androidx.core.content.ContextCompat
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
@@ -24,6 +23,10 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.manga.MangaShortcutManager
 import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import nl.adaptivity.xmlutil.XmlDeclMode
@@ -62,9 +65,9 @@ fun appModule(app: Application) = module {
                 }
 
                 private fun setPragma(db: SupportSQLiteDatabase, pragma: String) {
-                    val cursor = db.query("PRAGMA $pragma")
-                    cursor.moveToFirst()
-                    cursor.close()
+                    db.query("PRAGMA $pragma").use { cursor ->
+                        cursor.moveToFirst()
+                    }
                 }
 
                 // Not sure if this is still needed, but just in case
@@ -162,16 +165,12 @@ fun appModule(app: Application) = module {
 
 // REF: https://github.com/jobobby04/TachiyomiSY/blob/26cfb4811fef4059fb7e8e03361c141932fec6b5/app/src/main/java/eu/kanade/tachiyomi/di/AppModule.kt#L177C1-L192C2
 fun initExpensiveComponents(app: Application) {
-    // Asynchronously init expensive components for a faster cold start
-    ContextCompat.getMainExecutor(app).execute {
+    // Asynchronously init expensive components on IO so cold start does not block the main thread.
+    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
         Injekt.get<NetworkHelper>()
-
         Injekt.get<SourceManager>()
-
         Injekt.get<Database>()
-
         Injekt.get<DownloadManager>()
-
         Injekt.get<CustomMangaManager>()
     }
 }

@@ -42,8 +42,7 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.UnmeteredSource
 // EXH -->
-import exh.source.EH_SOURCE_ID
-import exh.source.EXH_SOURCE_ID
+import exh.source.LIBRARY_UPDATE_EXCLUDED_SOURCES
 // EXH <--
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
@@ -469,8 +468,10 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         return mangaToAdd.filter { manga ->
 
             // EXH -->
-            // Skip EH/EXH sources - they have their own update worker (EHentaiUpdateWorker)
-            if (manga.manga.source == EH_SOURCE_ID || manga.manga.source == EXH_SOURCE_ID) {
+            // Skip EH/EXH (own EHentaiUpdateWorker), Pururin, and any active NHentai delegated
+            // sources. The set is populated dynamically by handleSourceLibrary() once delegated
+            // sources register with SourceManager, so it stays correct as plugins install/remove.
+            if (manga.manga.source in LIBRARY_UPDATE_EXCLUDED_SOURCES) {
                 return@filter false
             }
             // EXH <--

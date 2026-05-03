@@ -38,7 +38,7 @@ class GalleryAdder {
 
     fun pickSource(url: String): List<UrlImportableSource> {
         val uri = url.toUri()
-        return sourceManager.getCatalogueSources()
+        return sourceManager.getVisibleCatalogueSources()
             .mapNotNull { it.getMainSource<UrlImportableSource>() }
             .filter {
                 it.lang in filters.enabledLangs &&
@@ -76,7 +76,7 @@ class GalleryAdder {
                     return GalleryAddEvent.Fail.UnknownType(url)
                 }
             } else {
-                sourceManager.getCatalogueSources()
+                sourceManager.getVisibleCatalogueSources()
                     .mapNotNull { it.getMainSource<UrlImportableSource>() }
                     .find {
                         it.lang in filters.enabledLangs &&

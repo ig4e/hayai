@@ -35,7 +35,7 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
         setHasOptionsMenu(true)
     }
 
-    private val onlineSources by lazy { Injekt.get<SourceManager>().getOnlineSources() }
+    private val onlineSources by lazy { Injekt.get<SourceManager>().getVisibleOnlineSources() }
 
     private var query = ""
 

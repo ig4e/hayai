@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
 import eu.kanade.tachiyomi.util.system.withIOContext
+import exh.source.BlacklistedSources
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.serialization.Serializable
@@ -90,6 +91,10 @@ internal class ExtensionApi {
                 val libVersion = it.extractLibVersion()
                 libVersion >= ExtensionLoader.LIB_VERSION_MIN && libVersion <= ExtensionLoader.LIB_VERSION_MAX
             }
+            // Drop EXH-blacklisted extensions (e.g. eHentai) at the API layer so they never
+            // appear as installable in Browse, never count toward update badges, and never
+            // get installed only to be no-op'd inside SourceManager.toInternalSource().
+            .filterNot { it.pkg in BlacklistedSources.BLACKLISTED_EXTENSIONS }
             .map {
                 Extension.Available(
                     name = it.name.substringAfter("Tachiyomi: "),

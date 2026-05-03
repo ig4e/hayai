@@ -25,6 +25,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.multidex.MultiDex
+import androidx.work.Configuration
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Logger
 import coil3.ImageLoader
@@ -92,7 +93,7 @@ import yokai.domain.storage.StorageManager
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
-open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory {
+open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, Configuration.Provider {
 
     val preferences: PreferencesHelper by injectLazy()
     val basePreferences: BasePreferences by injectLazy()
@@ -296,6 +297,15 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
             }
         }
     }
+
+    // WorkManager lazy-init via Configuration.Provider. The manifest entry that disables
+    // androidx.work.WorkManagerInitializer makes WorkManager wait for this configuration,
+    // which is only requested after Application.onCreate completes — by which point Koin
+    // is started and worker dependencies (Injekt.get()) can resolve.
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.INFO)
+            .build()
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
         return ImageLoader.Builder(this@App).apply {

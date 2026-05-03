@@ -448,6 +448,19 @@
             android:exported="false"
             android:initOrder="101" />
 
+        <!-- Disable WorkManager's auto-init so workers do not try to instantiate
+             before App.onCreate has started Koin. WorkManager initializes lazily
+             via App's Configuration.Provider implementation. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <meta-data android:name="android.webkit.WebView.EnableSafeBrowsing"
             android:value="false" />
         <meta-data android:name="android.webkit.WebView.MetricsOptOut"

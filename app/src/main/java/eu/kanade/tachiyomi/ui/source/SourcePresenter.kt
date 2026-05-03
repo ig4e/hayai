@@ -138,7 +138,7 @@ class SourcePresenter(
      * @return list containing enabled sources.
      */
     private fun getEnabledSources(): List<CatalogueSource> {
-        return getEnabledSources(sourceManager.getCatalogueSources())
+        return getEnabledSources(sourceManager.getVisibleCatalogueSources())
     }
 
     private fun getEnabledSources(catalogueSources: List<CatalogueSource>): List<CatalogueSource> {
@@ -160,6 +160,8 @@ class SourcePresenter(
             preferences.hiddenSources().changes().onStart { emit(preferences.hiddenSources().get()) },
             preferences.pinnedCatalogues().changes().onStart { emit(preferences.pinnedCatalogues().get()) },
         ) { catalogueSources, _, _, _ ->
+            // The flow doesn't pre-filter HIDDEN_SOURCES so we keep that filter inside
+            // getEnabledSources rather than calling the visible-sources helper here.
             getEnabledSources(catalogueSources)
         }.onEach {
             sources = it

@@ -340,12 +340,14 @@ class Downloader(
         val tmpDir = mangaDir.createDirectory(chapterDirname + TMP_DIR_SUFFIX)!!
 
         try {
-            // NOVEL -->
-            if (download.source is TextSource && download.source is NovelSource) {
-                downloadNovelChapter(download, tmpDir, chapterDirname, mangaDir)
-            } else if (download.source is HttpSource) {
-            // NOVEL <--
-                downloadImageChapter(download, tmpDir, chapterDirname, mangaDir)
+            when (val source = download.source) {
+                // NOVEL -->
+                is NovelSource -> downloadNovelChapter(download, tmpDir, chapterDirname, mangaDir)
+                // NOVEL <--
+                is HttpSource -> downloadImageChapter(download, tmpDir, chapterDirname, mangaDir)
+                // Defensive fallthrough: an unknown source type would otherwise leave the
+                // download stuck at DOWNLOADING forever and block the queue.
+                else -> error("Cannot download from unsupported source type: ${source::class.simpleName}")
             }
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
@@ -381,10 +383,11 @@ class Downloader(
         download.pages = listOf(page)
         notifier.onProgressChange(download)
 
-        // Finalize
+        // Write .nomedia BEFORE the rename: UniFile.renameTo invalidates the SAF DocumentFile
+        // handle on many devices, so `tmpDir` cannot be relied on after the rename returns.
+        DiskUtil.createNoMediaFile(tmpDir, context)
         tmpDir.renameTo(chapterDirname)
         cache.addChapter(chapterDirname, mangaDir, download.manga)
-        DiskUtil.createNoMediaFile(tmpDir, context)
         download.status = Download.State.DOWNLOADED
     }
     // NOVEL <--
@@ -451,12 +454,15 @@ class Downloader(
         createComicInfoFile(tmpDir, download.manga, download.chapter, httpSource)
 
         if (preferences.saveChaptersAsCBZ().get()) {
+            // Files going into a CBZ don't need a sibling .nomedia; the archive itself isn't indexed.
             archiveChapter(mangaDir, chapterDirname, tmpDir)
         } else {
+            // Write .nomedia BEFORE rename: UniFile.renameTo invalidates the SAF DocumentFile
+            // handle on many devices, so `tmpDir` cannot be relied on after the rename returns.
+            DiskUtil.createNoMediaFile(tmpDir, context)
             tmpDir.renameTo(chapterDirname)
         }
         cache.addChapter(chapterDirname, mangaDir, download.manga)
-        DiskUtil.createNoMediaFile(tmpDir, context)
         download.status = Download.State.DOWNLOADED
     }
 

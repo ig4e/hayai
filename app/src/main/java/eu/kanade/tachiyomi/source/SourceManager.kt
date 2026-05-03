@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.source
 
 import android.content.Context
 import co.touchlab.kermit.Logger
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -10,19 +11,29 @@ import eu.kanade.tachiyomi.source.online.DelegatedHttpSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 // EXH -->
 import eu.kanade.tachiyomi.source.online.all.EHentai
+import eu.kanade.tachiyomi.source.online.all.Lanraragi
+import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.source.online.all.MergedSource
 import eu.kanade.tachiyomi.source.online.all.NHentai
+import eu.kanade.tachiyomi.source.online.english.EightMuses
+import eu.kanade.tachiyomi.source.online.english.HBrowse
+import eu.kanade.tachiyomi.source.online.english.Pururin
+import eu.kanade.tachiyomi.source.online.english.Tsumino
 import exh.source.BlacklistedSources
 import exh.source.DelegatedHttpSource as ExhDelegatedHttpSource
 import exh.source.EH_SOURCE_ID
+import exh.source.EIGHTMUSES_SOURCE_ID
 import exh.source.EXH_SOURCE_ID
 import exh.source.EnhancedHttpSource
 import exh.source.ExhPreferences
+import exh.source.HBROWSE_SOURCE_ID
 import exh.source.MERGED_SOURCE_ID
+import exh.source.PURURIN_SOURCE_ID
+import exh.source.TSUMINO_SOURCE_ID
+import exh.source.handleSourceLibrary
 // EXH <--
 // NOVEL -->
 import hayai.novel.plugin.NovelPluginManager
-import hayai.novel.source.TextSource
 // NOVEL <--
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
@@ -35,7 +46,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import uy.kohesive.injekt.injectLazy
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -67,57 +77,55 @@ class SourceManager(
 
     init {
         scope.launch {
-            extensionManager.installedExtensionsFlow
+            // Trigger novel plugin loading eagerly so the very first map emission already
+            // includes them and avoids a transient "no novel sources" frame on cold start.
+            novelPluginManager.ensureInstalledPluginsLoaded()
+
+            // Single writer to sourcesMapFlow. Any change to extensions, the exhentai pref,
+            // or installed novel sources triggers one rebuild. Replaces two racing collectors
+            // that were both doing read-modify-write on sourcesMapFlow and clobbering each
+            // other's updates (causing extensions to randomly disappear from the browse list).
+            combine(
+                extensionManager.installedExtensionsFlow,
+                exhPreferences.enableExhentai.changes(),
+                novelPluginManager.installedSourcesFlow,
+            ) { extensions, enableExhentai, novelSources ->
+                Triple(extensions, enableExhentai, novelSources)
+            }.collectLatest { (extensions, enableExhentai, novelSources) ->
+                val mutableMap = ConcurrentHashMap<Long, Source>(mapOf(LocalSource.ID to LocalSource(context)))
+
                 // EXH -->
-                .combine(exhPreferences.enableExhentai.changes()) { extensions, enableExhentai ->
-                    extensions to enableExhentai
+                mutableMap[EH_SOURCE_ID] = EHentai(EH_SOURCE_ID, false, context)
+                if (enableExhentai) {
+                    mutableMap[EXH_SOURCE_ID] = EHentai(EXH_SOURCE_ID, true, context)
                 }
-                .collectLatest { (extensions, enableExhentai) ->
+                mutableMap[MERGED_SOURCE_ID] = MergedSource()
                 // EXH <--
-                    val mutableMap = ConcurrentHashMap<Long, Source>(mapOf(LocalSource.ID to LocalSource(context)))
 
-                    // EXH -->
-                    mutableMap[EH_SOURCE_ID] = EHentai(EH_SOURCE_ID, false, context)
-                    if (enableExhentai) {
-                        mutableMap[EXH_SOURCE_ID] = EHentai(EXH_SOURCE_ID, true, context)
-                    }
-                    mutableMap[MERGED_SOURCE_ID] = MergedSource()
-                    // EXH <--
-
-                    extensions.forEach { extension ->
-                        extension.sources.forEach {
-                            // EXH -->
-                            try {
-                                val internalSource = it.toInternalSource()
-                                if (internalSource != null) {
-                                    mutableMap[it.id] = internalSource
-                                }
-                            } catch (e: Throwable) {
-                                Logger.e(e) { "Failed to initialize source ${it.name} (${it.id}) from ${extension.name}" }
+                extensions.forEach { extension ->
+                    extension.sources.forEach {
+                        // EXH -->
+                        try {
+                            val internalSource = it.toInternalSource()
+                            if (internalSource != null) {
+                                mutableMap[it.id] = internalSource
                             }
-                            // EXH <--
+                        } catch (e: Throwable) {
+                            Logger.e(e) { "Failed to initialize source ${it.name} (${it.id}) from ${extension.name}" }
                         }
+                        // EXH <--
                     }
-                    novelPluginManager.ensureInstalledPluginsLoaded()
-                    novelPluginManager.installedSourcesFlow.value.forEach {
-                        mutableMap[it.id] = it
-                    }
-                    sourcesMapFlow.value = mutableMap
                 }
-        }
 
-        // NOVEL -->
-        scope.launch {
-            novelPluginManager.installedSourcesFlow.collectLatest { novelSources ->
-                val currentMap = ConcurrentHashMap(sourcesMapFlow.value)
-                // Remove old novel sources
-                currentMap.entries.removeIf { it.value is TextSource }
-                // Add current novel sources
-                novelSources.forEach { currentMap[it.id] = it }
-                sourcesMapFlow.value = currentMap
+                // NOVEL -->
+                novelSources.forEach {
+                    mutableMap[it.id] = it
+                }
+                // NOVEL <--
+
+                sourcesMapFlow.value = mutableMap
             }
         }
-        // NOVEL <--
     }
 
     fun get(sourceKey: Long): Source? {
@@ -136,20 +144,22 @@ class SourceManager(
     fun getOrStub(sourceKey: Long): Source {
         sourcesMapFlow.value[sourceKey]?.let { return it }
 
-        val novelSource = runBlocking {
-            novelPluginManager.ensureInstalledPluginsLoaded()
-            novelPluginManager.installedSourcesFlow.value.firstOrNull { it.id == sourceKey }
-        }
+        // Non-blocking lookup: if novel plugins are already loaded, use them immediately.
+        // The single-writer combine in init will fold this source into sourcesMapFlow on the
+        // next emission — we deliberately don't write the map here to avoid racing with it.
+        val novelSource = novelPluginManager.installedSourcesFlow.value.firstOrNull { it.id == sourceKey }
         if (novelSource != null) {
-            val currentMap = ConcurrentHashMap(sourcesMapFlow.value)
-            currentMap[sourceKey] = novelSource
-            sourcesMapFlow.value = currentMap
             stubSourcesMap.remove(sourceKey)
             return novelSource
         }
 
+        // Kick off plugin loading in the background; subsequent lookups will hit the cached map.
+        scope.launch {
+            novelPluginManager.ensureInstalledPluginsLoaded()
+        }
+
         return stubSourcesMap.getOrPut(sourceKey) {
-            runBlocking { StubSource(sourceKey) }
+            StubSource(sourceKey)
         }
     }
 
@@ -164,6 +174,24 @@ class SourceManager(
     fun getOnlineSources() = sourcesMapFlow.value.values.filterIsInstance<HttpSource>()
 
     fun getCatalogueSources() = sourcesMapFlow.value.values.filterIsInstance<CatalogueSource>()
+
+    /**
+     * Online sources excluding those flagged as user-hidden (e.g. MergedSource). Use this in
+     * any UI that lists sources for the user to browse, search, migrate, or filter — only
+     * settings screens that exist to manage hidden sources should call [getOnlineSources].
+     */
+    fun getVisibleOnlineSources() = sourcesMapFlow.value.values
+        .filterIsInstance<HttpSource>()
+        .filter { it.id !in BlacklistedSources.HIDDEN_SOURCES }
+
+    /**
+     * Catalogue sources excluding those flagged as user-hidden (e.g. MergedSource). Use this
+     * in any UI that lists sources for the user to browse, search, migrate, or filter — only
+     * settings screens that exist to manage hidden sources should call [getCatalogueSources].
+     */
+    fun getVisibleCatalogueSources() = sourcesMapFlow.value.values
+        .filterIsInstance<CatalogueSource>()
+        .filter { it.id !in BlacklistedSources.HIDDEN_SOURCES }
 
     @Suppress("OverridingDeprecatedMember")
     inner class StubSource(override val id: Long) : Source {
@@ -236,7 +264,13 @@ class SourceManager(
             try {
                 val constructor = delegate.newSourceClass.constructors.find { it.parameters.size == 2 }
                 if (constructor == null) {
-                    Logger.e { "No 2-param constructor found for delegate ${delegate.newSourceClass.simpleName}, skipping delegation for ${this.name}" }
+                    // In debug builds we want this loud — a missing 2-param constructor means the
+                    // delegate signature drifted from what toInternalSource expects, and silent
+                    // fallback would mask the regression by continuing without metadata enrichment.
+                    val msg = "No 2-param (HttpSource, Context) constructor found for delegate " +
+                        "${delegate.newSourceClass.simpleName}; SourceManager cannot wrap ${this.name}"
+                    if (BuildConfig.DEBUG) error(msg)
+                    Logger.e { msg }
                     this
                 } else {
                     val enhancedSource = EnhancedHttpSource(
@@ -274,10 +308,40 @@ class SourceManager(
         // Delegation table: maps extension qualified class names to EXH enhanced sources.
         // When an extension source matches, it gets wrapped with EnhancedHttpSource
         // for metadata handling. Factory sources match by prefix (e.g., multi-lang).
-        // Additional delegated sources (Pururin, Tsumino, HBrowse, 8Muses, MangaDex,
-        // LANraragi) will be added here as their DelegatedHttpSource implementations
-        // are ported from SY.
+        // Mirrors TachiyomiSY's AndroidSourceManager.DELEGATED_SOURCES — keep in sync if a
+        // new metadata-aware delegate is added.
         val DELEGATED_SOURCES = listOf(
+            DelegatedSourceEntry(
+                "Pururin",
+                PURURIN_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.en.pururin.Pururin",
+                Pururin::class,
+            ),
+            DelegatedSourceEntry(
+                "Tsumino",
+                TSUMINO_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.en.tsumino.Tsumino",
+                Tsumino::class,
+            ),
+            DelegatedSourceEntry(
+                "MangaDex",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.mangadex",
+                MangaDex::class,
+                true,
+            ),
+            DelegatedSourceEntry(
+                "HBrowse",
+                HBROWSE_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.en.hbrowse.HBrowse",
+                HBrowse::class,
+            ),
+            DelegatedSourceEntry(
+                "8Muses",
+                EIGHTMUSES_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.en.eightmuses.EightMuses",
+                EightMuses::class,
+            ),
             DelegatedSourceEntry(
                 "NHentai",
                 fillInSourceId,
@@ -285,9 +349,22 @@ class SourceManager(
                 NHentai::class,
                 true,
             ),
+            DelegatedSourceEntry(
+                "LANraragi",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.lanraragi.LANraragi",
+                Lanraragi::class,
+                true,
+            ),
         ).associateBy { it.originalSourceQualifiedClassName }
 
-        val currentDelegatedSources: MutableMap<Long, DelegatedSourceEntry> = mutableMapOf()
+        // ListenMutableMap fires handleSourceLibrary() on every put/putAll/remove/clear so the
+        // dynamic id lists in DomainSourceHelpers (metadataDelegatedSourceIds, nHentaiSourceIds,
+        // mangaDexSourceIds, lanraragiSourceIds, LIBRARY_UPDATE_EXCLUDED_SOURCES) stay in sync
+        // with what's actually been delegated. Without this they silently stay at compile-time
+        // defaults and isMdBasedSource() / isMetadataSource() etc. return wrong answers.
+        val currentDelegatedSources: MutableMap<Long, DelegatedSourceEntry> =
+            ListenMutableMap(mutableMapOf(), ::handleSourceLibrary)
 
         data class DelegatedSourceEntry(
             val sourceName: String,
@@ -296,6 +373,33 @@ class SourceManager(
             val newSourceClass: KClass<out ExhDelegatedHttpSource>,
             val factory: Boolean = false,
         )
+
+        private class ListenMutableMap<K, V>(
+            private val internalMap: MutableMap<K, V>,
+            private val listener: () -> Unit,
+        ) : MutableMap<K, V> by internalMap {
+            override fun clear() {
+                internalMap.clear()
+                listener()
+            }
+
+            override fun put(key: K, value: V): V? {
+                val previous = internalMap.put(key, value)
+                if (previous == null) listener()
+                return previous
+            }
+
+            override fun putAll(from: Map<out K, V>) {
+                internalMap.putAll(from)
+                listener()
+            }
+
+            override fun remove(key: K): V? {
+                val removed = internalMap.remove(key)
+                if (removed != null) listener()
+                return removed
+            }
+        }
     }
     // EXH <--
 }

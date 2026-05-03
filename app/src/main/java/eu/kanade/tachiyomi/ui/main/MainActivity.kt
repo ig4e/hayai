@@ -443,15 +443,20 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
         val content: ViewGroup = binding.mainContent
 
+        // Dismiss the splash as soon as MainActivity is set up. Previously this waited inside
+        // a lifecycleScope coroutine, but on cold start that coroutine didn't run until well
+        // past the 5 s splash cap, so the splash effectively always hit the hard timeout.
+        splashState.ready = true
+
         if (savedInstanceState == null && this !is SearchActivity) {
             // Reset Incognito Mode on relaunch
             preferences.incognitoMode().set(false)
 
-            val didMigration = Migrator.awaitAndRelease()
-
-            // Show changelog if needed
-            if (didMigration) {
-                if (!BuildConfig.DEBUG) {
+            // Show "What's new" once migrations finish, but don't gate the splash on them.
+            lifecycleScope.launchUI {
+                val didMigration = Migrator.await()
+                Migrator.release()
+                if (didMigration && !BuildConfig.DEBUG) {
                     content.post {
                         whatsNewSheet().show()
                     }

@@ -22,10 +22,13 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -74,6 +77,8 @@ class ExtensionManager(
 
     private var subLanguagesEnabledOnFirstRun = preferences.enabledLanguages().isSet()
 
+    private val initScope = CoroutineScope(Job() + Dispatchers.IO)
+
     fun getAppIconForSource(source: Source): Drawable? {
         return getAppIconForSource(source.id)
     }
@@ -111,15 +116,17 @@ class ExtensionManager(
     val untrustedExtensionsFlow = _untrustedExtensionsFlow.asStateFlow()
 
     init {
-        initExtensions()
+        initScope.launch {
+            initExtensions()
+        }
         ExtensionInstallReceiver(InstallationListener()).register(context)
     }
 
     /**
      * Loads and registers the installed extensions.
      */
-    private fun initExtensions() {
-        val extensions = ExtensionLoader.loadExtensions(context)
+    private suspend fun initExtensions() {
+        val extensions = ExtensionLoader.loadExtensionAsync(context)
 
         _installedExtensionsFlow.value = extensions
             .filterIsInstance<LoadResult.Success>()
@@ -228,8 +235,12 @@ class ExtensionManager(
             val pkgName = installedExt.pkgName
             val availableExt = availableExtensions.find { it.pkgName == pkgName }
 
-            if (availableExt == null != installedExt.isObsolete) {
-                mutInstalledExtensions[index] = installedExt.copy(isObsolete = true)
+            // Recompute obsolescence both ways. The previous form `availableExt == null != isObsolete`
+            // hardcoded `isObsolete = true` in the body, so an extension that came back to the
+            // available list after a temporary repo outage stayed permanently flagged obsolete.
+            val nowObsolete = availableExt == null
+            if (nowObsolete != installedExt.isObsolete) {
+                mutInstalledExtensions[index] = installedExt.copy(isObsolete = nowObsolete)
                 changed = true
             }
             if (availableExt != null) {

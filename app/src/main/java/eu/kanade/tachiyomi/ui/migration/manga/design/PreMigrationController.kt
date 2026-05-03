@@ -35,11 +35,12 @@ import eu.kanade.tachiyomi.util.view.doOnApplyWindowInsetsCompat
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.liftAppbarWith
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
-import exh.source.BlacklistedSources
 // NOVEL -->
 import hayai.novel.source.TextSource
 // NOVEL <--
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -60,18 +61,11 @@ class PreMigrationController(bundle: Bundle? = null) :
     /**
      * True when every selected manga is a novel — controls whether the source picker
      * shows novel sources (`TextSource`) or the regular `HttpSource` manga catalogue.
-     * Mixed selections fall back to manga sources.
+     * Mixed selections fall back to manga sources. Resolved asynchronously in [onViewCreated]
+     * so the database lookup never blocks the UI thread (previously did via runBlocking, which
+     * could deadlock if SourceManager init / novel-plugin loading was still in flight).
      */
-    private val isNovelMigration: Boolean by lazy {
-        if (config.isEmpty()) {
-            false
-        } else {
-            val getManga = Injekt.get<GetManga>()
-            runBlocking {
-                config.all { id -> getManga.awaitById(id)?.isNovel(sourceManager) == true }
-            }
-        }
-    }
+    private var isNovelMigration: Boolean = false
 
     private var showingOptions = false
 
@@ -84,16 +78,35 @@ class PreMigrationController(bundle: Bundle? = null) :
         super.onViewCreated(view)
         liftAppbarWith(binding.recycler)
 
-        val ourAdapter = adapter ?: MigrationSourceAdapter(
-            getEnabledSources().map { MigrationSourceItem(it, isEnabled(it.id.toString())) },
-            this,
-        )
-        adapter = ourAdapter
         binding.recycler.layoutManager = LinearLayoutManager(view.context)
         binding.recycler.setHasFixedSize(true)
-        binding.recycler.adapter = ourAdapter
-        ourAdapter.itemTouchHelperCallback = null // Reset adapter touch adapter to fix drag after rotation
-        ourAdapter.isHandleDragEnabled = true
+
+        // Compute isNovelMigration off the UI thread, then build the adapter. The previous
+        // implementation called runBlocking{} on the UI thread, which could deadlock against
+        // SourceManager.getOrStub() if novel plugins were still loading on the IO scope.
+        viewScope.launch {
+            isNovelMigration = if (config.isEmpty()) {
+                false
+            } else {
+                val getManga = Injekt.get<GetManga>()
+                withContext(Dispatchers.IO) {
+                    config.all { id -> getManga.awaitById(id)?.isNovel(sourceManager) == true }
+                }
+            }
+
+            // Bail out if the controller was destroyed while we were resolving.
+            if (!isAttached || isBeingDestroyed || isDestroyed) return@launch
+
+            val ourAdapter = adapter ?: MigrationSourceAdapter(
+                getEnabledSources().map { MigrationSourceItem(it, isEnabled(it.id.toString())) },
+                this@PreMigrationController,
+            )
+            adapter = ourAdapter
+            binding.recycler.adapter = ourAdapter
+            ourAdapter.itemTouchHelperCallback = null // Reset to fix drag after rotation
+            ourAdapter.isHandleDragEnabled = true
+        }
+
         dialog = null
         val fabBaseMarginBottom = binding.fab.marginBottom
         binding.recycler.doOnApplyWindowInsetsCompat { v, insets, _ ->
@@ -169,8 +182,7 @@ class PreMigrationController(bundle: Bundle? = null) :
     private fun getEnabledSources(): List<CatalogueSource> {
         val languages = prefs.enabledLanguages().get()
         val sourcesSaved = prefs.migrationSources().get().split("/")
-        var sources = sourceManager.getCatalogueSources()
-            .filterNot { it.id in BlacklistedSources.HIDDEN_SOURCES }
+        var sources = sourceManager.getVisibleCatalogueSources()
             .filter { source ->
                 if (isNovelMigration) source is TextSource else source is HttpSource
             }

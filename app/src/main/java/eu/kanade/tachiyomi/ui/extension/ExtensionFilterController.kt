@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.extension
 
+import android.view.View
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import eu.kanade.tachiyomi.core.preference.minusAssign
@@ -12,6 +13,11 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 // NOVEL -->
 import hayai.novel.plugin.NovelPluginManager
 // NOVEL <--
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.injectLazy
 import yokai.i18n.MR
 
@@ -24,6 +30,37 @@ class ExtensionFilterController : SettingsLegacyController() {
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) = screen.apply {
         titleMRes = MR.strings.extensions
+        renderLanguages()
+    }
+
+    override fun onAttach(view: View) {
+        super.onAttach(view)
+
+        // If no extension/novel data has been fetched yet, kick the loaders so the screen
+        // doesn't stay empty when the user opens it before the bottom-sheet ever loaded
+        // available extensions/plugins.
+        if (extensionManager.availableExtensionsFlow.value.isEmpty()) {
+            viewScope.launch { extensionManager.findAvailableExtensions() }
+        }
+        if (novelPluginManager.availablePluginsFlow.value.isEmpty()) {
+            viewScope.launch { novelPluginManager.refreshAvailablePlugins() }
+        }
+
+        // Re-render whenever either source of languages updates so the screen reflects the
+        // latest data even if it arrived after onCreatePreferences ran.
+        combine(
+            extensionManager.availableExtensionsFlow,
+            novelPluginManager.availablePluginsFlow,
+        ) { _, _ -> Unit }
+            .drop(1)
+            .onEach { renderLanguages() }
+            .launchIn(viewScope)
+    }
+
+    private fun renderLanguages() {
+        val screen = preferenceScreen ?: return
+        val ctx = screen.context
+        screen.removeAll()
 
         val activeLangs = preferences.enabledLanguages().get()
 
@@ -35,21 +72,21 @@ class ExtensionFilterController : SettingsLegacyController() {
             .toSet()
         val availableLangs = (extensionLangs + novelLangs)
             .distinct()
-            .sortedWith(compareBy({ it !in activeLangs }, { LocaleHelper.getSourceDisplayName(it, context) }))
+            .sortedWith(compareBy({ it !in activeLangs }, { LocaleHelper.getSourceDisplayName(it, ctx) }))
         // NOVEL <--
 
-        availableLangs.forEach {
-            SwitchPreferenceCompat(context).apply {
-                preferenceScreen.addPreference(this)
-                title = LocaleHelper.getSourceDisplayName(it, context)
+        availableLangs.forEach { lang ->
+            SwitchPreferenceCompat(ctx).apply {
+                screen.addPreference(this)
+                title = LocaleHelper.getSourceDisplayName(lang, ctx)
                 isPersistent = false
-                isChecked = it in activeLangs
+                isChecked = lang in activeLangs
 
                 onChange { newValue ->
                     if (newValue as Boolean) {
-                        preferences.enabledLanguages() += it
+                        preferences.enabledLanguages() += lang
                     } else {
-                        preferences.enabledLanguages() -= it
+                        preferences.enabledLanguages() -= lang
                     }
                     true
                 }
