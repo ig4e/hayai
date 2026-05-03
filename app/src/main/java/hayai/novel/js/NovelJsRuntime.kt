@@ -45,7 +45,11 @@ class NovelJsRuntime(
     }
 
     private suspend fun doInitialize(pluginCode: String) {
-        close()
+        // Defensive cleanup of any prior QuickJS context only — must NOT shut down the
+        // executor, otherwise the very next withContext(jsDispatcher) (in callMethod or
+        // even the rest of this init via QuickJs.create) gets RejectedExecutionException
+        // and the runtime is dead the instant init succeeds.
+        closeQuickJsOnly()
 
         val qjs = QuickJs.create(jsDispatcher)
         quickJs = qjs
@@ -192,7 +196,9 @@ class NovelJsRuntime(
             Logger.d { "NovelJsRuntime: Plugin '$pluginId' initialized successfully" }
         } catch (e: Exception) {
             Logger.e(e) { "NovelJsRuntime: Failed to initialize plugin '$pluginId'" }
-            close()
+            // Same as the defensive cleanup above — close QuickJS but keep the executor
+            // alive so a retry can re-init on the same dispatcher.
+            closeQuickJsOnly()
             throw e
         }
     }
@@ -248,13 +254,13 @@ class NovelJsRuntime(
         }
     }
 
+    /**
+     * Permanent teardown — close QuickJS and shut the worker thread down. Call this only when
+     * the runtime will never be used again (e.g. plugin uninstall); after this any
+     * withContext(jsDispatcher) will throw RejectedExecutionException.
+     */
     fun close() {
-        try {
-            quickJs?.close()
-        } catch (_: Exception) {
-        }
-        quickJs = null
-        initialized = false
+        closeQuickJsOnly()
         // Shut down the per-source executor so the worker thread can exit. Without this the
         // Thread would live forever with the runtime's 8MB stack reservation, leaking once per
         // uninstalled plugin.
@@ -262,6 +268,20 @@ class NovelJsRuntime(
             executor.shutdown()
         } catch (_: Exception) {
         }
+    }
+
+    /**
+     * Close just the QuickJS native context, keeping the executor alive. Used by
+     * doInitialize() for both pre-init defensive cleanup and the catch-block retry path —
+     * neither of those wants to kill the dispatcher we're currently running on.
+     */
+    private fun closeQuickJsOnly() {
+        try {
+            quickJs?.close()
+        } catch (_: Exception) {
+        }
+        quickJs = null
+        initialized = false
     }
 
     val isInitialized: Boolean get() = initialized
