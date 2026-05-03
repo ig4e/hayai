@@ -1,22 +1,27 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.InsetDrawable
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
 import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
 import androidx.preference.CheckBoxPreference
 import androidx.preference.PreferenceGroup
 import androidx.preference.PreferenceScreen
+import coil3.asDrawable
+import coil3.imageLoader
+import coil3.request.ImageRequest
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.preference.minusAssign
 import eu.kanade.tachiyomi.core.preference.plusAssign
+import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.icon
-import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
@@ -26,6 +31,9 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.view.activityBinding
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
 import eu.kanade.tachiyomi.widget.preference.SwitchPreferenceCategory
+// NOVEL -->
+import hayai.novel.source.NovelSource
+// NOVEL <--
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.TreeMap
@@ -35,13 +43,16 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
         setHasOptionsMenu(true)
     }
 
-    private val onlineSources by lazy { Injekt.get<SourceManager>().getVisibleOnlineSources() }
+    // Catalogue (not just HttpSource) so novel TextSource entries are included alongside
+    // manga extension sources. Both implement CatalogueSource and share the per-language
+    // grouping / hide-source preference contract.
+    private val catalogueSources by lazy { Injekt.get<SourceManager>().getVisibleCatalogueSources() }
 
     private var query = ""
 
     private var orderedLangs = listOf<String>()
     private var langPrefs = mutableListOf<Pair<String, SwitchPreferenceCategory>>()
-    private var sourcesByLang: TreeMap<String, MutableList<HttpSource>> = TreeMap()
+    private var sourcesByLang: TreeMap<String, MutableList<CatalogueSource>> = TreeMap()
     private var sorting = SourcesSort.Alpha
 
     override fun getSearchTitle(): String? {
@@ -56,7 +67,7 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
         val activeLangsCodes = preferences.enabledLanguages().get()
 
         // Get a map of sources grouped by language.
-        sourcesByLang = onlineSources.groupByTo(TreeMap()) { it.lang }
+        sourcesByLang = catalogueSources.groupByTo(TreeMap()) { it.lang }
 
         // Order first by active languages, then inactive ones
         orderedLangs = sourcesByLang.keys.filter { it in activeLangsCodes } + sourcesByLang.keys
@@ -102,12 +113,18 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
      *
      * @param group the language category.
      */
-    private fun addLanguageSources(group: PreferenceGroup, sources: List<HttpSource>) {
+    private fun addLanguageSources(group: PreferenceGroup, sources: List<CatalogueSource>) {
+        if (sources.isEmpty()) return
         val hiddenCatalogues = preferences.hiddenSources().get()
 
+        // Bulk show/hide for every source in this language without disabling the language
+        // itself (the parent SwitchPreferenceCategory does that). Useful when you have many
+        // sources installed in one language but only want a few visible in browse. Renamed
+        // to "Select all" + given a distinct check-box icon so it clearly reads as a UI
+        // control instead of a phantom iconless source like the previous "All sources" row.
         val selectAllPreference = CheckBoxPreference(group.context).apply {
-            title = "\t\t${context.getString(MR.strings.all_sources)}"
-            key = "all_${sources.first().lang}"
+            title = context.getString(MR.strings.select_all)
+            key = "select_all_${sources.first().lang}"
             isPersistent = false
             isChecked = sources.all { it.id.toString() !in hiddenCatalogues }
             isVisible = query.isEmpty()
@@ -115,11 +132,8 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
             onChange { newValue ->
                 val checked = newValue as Boolean
                 val current = preferences.hiddenSources().get().toMutableSet()
-                if (checked) {
-                    current.removeAll(sources.map { it.id.toString() })
-                } else {
-                    current.addAll(sources.map { it.id.toString() })
-                }
+                val ids = sources.map { it.id.toString() }
+                if (checked) current.removeAll(ids) else current.addAll(ids)
                 preferences.hiddenSources().set(current)
                 group.removeAll()
                 addLanguageSources(group, sortedSources(sources))
@@ -138,8 +152,37 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
                 isVisible = query.isEmpty() || source.name.contains(query, ignoreCase = true)
 
                 val sourceIcon = source.icon()
-                if (sourceIcon != null) {
-                    icon = sourceIcon
+                when {
+                    sourceIcon != null -> icon = sourceIcon
+                    // NOVEL -->
+                    // Novel sources aren't backed by an installed APK, so Source.icon() returns
+                    // null and the row would render iconless. Mirror SourceHolder: try the hosted
+                    // iconUrl via Coil, fall back to the generic book glyph if the URL is missing
+                    // or fails to load.
+                    //
+                    // Visual alignment: manga sources come back as AdaptiveIconDrawable with a
+                    // built-in ~16.7% safe-zone padding (visible content ~67% of the icon slot),
+                    // while a raw BitmapDrawable from Coil fills the slot 100% and looks oversized
+                    // next to manga rows. Wrap novel drawables in an InsetDrawable with the same
+                    // safe-zone fraction so both source types render at consistent visual size.
+                    source is NovelSource -> {
+                        val ctx = group.context
+                        icon = withAdaptiveIconInset(ContextCompat.getDrawable(ctx, R.drawable.ic_book_24dp))
+                        val url = source.iconUrl
+                        if (!url.isNullOrBlank()) {
+                            val pref = this
+                            val request = ImageRequest.Builder(ctx)
+                                .data(url)
+                                .target(
+                                    onSuccess = { result ->
+                                        pref.icon = withAdaptiveIconInset(result.asDrawable(ctx.resources))
+                                    },
+                                )
+                                .build()
+                            ctx.imageLoader.enqueue(request)
+                        }
+                    }
+                    // NOVEL <--
                 }
 
                 onChange { newValue ->
@@ -166,6 +209,16 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
 
     private fun getSourceKey(sourceId: Long): String {
         return "source_$sourceId"
+    }
+
+    /**
+     * Wrap a raw drawable in an [InsetDrawable] that mimics the launcher adaptive-icon
+     * safe-zone (72/108 ≈ 0.667 visible, hence 0.167 inset on each side). Used for novel
+     * source icons loaded via Coil so they sit at the same effective size as manga sources,
+     * which come back as AdaptiveIconDrawable with the same safe-zone built in.
+     */
+    private fun withAdaptiveIconInset(drawable: Drawable?): Drawable? {
+        return drawable?.let { InsetDrawable(it, ADAPTIVE_ICON_SAFE_ZONE_INSET) }
     }
 
     /**
@@ -266,7 +319,7 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
         }
     }
 
-    private fun sortedSources(sources: List<HttpSource>?): List<HttpSource> {
+    private fun sortedSources(sources: List<CatalogueSource>?): List<CatalogueSource> {
         val sourceAlpha = sources.orEmpty().sortedBy { it.name }
         return if (sorting == SourcesSort.Enabled) {
             val hiddenCatalogues = preferences.hiddenSources().get()
@@ -309,5 +362,12 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
         companion object {
             fun from(i: Int): SourcesSort? = entries.find { it.value == i }
         }
+    }
+
+    companion object {
+        // Adaptive-icon safe-zone fraction: launcher icons reserve (108-72)/2/108 ≈ 0.167
+        // of each side as transparent padding. We mirror that on raw novel bitmaps so they
+        // visually align with the manga AdaptiveIconDrawables in the same list.
+        private const val ADAPTIVE_ICON_SAFE_ZONE_INSET = 0.167f
     }
 }
