@@ -47,8 +47,9 @@ class MdUtil {
 
         private const val scanlatorSeparator = " & "
 
-        // Inner `]` inside `[^...]` must be escaped — Android's ICU regex engine rejects `[^]`.
-        val markdownLinksRegex = "\\[([^\\]]+)]\\(([^)]+)\\)".toRegex()
+        // Every closing delimiter must be escaped — Android's ICU regex engine rejects bare `]`/`}`
+        // outside their character classes (and rejects `[^]` as an empty negated class).
+        val markdownLinksRegex = "\\[([^\\]]+)\\]\\(([^)]+)\\)".toRegex()
         val markdownItalicBoldRegex = "\\*+\\s*([^*]*)\\s*\\*+".toRegex()
         val markdownItalicRegex = "_+\\s*([^_]*)\\s*_+".toRegex()
 

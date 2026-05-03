@@ -134,7 +134,8 @@ class ShizukuInstaller(
         const val shizukuPkgName = "moe.shizuku.privileged.api"
         const val downloadLink = "https://shizuku.rikka.app/download"
         private const val SHIZUKU_PERMISSION_REQUEST_CODE = 14045
-        private val SESSION_ID_REGEX = Regex("(?<=\\[).+?(?=])")
+        // Closing `]` inside the lookahead must be escaped — Android's ICU regex parser rejects bare `]`.
+        private val SESSION_ID_REGEX = Regex("(?<=\\[).+?(?=\\])")
         fun isShizukuRunning(): Boolean {
             return Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         }
