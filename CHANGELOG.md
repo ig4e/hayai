@@ -22,6 +22,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Add migration parallelism with concurrency limits for faster batch source migration (1–10 concurrent, configurable in Advanced settings)
 - Add NovelUpdates dedicated parser and refactor of the NovelUpdates source
 - Add novel plugin cache and improved plugin manager integration
+- Browse-page filter (Settings → Sources from the browse menu) now lists novel sources alongside manga, grouped under their language. Novel icons are loaded from the plugin's `iconUrl` via Coil with a `ic_book_24dp` fallback.
 
 ### Changes
 - Novel browse pagination now follows the LNReader contract: keep loading until the plugin returns an empty list (was hard-stopped at page 1).
@@ -32,11 +33,36 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Recommendation cards now use a transparent container color to better blend with the surface
 - Revert filter sheet to the stable View-based implementation while the Compose version is hardened (replaces the temporary 1.15.0 Compose filter sheet)
 - Fall back to the system installer on MIUI devices when in-app install is unreliable
+- Per-language source toggle in the browse-page filter renamed to **Select all** (was "All sources") so it reads as a UI control rather than a phantom iconless source.
+- App icons & branding assets refreshed for all density buckets and flavors (main, debug, nightly).
 
 ### Fixes
+- **Fix sources disappearing from the browse list / extensions filter showing nothing.** Two `collectLatest` blocks in `SourceManager` were both doing read-modify-write on the same `MutableStateFlow` source map; their writes could clobber each other on cold start, extension install, or novel-plugin refresh, leaving the list with only LocalSource + EH + MergedSource + novels. Collapsed into a single `combine()` so there's exactly one writer.
+- **Fix novel sources not working** ([#12](https://github.com/ig4e/hayai/issues/12)). Root causes ranged across the JS bridge, the novel runtime, and LNReader-plugin compatibility:
+  - `__bridge.fetch / fetchText / fetchFile / sleep` are now suspend on the Kotlin side and bound via QuickJS `asyncFunction` so OkHttp work runs on `Dispatchers.IO` instead of stalling the JS worker thread.
+  - Each `NovelJsRuntime` now gets its own single-thread executor (8 MB stack) shut down on `close()` instead of sharing one global dispatcher — uninstalled plugins no longer leak threads, and one slow source no longer blocks another.
+  - `NovelSource.ensureRuntime()` and `destroy()` are guarded by a `Mutex` so racing coroutines (browse + reader prefetch, etc.) can't double-initialize and leak QuickJS contexts or close a runtime mid-init.
+  - `NovelPluginManager` now uses a `ConcurrentHashMap` + `installMutex` for all installed-source mutations, `SupervisorJob` so one failing plugin can't kill the manager scope, and caches the system UA at construction (calling `WebSettings.getDefaultUserAgent` from IO threads threw on some Android versions).
+  - New `timers_shim.js` overrides the polyfill `setTimeout` / `setInterval` with async-aware versions backed by `__bridge.sleep` — the polyfill's sync impl silently fired callbacks immediately under the new async bridge, breaking every plugin that throttles via `await new Promise(r => setTimeout(r, ms))`.
+  - `fetchProto` is now implemented entirely in JS using the bundled protobufjs (mirrors `lnreader-plugins/src/lib/fetch.ts:fetchProto`, gRPC-Web framing included). The Kotlin stub that returned `{}` is gone, so WuxiaWorld and other proto-based plugins actually work now.
+  - Default headers synced with LNReader's `makeInit` (drop `Cache-Control: max-age=0`, add `Accept-Encoding: gzip, deflate`); only auto-managed encoding values are stripped on the Kotlin side so plugins can still pass `identity` etc. through.
+  - `LocalStorage` / `SessionStorage` shims now match LNReader's per-instance dict semantics instead of returning a single SharedPreferences blob, which silently broke any plugin that tried to read individual keys off the result.
+  - Added `@/types/constants` to `require_impl.js` so plugins like novelfire that import path-aliased modules from the LNReader build resolve at runtime (tsc preserves these aliases verbatim in compiled output).
+  - Bundled 7 additional runtime libraries (buffer, fetch-globals, text-encoding, htmlparser2, crypto-js, pako, protobufjs) needed by the full LNReader plugin surface (~1.3 MB total).
+- Fix `MergedSource` and other entries in `BlacklistedSources.HIDDEN_SOURCES` leaking into global search, the migration target list, and the per-language source toggle. Centralized via new `SourceManager.getVisibleCatalogueSources()` / `getVisibleOnlineSources()` helpers (mirrors TachiyomiSY's `AndroidSourceManager` pattern); call sites switched over.
+- Fix the browse-page extension filter screen sometimes rendering permanently blank when opened before the bottom-sheet ever loaded available extensions/plugins. `ExtensionFilterController` now kicks `findAvailableExtensions()` / `refreshAvailablePlugins()` if either flow is empty, and re-renders whenever either emits.
+- Fix metadata enrichment, namespace search, and page previews silently not firing for Pururin / Tsumino / MangaDex / HBrowse / 8Muses / LANraragi extensions: the EXH `DELEGATED_SOURCES` table only had NHentai. Restored the other six entries (matches TachiyomiSY); installed extensions now get wrapped with `EnhancedHttpSource`. `exh.source.handleSourceLibrary()` (previously a no-op stub) now recomputes `metadataDelegatedSourceIds`, `nHentaiSourceIds`, `mangaDexSourceIds`, `lanraragiSourceIds`, and `LIBRARY_UPDATE_EXCLUDED_SOURCES` whenever a source delegates.
+- Fix `LibraryUpdateJob` running Pururin / NHentai delegated sources through the standard library updater (likely producing 429s or wrong chapter data) — replaced the hardcoded `EH_SOURCE_ID || EXH_SOURCE_ID` check with `LIBRARY_UPDATE_EXCLUDED_SOURCES`, which is now correctly populated.
+- Fix the eHentai extension showing as installable in browse and counting toward update-badges. `ExtensionApi` now filters `BlacklistedSources.BLACKLISTED_EXTENSIONS` at the parse step.
+- Fix `ExtensionManager.updatedInstalledExtensionsStatuses` pinning an extension to `isObsolete = true` forever once flagged, even after it returned to the available list (inverted condition rewrote the same value back).
+- Fix novel chapter downloads silently sticking at `DOWNLOADING` forever and blocking the queue — replaced the brittle `download.source is TextSource && is NovelSource` / `is HttpSource` else-if chain with a typed `when()` that errors on unknown source types.
+- Fix `.nomedia` not being created in download chapter directories on devices using SAF — `UniFile.renameTo` invalidates the `DocumentFile` handle on many devices, so the post-rename create silently no-op'd. Now writes `.nomedia` before the rename. CBZ branch correctly skips.
+- Guard `DownloadManager.buildPageList` against `TextSource` so callers can't surface a misleading "no pages found" for novel chapters.
 - Fix novel sources rendering without their icon in the Migrations tab — the migration `SourceHolder` now falls back to the plugin's `iconUrl` (or a book glyph) when the manga `ExtensionManager` has no app icon, matching the regular browse list. The same fallback was added to the per-manga Migrate target list.
+- Fix novel sources rendering oversized in the browse-page filter list — raw `BitmapDrawable`s from Coil filled the icon slot 100% while manga `AdaptiveIconDrawable`s have a built-in ~16.7% safe zone. Novel icons are now wrapped in an `InsetDrawable` with the same fraction so both source types render at consistent visual size.
 - Fix `MergedSource` appearing in the per-manga Migrate target source list — `PreMigrationController` now filters out `BlacklistedSources.HIDDEN_SOURCES` for both manga and novel migrations.
 - Per-manga Migrate now picks the right catalogue for the entry being migrated: novels see only novel (`TextSource`) sources, manga see only `HttpSource` sources. `MigrationSourceItem`/`MigrationSourceHolder` widened from `HttpSource` to `CatalogueSource`.
+- Fix `PreMigrationController.isNovelMigration` deadlocking against `SourceManager.getOrStub()` while novel plugins were still loading. The lookup is now `lifecycleScope`-launched on `Dispatchers.IO` and gates adapter creation on completion, instead of `runBlocking{}` on the UI thread.
 - Fix tapping a page-preview thumbnail opening page 1 instead of the tapped page (race between two state observers in `ReaderViewModel`; now the requested page is plumbed through `ChapterLoader` before `viewerChapters` is published).
 - Fix recommendation card clicks being silently dropped for external sources (AniList / MyAnimeList / NovelUpdates / etc.); they now route to global search by title across installed sources, matching TachiyomiSY's behavior.
 - Fix `NovelUpdatesParser.<clinit>` and `MdUtil.<clinit>` crashes (`PatternSyntaxException` on Android's ICU regex engine: `[^]]` is invalid; escaped to `[^\]]`). The first crash also took down anything that loaded the recommendations screen.
@@ -55,6 +81,10 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Other
 - Speed up CI builds with Gradle caching and parallelism
+- Cold-start hardening: WorkManager auto-init disabled in `AndroidManifest`; `App` implements `Configuration.Provider` so workers don't try to instantiate before Koin is started. `MainActivity` flips `splashState.ready` immediately rather than waiting inside a coroutine that didn't run until past the 5 s splash cap. `AppModule.initExpensiveComponents` launches on `Dispatchers.IO` so cold start doesn't block the main thread.
+- `SourceManager.toInternalSource` now `error()`s in debug builds when a delegate's 2-param constructor goes missing, instead of silently degrading to the unwrapped source — catches signature drift fast in dev without crashing release users.
+- `NovelPluginCache` writes are now atomic (write-tmp + rename) so an OOM kill mid-write can't truncate the cache and force a JS metadata re-extraction (~700 ms per plugin) on the next cold start.
+- `NovelSource.pluginCode` is no longer held resident for the source's lifetime — replaced with a `() -> String` provider that reads from the on-disk file when the runtime initializes, freeing tens-to-hundreds of KB per installed plugin.
 
 ## [1.14.0]
 
