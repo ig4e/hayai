@@ -16,10 +16,10 @@ internal data class NovelUpdatesSearchResult(
 
 internal object NovelUpdatesParser {
     private val titleCleanupRegex = Regex("[^\\p{L}\\p{N}]+")
-    // The inner `]` inside the square-bracket arm must be escaped — Android's ICU regex parser
-    // otherwise reads `[^]` as an empty negated class and throws PatternSyntaxException at
-    // <clinit>, taking down anything that touches NovelUpdatesParser (e.g. recommendations).
-    private val bracketRegex = Regex("\\([^)]*\\)|\\[[^\\]]*]|\\{[^}]*}|<[^>]*>")
+    // Every closing delimiter must be escaped — Android's ICU regex parser rejects bare `]`/`}`
+    // outside their character classes and throws PatternSyntaxException at <clinit>, taking down
+    // anything that touches NovelUpdatesParser (e.g. recommendations).
+    private val bracketRegex = Regex("\\([^)]*\\)|\\[[^\\]]*\\]|\\{[^}]*\\}|<[^>]*>")
 
     fun parseSearchResults(html: String, baseUrl: String = NovelUpdatesPagingSource.BASE_URL): List<NovelUpdatesSearchResult> {
         val document = Jsoup.parseBodyFragment(html, baseUrl)
