@@ -70,6 +70,12 @@ console.log('htmlparser2 bundled');
 
 // Bundle cheerio (exports: { load }). htmlparser2 stays internal — only `load`
 // is published; the standalone htmlparser2 bundle owns __htmlparser2.
+//
+// platform: 'browser' picks cheerio's `browser` package.json entry, which avoids the
+// node:stream / node:string_decoder / node:events imports that the node entry pulls in
+// (and which our QuickJS runtime has no module resolver for). Combined with the
+// inject-empty stubs below for any remaining node-builtins the browser bundle still
+// references, cheerio loads cleanly without falling through to require() at runtime.
 await esbuild.build({
   stdin: {
     contents: `
@@ -81,14 +87,27 @@ await esbuild.build({
   bundle: true,
   minify: true,
   format: 'iife',
-  platform: 'node',
+  platform: 'browser',
   target: 'es2020',
   outfile: `${outDir}/cheerio.min.js`,
   define: {
     'process.env.NODE_ENV': '"production"',
-    'Buffer': 'undefined',
+    // Don't replace `Buffer` with undefined — cheerio 1.x calls Buffer.from() at runtime
+    // and we load buffer.min.js (sets globalThis.Buffer) BEFORE cheerio.min.js, so the
+    // global is available. Replacing it produced `undefined.from()` TypeErrors during init.
   },
-  external: ['buffer', 'stream', 'string_decoder', 'events'],
+  // Map any node-builtin imports the browser entry might still reference to empty modules
+  // bundled inline, so esbuild produces a zero-runtime-require output.
+  alias: {
+    'stream': './empty.js',
+    'string_decoder': './empty.js',
+    'events': './empty.js',
+    'buffer': './empty.js',
+    'node:stream': './empty.js',
+    'node:string_decoder': './empty.js',
+    'node:events': './empty.js',
+    'node:buffer': './empty.js',
+  },
 });
 console.log('cheerio bundled');
 
