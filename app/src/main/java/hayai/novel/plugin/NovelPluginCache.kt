@@ -25,13 +25,12 @@ internal class NovelPluginCache(
     }
 
     fun writeRepoPlugins(repoUrl: String, plugins: List<NovelPluginIndex>) {
-        val file = repoCacheFile(repoUrl)
         val payload = CachedNovelRepoIndex(
             baseUrl = repoUrl,
             plugins = plugins,
             updatedAt = System.currentTimeMillis(),
         )
-        file.writeText(json.encodeToString(CachedNovelRepoIndex.serializer(), payload))
+        repoCacheFile(repoUrl).writeAtomically(json.encodeToString(CachedNovelRepoIndex.serializer(), payload))
     }
 
     fun readInstalledSource(pluginDir: File): InstalledNovelSourceCache? {
@@ -57,7 +56,7 @@ internal class NovelPluginCache(
             filters = metadata.filters,
         )
         File(pluginDir, INSTALLED_SOURCE_FILE)
-            .writeText(json.encodeToString(InstalledNovelSourceCache.serializer(), payload))
+            .writeAtomically(json.encodeToString(InstalledNovelSourceCache.serializer(), payload))
     }
 
     private fun repoCacheFile(repoUrl: String): File {
@@ -67,6 +66,32 @@ internal class NovelPluginCache(
     private fun String.sha256(): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Write to a sibling .tmp file and rename into place. Avoids leaving the cache file truncated
+     * on OOM kill mid-write — a truncated cache would force a JS metadata re-extraction on next
+     * cold start (~700ms per plugin) when the original was still recoverable.
+     */
+    private fun File.writeAtomically(content: String) {
+        val tmp = File(parentFile, "$name.tmp")
+        try {
+            tmp.writeText(content)
+            if (!tmp.renameTo(this)) {
+                // Fallback for filesystems that don't allow rename-over-existing (rare on Android
+                // but seen on some OEM SAF backends). Delete + rename, accepting the brief window
+                // where neither file exists.
+                delete()
+                if (!tmp.renameTo(this)) {
+                    // Last resort: copy bytes then drop the tmp.
+                    writeText(content)
+                    tmp.delete()
+                }
+            }
+        } catch (e: Throwable) {
+            tmp.delete()
+            throw e
+        }
     }
 
     companion object {

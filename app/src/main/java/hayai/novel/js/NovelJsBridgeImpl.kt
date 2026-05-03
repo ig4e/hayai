@@ -5,6 +5,9 @@ import android.content.SharedPreferences
 import android.util.Base64
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.network.NetworkHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -35,10 +38,11 @@ class NovelJsBridgeImpl(
         val method: String? = null,
         val headers: Map<String, String>? = null,
         val body: String? = null,
+        val bodyBase64: String? = null,
     )
 
-    override fun fetch(url: String, initJson: String): String {
-        return try {
+    override suspend fun fetch(url: String, initJson: String): String = withContext(Dispatchers.IO) {
+        try {
             val init = json.decodeFromString<FetchInit>(initJson)
             val request = buildRequest(url, init)
             val response = client.newCall(request).execute()
@@ -52,21 +56,6 @@ class NovelJsBridgeImpl(
                 headersMap[name.lowercase()] = value
             }
 
-            if (url.contains("allnovel.org", ignoreCase = true)) {
-                Logger.d {
-                    buildString {
-                        append("NovelJsBridge.fetch allnovel")
-                        append(" url=").append(url)
-                        append(" finalUrl=").append(response.request.url)
-                        append(" status=").append(response.code)
-                        append(" bodyLen=").append(bodyText.length)
-                        append(" hasArchive=").append(bodyText.contains("archive"))
-                        append(" hasColContent=").append(bodyText.contains("col-content"))
-                        append(" preview=").append(bodyText.take(300).replace("\n", "\\n").replace("\r", "\\r"))
-                    }
-                }
-            }
-
             buildJsonResponse(response.code, response.message, bodyText, bodyBase64, headersMap)
         } catch (e: Exception) {
             Logger.e(e) { "NovelJsBridge.fetch failed: $url" }
@@ -74,8 +63,8 @@ class NovelJsBridgeImpl(
         }
     }
 
-    override fun fetchText(url: String, initJson: String, encoding: String): String {
-        return try {
+    override suspend fun fetchText(url: String, initJson: String, encoding: String): String = withContext(Dispatchers.IO) {
+        try {
             val init = json.decodeFromString<FetchInit>(initJson)
             val request = buildRequest(url, init)
             val response = client.newCall(request).execute()
@@ -93,8 +82,8 @@ class NovelJsBridgeImpl(
         }
     }
 
-    override fun fetchFile(url: String, initJson: String): String {
-        return try {
+    override suspend fun fetchFile(url: String, initJson: String): String = withContext(Dispatchers.IO) {
+        try {
             val init = json.decodeFromString<FetchInit>(initJson)
             val request = buildRequest(url, init)
             val response = client.newCall(request).execute()
@@ -105,13 +94,6 @@ class NovelJsBridgeImpl(
             Logger.e(e) { "NovelJsBridge.fetchFile failed: $url" }
             ""
         }
-    }
-
-    override fun fetchProto(protoInitJson: String, url: String, initJson: String): String {
-        // Protobuf support is complex and used by very few plugins.
-        // Return empty for now; can be implemented when needed.
-        Logger.w { "NovelJsBridge.fetchProto called but not yet implemented" }
-        return "{}"
     }
 
     // --- Storage ---
@@ -137,9 +119,12 @@ class NovelJsBridgeImpl(
         getPrefs(pluginId).edit().clear().apply()
     }
 
-    override fun sleep(durationMs: Int) {
+    override suspend fun sleep(durationMs: Int) {
         if (durationMs > 0) {
-            Thread.sleep(durationMs.toLong())
+            // delay() suspends the coroutine without occupying the JS worker thread —
+            // Thread.sleep() previously stalled it for the full duration, blocking every
+            // other JS operation on this plugin and (pre per-source dispatcher) every plugin.
+            delay(durationMs.toLong())
         }
     }
 
@@ -149,50 +134,57 @@ class NovelJsBridgeImpl(
         val builder = Request.Builder().url(url)
 
         init.headers?.forEach { (key, value) ->
-            if (key.equals("accept-encoding", ignoreCase = true)) {
+            // Accept-Encoding handling: OkHttp transparently negotiates and decompresses
+            // gzip/deflate ONLY when we don't set the header ourselves. The JS shim layer adds
+            // `gzip, deflate` by default to mirror LNReader's surface, but if we forwarded that
+            // verbatim OkHttp would skip auto-decompression and the JS layer would receive raw
+            // compressed bytes. So we strip those auto-managed values — but pass through any
+            // explicit override (`identity`, `br`, `zstd`, etc.) so plugins can still opt out.
+            if (key.equals("accept-encoding", ignoreCase = true) && isAutoManagedEncoding(value)) {
                 return@forEach
             }
             builder.addHeader(key, value)
         }
 
         val method = (init.method ?: "GET").uppercase()
-        val body = init.body
+        val contentType = init.headers?.entries
+            ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+            ?.value ?: "application/x-www-form-urlencoded"
+        val mediaType = contentType.toMediaTypeOrNull()
+
+        val requestBody = when {
+            init.bodyBase64 != null -> {
+                // btoa produces standard base64 (+/) — NO_WRAP matches it.
+                Base64.decode(init.bodyBase64, Base64.NO_WRAP).toRequestBody(mediaType)
+            }
+            init.body != null -> init.body.toRequestBody(mediaType)
+            else -> null
+        }
 
         when (method) {
             "GET" -> builder.get()
             "HEAD" -> builder.head()
-            "POST" -> {
-                val contentType = init.headers?.entries
-                    ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
-                    ?.value ?: "application/x-www-form-urlencoded"
-                builder.post((body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
-            }
-            "PUT" -> {
-                val contentType = init.headers?.entries
-                    ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
-                    ?.value ?: "application/x-www-form-urlencoded"
-                builder.put((body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
-            }
+            "POST" -> builder.post(requestBody ?: "".toRequestBody(mediaType))
+            "PUT" -> builder.put(requestBody ?: "".toRequestBody(mediaType))
             "DELETE" -> {
-                if (body != null) {
-                    val contentType = init.headers?.entries
-                        ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
-                        ?.value ?: "application/x-www-form-urlencoded"
-                    builder.delete((body).toRequestBody(contentType.toMediaTypeOrNull()))
-                } else {
-                    builder.delete()
-                }
+                if (requestBody != null) builder.delete(requestBody)
+                else builder.delete()
             }
-            "PATCH" -> {
-                val contentType = init.headers?.entries
-                    ?.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
-                    ?.value ?: "application/x-www-form-urlencoded"
-                builder.patch((body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
-            }
-            else -> builder.method(method, body?.toRequestBody())
+            "PATCH" -> builder.patch(requestBody ?: "".toRequestBody(mediaType))
+            else -> builder.method(method, requestBody)
         }
 
         return builder.build()
+    }
+
+    /**
+     * `Accept-Encoding` values that OkHttp will negotiate + decompress automatically.
+     * Anything else (e.g. `identity` to disable compression) is honored as-is.
+     */
+    private fun isAutoManagedEncoding(value: String): Boolean {
+        val tokens = value.split(',').map { it.substringBefore(';').trim().lowercase() }.toSet()
+        if (tokens.isEmpty()) return false
+        return tokens.all { it == "gzip" || it == "deflate" || it == "*" || it.isEmpty() }
     }
 
     private fun buildJsonResponse(

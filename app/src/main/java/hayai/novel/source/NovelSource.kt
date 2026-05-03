@@ -11,6 +11,8 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import hayai.novel.js.NovelJsBridge
 import hayai.novel.js.NovelJsRuntime
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -42,7 +44,12 @@ class NovelSource(
     private val pluginName: String,
     override val lang: String,
     private val siteUrl: String,
-    private val pluginCode: String,
+    /**
+     * Lazy provider for the plugin's JS source. Called on each runtime initialization (cold
+     * start and after [destroy]) so we don't have to hold the full source string — typically
+     * tens to hundreds of KB per plugin — in memory for the lifetime of the source object.
+     */
+    private val pluginCodeProvider: () -> String,
     private val pluginFilters: JsonObject? = null,
     val iconUrl: String?,
     private val context: Context,
@@ -68,17 +75,23 @@ class NovelSource(
 
     override val supportsLatest: Boolean = true
 
-    // Lazy-initialized JS runtime
+    // Lazy-initialized JS runtime. Guarded by [runtimeMutex] because ensureRuntime/destroy
+    // are called from arbitrary coroutines (browse, reader, downloader) and the suspending
+    // initialize() inside the check-then-act would otherwise let a second caller observe a
+    // stale `runtime == null` and create a duplicate (leaking the QuickJS native context).
+    private val runtimeMutex = Mutex()
     private var runtime: NovelJsRuntime? = null
 
-    private suspend fun ensureRuntime(): NovelJsRuntime {
-        val existing = runtime
-        if (existing != null && existing.isInitialized) return existing
+    private suspend fun ensureRuntime(): NovelJsRuntime = runtimeMutex.withLock {
+        runtime?.takeIf { it.isInitialized }?.let { return@withLock it }
 
         val rt = NovelJsRuntime(context, bridge, pluginId, userAgent)
-        rt.initialize(pluginCode)
+        // Re-read the JS source on each (re)initialization rather than holding it for the
+        // lifetime of this NovelSource. Plugin source files are typically tens-to-hundreds
+        // of KB; with many plugins installed that adds up to noticeable resident heap.
+        rt.initialize(pluginCodeProvider())
         runtime = rt
-        return rt
+        rt
     }
 
     override suspend fun getPopularManga(page: Int): MangasPage {
@@ -219,7 +232,7 @@ class NovelSource(
         return "$site/$cleanPath"
     }
 
-    fun destroy() {
+    suspend fun destroy() = runtimeMutex.withLock {
         runtime?.close()
         runtime = null
     }

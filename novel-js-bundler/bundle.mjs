@@ -3,7 +3,7 @@
  * Output goes to ../app/src/main/assets/novel/runtime/
  */
 import * as esbuild from 'esbuild';
-import { mkdirSync } from 'fs';
+import { mkdirSync, statSync } from 'fs';
 
 const outDir = '../app/src/main/assets/novel/runtime';
 mkdirSync(outDir, { recursive: true });
@@ -19,16 +19,62 @@ await esbuild.build({
 });
 console.log('polyfills bundled');
 
-// Bundle cheerio (exports: { load }) + htmlparser2 (exports: { Parser })
-// cheerio includes htmlparser2 internally. Use platform 'node' for CommonJS compat,
-// but mark node builtins external since QuickJS won't have them.
+// Buffer polyfill — the npm `buffer` package (browserify-style).
+await esbuild.build({
+  entryPoints: ['./buffer.entry.js'],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: `${outDir}/buffer.min.js`,
+});
+console.log('buffer bundled');
+
+// fetch globals: Headers, Request, Response, Blob, File, FormData,
+// AbortController, fetch.
+await esbuild.build({
+  entryPoints: ['./fetch-globals.entry.js'],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: `${outDir}/fetch-globals.min.js`,
+});
+console.log('fetch-globals bundled');
+
+// Full TextDecoder/TextEncoder including legacy encodings.
+await esbuild.build({
+  entryPoints: ['./text-encoding.entry.js'],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: `${outDir}/text-encoding.min.js`,
+});
+console.log('text-encoding bundled');
+
+// Standalone htmlparser2 (cheerio's bundle no longer publishes __htmlparser2).
+await esbuild.build({
+  entryPoints: ['./htmlparser2.entry.js'],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: `${outDir}/htmlparser2.min.js`,
+});
+console.log('htmlparser2 bundled');
+
+// Bundle cheerio (exports: { load }). htmlparser2 stays internal — only `load`
+// is published; the standalone htmlparser2 bundle owns __htmlparser2.
 await esbuild.build({
   stdin: {
     contents: `
       const { load } = require('cheerio');
-      const { Parser } = require('htmlparser2');
       globalThis.__cheerio = { load };
-      globalThis.__htmlparser2 = { Parser };
     `,
     resolveDir: './node_modules',
   },
@@ -44,7 +90,7 @@ await esbuild.build({
   },
   external: ['buffer', 'stream', 'string_decoder', 'events'],
 });
-console.log('cheerio + htmlparser2 bundled');
+console.log('cheerio bundled');
 
 // Bundle dayjs
 await esbuild.build({
@@ -101,4 +147,63 @@ await esbuild.build({
 });
 console.log('@noble/ciphers AES bundled');
 
-console.log('\nAll libraries bundled to ' + outDir);
+// Bundle crypto-js
+await esbuild.build({
+  entryPoints: ['./crypto-js.entry.js'],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: `${outDir}/crypto-js.min.js`,
+});
+console.log('crypto-js bundled');
+
+// Bundle pako
+await esbuild.build({
+  entryPoints: ['./pako.entry.js'],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: `${outDir}/pako.min.js`,
+});
+console.log('pako bundled');
+
+// Bundle protobufjs (light build)
+await esbuild.build({
+  entryPoints: ['./protobufjs.entry.js'],
+  bundle: true,
+  minify: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: `${outDir}/protobufjs.min.js`,
+});
+console.log('protobufjs bundled');
+
+// Size summary
+const files = [
+  'polyfills.min.js',
+  'buffer.min.js',
+  'fetch-globals.min.js',
+  'text-encoding.min.js',
+  'htmlparser2.min.js',
+  'cheerio.min.js',
+  'dayjs.min.js',
+  'urlencode.min.js',
+  'noble-ciphers-aes.min.js',
+  'crypto-js.min.js',
+  'pako.min.js',
+  'protobufjs.min.js',
+];
+let total = 0;
+console.log('\nBundle sizes:');
+for (const f of files) {
+  const s = statSync(`${outDir}/${f}`).size;
+  total += s;
+  console.log(`  ${(s / 1024).toFixed(1).padStart(7)} KB  ${f}`);
+}
+console.log(`  ${'-'.repeat(7)}`);
+console.log(`  ${(total / 1024).toFixed(1).padStart(7)} KB  total`);

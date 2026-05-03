@@ -3,10 +3,12 @@ package hayai.novel.js
 import android.content.Context
 import co.touchlab.kermit.Logger
 import com.dokar.quickjs.QuickJs
+import com.dokar.quickjs.binding.asyncFunction
 import com.dokar.quickjs.binding.define
 import com.dokar.quickjs.binding.function
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -23,14 +25,14 @@ class NovelJsRuntime(
     private var quickJs: QuickJs? = null
     private var initialized = false
 
-    companion object {
-        // QuickJS uses the native thread stack for JS execution.
-        // Cheerio's recursive HTML parsing needs more than the default ~1MB.
-        // Use a single-thread executor with 8MB stack for all JS work.
-        internal val jsDispatcher = Executors.newSingleThreadExecutor { runnable ->
-            Thread(null, runnable, "quickjs-worker", 8L * 1024 * 1024)
-        }.asCoroutineDispatcher()
+    // Per-source single-thread executor with 8MB stack. Each NovelSource gets its own
+    // dispatcher so that a slow `await __bridge.fetch(...)` in plugin A doesn't block
+    // plugin B from running. Cheerio's recursive HTML parsing needs more than the default
+    // ~1MB of stack, hence the large reservation.
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
+        Thread(null, runnable, "quickjs-$pluginId", 8L * 1024 * 1024)
     }
+    private val jsDispatcher = executor.asCoroutineDispatcher()
 
     /**
      * Initialize the runtime with a plugin's JS code.
@@ -49,20 +51,23 @@ class NovelJsRuntime(
         quickJs = qjs
 
         try {
-            // Step 1: Register the Kotlin bridge as "__bridge" in JS global scope
+            // Step 1: Register the Kotlin bridge as "__bridge" in JS global scope.
+            // Network methods bind via asyncFunction so they return a Promise to JS — the
+            // suspend Kotlin work runs on Dispatchers.IO without occupying this runtime's
+            // worker thread. The JS shim (fetch_bridge.js) awaits these. Storage and
+            // synchronous-by-design helpers stay as plain `function`.
             qjs.define("__bridge") {
-                function("fetch") { args ->
+                asyncFunction("fetch") { args ->
                     bridge.fetch(args[0] as String, args[1] as String)
                 }
-                function("fetchText") { args ->
+                asyncFunction("fetchText") { args ->
                     bridge.fetchText(args[0] as String, args[1] as String, args[2] as String)
                 }
-                function("fetchFile") { args ->
+                asyncFunction("fetchFile") { args ->
                     bridge.fetchFile(args[0] as String, args[1] as String)
                 }
-                function("fetchProto") { args ->
-                    bridge.fetchProto(args[0] as String, args[1] as String, args[2] as String)
-                }
+                // fetchProto is implemented in fetch_bridge.js using the bundled protobufjs —
+                // no Kotlin bridge primitive needed.
                 function("storageGet") { args ->
                     bridge.storageGet(args[0] as String, args[1] as String)
                 }
@@ -81,22 +86,38 @@ class NovelJsRuntime(
                     bridge.storageClearAll(args[0] as String)
                     Unit
                 }
-                function("sleep") { args ->
+                asyncFunction("sleep") { args ->
                     bridge.sleep((args[0] as Number).toInt())
                     Unit
                 }
             }
 
-            // Step 2: Load common polyfills before any runtime/library code.
+            // Step 2: Common polyfills (URL/URLSearchParams, timers, global aliases).
             evaluateAsset(qjs, "novel/runtime/polyfills.min.js")
 
-            // Step 3: Load constants (NovelStatus, FilterTypes, etc.)
+            // Step 2b: Override the polyfill's setTimeout/setInterval with async-aware versions
+            // backed by __bridge.sleep. Must come after polyfills.min.js (which seeds the
+            // broken sync versions) and after `define("__bridge")` (which we did in Step 1).
+            evaluateAsset(qjs, "novel/shims/timers_shim.js")
+
+            // Step 3: Buffer must come before fetch-globals (Blob conversions read Buffer).
+            evaluateAsset(qjs, "novel/runtime/buffer.min.js")
+
+            // Step 4: Web fetch globals — Headers, Request, Response, Blob, File,
+            // FormData, AbortController, fetch (lazy-resolves fetchApi).
+            evaluateAsset(qjs, "novel/runtime/fetch-globals.min.js")
+
+            // Step 5: Full WHATWG TextDecoder/Encoder (gbk/big5/shift_jis/etc.).
+            // Must come before cheerio (cheerio uses TextDecoder internally).
+            evaluateAsset(qjs, "novel/runtime/text-encoding.min.js")
+
+            // Step 6: Load constants (NovelStatus, FilterTypes, etc.)
             evaluateAsset(qjs, "novel/shims/constants.js")
 
-            // Step 4: Load storage shim (Storage, LocalStorage, SessionStorage classes)
+            // Step 7: Load storage shim (Storage, LocalStorage, SessionStorage classes)
             evaluateAsset(qjs, "novel/shims/storage_shim.js")
 
-            // Step 5: Pre-require stub for iconv-lite (needed by urlencode.min.js
+            // Step 8: Pre-require stub for iconv-lite (needed by urlencode.min.js
             // before require_impl.js defines the full require function)
             qjs.evaluate<Any?>("""
                 if (typeof require === 'undefined') {
@@ -113,22 +134,30 @@ class NovelJsRuntime(
                 }
             """.trimIndent(), "pre_require_stub.js")
 
-            // Step 6: Load runtime libraries
+            // Step 9: Standalone htmlparser2 (cheerio bundle no longer publishes it).
+            evaluateAsset(qjs, "novel/runtime/htmlparser2.min.js")
+
+            // Step 10: Load runtime libraries
             evaluateAsset(qjs, "novel/runtime/cheerio.min.js")
             evaluateAsset(qjs, "novel/runtime/dayjs.min.js")
             evaluateAsset(qjs, "novel/runtime/urlencode.min.js")
             evaluateAsset(qjs, "novel/runtime/noble-ciphers-aes.min.js")
 
-            // Step 7: Load fetch bridge (fetchApi, fetchText, etc.)
+            // Step 11: Optional libraries used by a subset of plugins.
+            evaluateAsset(qjs, "novel/runtime/crypto-js.min.js")
+            evaluateAsset(qjs, "novel/runtime/pako.min.js")
+            evaluateAsset(qjs, "novel/runtime/protobufjs.min.js")
+
+            // Step 12: Load fetch bridge (fetchApi, fetchText, etc.)
             // Set User-Agent before loading
             qjs.evaluate<Any?>("var __userAgent = ${escapeJsString(userAgent)};")
             evaluateAsset(qjs, "novel/shims/fetch_bridge.js")
 
-            // Step 8: Load require() implementation (wires all packages)
+            // Step 13: Load require() implementation (wires all packages)
             qjs.evaluate<Any?>("var __pluginId = ${escapeJsString(pluginId)};")
             evaluateAsset(qjs, "novel/shims/require_impl.js")
 
-            // Step 9: Load the plugin code using LNReader's exact wrapping pattern
+            // Step 14: Load the plugin code using LNReader's exact wrapping pattern
             val wrappedCode = """
                 var __plugin = (function() {
                     var module = {};
@@ -140,7 +169,7 @@ class NovelJsRuntime(
 
             qjs.evaluate<Any?>(wrappedCode, "$pluginId.js")
 
-            // Step 10: Inject User-Agent into imageRequestInit if not present
+            // Step 15: Inject User-Agent into imageRequestInit if not present
             qjs.evaluate<Any?>("""
                 if (__plugin) {
                     if (!__plugin.imageRequestInit) {
@@ -226,6 +255,13 @@ class NovelJsRuntime(
         }
         quickJs = null
         initialized = false
+        // Shut down the per-source executor so the worker thread can exit. Without this the
+        // Thread would live forever with the runtime's 8MB stack reservation, leaking once per
+        // uninstalled plugin.
+        try {
+            executor.shutdown()
+        } catch (_: Exception) {
+        }
     }
 
     val isInitialized: Boolean get() = initialized

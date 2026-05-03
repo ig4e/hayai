@@ -61,32 +61,24 @@ __Storage.prototype.getAllKeys = function() {
     }
 };
 
-function __LocalStorage(pluginId) {
-    this._pluginId = pluginId;
+// LocalStorage / SessionStorage mirror LNReader's src/lib/storage.ts: a per-instance
+// in-memory object dict with a single get() returning the dict. LNReader keeps these as
+// stubs at the plugin layer because the real localStorage only exists in the WebView
+// runtime (where the browser provides it natively). Matching that surface keeps semantic
+// parity — the previous Hayai impl returned a single SharedPreferences blob, which
+// silently broke any plugin that tried to read individual keys off the returned object.
+function __LocalStorage() {
+    this._db = {};
 }
 
-__LocalStorage.prototype.get = function() {
-    var result = __bridge.storageGet(this._pluginId, '__webview_localStorage');
-    if (!result) return undefined;
-    try {
-        var item = JSON.parse(result);
-        return item.value !== undefined ? item.value : item;
-    } catch(e) {
-        return undefined;
-    }
+__LocalStorage.prototype.get = function () {
+    return this._db;
 };
 
-function __SessionStorage(pluginId) {
-    this._pluginId = pluginId;
+function __SessionStorage() {
+    this._db = {};
 }
 
-__SessionStorage.prototype.get = function() {
-    var result = __bridge.storageGet(this._pluginId, '__webview_sessionStorage');
-    if (!result) return undefined;
-    try {
-        var item = JSON.parse(result);
-        return item.value !== undefined ? item.value : item;
-    } catch(e) {
-        return undefined;
-    }
+__SessionStorage.prototype.get = function () {
+    return this._db;
 };

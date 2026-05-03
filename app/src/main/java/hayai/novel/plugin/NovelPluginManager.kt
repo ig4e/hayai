@@ -11,7 +11,10 @@ import hayai.novel.repo.NovelRepoRepository
 import hayai.novel.source.NovelSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +25,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import okhttp3.Request
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import yokai.domain.base.models.Version
 
 /**
@@ -33,7 +37,7 @@ class NovelPluginManager(
     private val repoRepository: NovelRepoRepository,
     private val networkHelper: NetworkHelper,
 ) {
-    private val scope = CoroutineScope(Job() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { ignoreUnknownKeys = true }
     private val bridge = NovelJsBridgeImpl(context)
     private val pluginLoader = JsPluginLoader(context)
@@ -51,10 +55,20 @@ class NovelPluginManager(
     private val _installedPluginsFlow = MutableStateFlow<List<NovelPlugin.Installed>>(emptyList())
     val installedPluginsFlow = _installedPluginsFlow.asStateFlow()
 
-    private val installedSources = mutableMapOf<String, NovelSource>()
-    private val loadInstalledPluginsMutex = Mutex()
+    // ConcurrentHashMap so concurrent reads (isInstalled, getOrStub) are safe even between
+    // mutex-guarded mutations — and so iteration during put/remove can't ConcurrentModificationException.
+    private val installedSources = ConcurrentHashMap<String, NovelSource>()
+    // Single mutex serializes the initial disk load and all install/uninstall mutations so
+    // they can never race with each other on `installedSources` or the flow values.
+    private val installMutex = Mutex()
     @Volatile
     private var installedPluginsLoaded = false
+
+    // Cache the system UA once at construction. WebSettings.getDefaultUserAgent internally
+    // touches a WebView, which on some Android versions throws or returns "" if invoked from
+    // a thread without a Looper. Per-plugin calls from Dispatchers.IO previously produced
+    // inconsistent UAs across sources.
+    private val cachedUserAgent: String = computeUserAgent()
 
     init {
         // Load installed plugins on startup
@@ -74,75 +88,91 @@ class NovelPluginManager(
      */
     private suspend fun loadInstalledPlugins() {
         val pluginDirs = pluginsDir.listFiles()?.filter { it.isDirectory } ?: return
-        val sources = mutableListOf<NovelSource>()
-        val installed = mutableListOf<NovelPlugin.Installed>()
 
-        for (dir in pluginDirs) {
-            val jsFile = File(dir, "index.js")
-            if (!jsFile.exists()) continue
+        // Each metadata extraction creates its own QuickJS instance, so plugins can load in parallel.
+        val loaded = coroutineScope {
+            pluginDirs.map { dir ->
+                async { loadSinglePlugin(dir) }
+            }.awaitAll()
+        }.filterNotNull()
 
-            try {
-                val code = jsFile.readText()
-                val savedMeta = readPluginIndex(dir)
-                val cachedSource = cache.readInstalledSource(dir)
-                val metadata = pluginLoader.extractMetadata(code)
-
-                val sourceId = cachedSource?.id ?: metadata?.id ?: continue
-                val sourceName = cachedSource?.name ?: metadata?.name ?: continue
-                val sourceSiteUrl = cachedSource?.siteUrl ?: metadata?.site ?: continue
-                val sourceVersion = cachedSource?.version ?: metadata?.version ?: ""
-                val sourceFilters = cachedSource?.filters ?: metadata?.filters
-
-                val lang = savedMeta?.let { langFromLnReaderLang(it.lang) }
-                    ?: cachedSource?.lang?.takeIf { it.isNotBlank() }?.let(::langFromLnReaderLang)
-                    ?: getLangCode(sourceId)
-                val iconUrl = savedMeta?.iconUrl ?: cachedSource?.iconUrl
-
-                val source = NovelSource(
-                    pluginId = sourceId,
-                    pluginName = sourceName,
-                    lang = lang,
-                    siteUrl = sourceSiteUrl,
-                    pluginCode = code,
-                    pluginFilters = sourceFilters,
-                    iconUrl = iconUrl,
-                    context = context,
-                    bridge = bridge,
-                    userAgent = getUserAgent(),
-                )
-
-                installedSources[sourceId] = source
-                sources.add(source)
-                installed.add(
-                    NovelPlugin.Installed(
-                        id = sourceId,
-                        name = sourceName,
-                        lang = lang,
-                        version = sourceVersion,
-                        siteUrl = sourceSiteUrl,
-                        iconUrl = iconUrl,
-                        source = source,
-                    ),
-                )
-
-                if (metadata != null) {
-                    cache.writeInstalledSource(dir, savedMeta, metadata)
-                }
-
-                Logger.d { "NovelPluginManager: Loaded plugin '$sourceName' ($sourceId)" }
-            } catch (e: Exception) {
-                Logger.e(e) { "NovelPluginManager: Failed to load plugin from ${dir.name}" }
-            }
+        val sources = loaded.map { it.first }
+        val installed = loaded.map { it.second }
+        installedSources.clear()
+        for (source in sources) {
+            installedSources[source.pluginId] = source
         }
 
         _installedSourcesFlow.value = sources
         _installedPluginsFlow.value = installed
     }
 
+    private suspend fun loadSinglePlugin(dir: File): Pair<NovelSource, NovelPlugin.Installed>? {
+        val jsFile = File(dir, "index.js")
+        if (!jsFile.exists()) return null
+
+        return try {
+            val savedMeta = readPluginIndex(dir)
+            val cachedSource = cache.readInstalledSource(dir)
+
+            // Only run QuickJS metadata extraction if the cache is missing required fields.
+            // For installed plugins this is the cold-start hot path: each call evaluates ~5
+            // minified JS bundles (cheerio, dayjs, ...) and easily takes 700ms+ per plugin.
+            val needsExtraction = cachedSource?.id.isNullOrBlank() ||
+                cachedSource?.name.isNullOrBlank() ||
+                cachedSource?.siteUrl.isNullOrBlank()
+            val metadata = if (needsExtraction) pluginLoader.extractMetadata(jsFile.readText()) else null
+
+            val sourceId = cachedSource?.id ?: metadata?.id ?: return null
+            val sourceName = cachedSource?.name ?: metadata?.name ?: return null
+            val sourceSiteUrl = cachedSource?.siteUrl ?: metadata?.site ?: return null
+            val sourceVersion = cachedSource?.version ?: metadata?.version ?: ""
+            val sourceFilters = cachedSource?.filters ?: metadata?.filters
+
+            val lang = savedMeta?.let { langFromLnReaderLang(it.lang) }
+                ?: cachedSource?.lang?.takeIf { it.isNotBlank() }?.let(::langFromLnReaderLang)
+                ?: getLangCode(sourceId)
+            val iconUrl = savedMeta?.iconUrl ?: cachedSource?.iconUrl
+
+            val source = NovelSource(
+                pluginId = sourceId,
+                pluginName = sourceName,
+                lang = lang,
+                siteUrl = sourceSiteUrl,
+                // Provider closes over the file path, not the code, so we don't keep tens of
+                // KB of JS source resident per installed plugin.
+                pluginCodeProvider = { jsFile.readText() },
+                pluginFilters = sourceFilters,
+                iconUrl = iconUrl,
+                context = context,
+                bridge = bridge,
+                userAgent = cachedUserAgent,
+            )
+
+            if (metadata != null) {
+                cache.writeInstalledSource(dir, savedMeta, metadata)
+            }
+
+            Logger.d { "NovelPluginManager: Loaded plugin '$sourceName' ($sourceId)" }
+            source to NovelPlugin.Installed(
+                id = sourceId,
+                name = sourceName,
+                lang = lang,
+                version = sourceVersion,
+                siteUrl = sourceSiteUrl,
+                iconUrl = iconUrl,
+                source = source,
+            )
+        } catch (e: Exception) {
+            Logger.e(e) { "NovelPluginManager: Failed to load plugin from ${dir.name}" }
+            null
+        }
+    }
+
     suspend fun ensureInstalledPluginsLoaded() {
         if (installedPluginsLoaded) return
 
-        loadInstalledPluginsMutex.withLock {
+        installMutex.withLock {
             if (installedPluginsLoaded) return
             loadInstalledPlugins()
             installedPluginsLoaded = true
@@ -213,54 +243,56 @@ class NovelPluginManager(
             // Validate plugin loads correctly
             val metadata = pluginLoader.extractMetadata(code) ?: return false
 
-            // Save to disk
-            val pluginDir = File(pluginsDir, metadata.id).also { it.mkdirs() }
-            File(pluginDir, "index.js").writeText(code)
+            installMutex.withLock {
+                // Save to disk
+                val pluginDir = File(pluginsDir, metadata.id).also { it.mkdirs() }
+                val jsFile = File(pluginDir, "index.js").also { it.writeText(code) }
 
-            // Save metadata for lang resolution
-            File(pluginDir, "meta.json").writeText(
-                json.encodeToString(NovelPluginIndex.serializer(), plugin),
-            )
-            cache.writeInstalledSource(pluginDir, plugin, metadata)
+                // Save metadata for lang resolution
+                File(pluginDir, "meta.json").writeText(
+                    json.encodeToString(NovelPluginIndex.serializer(), plugin),
+                )
+                cache.writeInstalledSource(pluginDir, plugin, metadata)
 
-            // Create source and register
-            val source = NovelSource(
-                pluginId = metadata.id,
-                pluginName = metadata.name,
-                lang = langFromLnReaderLang(plugin.lang),
-                siteUrl = metadata.site,
-                pluginCode = code,
-                pluginFilters = metadata.filters,
-                iconUrl = plugin.iconUrl,
-                context = context,
-                bridge = bridge,
-                userAgent = getUserAgent(),
-            )
+                // Replace any prior in-memory source for this plugin id and dispose its runtime
+                // before swapping it out, so the previous QuickJS context isn't leaked.
+                installedSources.remove(metadata.id)?.destroy()
 
-            installedSources[metadata.id] = source
-
-            // Update flows
-            val currentSources = _installedSourcesFlow.value.toMutableList()
-            currentSources.removeAll { it.pluginId == metadata.id }
-            currentSources.add(source)
-            _installedSourcesFlow.value = currentSources
-
-            val currentInstalled = _installedPluginsFlow.value.toMutableList()
-            currentInstalled.removeAll { it.id == metadata.id }
-            currentInstalled.add(
-                NovelPlugin.Installed(
-                    id = metadata.id,
-                    name = metadata.name,
+                val source = NovelSource(
+                    pluginId = metadata.id,
+                    pluginName = metadata.name,
                     lang = langFromLnReaderLang(plugin.lang),
-                    version = metadata.version,
                     siteUrl = metadata.site,
+                    // Provider closes over the on-disk file, not the network response, so the
+                    // plugin code is dropped from heap as soon as `code` falls out of scope.
+                    pluginCodeProvider = { jsFile.readText() },
+                    pluginFilters = metadata.filters,
                     iconUrl = plugin.iconUrl,
-                    source = source,
-                ),
-            )
-            _installedPluginsFlow.value = currentInstalled
+                    context = context,
+                    bridge = bridge,
+                    userAgent = cachedUserAgent,
+                )
 
-            Logger.d { "NovelPluginManager: Installed plugin '${metadata.name}'" }
+                installedSources[metadata.id] = source
+
+                // Update flows
+                _installedSourcesFlow.value = _installedSourcesFlow.value
+                    .filter { it.pluginId != metadata.id } + source
+
+                _installedPluginsFlow.value = _installedPluginsFlow.value
+                    .filter { it.id != metadata.id } +
+                    NovelPlugin.Installed(
+                        id = metadata.id,
+                        name = metadata.name,
+                        lang = langFromLnReaderLang(plugin.lang),
+                        version = metadata.version,
+                        siteUrl = metadata.site,
+                        iconUrl = plugin.iconUrl,
+                        source = source,
+                    )
+
+                Logger.d { "NovelPluginManager: Installed plugin '${metadata.name}'" }
+            }
             true
         } catch (e: Exception) {
             Logger.e(e) { "NovelPluginManager: Failed to install plugin ${plugin.id}" }
@@ -269,20 +301,22 @@ class NovelPluginManager(
     }
 
     /**
-     * Uninstall a plugin.
+     * Uninstall a plugin. Suspends because [NovelSource.destroy] holds a mutex that may be
+     * contended with an in-flight ensureRuntime() call from another coroutine.
      */
-    fun uninstallPlugin(pluginId: String) {
-        installedSources[pluginId]?.destroy()
-        installedSources.remove(pluginId)
+    suspend fun uninstallPlugin(pluginId: String) {
+        installMutex.withLock {
+            installedSources.remove(pluginId)?.destroy()
 
-        // Delete from disk
-        File(pluginsDir, pluginId).deleteRecursively()
+            // Delete from disk
+            File(pluginsDir, pluginId).deleteRecursively()
 
-        // Update flows
-        _installedSourcesFlow.value = _installedSourcesFlow.value.filter { it.pluginId != pluginId }
-        _installedPluginsFlow.value = _installedPluginsFlow.value.filter { it.id != pluginId }
+            // Update flows
+            _installedSourcesFlow.value = _installedSourcesFlow.value.filter { it.pluginId != pluginId }
+            _installedPluginsFlow.value = _installedPluginsFlow.value.filter { it.id != pluginId }
 
-        Logger.d { "NovelPluginManager: Uninstalled plugin '$pluginId'" }
+            Logger.d { "NovelPluginManager: Uninstalled plugin '$pluginId'" }
+        }
     }
 
     /**
@@ -302,7 +336,7 @@ class NovelPluginManager(
         return if (pluginDir.exists()) pluginDir.lastModified() else 0L
     }
 
-    private fun getUserAgent(): String {
+    private fun computeUserAgent(): String {
         return try {
             android.webkit.WebSettings.getDefaultUserAgent(context)
         } catch (_: Exception) {

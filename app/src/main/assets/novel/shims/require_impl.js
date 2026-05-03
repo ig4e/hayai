@@ -27,6 +27,14 @@ var __packages = {
     '@libs/defaultCover': { defaultCover: defaultCover },
     '@libs/isAbsoluteUrl': { isUrlAbsolute: isUrlAbsolute },
 
+    // Some plugins (e.g. novelfire) import from `@/types/constants` directly instead of the
+    // `@libs/*` aliases. tsc preserves these path-alias requires verbatim in the compiled JS,
+    // so we have to resolve them here too. Mirror src/types/constants.ts in the LNReader repo.
+    '@/types/constants': {
+        NovelStatus: NovelStatus,
+        defaultCover: defaultCover,
+    },
+
     // From fetch_bridge.js
     '@libs/fetch': { fetchApi: fetchApi, fetchText: fetchText, fetchProto: fetchProto, fetchFile: fetchFile },
 
@@ -34,7 +42,20 @@ var __packages = {
     '@libs/aes': (typeof __aes !== 'undefined') ? __aes : { gcm: function() { throw new Error('@noble/ciphers not loaded'); } },
 
     // From constants.js
-    '@libs/utils': { utf8ToBytes: utf8ToBytes, bytesToUtf8: bytesToUtf8 }
+    '@libs/utils': { utf8ToBytes: utf8ToBytes, bytesToUtf8: bytesToUtf8 },
+
+    // crypto-js.min.js sets globalThis.__cryptoJs
+    'crypto-js': (typeof __cryptoJs !== 'undefined') ? __cryptoJs : {},
+
+    // pako.min.js sets globalThis.__pako
+    'pako': (typeof __pako !== 'undefined') ? __pako : {},
+
+    // protobufjs.min.js sets globalThis.__protobuf
+    'protobufjs': (typeof __protobuf !== 'undefined') ? __protobuf : {},
+    'protobufjs/light': (typeof __protobuf !== 'undefined') ? __protobuf : {},
+
+    // buffer.min.js sets globalThis.Buffer
+    'buffer': (typeof Buffer !== 'undefined') ? { Buffer: Buffer } : {}
 };
 
 /**
@@ -43,10 +64,12 @@ var __packages = {
  */
 function require(packageName) {
     if (packageName === '@libs/storage') {
+        // localStorage/sessionStorage take no constructor args — they're per-instance dicts
+        // matching LNReader's stub implementation.
         return {
             storage: new __Storage(__pluginId),
-            localStorage: new __LocalStorage(__pluginId),
-            sessionStorage: new __SessionStorage(__pluginId)
+            localStorage: new __LocalStorage(),
+            sessionStorage: new __SessionStorage()
         };
     }
     if (__packages[packageName] !== undefined) {
