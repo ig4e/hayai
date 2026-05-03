@@ -30,9 +30,14 @@ ICON_VIEWPORT = 2201
 
 # Extra padding applied around the logo silhouette inside the icon canvas.
 # 1.0 = paths fill the master SVG as-authored; smaller values shrink the logo
-# toward the canvas center so launcher / notification / splash renders aren't
-# visually cropped or "zoomed in." The brand background rect stays full-bleed.
+# toward the canvas center so launcher / splash renders aren't visually
+# cropped or "zoomed in." The brand background rect stays full-bleed.
 LOGO_SCALE = 0.72
+
+# Notification small-icon (status bar) wants the silhouette to fill more of
+# its 24dp canvas — at LOGO_SCALE it disappears against the status bar. Keep
+# this close to 1.0; a touch of padding only so it doesn't kiss the edges.
+NOTIFICATION_LOGO_SCALE = 0.92
 
 DENSITY_SIZES = {
     "mdpi": 48,
@@ -208,16 +213,30 @@ def write_vector_drawables() -> None:
 
     # Splash-screen vector — silhouette only (windowSplashScreenBackground
     # sets the rosé fill). 288dp is the Android 12 spec for foreground-only
-    # splash icons; the new SVG's extra padding keeps the visible logo well
-    # within the 192dp safe area so nothing gets clipped.
+    # splash icons; the LOGO_SCALE padding matches the launcher look.
     write_text(
-        RES / "drawable" / "ic_hayai.xml",
+        RES / "drawable" / "ic_hayai_splash.xml",
         vector_drawable(
             fg_paths,
             width_dp=288,
             height_dp=288,
             viewport_w=ICON_VIEWPORT,
             viewport_h=ICON_VIEWPORT,
+        ),
+    )
+
+    # Notification small-icon (status bar). Status-bar real estate is tiny, so
+    # we use a much milder padding than the launcher — otherwise the silhouette
+    # is barely visible in the 24dp tray slot.
+    write_text(
+        RES / "drawable" / "ic_hayai.xml",
+        vector_drawable(
+            fg_paths,
+            width_dp=24,
+            height_dp=24,
+            viewport_w=ICON_VIEWPORT,
+            viewport_h=ICON_VIEWPORT,
+            scale=NOTIFICATION_LOGO_SCALE,
         ),
     )
 
