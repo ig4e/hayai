@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +14,10 @@ import eu.kanade.tachiyomi.util.view.activityBinding
 import eu.kanade.tachiyomi.widget.AutofitRecyclerView
 import eu.kanade.tachiyomi.widget.ViewPagerAdapter
 
+/**
+ * Hosts one [AutofitRecyclerView] per category in tabbed library mode. Each page's recycler reserves
+ * top padding for the pinned appbar+tabs strip, so only its own content scrolls.
+ */
 class LibraryPagerAdapter(
     private val controller: LibraryController,
 ) : ViewPagerAdapter() {
@@ -30,18 +35,18 @@ class LibraryPagerAdapter(
     override fun createView(container: ViewGroup, position: Int): View {
         val recycler = LayoutInflater.from(container.context)
             .inflate(R.layout.library_pager_page, container, false) as AutofitRecyclerView
-        configureRecycler(recycler)
-        val outer = this.controller
-        val adapter = LibraryCategoryAdapter(outer).apply {
+        val outerController = this@LibraryPagerAdapter.controller
+        val adapter = LibraryCategoryAdapter(outerController).apply {
             isPagedMode = true
             setDisplayHeadersAtStartUp(false)
-            showOutline = outer.uiPreferences.outlineOnCovers().get()
-            showNumber = outer.preferences.categoryNumberOfItems().get()
+            showOutline = outerController.uiPreferences.outlineOnCovers().get()
+            showNumber = outerController.preferences.categoryNumberOfItems().get()
         }
         recycler.adapter = adapter
         recycler.tag = position
         pageAdapters[position] = adapter
         pageRecyclers[position] = recycler
+        configureRecycler(recycler)
         bindCategoryItems(position, adapter)
         return recycler
     }
@@ -54,12 +59,16 @@ class LibraryPagerAdapter(
 
     override fun getCount(): Int = categories.size
 
+    // POSITION_NONE forces ViewPager to recreate every page on notifyDataSetChanged(), which we
+    // need because LibraryCategoryAdapter wraps an outer controller and isn't safe to reposition.
     override fun getItemPosition(`object`: Any): Int = POSITION_NONE
 
     private fun configureRecycler(recycler: AutofitRecyclerView) {
+        val isList = controller.libraryLayoutValue == LibraryItem.LAYOUT_LIST
         val bottomNav = if (controller.isSubClass) null else controller.activityBinding?.bottomNav
+
         recycler.useStaggered(controller.preferences, controller.uiPreferences)
-        if (controller.libraryLayoutValue == LibraryItem.LAYOUT_LIST) {
+        if (isList) {
             recycler.spanCount = 1
             recycler.updatePaddingRelative(start = 0, end = 0)
         } else {
@@ -71,12 +80,13 @@ class LibraryPagerAdapter(
             bottom = 50.dpToPx + (bottomNav?.height ?: 0),
         )
         recycler.clipToPadding = false
-        recycler.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        recycler.setBackgroundColor(Color.TRANSPARENT)
+
+        recycler.clearOnScrollListeners()
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 controller.onPageRecyclerScrolled(rv, dy)
             }
-
             override fun onScrollStateChanged(rv: RecyclerView, newState: Int) {
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     controller.onPageRecyclerScrollIdle(rv)
@@ -85,9 +95,8 @@ class LibraryPagerAdapter(
         })
         (recycler.manager as? GridLayoutManager)?.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
             override fun getSpanSize(position: Int): Int {
-                if (controller.libraryLayoutValue == LibraryItem.LAYOUT_LIST) return recycler.managerSpanCount
-                val adapter = recycler.adapter as? LibraryCategoryAdapter ?: return 1
-                val item = adapter.getItem(position)
+                if (isList) return recycler.managerSpanCount
+                val item = (recycler.adapter as? LibraryCategoryAdapter)?.getItem(position)
                 return if (item is LibraryHeaderItem || item is LibraryPlaceholderItem) {
                     recycler.managerSpanCount
                 } else {
@@ -99,8 +108,7 @@ class LibraryPagerAdapter(
 
     private fun bindCategoryItems(position: Int, adapter: LibraryCategoryAdapter) {
         val category = categories.getOrNull(position) ?: return
-        val items = controller.presenter.libraryToDisplay[category].orEmpty()
-        adapter.setItems(items)
+        adapter.setItems(controller.presenter.libraryToDisplay[category].orEmpty())
         adapter.hideAllHeaders()
         controller.applySelectionStateTo(adapter)
     }
@@ -110,7 +118,7 @@ class LibraryPagerAdapter(
     }
 
     fun reattachAll() {
-        pageRecyclers.forEach { (_, recycler) -> configureRecycler(recycler) }
+        pageRecyclers.values.forEach(::configureRecycler)
     }
 
     fun recyclerForPosition(position: Int): AutofitRecyclerView? = pageRecyclers[position]

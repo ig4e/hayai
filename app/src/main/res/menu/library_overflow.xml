@@ -1,0 +1,13 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_update_library"
+        android:icon="@drawable/ic_refresh_24dp"
+        android:title="@string/update_library" />
+
+    <item
+        android:id="@+id/action_more_options"
+        android:icon="@drawable/ic_more_vert_24dp"
+        android:title="@string/more" />
+
+</menu>

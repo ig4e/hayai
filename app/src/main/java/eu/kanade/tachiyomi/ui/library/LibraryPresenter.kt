@@ -948,7 +948,9 @@ class LibraryPresenter(
             } + (0 to LibraryHeaderItem({ this@LibraryPresenter.categories.getOrDefault(0) }, 0))
         ).toMap()
 
-        val categoriesHidden = if (forceShowAllCategories || controllerIsSubClass) {
+        // Tabbed mode renders one category per tab — collapsed-from-continuous shouldn't carry over,
+        // otherwise those categories drop out of presenter.categories' visible set and never get a tab.
+        val categoriesHidden = if (forceShowAllCategories || controllerIsSubClass || isTabbedDisplayMode) {
             emptySet()
         } else {
             collapsedCategories.mapNotNull { it.toIntOrNull() }.toSet()
@@ -1047,7 +1049,7 @@ class LibraryPresenter(
             return headerItem
         }
 
-        val hiddenDynamics = if (controllerIsSubClass) {
+        val hiddenDynamics = if (controllerIsSubClass || isTabbedDisplayMode) {
             emptySet()
         } else {
             collapsedDynamicCategories

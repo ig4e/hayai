@@ -592,7 +592,14 @@ open class LibraryController(
                     setActiveCategory()
                     if (!isSubClass) preferences.lastUsedCategory().set(target.order)
                 }
-                pagerAdapter?.adapterForPosition(position)?.let(::applySelectionStateTo)
+                val pageAdapter = pagerAdapter?.adapterForPosition(position)
+                pageAdapter?.let(::applySelectionStateTo)
+                // Each tab opens at the top of its own content (not the previous tab's scroll offset).
+                pagerAdapter?.recyclerForPosition(position)?.let { pageRecycler ->
+                    pageRecycler.stopScroll()
+                    pageRecycler.scrollToPosition(0)
+                    if (::elevateAppBar.isInitialized) elevateAppBar(false)
+                }
             }
         }
         binding.libraryPager.addOnPageChangeListener(listener)
@@ -609,7 +616,13 @@ open class LibraryController(
         binding.libraryPager.adapter = null
         binding.libraryPager.isVisible = false
         binding.libraryGridRecycler.recycler.isVisible = true
-        if (restoreAppBar) applyTabbedAppBarMode(enabled = false)
+        if (restoreAppBar) {
+            applyTabbedAppBarMode(enabled = false)
+        } else {
+            // Even when we skip the full appbar restore on controller exit, release the y-lock so
+            // the next controller's scroll listeners can move the bar normally.
+            activityBinding?.appBar?.lockYPos = false
+        }
     }
 
     private fun applyTabLabels(tabs: com.google.android.material.tabs.TabLayout, visibleCats: List<Category>) {
@@ -649,20 +662,37 @@ open class LibraryController(
      * happens when scrollViewWith's leftover [isToolbarColor] flag from a previous controller fires a
      * colorToolbar animation toward the wrong target on enter.
      */
+    /**
+     * Pins the appbar+tabs strip while in tabbed mode (only per-tab content scrolls), or releases it
+     * back to the standard auto-collapse behavior on exit. With the bar pinned, a freshly-selected
+     * tab whose recycler is at offset 0 always lines up directly under the bar — no inherited gap
+     * from the previously-active tab's scroll position.
+     */
+    /**
+     * Pins the appbar+tabs strip while in tabbed mode (only per-tab content scrolls), or releases it
+     * back to the standard auto-collapse behavior on exit. With the bar pinned, a freshly-selected
+     * tab whose recycler is at offset 0 always lines up directly under the bar — no inherited gap
+     * from the previously-active tab's scroll position.
+     */
     private fun applyTabbedAppBarMode(enabled: Boolean) {
         val appBar = activityBinding?.appBar ?: return
         appBar.useTabsInPreLayout = enabled
         appBar.requestLayout()
         if (enabled) {
             val pageRecycler = pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
-            val notAtTop = pageRecycler?.canScrollVertically(-1) == true
-            // Force the bar fully expanded (page recyclers always start at offset 0 unless restored).
+            // Snap fully expanded and refresh internal state, then lock so scroll never moves it.
+            appBar.lockYPos = false
             appBar.y = 0f
             appBar.updateAppBarAfterY(pageRecycler)
+            appBar.lockYPos = true
             // Direct bg apply bypasses the colorToolbar animator so there's no fade from a stale color.
+            val notAtTop = pageRecycler?.canScrollVertically(-1) == true
             setAppBarBG(if (notAtTop) 1f else 0f, includeTabView = true)
-        } else if (::elevateAppBar.isInitialized) {
-            elevateAppBar(binding.libraryGridRecycler.recycler.canScrollVertically(-1))
+        } else {
+            appBar.lockYPos = false
+            if (::elevateAppBar.isInitialized) {
+                elevateAppBar(binding.libraryGridRecycler.recycler.canScrollVertically(-1))
+            }
         }
     }
 
@@ -674,30 +704,23 @@ open class LibraryController(
         return systemTop + appBarHeight
     }
 
-    fun onPageRecyclerScrolled(recycler: androidx.recyclerview.widget.RecyclerView, dy: Int) {
+    /** Tabbed mode pins the appbar via [ExpandedAppBarLayout.lockYPos]; we only resync the elevation. */
+    fun onPageRecyclerScrolled(recycler: RecyclerView, dy: Int) {
         if (!isControllerVisible) return
-        val appBar = activityBinding?.appBar ?: return
-        if (appBar.height == 0) return
-        val notAtTop = recycler.canScrollVertically(-1)
-        if (!notAtTop) {
-            appBar.y = 0f
-            appBar.updateAppBarAfterY(recycler)
-        } else {
-            appBar.y -= dy
-            appBar.updateAppBarAfterY(recycler)
-        }
-        if (::elevateAppBar.isInitialized) elevateAppBar(notAtTop)
-    }
-
-    fun onPageRecyclerScrollIdle(recycler: androidx.recyclerview.widget.RecyclerView) {
-        val appBar = activityBinding?.appBar ?: return
-        appBar.snapAppBarY(this, recycler) { }
         if (::elevateAppBar.isInitialized) elevateAppBar(recycler.canScrollVertically(-1))
     }
 
-    private fun visibleTabCategories(): List<Category> {
-        return presenter.categories.filter { !it.isHidden }
+    fun onPageRecyclerScrollIdle(recycler: RecyclerView) {
+        if (::elevateAppBar.isInitialized) elevateAppBar(recycler.canScrollVertically(-1))
     }
+
+    /**
+     * Categories shown as tabs. The presenter already excludes the collapsed-from-continuous flag
+     * for tabbed mode (see LibraryPresenter.getLibraryItems / getDynamicLibraryItems), so the
+     * remaining `isHidden` filter is just a defensive guard against transient stale state.
+     */
+    private fun visibleTabCategories(): List<Category> =
+        presenter.categories.filter { !it.isHidden }
 
     private fun applyTabbedSearchVisibility() {
         if (!isTabbedMode) return
@@ -953,7 +976,17 @@ open class LibraryController(
         setOnRefreshListener {
             isRefreshing = false
             if (!LibraryUpdateJob.isRunning(context)) {
+                val currentTabCategory = if (isTabbedMode) {
+                    pagerAdapter?.categories?.getOrNull(binding.libraryPager.currentItem)
+                } else {
+                    null
+                }
                 when {
+                    // Tabbed mode mirrors continuous's single-category behavior: pulling on a tab
+                    // refreshes just that category, not the whole library. Whole-library refresh
+                    // lives in the overflow menu instead.
+                    currentTabCategory != null && presenter.groupType == BY_DEFAULT ->
+                        updateLibrary(currentTabCategory)
                     !presenter.showAllCategories && presenter.groupType == BY_DEFAULT -> {
                         presenter.currentCategory?.let {
                             updateLibrary(it)
@@ -2281,8 +2314,45 @@ open class LibraryController(
                     showDisplayOptions()
                 }
             }
+            R.id.action_more -> {
+                if (!showLibraryOverflow(item)) return super.onOptionsItemSelected(item)
+            }
             else -> return super.onOptionsItemSelected(item)
         }
+        return true
+    }
+
+    /**
+     * Library-specific overflow popup. Adds an "Update library" entry on top, and falls through to
+     * the activity's global overflow dialog (Settings/Help/About/...) under "More options". Returns
+     * false if the popup couldn't be shown so the caller falls back to the activity overflow.
+     */
+    private fun showLibraryOverflow(originalItem: MenuItem): Boolean {
+        val activity = activity ?: return false
+        val anchor = activityBinding?.searchToolbar?.findViewById<View>(R.id.action_more)
+            ?: activityBinding?.searchToolbar
+            ?: return false
+        val popup = androidx.appcompat.widget.PopupMenu(activity, anchor)
+        popup.menuInflater.inflate(R.menu.library_overflow, popup.menu)
+        popup.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_update_library -> {
+                    if (!LibraryUpdateJob.isRunning(activity)) {
+                        updateLibrary()
+                        destroyActionModeIfNeeded()
+                    }
+                    true
+                }
+                R.id.action_more_options -> {
+                    // Defer back to MainActivity.onOptionsItemSelected, which is what owns the
+                    // global overflow dialog (settings/help/about/stats).
+                    activity.onOptionsItemSelected(originalItem)
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
         return true
     }
     //endregion
