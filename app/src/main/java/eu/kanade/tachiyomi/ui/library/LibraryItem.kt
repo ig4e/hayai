@@ -50,5 +50,8 @@ abstract class LibraryItem(
         const val LAYOUT_COMPACT_GRID = 1
         const val LAYOUT_COMFORTABLE_GRID = 2
         const val LAYOUT_COVER_ONLY_GRID = 3
+
+        const val DISPLAY_MODE_CONTINUOUS = 0
+        const val DISPLAY_MODE_TABBED = 1
     }
 }

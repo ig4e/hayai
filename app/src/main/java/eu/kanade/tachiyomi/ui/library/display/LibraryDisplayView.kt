@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.databinding.LibraryDisplayLayoutBinding
+import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.util.bindToPreference
 import eu.kanade.tachiyomi.util.lang.addBetaTag
 import eu.kanade.tachiyomi.util.view.rowsForValue
@@ -35,6 +36,13 @@ class LibraryDisplayView @JvmOverloads constructor(context: Context, attrs: Attr
     var mainView: View? = null
     override fun inflateBinding() = LibraryDisplayLayoutBinding.bind(this)
     override fun initGeneralPreferences() {
+        binding.flattenSearch.isEnabled =
+            preferences.libraryDisplayMode().get() == LibraryItem.DISPLAY_MODE_TABBED
+        binding.displayModeGroup.bindToPreference(preferences.libraryDisplayMode()) {
+            binding.flattenSearch.isEnabled =
+                preferences.libraryDisplayMode().get() == LibraryItem.DISPLAY_MODE_TABBED
+        }
+        binding.flattenSearch.bindToPreference(preferences.librarySearchAcrossTabs())
         binding.displayGroup.bindToPreference(preferences.libraryLayout())
         binding.uniformGrid.bindToPreference(uiPreferences.uniformGrid()) {
             binding.staggeredGrid.isEnabled = !it

@@ -221,6 +221,10 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun libraryLayout() = preferenceStore.getInt(Keys.libraryLayout, LibraryItem.LAYOUT_COMFORTABLE_GRID)
 
+    fun libraryDisplayMode() = preferenceStore.getInt(Keys.libraryDisplayMode, LibraryItem.DISPLAY_MODE_CONTINUOUS)
+
+    fun librarySearchAcrossTabs() = preferenceStore.getBoolean(Keys.librarySearchAcrossTabs, false)
+
     fun gridSize() = preferenceStore.getFloat(Keys.gridSize, 1f)
 
     fun downloadBadge() = preferenceStore.getBoolean(Keys.downloadBadge, false)

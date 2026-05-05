@@ -40,6 +40,9 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
 
     var showOutline = uiPreferences.outlineOnCovers().get()
 
+    /** When true, this adapter is rendering a single category in a pager page; section headers are not shown. */
+    var isPagedMode: Boolean = false
+
     private var lastCategory = ""
 
     val hasActiveFilters: Boolean
@@ -62,7 +65,9 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
     val libraryListener: LibraryListener? = controller
 
     val isSingleCategory
-        get() = controller?.singleCategory == true || controller?.presenter?.showAllCategories == false
+        get() = isPagedMode ||
+            controller?.singleCategory == true ||
+            controller?.presenter?.showAllCategories == false
 
     /**
      * Sets a list of manga in the adapter.

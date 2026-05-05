@@ -1488,7 +1488,9 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     }
 
     fun showTabBar(show: Boolean, animate: Boolean = true) {
-        tabAnimation?.cancel()
+        val previous = tabAnimation
+        tabAnimation = null
+        previous?.cancel()
         if (animate) {
             if (show && !binding.tabsFrameLayout.isVisible) {
                 binding.tabsFrameLayout.alpha = 0f
@@ -1502,6 +1504,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 binding.tabsFrameLayout.alpha = valueAnimator.animatedValue as Float
             }
             tA.doOnEnd {
+                if (tabAnimation !== tA) return@doOnEnd
                 binding.tabsFrameLayout.isVisible = show
                 if (!show) {
                     binding.mainTabs.clearOnTabSelectedListeners()
@@ -1513,6 +1516,10 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             tA.start()
         } else {
             binding.tabsFrameLayout.isVisible = show
+            if (!show) {
+                binding.mainTabs.clearOnTabSelectedListeners()
+                binding.mainTabs.removeAllTabs()
+            }
         }
     }
 
@@ -1650,7 +1657,16 @@ interface RootSearchInterface {
     }
 }
 
-interface TabbedInterface
+interface TabbedInterface {
+    /**
+     * Whether the activity tab bar is currently in use by this controller. Defaults to true so
+     * always-tabbed controllers (recents) keep working without overriding. Conditionally-tabbed
+     * controllers (library when display mode is tabbed) override this to a getter that reads
+     * their current mode, so [scrollViewWith] / [fullAppBarHeight] and [colorToolbar]'s
+     * floating-bar branch react to the live state.
+     */
+    val showActivityTabs: Boolean get() = true
+}
 
 interface HingeSupportedController {
     fun updateForHinge()

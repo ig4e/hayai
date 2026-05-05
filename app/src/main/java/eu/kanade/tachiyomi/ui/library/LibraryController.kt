@@ -85,6 +85,8 @@ import eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_TRACK_STATUS
 import eu.kanade.tachiyomi.ui.library.LibraryGroup.UNGROUPED
 import eu.kanade.tachiyomi.ui.library.display.TabbedLibraryDisplaySheet
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
+import androidx.viewpager.widget.ViewPager
+import eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner
 import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -108,6 +110,7 @@ import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.bindStringTabs
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.util.view.expand
@@ -119,6 +122,7 @@ import eu.kanade.tachiyomi.util.view.isExpanded
 import eu.kanade.tachiyomi.util.view.isHidden
 import eu.kanade.tachiyomi.util.view.isSettling
 import eu.kanade.tachiyomi.util.view.scrollViewWith
+import eu.kanade.tachiyomi.util.view.setAppBarBG
 import eu.kanade.tachiyomi.util.view.setAction
 import eu.kanade.tachiyomi.util.view.setMessage
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
@@ -160,7 +164,16 @@ open class LibraryController(
     LibraryCategoryAdapter.LibraryListener,
     BottomSheetController,
     RootSearchInterface,
-    FloatingSearchInterface {
+    FloatingSearchInterface,
+    MainActivityTabsOwner,
+    eu.kanade.tachiyomi.ui.main.TabbedInterface {
+
+    override val ownsActivityTabs: Boolean
+        get() = isTabbedMode
+
+    /** Library only owns the activity tab bar when the user picked tabbed display mode. */
+    override val showActivityTabs: Boolean
+        get() = isTabbedMode
 
     init {
         setHasOptionsMenu(true)
@@ -181,6 +194,17 @@ open class LibraryController(
     private var actionMode: ActionMode? = null
 
     private var libraryLayout: Int = preferences.libraryLayout().get()
+
+    val libraryLayoutValue: Int get() = libraryLayout
+
+    private var pagerAdapter: LibraryPagerAdapter? = null
+    private var pageChangeListener: ViewPager.OnPageChangeListener? = null
+
+    private val isTabbedMode: Boolean
+        get() = preferences.libraryDisplayMode().get() == LibraryItem.DISPLAY_MODE_TABBED
+
+    private val isInSingleCategoryMode: Boolean
+        get() = isTabbedMode || !preferences.showAllCategories().get()
 
     var singleCategory: Boolean = false
         private set
@@ -203,6 +227,43 @@ open class LibraryController(
     private var mAdapter: LibraryCategoryAdapter? = null
     private val adapter: LibraryCategoryAdapter
         get() = mAdapter!!
+
+    /** Active adapter that owns the visible click/selection surface. In tabbed mode, the current page's adapter; otherwise mAdapter. */
+    private val currentLibraryAdapter: LibraryCategoryAdapter?
+        get() = if (isTabbedMode) {
+            pagerAdapter?.adapterForPosition(binding.libraryPager.currentItem) ?: mAdapter
+        } else {
+            mAdapter
+        }
+
+    /** Recycler that visually backs [currentLibraryAdapter]. */
+    private val currentLibraryRecycler: RecyclerView
+        get() = if (isTabbedMode) {
+            pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
+                ?: binding.libraryGridRecycler.recycler
+        } else {
+            binding.libraryGridRecycler.recycler
+        }
+
+    /** Iterate every live LibraryCategoryAdapter (mAdapter + each page) so selection edits stay in sync across modes. */
+    private fun forEachLibraryAdapter(block: (LibraryCategoryAdapter, RecyclerView) -> Unit) {
+        mAdapter?.let { block(it, binding.libraryGridRecycler.recycler) }
+        pagerAdapter?.forEachPage(block)
+    }
+
+    /** Apply the controller-wide selection set/mode onto a freshly bound page adapter. Called from LibraryPagerAdapter.bindCategoryItems. */
+    fun applySelectionStateTo(adapter: LibraryCategoryAdapter) {
+        val targetMode = if (selectedMangas.isNotEmpty()) {
+            SelectableAdapter.Mode.MULTI
+        } else {
+            SelectableAdapter.Mode.SINGLE
+        }
+        if (adapter.mode != targetMode) adapter.mode = targetMode
+        if (selectedMangas.isEmpty()) return
+        selectedMangas.forEach { manga ->
+            adapter.allIndexOf(manga).forEach { adapter.addSelection(it) }
+        }
+    }
 
     private var lastClickPosition = -1
 
@@ -339,7 +400,7 @@ open class LibraryController(
             val currentCategory = getHeader()?.category ?: return
             if (currentCategory.order != activeCategory) {
                 saveActiveCategory(currentCategory)
-                if (!showCategoryInTitle && presenter.categories.size > 1 && dy != 0 && recyclerView.translationY == 0f) {
+                if (!isTabbedMode && !showCategoryInTitle && presenter.categories.size > 1 && dy != 0 && recyclerView.translationY == 0f) {
                     showCategoryText(currentCategory.name)
                 }
             }
@@ -457,6 +518,195 @@ open class LibraryController(
             binding.categoryRecycler.setCategories(currentCategory)
             binding.headerTitle.text = presenter.categories[currentCategory].name
             setSubtitle()
+        }
+    }
+
+    private fun applyDisplayMode() {
+        if (!isControllerVisible) return
+        if (isTabbedMode) {
+            setupTabbedView()
+        } else {
+            teardownTabbedView()
+            if (activityBinding?.tabsFrameLayout?.isVisible == true) {
+                (activity as? MainActivity)?.showTabBar(show = false)
+            }
+        }
+        showMiniBar()
+    }
+
+    private fun setupTabbedView() {
+        if (!isControllerVisible) return
+        val tabs = activityBinding?.mainTabs ?: return
+        val visibleCats = visibleTabCategories()
+        if (visibleCats.size <= 1 || presenter.forceShowAllCategories) {
+            teardownTabbedView()
+            (activity as? MainActivity)?.showTabBar(show = false)
+            return
+        }
+
+        binding.libraryGridRecycler.recycler.isVisible = false
+        binding.libraryPager.isVisible = true
+
+        val adapter = pagerAdapter ?: LibraryPagerAdapter(this).also { pagerAdapter = it }
+        adapter.categories = visibleCats
+        if (binding.libraryPager.adapter !== adapter) {
+            binding.libraryPager.adapter = adapter
+        } else {
+            adapter.refreshAll()
+        }
+
+        val selectedIdx = visibleCats.indexOfFirst { it.order == activeCategory }
+            .takeIf { it >= 0 } ?: 0
+        if (binding.libraryPager.currentItem != selectedIdx) {
+            binding.libraryPager.setCurrentItem(selectedIdx, false)
+        }
+
+        tabs.tabMode = com.google.android.material.tabs.TabLayout.MODE_SCROLLABLE
+        tabs.bindStringTabs(
+            labels = visibleCats.map { it.name },
+            selectedIndex = selectedIdx,
+            onSelected = { idx ->
+                if (binding.libraryPager.currentItem != idx) {
+                    binding.libraryPager.setCurrentItem(idx, true)
+                }
+            },
+            onReselected = {
+                pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)?.smoothScrollToTop()
+            },
+        )
+        applyCategoryTabBadges(tabs, visibleCats)
+
+        pageChangeListener?.let { binding.libraryPager.removeOnPageChangeListener(it) }
+        val listener = object : ViewPager.SimpleOnPageChangeListener() {
+            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
+                tabs.setScrollPosition(position, positionOffset, /* updateSelectedTabView = */ false)
+            }
+
+            override fun onPageSelected(position: Int) {
+                if (tabs.selectedTabPosition != position) {
+                    tabs.getTabAt(position)?.select()
+                }
+                val target = visibleCats.getOrNull(position) ?: return
+                if (target.order != activeCategory) {
+                    activeCategory = target.order
+                    setActiveCategory()
+                    if (!isSubClass) preferences.lastUsedCategory().set(target.order)
+                }
+                pagerAdapter?.adapterForPosition(position)?.let(::applySelectionStateTo)
+            }
+        }
+        binding.libraryPager.addOnPageChangeListener(listener)
+        pageChangeListener = listener
+
+        (activity as? MainActivity)?.showTabBar(show = true)
+        applyTabbedAppBarMode(enabled = true)
+    }
+
+    private fun teardownTabbedView(restoreAppBar: Boolean = true) {
+        pageChangeListener?.let { binding.libraryPager.removeOnPageChangeListener(it) }
+        pageChangeListener = null
+        activityBinding?.mainTabs?.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
+        binding.libraryPager.adapter = null
+        binding.libraryPager.isVisible = false
+        binding.libraryGridRecycler.recycler.isVisible = true
+        if (restoreAppBar) applyTabbedAppBarMode(enabled = false)
+    }
+
+    private fun applyTabLabels(tabs: com.google.android.material.tabs.TabLayout, visibleCats: List<Category>) {
+        applyCategoryTabBadges(tabs, visibleCats)
+    }
+
+    /**
+     * Replaces each tab's default text with a custom view containing the category name and a circular
+     * count badge, then keeps it in sync on data refresh. Reuses an already-installed custom view if
+     * one is present so we only re-set the text fields.
+     */
+    private fun applyCategoryTabBadges(
+        tabs: com.google.android.material.tabs.TabLayout,
+        visibleCats: List<Category>,
+    ) {
+        val inflater = LayoutInflater.from(tabs.context)
+        visibleCats.forEachIndexed { idx, cat ->
+            val tab = tabs.getTabAt(idx) ?: return@forEachIndexed
+            val customView = tab.customView
+                ?: inflater.inflate(R.layout.library_tab_with_count, tabs, false).also {
+                    tab.customView = it
+                }
+            customView.findViewById<android.widget.TextView>(R.id.tab_label).text = cat.name
+            val countView = customView.findViewById<android.widget.TextView>(R.id.tab_count)
+            val count = cat.id?.let { presenter.getItemCountInCategories(it) } ?: 0
+            countView.text = count.toString()
+        }
+    }
+
+    /**
+     * Re-applies the app bar layout when the tabbed display mode toggles. We keep the floating search
+     * card visible in both modes (filter/settings buttons live in it), but [showActivityTabs] flips so
+     * that the bar reserves room for the tab strip and [colorToolbar] uses the recents-style solid bg
+     * animation instead of the floating-search transparency.
+     *
+     * Initial state is snapped (no animator) to avoid the "starts collapsed → animates open" flash that
+     * happens when scrollViewWith's leftover [isToolbarColor] flag from a previous controller fires a
+     * colorToolbar animation toward the wrong target on enter.
+     */
+    private fun applyTabbedAppBarMode(enabled: Boolean) {
+        val appBar = activityBinding?.appBar ?: return
+        appBar.useTabsInPreLayout = enabled
+        appBar.requestLayout()
+        if (enabled) {
+            val pageRecycler = pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
+            val notAtTop = pageRecycler?.canScrollVertically(-1) == true
+            // Force the bar fully expanded (page recyclers always start at offset 0 unless restored).
+            appBar.y = 0f
+            appBar.updateAppBarAfterY(pageRecycler)
+            // Direct bg apply bypasses the colorToolbar animator so there's no fade from a stale color.
+            setAppBarBG(if (notAtTop) 1f else 0f, includeTabView = true)
+        } else if (::elevateAppBar.isInitialized) {
+            elevateAppBar(binding.libraryGridRecycler.recycler.canScrollVertically(-1))
+        }
+    }
+
+    fun pageRecyclerTopPadding(): Int {
+        val systemTop = activityBinding?.appBar?.rootWindowInsets
+            ?.getInsets(android.view.WindowInsets.Type.systemBars())?.top ?: 0
+        // fullAppBarHeight already accounts for the tab strip when [showActivityTabs] is true.
+        val appBarHeight = fullAppBarHeight ?: (activityBinding?.appBar?.attrToolbarHeight ?: 0)
+        return systemTop + appBarHeight
+    }
+
+    fun onPageRecyclerScrolled(recycler: androidx.recyclerview.widget.RecyclerView, dy: Int) {
+        if (!isControllerVisible) return
+        val appBar = activityBinding?.appBar ?: return
+        if (appBar.height == 0) return
+        val notAtTop = recycler.canScrollVertically(-1)
+        if (!notAtTop) {
+            appBar.y = 0f
+            appBar.updateAppBarAfterY(recycler)
+        } else {
+            appBar.y -= dy
+            appBar.updateAppBarAfterY(recycler)
+        }
+        if (::elevateAppBar.isInitialized) elevateAppBar(notAtTop)
+    }
+
+    fun onPageRecyclerScrollIdle(recycler: androidx.recyclerview.widget.RecyclerView) {
+        val appBar = activityBinding?.appBar ?: return
+        appBar.snapAppBarY(this, recycler) { }
+        if (::elevateAppBar.isInitialized) elevateAppBar(recycler.canScrollVertically(-1))
+    }
+
+    private fun visibleTabCategories(): List<Category> {
+        return presenter.categories.filter { !it.isHidden }
+    }
+
+    private fun applyTabbedSearchVisibility() {
+        if (!isTabbedMode) return
+        val flatten = presenter.forceShowAllCategories && query.isNotBlank()
+        if (flatten) {
+            teardownTabbedView()
+            (activity as? MainActivity)?.showTabBar(show = false)
+        } else {
+            setupTabbedView()
         }
     }
 
@@ -876,7 +1126,7 @@ open class LibraryController(
     }
 
     fun hideHopper(hide: Boolean) {
-        binding.categoryHopperFrame.isVisible = !singleCategory && !hide
+        binding.categoryHopperFrame.isVisible = !singleCategory && !hide && !isTabbedMode
         binding.jumperCategoryText.isVisible = !hide
     }
 
@@ -1036,6 +1286,17 @@ open class LibraryController(
                 }
                 .launchIn(viewScope)
         }
+        preferences.libraryDisplayMode().changes()
+            .drop(1)
+            .onEach {
+                applyDisplayMode()
+                presenter.updateLibrary()
+            }
+            .launchIn(viewScope)
+        preferences.librarySearchAcrossTabs().changes()
+            .drop(1)
+            .onEach { applyTabbedSearchVisibility() }
+            .launchIn(viewScope)
         preferences.hideStartReadingButton().register()
         uiPreferences.outlineOnCovers().register { adapter.showOutline = it }
         preferences.categoryNumberOfItems().register { adapter.showNumber = it }
@@ -1068,6 +1329,7 @@ open class LibraryController(
                 binding.libraryGridRecycler.recycler.manager.onRestoreInstanceState(staggeredBundle)
                 staggeredBundle = null
             }
+            applyDisplayMode()
         } else {
             saveStaggeredState()
             updateFilterSheetY()
@@ -1076,6 +1338,15 @@ open class LibraryController(
                 binding.filterBottomSheet.filterBottomSheet.isInvisible = true
             }
             activityBinding?.searchToolbar?.setOnLongClickListener(null)
+            val nextController = router.backstack.lastOrNull()?.controller
+            val nextOwnsTabs = (nextController as? MainActivityTabsOwner)?.ownsActivityTabs == true
+            // Always release our hold on the activity tabs when leaving, so the next controller (recents)
+            // gets a clean TabLayout to bind its own tabs to. Skip the appbar restore — the next controller
+            // sets its own toolbar state via syncActivityViewWithController.
+            if (isTabbedMode) teardownTabbedView(restoreAppBar = false)
+            if (!nextOwnsTabs && activityBinding?.tabsFrameLayout?.isVisible == true) {
+                (activity as? MainActivity)?.showTabBar(show = false, animate = true)
+            }
         }
     }
 
@@ -1098,6 +1369,7 @@ open class LibraryController(
         if (observeLater) {
             presenter.updateLibrary()
         }
+        applyDisplayMode()
     }
 
     override fun onActivityPaused(activity: Activity) {
@@ -1110,7 +1382,11 @@ open class LibraryController(
         if (isBindingInitialized) {
             binding.libraryGridRecycler.recycler.removeOnScrollListener(scrollListener)
             binding.fastScroller.controller = null
+            pageChangeListener?.let { binding.libraryPager.removeOnPageChangeListener(it) }
+            binding.libraryPager.adapter = null
         }
+        pageChangeListener = null
+        pagerAdapter = null
         displaySheet?.dismiss()
         displaySheet = null
         mAdapter = null
@@ -1218,7 +1494,22 @@ open class LibraryController(
             setActiveCategory()
         }
 
-        binding.categoryHopperFrame.isVisible = !singleCategory && !preferences.hideHopper().get()
+        binding.categoryHopperFrame.isVisible = !singleCategory && !preferences.hideHopper().get() && !isTabbedMode
+        if (isTabbedMode) {
+            val visibleCats = visibleTabCategories()
+            val tabs = activityBinding?.mainTabs
+            // Compare ids so reorder/add/remove forces a full rebuild — refreshAll does NOT update
+            // pagerAdapter.categories or rebuild pageChangeListener, so its captured visibleCats would
+            // map page indices to the wrong categories.
+            val currentCats = pagerAdapter?.categories.orEmpty()
+            val categoriesChanged = currentCats.map { it.id } != visibleCats.map { it.id }
+            if (visibleCats.size <= 1 || presenter.forceShowAllCategories || tabs == null || categoriesChanged) {
+                setupTabbedView()
+            } else {
+                pagerAdapter?.refreshAll()
+                applyTabLabels(tabs, visibleCats)
+            }
+        }
         adapter.isLongPressDragEnabled = canDrag()
         binding.categoryRecycler.setCategories(
             presenter.categories,
@@ -1427,27 +1718,34 @@ open class LibraryController(
         val position = binding.libraryGridRecycler.recycler.findFirstVisibleItemPosition()
         binding.libraryGridRecycler.recycler.adapter = adapter
         binding.libraryGridRecycler.recycler.scrollToPositionWithOffset(position, 0)
+        if (isTabbedMode) pagerAdapter?.reattachAll()
     }
 
     fun search(query: String?): Boolean {
-        val isShowAllCategoriesSet = preferences.showAllCategories().get()
-        if (!query.isNullOrBlank() && this.query.isBlank() && !isShowAllCategoriesSet) {
-            presenter.forceShowAllCategories = preferences.showAllCategoriesWhenSearchingSingleCategory().get()
+        val singleMode = isInSingleCategoryMode
+        if (!query.isNullOrBlank() && this.query.isBlank() && singleMode) {
+            presenter.forceShowAllCategories = if (isTabbedMode) {
+                preferences.librarySearchAcrossTabs().get()
+            } else {
+                preferences.showAllCategoriesWhenSearchingSingleCategory().get()
+            }
             presenter.updateLibrary()
-        } else if (query.isNullOrBlank() && this.query.isNotBlank() && !isShowAllCategoriesSet) {
-            if (!isSubClass) {
+        } else if (query.isNullOrBlank() && this.query.isNotBlank() && singleMode) {
+            if (!isSubClass && !isTabbedMode) {
                 preferences.showAllCategoriesWhenSearchingSingleCategory()
                     .set(presenter.forceShowAllCategories)
             }
             presenter.forceShowAllCategories = false
             presenter.updateLibrary()
         }
-
         if (query != this.query && !query.isNullOrBlank()) {
             binding.libraryGridRecycler.recycler.scrollToPosition(0)
         }
         this.query = query ?: ""
-        showAllCategoriesView?.isGone = isShowAllCategoriesSet || presenter.groupType != BY_DEFAULT || this.query.isBlank()
+        if (isTabbedMode) {
+            applyTabbedSearchVisibility()
+        }
+        showAllCategoriesView?.isGone = isTabbedMode || preferences.showAllCategories().get() || presenter.groupType != BY_DEFAULT || this.query.isBlank()
         showAllCategoriesView?.isSelected = presenter.forceShowAllCategories
         if (this.query.isNotBlank()) {
             searchItem.string = this.query
@@ -1469,45 +1767,43 @@ open class LibraryController(
     override fun onDestroyActionMode(mode: ActionMode?) {
         selectedMangas.clear()
         actionMode = null
-        adapter.mode = SelectableAdapter.Mode.SINGLE
-        adapter.clearSelection()
-        adapter.notifyDataSetChanged()
         lastClickPosition = -1
-        adapter.isLongPressDragEnabled = canDrag()
+        forEachLibraryAdapter { ad, _ ->
+            ad.mode = SelectableAdapter.Mode.SINGLE
+            ad.clearSelection()
+            ad.notifyDataSetChanged()
+            ad.isLongPressDragEnabled = canDrag()
+        }
     }
 
     private fun setSelection(manga: Manga, selected: Boolean) {
-        val currentMode = adapter.mode
-        if (selected) {
-            if (selectedMangas.add(manga)) {
-                val positions = adapter.allIndexOf(manga)
-                if (adapter.mode != SelectableAdapter.Mode.MULTI) {
-                    adapter.mode = SelectableAdapter.Mode.MULTI
-                }
-                launchUI {
-                    delay(100)
-                    adapter.isLongPressDragEnabled = false
-                }
-                positions.forEach { position ->
-                    adapter.addSelection(position)
-                    (binding.libraryGridRecycler.recycler.findViewHolderForAdapterPosition(position) as? LibraryHolder)?.toggleActivation()
-                }
-            }
+        val activeAdapter = currentLibraryAdapter ?: return
+        val previousMode = activeAdapter.mode
+        val changed = if (selected) selectedMangas.add(manga) else selectedMangas.remove(manga)
+        if (!changed) return
+
+        if (!selected) lastClickPosition = -1
+        val targetMode = if (selectedMangas.isEmpty()) {
+            SelectableAdapter.Mode.SINGLE
         } else {
-            if (selectedMangas.remove(manga)) {
-                val positions = adapter.allIndexOf(manga)
-                lastClickPosition = -1
-                if (selectedMangas.isEmpty()) {
-                    adapter.mode = SelectableAdapter.Mode.SINGLE
-                    adapter.isLongPressDragEnabled = canDrag()
-                }
-                positions.forEach { position ->
-                    adapter.removeSelection(position)
-                    (binding.libraryGridRecycler.recycler.findViewHolderForAdapterPosition(position) as? LibraryHolder)?.toggleActivation()
-                }
+            SelectableAdapter.Mode.MULTI
+        }
+        forEachLibraryAdapter { ad, recycler ->
+            if (ad.mode != targetMode) ad.mode = targetMode
+            ad.allIndexOf(manga).forEach { position ->
+                if (selected) ad.addSelection(position) else ad.removeSelection(position)
+                (recycler.findViewHolderForAdapterPosition(position) as? LibraryHolder)?.toggleActivation()
             }
         }
-        updateHeaders(currentMode != adapter.mode)
+        if (selected) {
+            launchUI {
+                delay(100)
+                forEachLibraryAdapter { ad, _ -> ad.isLongPressDragEnabled = false }
+            }
+        } else if (selectedMangas.isEmpty()) {
+            forEachLibraryAdapter { ad, _ -> ad.isLongPressDragEnabled = canDrag() }
+        }
+        updateHeaders(previousMode != activeAdapter.mode)
     }
 
     private fun updateHeaders(changedMode: Boolean = false) {
@@ -1522,11 +1818,12 @@ open class LibraryController(
     }
 
     override fun startReading(position: Int, view: View?) {
-        if (adapter.mode == SelectableAdapter.Mode.MULTI) {
+        val activeAdapter = currentLibraryAdapter ?: return
+        if (activeAdapter.mode == SelectableAdapter.Mode.MULTI) {
             toggleSelection(position)
             return
         }
-        val manga = (adapter.getItem(position) as? LibraryMangaItem)?.manga?.manga ?: return
+        val manga = (activeAdapter.getItem(position) as? LibraryMangaItem)?.manga?.manga ?: return
         val activity = activity ?: return
         val chapter = presenter.getFirstUnread(manga) ?: return
         activity.apply {
@@ -1542,14 +1839,16 @@ open class LibraryController(
     }
 
     private fun toggleSelection(position: Int) {
-        val item = adapter.getItem(position) as? LibraryMangaItem ?: return
-        setSelection(item.manga.manga, !adapter.isSelected(position))
+        val activeAdapter = currentLibraryAdapter ?: return
+        val item = activeAdapter.getItem(position) as? LibraryMangaItem ?: return
+        setSelection(item.manga.manga, !activeAdapter.isSelected(position))
         invalidateActionMode()
     }
 
     override fun canDrag(): Boolean {
         val filterOff = !hasActiveFilters && presenter.groupType == BY_DEFAULT
-        return filterOff && adapter.mode != SelectableAdapter.Mode.MULTI
+        if (isTabbedMode) return false
+        return filterOff && (currentLibraryAdapter?.mode ?: SelectableAdapter.Mode.SINGLE) != SelectableAdapter.Mode.MULTI
     }
 
     /**
@@ -1559,8 +1858,9 @@ open class LibraryController(
      * @return true if the item should be selected, false otherwise.
      */
     override fun onItemClick(view: View?, position: Int): Boolean {
-        val item = adapter.getItem(position) as? LibraryMangaItem ?: return false
-        return if (adapter.mode == SelectableAdapter.Mode.MULTI) {
+        val activeAdapter = currentLibraryAdapter ?: return false
+        val item = activeAdapter.getItem(position) as? LibraryMangaItem ?: return false
+        return if (activeAdapter.mode == SelectableAdapter.Mode.MULTI) {
             snack?.dismiss()
             lastClickPosition = position
             toggleSelection(position)
@@ -1587,7 +1887,8 @@ open class LibraryController(
      * @param position the position of the element clicked.
      */
     override fun onItemLongClick(position: Int) {
-        val item = adapter.getItem(position)
+        val activeAdapter = currentLibraryAdapter ?: return
+        val item = activeAdapter.getItem(position)
         if (item !is LibraryMangaItem) return
         snack?.dismiss()
         if (libraryLayout == LibraryItem.LAYOUT_COVER_ONLY_GRID && actionMode == null) {
@@ -1645,7 +1946,8 @@ open class LibraryController(
     }
 
     private fun setSelection(position: Int, selected: Boolean = true) {
-        val item = adapter.getItem(position) as? LibraryMangaItem ?: return
+        val activeAdapter = currentLibraryAdapter ?: return
+        val item = activeAdapter.getItem(position) as? LibraryMangaItem ?: return
 
         setSelection(item.manga.manga, selected)
         invalidateActionMode()
@@ -2107,9 +2409,26 @@ open class LibraryController(
                 )
                 destroyActionModeIfNeeded()
             }
+            R.id.action_select_all -> selectAllInActiveCategory()
             else -> return false
         }
         return true
+    }
+
+    private fun selectAllInActiveCategory() {
+        if (isTabbedMode) {
+            val pageAdapter = currentLibraryAdapter ?: return
+            val mangas = (0 until pageAdapter.itemCount).mapNotNull {
+                (pageAdapter.getItem(it) as? LibraryMangaItem)?.manga?.manga
+            }
+            if (mangas.isEmpty()) return
+            val allAlready = mangas.all { it in selectedMangas }
+            mangas.forEach { setSelection(it, !allAlready) }
+            invalidateActionMode()
+        } else {
+            val headerPos = mAdapter?.indexOf(activeCategory) ?: -1
+            if (headerPos >= 0) selectAll(headerPos)
+        }
     }
 
     private fun markReadStatus(resource: StringResource, markRead: Boolean) {

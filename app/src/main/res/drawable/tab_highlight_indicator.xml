@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:end="4dp"
-        android:start="4dp" >
+        android:end="8dp"
+        android:start="8dp" >
         <shape>
-            <corners android:radius="14sp" />
+            <corners android:radius="18sp" />
             <solid android:color="?tabHighlightBackground" />
-            <size android:height="28sp"/>
+            <size android:height="36sp"/>
         </shape>
     </item>
 </layer-list>

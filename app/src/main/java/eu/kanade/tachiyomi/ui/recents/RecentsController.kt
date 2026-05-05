@@ -30,7 +30,6 @@ import com.bluelinelabs.conductor.ControllerChangeType
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.tabs.TabLayout
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
@@ -45,6 +44,7 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.databinding.RecentsControllerBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
 import eu.kanade.tachiyomi.ui.base.controller.BaseCoroutineController
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
@@ -72,8 +72,8 @@ import eu.kanade.tachiyomi.util.system.setCustomTitleAndMessage
 import eu.kanade.tachiyomi.util.system.spToPx
 import eu.kanade.tachiyomi.util.system.toInt
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.bindStringTabs
 import eu.kanade.tachiyomi.util.view.collapse
-import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.fullAppBarHeight
 import eu.kanade.tachiyomi.util.view.hide
@@ -115,7 +115,10 @@ class RecentsController(bundle: Bundle? = null) :
     TabbedInterface,
     RootSearchInterface,
     FloatingSearchInterface,
-    BottomSheetController {
+    BottomSheetController,
+    MainActivityTabsOwner {
+
+    override val ownsActivityTabs: Boolean = true
 
     init {
         setHasOptionsMenu(true)
@@ -919,35 +922,21 @@ class RecentsController(bundle: Bundle? = null) :
             binding.downloadBottomSheet.dlBottomSheet.dismiss()
             if (isControllerVisible) {
                 activityBinding?.mainTabs?.let { tabs ->
-                    tabs.removeAllTabs()
-                    tabs.clearOnTabSelectedListeners()
                     val selectedTab = presenter.viewType
-                    RecentsViewType.entries.forEach { viewType ->
-                        tabs.addTab(
-                            tabs.newTab().setText(activity?.getString(viewType.stringRes)).also { tab ->
-                                tab.view.compatToolTipText = null
-                            },
-                            viewType == selectedTab,
-                        )
-                    }
-                    tabs.addOnTabSelectedListener(
-                        object : TabLayout.OnTabSelectedListener {
-                            override fun onTabSelected(tab: TabLayout.Tab?) {
-                                setViewType(RecentsViewType.valueOf(tab?.position))
-                            }
-
-                            override fun onTabUnselected(tab: TabLayout.Tab?) {}
-                            override fun onTabReselected(tab: TabLayout.Tab?) {
-                                binding.recycler.smoothScrollToTop()
-                            }
-                        },
+                    val labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() }
+                    tabs.bindStringTabs(
+                        labels = labels,
+                        selectedIndex = selectedTab.mainValue,
+                        onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
+                        onReselected = { binding.recycler.smoothScrollToTop() },
                     )
                     (activity as? MainActivity)?.showTabBar(true)
                 }
             }
         } else {
             val lastController = router.backstack.lastOrNull()?.controller
-            if (lastController !is DialogController) {
+            val nextOwnsTabs = (lastController as? MainActivityTabsOwner)?.ownsActivityTabs == true
+            if (lastController !is DialogController && !nextOwnsTabs) {
                 (activity as? MainActivity)?.showTabBar(show = false, animate = lastController !is SmallToolbarInterface)
             }
             snack?.dismiss()

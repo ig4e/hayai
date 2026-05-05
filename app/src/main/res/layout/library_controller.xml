@@ -55,6 +55,12 @@
             <include layout="@layout/library_grid_recycler"
                 android:id="@+id/library_grid_recycler"/>
 
+            <androidx.viewpager.widget.ViewPager
+                android:id="@+id/library_pager"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone" />
+
             <View
                 android:id="@+id/recycler_cover"
                 android:layout_width="match_parent"

@@ -139,7 +139,8 @@ class LibraryPresenter(
     val currentLibraryItems: List<LibraryItem>
         get() = currentLibrary.values.flatten()
     /** List of all manga to be displayed */
-    private var libraryToDisplay: LibraryMutableMap = mutableMapOf()
+    var libraryToDisplay: LibraryMutableMap = mutableMapOf()
+        private set
     val libraryItemsToDisplay: List<LibraryItem>
         get() = libraryToDisplay.values.flatten()
 
@@ -151,8 +152,12 @@ class LibraryPresenter(
 
     private var hiddenLibraryItems: List<LibraryItem> = emptyList()
     var forceShowAllCategories = false
+    private val isTabbedDisplayMode
+        get() = preferences.libraryDisplayMode().get() == LibraryItem.DISPLAY_MODE_TABBED
     val showAllCategories
-        get() = forceShowAllCategories || preferences.showAllCategories().get()
+        get() = forceShowAllCategories ||
+            isTabbedDisplayMode ||
+            preferences.showAllCategories().get()
 
     private val libraryIsGrouped
         get() = groupType != UNGROUPED
@@ -811,22 +816,25 @@ class LibraryPresenter(
 
         preferences.collapsedCategories().changes(),
         preferences.collapsedDynamicCategories().changes(),
+
+        preferences.libraryDisplayMode().changes(),
     ) {
-       ItemPreferences(
-           filterDownloaded = it[0] as Int,
-           filterUnread = it[1] as Int,
-           filterCompleted = it[2] as Int,
-           filterTracked = it[3] as Int,
-           filterMangaType = it[4] as Int,
-           filterContentType = it[5] as Int,
-           filterBookmarked = it[6] as Int,
-           groupType = it[7] as Int,
-           showAllCategories = it[8] as Boolean,
-           sortingMode = it[9] as Int,
-           sortAscending = it[10] as Boolean,
-           collapsedCategories = it[11] as Set<String>,
-           collapsedDynamicCategories = it[12] as Set<String>,
-       )
+        val tabbed = (it[13] as Int) == LibraryItem.DISPLAY_MODE_TABBED
+        ItemPreferences(
+            filterDownloaded = it[0] as Int,
+            filterUnread = it[1] as Int,
+            filterCompleted = it[2] as Int,
+            filterTracked = it[3] as Int,
+            filterMangaType = it[4] as Int,
+            filterContentType = it[5] as Int,
+            filterBookmarked = it[6] as Int,
+            groupType = it[7] as Int,
+            showAllCategories = (it[8] as Boolean) || tabbed,
+            sortingMode = it[9] as Int,
+            sortAscending = it[10] as Boolean,
+            collapsedCategories = it[11] as Set<String>,
+            collapsedDynamicCategories = it[12] as Set<String>,
+        )
     }
 
 //    private fun MutableList<LibraryItem>.addRemovedManga(
@@ -881,7 +889,7 @@ class LibraryPresenter(
                     libraryMangaList,
                     prefs.sortingMode,
                     prefs.sortAscending,
-                    prefs.showAllCategories,
+                    showAllCategories,
                     prefs.collapsedCategories,
                     defaultCategory,
                 )

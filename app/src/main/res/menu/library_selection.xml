@@ -41,4 +41,11 @@
         android:icon="@drawable/ic_share_24dp"
         android:title="@string/share"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_select_all"
+        android:icon="@drawable/ic_select_all_24dp"
+        android:title="@string/select_all"
+        app:iconTint="?colorOnSurface"
+        app:showAsAction="ifRoom" />
 </menu>
