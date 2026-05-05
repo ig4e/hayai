@@ -546,6 +546,11 @@ open class LibraryController(
 
         binding.libraryGridRecycler.recycler.isVisible = false
         binding.libraryPager.isVisible = true
+        // Empty the continuous-mode adapter immediately. Even though its recycler is GONE, the next
+        // library update would otherwise re-populate it before the check in onNextLibraryUpdate
+        // takes effect — leaving stale categories+headers ready to render if the view is briefly
+        // measured during a transition.
+        mAdapter?.setItems(emptyList())
 
         val adapter = pagerAdapter ?: LibraryPagerAdapter(this).also { pagerAdapter = it }
         adapter.categories = visibleCats
@@ -594,10 +599,15 @@ open class LibraryController(
                 }
                 val pageAdapter = pagerAdapter?.adapterForPosition(position)
                 pageAdapter?.let(::applySelectionStateTo)
-                // Each tab opens at the top of its own content (not the previous tab's scroll offset).
+                // Each tab opens at the top of its own content (not the previous tab's scroll offset),
+                // and the appbar snaps fully expanded since the new page's offset is 0.
                 pagerAdapter?.recyclerForPosition(position)?.let { pageRecycler ->
                     pageRecycler.stopScroll()
                     pageRecycler.scrollToPosition(0)
+                    activityBinding?.appBar?.let { appBar ->
+                        appBar.y = 0f
+                        appBar.updateAppBarAfterY(pageRecycler)
+                    }
                     if (::elevateAppBar.isInitialized) elevateAppBar(false)
                 }
             }
@@ -610,17 +620,28 @@ open class LibraryController(
     }
 
     private fun teardownTabbedView(restoreAppBar: Boolean = true) {
-        pageChangeListener?.let { binding.libraryPager.removeOnPageChangeListener(it) }
-        pageChangeListener = null
-        activityBinding?.mainTabs?.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
-        binding.libraryPager.adapter = null
-        binding.libraryPager.isVisible = false
-        binding.libraryGridRecycler.recycler.isVisible = true
         if (restoreAppBar) {
+            // Switching to a non-tabbed display mode while the controller is still visible: detach
+            // the pager and bring the continuous recycler back.
+            pageChangeListener?.let { binding.libraryPager.removeOnPageChangeListener(it) }
+            pageChangeListener = null
+            activityBinding?.mainTabs?.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
+            binding.libraryPager.adapter = null
+            binding.libraryPager.isVisible = false
+            binding.libraryGridRecycler.recycler.isVisible = true
+            // Repopulate mAdapter — it was emptied while tabbed view was active. Without this, code
+            // paths that toggle teardown without firing a fresh onNextLibraryUpdate (e.g. flatten on
+            // search-across-tabs) would leave the now-visible continuous recycler empty.
+            if (mAdapter?.itemCount == 0) {
+                mAdapter?.setItems(presenter.libraryItemsToDisplay)
+            }
             applyTabbedAppBarMode(enabled = false)
         } else {
-            // Even when we skip the full appbar restore on controller exit, release the y-lock so
-            // the next controller's scroll listeners can move the bar normally.
+            // Controller is leaving the screen. Don't reflow the views — swapping visibility flashes
+            // the continuous-mode recycler underneath during the push animation. Just reset the
+            // shared activity tab strip so the next controller can rebind it cleanly, and release
+            // the appbar y-lock so the next controller's scroll listeners can move the bar.
+            activityBinding?.mainTabs?.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
             activityBinding?.appBar?.lockYPos = false
         }
     }
@@ -653,26 +674,11 @@ open class LibraryController(
     }
 
     /**
-     * Re-applies the app bar layout when the tabbed display mode toggles. We keep the floating search
+     * Re-applies the appbar layout when the tabbed display mode toggles. We keep the floating search
      * card visible in both modes (filter/settings buttons live in it), but [showActivityTabs] flips so
-     * that the bar reserves room for the tab strip and [colorToolbar] uses the recents-style solid bg
-     * animation instead of the floating-search transparency.
-     *
-     * Initial state is snapped (no animator) to avoid the "starts collapsed → animates open" flash that
-     * happens when scrollViewWith's leftover [isToolbarColor] flag from a previous controller fires a
-     * colorToolbar animation toward the wrong target on enter.
-     */
-    /**
-     * Pins the appbar+tabs strip while in tabbed mode (only per-tab content scrolls), or releases it
-     * back to the standard auto-collapse behavior on exit. With the bar pinned, a freshly-selected
-     * tab whose recycler is at offset 0 always lines up directly under the bar — no inherited gap
-     * from the previously-active tab's scroll position.
-     */
-    /**
-     * Pins the appbar+tabs strip while in tabbed mode (only per-tab content scrolls), or releases it
-     * back to the standard auto-collapse behavior on exit. With the bar pinned, a freshly-selected
-     * tab whose recycler is at offset 0 always lines up directly under the bar — no inherited gap
-     * from the previously-active tab's scroll position.
+     * the bar reserves room for the tab strip and [colorToolbar] uses the recents-style solid bg
+     * animation instead of the floating-search transparency. The bar is left unlocked so per-tab
+     * scroll can collapse it like the regular library.
      */
     private fun applyTabbedAppBarMode(enabled: Boolean) {
         val appBar = activityBinding?.appBar ?: return
@@ -680,11 +686,9 @@ open class LibraryController(
         appBar.requestLayout()
         if (enabled) {
             val pageRecycler = pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
-            // Snap fully expanded and refresh internal state, then lock so scroll never moves it.
+            // Sync the bar to the active page's scroll offset so it lands collapsed/expanded to match.
             appBar.lockYPos = false
-            appBar.y = 0f
             appBar.updateAppBarAfterY(pageRecycler)
-            appBar.lockYPos = true
             // Direct bg apply bypasses the colorToolbar animator so there's no fade from a stale color.
             val notAtTop = pageRecycler?.canScrollVertically(-1) == true
             setAppBarBG(if (notAtTop) 1f else 0f, includeTabView = true)
@@ -704,13 +708,32 @@ open class LibraryController(
         return systemTop + appBarHeight
     }
 
-    /** Tabbed mode pins the appbar via [ExpandedAppBarLayout.lockYPos]; we only resync the elevation. */
+    /**
+     * Mirrors [scrollViewWith]'s onScrolled for the per-tab recycler so the appbar collapses/expands
+     * with scroll instead of toggling its background color in place. That collapse/expand IS the
+     * elevation cue, which avoids the bg-flicker on small libraries where scroll deltas barely cross
+     * the toolbar-elevated threshold.
+     */
     fun onPageRecyclerScrolled(recycler: RecyclerView, dy: Int) {
         if (!isControllerVisible) return
-        if (::elevateAppBar.isInitialized) elevateAppBar(recycler.canScrollVertically(-1))
+        val appBar = activityBinding?.appBar ?: return
+        if (appBar.height <= 0) return
+        if (!recycler.canScrollVertically(-1)) {
+            appBar.y = 0f
+            appBar.updateAppBarAfterY(recycler)
+            if (::elevateAppBar.isInitialized) elevateAppBar(false)
+        } else {
+            appBar.y -= dy
+            appBar.updateAppBarAfterY(recycler)
+            if (::elevateAppBar.isInitialized) elevateAppBar(true)
+        }
     }
 
     fun onPageRecyclerScrollIdle(recycler: RecyclerView) {
+        if (!isControllerVisible) return
+        val appBar = activityBinding?.appBar ?: return
+        if (appBar.height <= 0) return
+        appBar.snapAppBarY(this, recycler, callback = null)
         if (::elevateAppBar.isInitialized) elevateAppBar(recycler.canScrollVertically(-1))
     }
 
@@ -1462,7 +1485,13 @@ open class LibraryController(
                 },
             )
         }
-        adapter.setItems(mangaMap)
+        // When the pager is the active surface (tabbed mode with >1 category, not in sub-class
+        // picker mode where forceShowAllCategories falls back to continuous), the per-tab pager
+        // adapters own the data; mAdapter (continuous mode) stays empty so its hidden recycler
+        // can't leak categories+headers through during conductor's hardware-accelerated push
+        // animation. Using the runtime visibility flag rather than isTabbedMode directly handles
+        // sub-class mode where the preference is on but tabbed view is forcibly torn down.
+        adapter.setItems(if (binding.libraryPager.isVisible) emptyList() else mangaMap)
         if (binding.libraryGridRecycler.recycler.translationX != 0f) {
             val time = binding.root.resources.getInteger(
                 AR.integer.config_shortAnimTime,
@@ -1475,7 +1504,7 @@ open class LibraryController(
         singleCategory = presenter.categories.size <= 1
 
         binding.progress.isVisible = false
-        (activity as? MainActivity)?.splashState?.ready = true
+        (activity as? MainActivity)?.releaseSplash()
 
         if (!freshStart) {
             justStarted = false

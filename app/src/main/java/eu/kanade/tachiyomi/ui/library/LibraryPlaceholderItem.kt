@@ -39,7 +39,7 @@ class LibraryPlaceholderItem (
     }
 
     override fun hashCode(): Int {
-        return 31 * Long.MIN_VALUE.hashCode() + header!!.hashCode()
+        return 31 * Long.MIN_VALUE.hashCode() + sectionHeader.hashCode()
     }
 
     sealed class Type {

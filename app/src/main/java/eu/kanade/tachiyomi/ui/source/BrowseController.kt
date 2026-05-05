@@ -144,7 +144,7 @@ class BrowseController :
 
         binding.sourceRecycler.adapter = adapter
         binding.sourceRecycler.onAnimationsFinished {
-            (activity as? MainActivity)?.splashState?.ready = true
+            (activity as? MainActivity)?.releaseSplash()
         }
         adapter?.isSwipeEnabled = true
         adapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY

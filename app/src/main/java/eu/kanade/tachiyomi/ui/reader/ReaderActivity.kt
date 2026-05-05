@@ -340,9 +340,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
      * Called when the activity is created. Initializes the view model and configuration.
      */
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = maybeInstallSplashScreen(savedInstanceState)
+        // Install the splash BEFORE super.onCreate() so the AndroidX library's postSplashScreenTheme
+        // swap is followed by BaseActivity.onCreate's setThemeByPref re-applying the user's theme.
+        val splashScreen = installSplash(savedInstanceState)
 
-        // Setup shared element transitions
+        // Window features (FEATURE_ACTIVITY_TRANSITIONS) must be requested before super.onCreate
+        // adds content.
         if (intent.extras?.getString(TRANSITION_NAME) != null) {
             window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS)
             findViewById<View>(AR.id.content)?.let { contentView ->
@@ -359,6 +362,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         }
 
         super.onCreate(savedInstanceState)
+
         binding = ReaderActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
         val a = obtainStyledAttributes(intArrayOf(AR.attr.windowLightStatusBar))
@@ -366,7 +370,15 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         a.recycle()
         setCutoutMode()
 
+        // Arm the keep-on-screen predicate after super.onCreate, requestFeature, and
+        // setContentView. Then immediately release: by this point the reader window is
+        // inflated and the activity is visually ready behind the splash; chapter decode
+        // continues asynchronously with the reader's own loading indicator. SPLASH_MIN_DURATION
+        // (500 ms) still gates the dismissal so we don't flicker on instant cold starts.
+        // Without this, direct cold-launches into the reader (notification / widget deep-links)
+        // would hold the splash for the full SPLASH_MAX_DURATION (5 s) cap.
         splashScreen?.configure()
+        releaseSplash()
 
         wic.isAppearanceLightStatusBars = lightStatusBar
         wic.isAppearanceLightNavigationBars = lightStatusBar

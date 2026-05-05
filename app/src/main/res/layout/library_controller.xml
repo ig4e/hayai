@@ -55,7 +55,7 @@
             <include layout="@layout/library_grid_recycler"
                 android:id="@+id/library_grid_recycler"/>
 
-            <androidx.viewpager.widget.ViewPager
+            <eu.kanade.tachiyomi.widget.HorizontalEagerViewPager
                 android:id="@+id/library_pager"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"

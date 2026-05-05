@@ -106,25 +106,34 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
     override fun onCreate() {
         super<Application>.onCreate()
 
-        // TLS 1.3 support for Android 10 and below
+        // ── 1. Pre-DI platform shims ──────────────────────────────────────────────────────
+        // TLS 1.3 backport on pre-Q.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             Security.insertProviderAt(Conscrypt.newProvider(), 1)
         }
-
-        // Avoid potential crashes
+        // Per-process WebView data dir to avoid multi-process crashes.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val process = getProcessName()
             if (packageName != process) WebView.setDataDirectorySuffix(process)
         }
 
+        // ── 2. DI ─────────────────────────────────────────────────────────────────────────
+        // Koin modules registered first so injectLazy() in everything below resolves.
         startKoin {
-            // EXH -->
-            modules(preferenceModule(this@App), appModule(this@App), domainModule(), exhModule(),
-            // EXH <--
-            // NOVEL -->
-            novelModule())
-            // NOVEL <--
+            modules(
+                preferenceModule(this@App),
+                appModule(this@App),
+                domainModule(),
+                // EXH -->
+                exhModule(),
+                // EXH <--
+                // NOVEL -->
+                novelModule(),
+                // NOVEL <--
+            )
         }
+        // Eagerly warm up heavy singletons on IO so the main thread isn't blocked when
+        // MainActivity later calls into them. See AppModule.initExpensiveComponents.
         initExpensiveComponents(this)
 
         // EXH -->
@@ -135,10 +144,35 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         // }
         // EXH <--
 
+        // ── 3. Process-lifetime observers and scope ──────────────────────────────────────
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
-
         val scope = ProcessLifecycleOwner.get().lifecycleScope
 
+        // ── 4. One-shot side effects ──────────────────────────────────────────────────────
+        setupNotificationChannels()
+
+        // Cover ratio/colour cache: heavy SharedPreferences read on first access; on IO so it
+        // can't block the main thread. MangaCoverMetadata.load() merges into the existing
+        // in-memory maps and gates savePrefs() until completion, so callers writing entries
+        // before the load finishes don't have those writes clobbered or persisted as empty.
+        scope.launchIO { MangaCoverMetadata.load() }
+
+        // Glance widget: queries the host once on cold start; safe to do off-main.
+        scope.launchIO { with(TachiyomiWidgetManager()) { this@App.init() } }
+
+        // Default the hardware bitmap threshold from GL caps if the user hasn't set it.
+        basePreferences.hardwareBitmapThreshold().let { preference ->
+            if (!preference.isSet()) preference.set(GLUtil.DEVICE_TEXTURE_LIMIT)
+        }
+
+        // Read the last version code and start any pending migrations on IO. Migrator.await()
+        // is consumed later by MainActivity to gate the "what's new" sheet, never the splash.
+        initializeMigrator()
+
+        // ── 5. Preference-driven flows ────────────────────────────────────────────────────
+        // All registered with launchIn(scope); each is a one-line registration that doesn't
+        // touch disk until the underlying SharedPreferences are loaded by their respective
+        // backing keys.
         networkPreferences.verboseLogging().changes()
             .onEach { enabled ->
                 // FlexibleAdapter.enableLogs(if (enabled) Level.VERBOSE else Level.SUPPRESS)
@@ -156,25 +190,16 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
             }
             .launchIn(scope)
 
-        setupNotificationChannels()
-
-        MangaCoverMetadata.load()
         preferences.nightMode().changes()
             .onEach { AppCompatDelegate.setDefaultNightMode(it) }
             .launchIn(scope)
 
-        basePreferences.hardwareBitmapThreshold().let { preference ->
-            if (!preference.isSet()) preference.set(GLUtil.DEVICE_TEXTURE_LIMIT)
-        }
         basePreferences.hardwareBitmapThreshold().changes()
             .onEach { ImageUtil.hardwareBitmapThreshold = it }
             .launchIn(scope)
 
-        scope.launchIO {
-            with(TachiyomiWidgetManager()) { this@App.init() }
-        }
-
-        // Show notification to disable Incognito Mode when it's enabled
+        // Incognito-mode notification: persistent foreground notification while enabled,
+        // dismissed when toggled off. POST_NOTIFICATIONS gating handled inline.
         preferences.incognitoMode().changes()
             .onEach { enabled ->
                 val notificationManager = NotificationManagerCompat.from(this)
@@ -210,8 +235,6 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
                 }
             }
             .launchIn(scope)
-
-        initializeMigrator()
     }
 
     private fun initializeMigrator() {

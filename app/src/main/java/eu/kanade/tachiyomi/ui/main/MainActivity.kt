@@ -259,9 +259,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = maybeInstallSplashScreen(savedInstanceState)
+        // Install the splash BEFORE super.onCreate(): AndroidX requires it, and it lets
+        // BaseActivity.onCreate's setThemeByPref re-apply the user's chosen theme on top of
+        // the library's postSplashScreenTheme swap. (See KDoc on installSplash.)
+        val splashScreen = installSplash(savedInstanceState)
 
-        // Set up shared element transition and disable overlay so views don't show above system bars
+        // Window features must be requested before super.onCreate() adds any content.
         window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS)
         setExitSharedElementCallback(
             object : MaterialContainerTransformSharedElementCallback() {
@@ -286,6 +289,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         window.sharedElementsUseOverlay = false
 
         super.onCreate(savedInstanceState)
+
+        // Arm the keep-on-screen predicate AFTER super.onCreate (decor view ready) and
+        // AFTER requestFeature (window features must come first). The 5 s SPLASH_MAX_DURATION
+        // cap is the unconditional backstop; root controllers call releaseSplash() once their
+        // first content is rendered for the success path.
+        splashScreen?.configure()
 
         backPressedCallback = object : OnBackPressedCallback(enabled = true) {
             var startTime: Long = 0
@@ -443,10 +452,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
         val content: ViewGroup = binding.mainContent
 
-        // Dismiss the splash as soon as MainActivity is set up. Previously this waited inside
-        // a lifecycleScope coroutine, but on cold start that coroutine didn't run until well
-        // past the 5 s splash cap, so the splash effectively always hit the hard timeout.
-        splashState.ready = true
+        // Splash is released by the root controller (LibraryController / RecentsController /
+        // BrowseController) once its first content is rendered, so the user sees splash → content
+        // with no empty MainActivity in between. The 5 s SPLASH_MAX_DURATION cap armed by
+        // splashScreen?.configure() above is the backstop if a controller never signals ready.
+        // SearchActivity overrides this and calls releaseSplash() in its own onCreate because its
+        // pushed controllers don't carry the release hook.
 
         if (savedInstanceState == null && this !is SearchActivity) {
             // Reset Incognito Mode on relaunch
@@ -713,8 +724,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         binding.toolbar.navigationIcon = navIcon
         (router.backstack.lastOrNull()?.controller as? BaseLegacyController<*>)?.setTitle()
         (router.backstack.lastOrNull()?.controller as? SettingsLegacyController)?.setTitle()
-
-        splashScreen?.configure()
 
         lifecycleScope.launchIO {
             extensionManager.getExtensionUpdates(true)
@@ -1042,7 +1051,8 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
     @SuppressLint("MissingSuperCall")
     override fun onNewIntent(intent: Intent) {
-        splashState.ready = true
+        // The splash is long gone by the time onNewIntent fires (the activity is already
+        // resumed). No splash state to touch here.
         if (!handleIntentAction(intent)) {
             super.onNewIntent(intent)
         }

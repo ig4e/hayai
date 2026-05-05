@@ -36,9 +36,12 @@ class LibraryPagerAdapter(
         val recycler = LayoutInflater.from(container.context)
             .inflate(R.layout.library_pager_page, container, false) as AutofitRecyclerView
         val outerController = this@LibraryPagerAdapter.controller
+        // isPagedMode signals LibraryCategoryAdapter.setItems to suppress auto-section insertion via
+        // LibraryItem.suppressSectionHeader. setDisplayHeadersAtStartUp(false) used to be set here
+        // too, but FlexibleAdapter's implementation makes that a no-op once headersShown is true
+        // (which happens during the parent class's init), so it isn't worth calling.
         val adapter = LibraryCategoryAdapter(outerController).apply {
             isPagedMode = true
-            setDisplayHeadersAtStartUp(false)
             showOutline = outerController.uiPreferences.outlineOnCovers().get()
             showNumber = outerController.preferences.categoryNumberOfItems().get()
         }
@@ -108,8 +111,16 @@ class LibraryPagerAdapter(
 
     private fun bindCategoryItems(position: Int, adapter: LibraryCategoryAdapter) {
         val category = categories.getOrNull(position) ?: return
-        adapter.setItems(controller.presenter.libraryToDisplay[category].orEmpty())
-        adapter.hideAllHeaders()
+        // libraryToDisplay's per-category list can include a LibraryHeaderItem at index 0 (continuous
+        // mode renders that as the category bubble). In tabbed mode the category IS the tab, so we
+        // strip pre-existing headers from the input. Auto-inserted headers (from each LibraryItem's
+        // getHeader()) are separately suppressed inside LibraryCategoryAdapter.setItems via the
+        // isPagedMode + LibraryItem.suppressSectionHeader path; together they guarantee zero headers
+        // end up in mItems while the page is bound.
+        val items = controller.presenter.libraryToDisplay[category]
+            .orEmpty()
+            .filter { it !is LibraryHeaderItem }
+        adapter.setItems(items)
         controller.applySelectionStateTo(adapter)
     }
 

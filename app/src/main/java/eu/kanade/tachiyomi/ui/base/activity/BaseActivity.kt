@@ -21,10 +21,7 @@ import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getThemeWithExtras
 import eu.kanade.tachiyomi.util.system.setLocaleByAppCompat
 import eu.kanade.tachiyomi.util.system.setThemeByPref
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
-import yokai.domain.SplashState
 import yokai.presentation.theme.ReducedMotion
 import android.R as AR
 
@@ -35,7 +32,14 @@ abstract class BaseActivity<VB : ViewBinding> : AppCompatActivity() {
     val isBindingInitialized get() = this::binding.isInitialized
 
     private var updatedTheme: Resources.Theme? = null
-    internal val splashState: SplashState = Injekt.get()
+
+    /**
+     * Per-activity splash gate. Held until [releaseSplash] is called. The keep-on-screen
+     * predicate installed by [SplashScreen.configure] watches this flag together with
+     * SPLASH_MIN_DURATION and SPLASH_MAX_DURATION (see the constants in the companion).
+     */
+    @Volatile
+    private var splashHeld = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setLocaleByAppCompat()
@@ -83,25 +87,71 @@ abstract class BaseActivity<VB : ViewBinding> : AppCompatActivity() {
         }
     }
 
-    fun maybeInstallSplashScreen(savedInstanceState: Bundle?): SplashScreen? {
-        if (splashState.shown || savedInstanceState != null) {
+    /**
+     * Install the AndroidX SplashScreen for this activity.
+     *
+     * **MUST be called BEFORE [super.onCreate]** — two reasons:
+     *  1. AndroidX requires it (the library reads the current theme's splash attributes
+     *     during install and the activity's theme has to be the splash theme at that point).
+     *  2. `installSplashScreen()` swaps the activity's theme to `postSplashScreenTheme`
+     *     (the basic [R.style.Theme_Tachiyomi]). [BaseActivity.onCreate] then calls
+     *     [setThemeByPref] which re-applies the user's chosen theme on top. If install runs
+     *     AFTER [super.onCreate], the library's swap clobbers the user's theme — the app
+     *     ends up rendering in the basic theme instead of the user-configured one.
+     *
+     * After install, also call [SplashScreen.configure] AFTER [super.onCreate] (and after
+     * any `window.requestFeature()` calls) to arm the keep-on-screen predicate.
+     *
+     * Returns null on configuration-change recreate / when the splash has already been
+     * shown earlier in this process (Android only shows the splash once per process).
+     */
+    fun installSplash(savedInstanceState: Bundle?): SplashScreen? {
+        if (splashShownThisProcess || savedInstanceState != null) {
             setTheme(R.style.Theme_Tachiyomi)
-            splashState.ready = true
+            splashHeld = false
             return null
-        } else {
-            splashState.shown = true
         }
-
+        splashShownThisProcess = true
         return installSplashScreen()
     }
 
+    /**
+     * Arm the keep-on-screen predicate for a splash returned by [installSplash].
+     *
+     * **MUST be called AFTER [super.onCreate]** (the predicate registers via
+     * `setKeepOnScreenCondition`, which touches the decor view) **AND AFTER any
+     * `window.requestFeature(...)` calls** (window features must be requested before any
+     * content is added; touching the decor view counts).
+     *
+     * The predicate keeps the splash on screen until BOTH:
+     *  - SPLASH_MIN_DURATION (500 ms) has elapsed (avoids a flicker on instant cold starts), AND
+     *  - [releaseSplash] has been called.
+     *
+     * As an absolute backstop, the predicate also dismisses the splash unconditionally after
+     * SPLASH_MAX_DURATION (5 s). That cap is what saves the user from a hung cold start or
+     * a root controller that never finishes loading its first content — without it the
+     * splash would sit there forever waiting for a [releaseSplash] call that never comes.
+     */
     fun SplashScreen.configure() {
         val startTime = System.currentTimeMillis()
-        this.setKeepOnScreenCondition {
+        setKeepOnScreenCondition {
             val elapsed = System.currentTimeMillis() - startTime
-            elapsed <= SPLASH_MIN_DURATION || (!splashState.ready && elapsed <= SPLASH_MAX_DURATION)
+            elapsed <= SPLASH_MIN_DURATION || (splashHeld && elapsed <= SPLASH_MAX_DURATION)
         }
-        this.setSplashScreenExitAnimation()
+        setSplashScreenExitAnimation()
+    }
+
+    /**
+     * Release the splash screen. Safe to call multiple times. The next pre-draw will check the
+     * predicate, see the minimum duration has elapsed and the gate is clear, and dismiss the
+     * splash so the activity content becomes visible.
+     *
+     * Root controllers (Library/Recents/Browse) call this from their `onViewCreated` once their
+     * RecyclerView has populated, so the splash hides exactly when there's something behind it
+     * worth showing.
+     */
+    fun releaseSplash() {
+        splashHeld = false
     }
 
     private fun SplashScreen.setSplashScreenExitAnimation() {
@@ -153,6 +203,14 @@ abstract class BaseActivity<VB : ViewBinding> : AppCompatActivity() {
     }
 
     companion object {
+        /**
+         * Whether the splash has been installed at least once in this process. Android only shows
+         * the splash on the first activity launch per process, so subsequent activities (or this
+         * activity after a config-change recreate, when savedInstanceState != null) skip the install.
+         */
+        @Volatile
+        private var splashShownThisProcess = false
+
         // Splash screen
         private const val SPLASH_MIN_DURATION = 500 // ms
         private const val SPLASH_MAX_DURATION = 5000 // ms

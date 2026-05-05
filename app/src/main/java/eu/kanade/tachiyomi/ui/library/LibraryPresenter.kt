@@ -330,7 +330,7 @@ class LibraryPresenter(
         catId ?: return null
         return currentLibraryItems
             .filterIsInstance<LibraryMangaItem>()
-            .filter { it.header.category.id == catId }
+            .filter { it.sectionHeader.category.id == catId }
             .map { it.manga }
     }
 
@@ -671,7 +671,7 @@ class LibraryPresenter(
         val categoryOrderMap = allCategories.associate { it.id to it.order }
 
         val sortFn: (LibraryItem, LibraryItem) -> Int = { i1, i2 ->
-            val category = i1.header.category
+            val category = i1.sectionHeader.category
             val compare = when {
                 i1 is LibraryPlaceholderItem -> -1
                 i2 is LibraryPlaceholderItem -> 1
@@ -969,7 +969,7 @@ class LibraryPresenter(
                     val headerItem = headerItems[it.category] ?: return@mapNotNull null
                     LibraryMangaItem(it, headerItem, viewContext)
                 }
-                .groupBy { it.header.catId }
+                .groupBy { it.sectionHeader.catId }
 
             // Only show default category when needed
             if (rt.containsKey(0)) categories.add(0, defaultCategory)
@@ -1136,7 +1136,7 @@ class LibraryPresenter(
                 // BY_STATUS
                 else -> listOf(LibraryMangaItem(manga, makeOrGetHeader(context.mapStatus(manga.manga.status)), viewContext))
             }
-        }.flatten().groupBy { it.header.catId }
+        }.flatten().groupBy { it.sectionHeader.catId }
 
         val headers = tagItems.map { item ->
             Category.createCustom(

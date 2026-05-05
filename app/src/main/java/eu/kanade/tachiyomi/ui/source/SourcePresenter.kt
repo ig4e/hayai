@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.util.system.withUIContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
@@ -128,6 +129,13 @@ class SourcePresenter(
     }
 
     fun onDestroy() {
+        // observeSources's combine wraps onStart lambdas that read preferences.X(), capturing
+        // SourcePresenter (and therefore BrowseController). Without this cancel, the suspended
+        // collector inside StateFlowSlot keeps the controller — and its scrollViewWith lifecycle
+        // listener that captures the source recycler — alive past onDestroy, leaking MainActivity.
+        // Cancelling the scope ends sourcesJob + lastUsedJob + any pending loadSources launch,
+        // freeing the upstream chain so Conductor's normal listener cleanup can release the rest.
+        scope.cancel()
         lastSources = sourceItems
         lastUsedItemRem = lastUsedItem
     }

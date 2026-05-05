@@ -55,6 +55,14 @@ class SearchActivity : MainActivity() {
         }
         (router.backstack.lastOrNull()?.controller as? BaseLegacyController<*>)?.setTitle()
         (router.backstack.lastOrNull()?.controller as? SettingsLegacyController)?.setTitle()
+
+        // SearchActivity's pushed controller (GlobalSearchController, MangaDetailsController,
+        // etc.) doesn't carry the LibraryController-style releaseSplash() hook, so when this
+        // activity is launched cold (process_text / SEARCH / share intent) the splash would
+        // otherwise hang until the 5 s SPLASH_MAX_DURATION cap. Release it here — onCreate has
+        // already configured the toolbar and pushed the search controller, so the activity is
+        // visually ready behind the splash.
+        releaseSplash()
     }
 
     // Override finishAfterTransition since the animation gets weird when launching this from other apps

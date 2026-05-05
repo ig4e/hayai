@@ -40,8 +40,8 @@ class LibraryFastScroll @JvmOverloads constructor(context: Context, attrs: Attri
             var targetPos = getTargetPos(y)
             val category = when (val item = adapter.getItem(targetPos)) {
                 is LibraryItem -> {
-                    targetPos = adapter.currentItems.indexOf(item.header)
-                    item.header.category
+                    targetPos = adapter.currentItems.indexOf(item.sectionHeader)
+                    item.sectionHeader.category
                 }
                 is LibraryHeaderItem -> item.category
                 else -> return super.setRecyclerViewPosition(y)

@@ -20,6 +20,31 @@ abstract class LibraryItem(
 
     var filter = ""
 
+    /**
+     * Stable, non-null reference to the section header captured at construction. App code (presenter,
+     * holders, fast-scroll, sorting) reads through this property; only FlexibleAdapter's section
+     * machinery talks to [getHeader]. That separation lets the adapter return null transiently to
+     * suppress auto-sectioning (see [getHeader] / [suppressSectionHeader]) without forcing the rest
+     * of the codebase to deal with nullability.
+     */
+    val sectionHeader: LibraryHeaderItem = header
+
+    /**
+     * FlexibleAdapter's prepareItemsForUpdate (FlexibleAdapter.java:5658) unconditionally inserts a
+     * header into mItems for every item whose getHeader() is non-null — regardless of headersShown
+     * or setDisplayHeadersAtStartUp. The setDisplayHeadersAtStartUp(false) override is itself a no-op
+     * once headersShown is true (FlexibleAdapter.java:1479-1484), so there is no public API to
+     * suppress the section auto-insertion. The only path that works is hiding the header at the
+     * source: returning null from getHeader() during prepareItemsForUpdate.
+     *
+     * The flag is a ThreadLocal so it only affects the thread doing setItems on a paged-mode adapter
+     * (always the UI thread). Concurrent flow work on Dispatchers.IO — e.g.
+     * LibraryPresenter.getLibraryItems' groupBy lambdas — keeps reading the real, non-null header.
+     */
+    override fun getHeader(): LibraryHeaderItem? {
+        return if (suppressSectionHeader.get() == true) null else super.getHeader()
+    }
+
     internal val sourceManager: SourceManager by injectLazy()
     private val uiPreferences: UiPreferences by injectLazy()
     private val preferences: PreferencesHelper by injectLazy()
@@ -53,5 +78,8 @@ abstract class LibraryItem(
 
         const val DISPLAY_MODE_CONTINUOUS = 0
         const val DISPLAY_MODE_TABBED = 1
+
+        /** ThreadLocal so the suppress is scoped to the thread doing setItems on a paged-mode adapter. */
+        internal val suppressSectionHeader: ThreadLocal<Boolean> = ThreadLocal()
     }
 }

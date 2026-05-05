@@ -78,7 +78,23 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
         // A copy of manga always unfiltered.
         mangas = list.toList()
 
-        performFilter()
+        // In paged mode the per-tab recycler renders a single category, so FlexibleAdapter's
+        // auto-section insertion (which fires inside performFilter → updateDataSet →
+        // prepareItemsForUpdate and is not gated by setDisplayHeadersAtStartUp / headersShown)
+        // would draw a category bubble above the items — the flash users saw when switching tabs.
+        // We suppress getHeader() for the duration of the synchronous setItems window only on this
+        // thread, so concurrent flow work on Dispatchers.IO (LibraryPresenter.getLibraryItems' groupBy
+        // lambdas, etc.) continues to see the real header.
+        if (isPagedMode) {
+            LibraryItem.suppressSectionHeader.set(true)
+            try {
+                performFilter()
+            } finally {
+                LibraryItem.suppressSectionHeader.remove()
+            }
+        } else {
+            performFilter()
+        }
     }
 
     private fun setItemsPerCategoryMap() {
@@ -215,7 +231,7 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
                 val text =
                     when (getSort(position)) {
                         LibrarySort.DragAndDrop -> {
-                            if (item.header.category.isDynamic && item.manga.manga.id != null) {
+                            if (item.sectionHeader.category.isDynamic && item.manga.manga.id != null) {
                                 // FIXME: Don't do blocking
                                 val category = runBlocking { getCategories.awaitByMangaId(item.manga.manga.id!!) }.firstOrNull()?.name
                                 category ?: context.getString(MR.strings.default_value)

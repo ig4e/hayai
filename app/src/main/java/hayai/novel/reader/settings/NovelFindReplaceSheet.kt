@@ -4,6 +4,8 @@ import android.view.ViewGroup
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -37,10 +39,14 @@ fun NovelFindReplaceSheet(
         // drag handle and any default top padding so the title sits flush with the top.
         dragHandle = null,
     ) {
+        // The inner section uses a plain Column (it has to — the Advanced tab caller already
+        // wraps it in a verticalScroll, and nesting two would crash on unbounded height).
+        // So we own the scroll here, where this sheet is the only thing rendering it.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 600.dp),
+                .heightIn(max = 600.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
             RegexReplacementSection(preferences)
         }

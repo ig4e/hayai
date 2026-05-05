@@ -115,7 +115,7 @@ class LibraryMangaItem(
      * Returns true if this item is draggable.
      */
     override fun isDraggable(): Boolean {
-        return header.category.isDragAndDrop
+        return sectionHeader.category.isDragAndDrop
     }
 
     override fun isEnabled(): Boolean {
@@ -175,6 +175,6 @@ class LibraryMangaItem(
     }
 
     override fun hashCode(): Int {
-        return 31 * manga.manga.id.hashCode() + header!!.hashCode()
+        return 31 * manga.manga.id.hashCode() + sectionHeader.hashCode()
     }
 }
