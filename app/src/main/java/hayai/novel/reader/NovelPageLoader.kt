@@ -38,6 +38,7 @@ class NovelPageLoader(
         try {
             val html = source.getChapterText(chapter.chapter.url)
             val bytes = html.toByteArray(Charsets.UTF_8)
+            page.text = html
             page.stream = { ByteArrayInputStream(bytes) }
             page.status = Page.State.Ready
         } catch (e: Throwable) {
@@ -45,7 +46,7 @@ class NovelPageLoader(
             // fetch causes the next bind to flash "Failed to load pages" before the relaunched
             // load updates state.
             if (e is CancellationException) throw e
-            page.status = Page.State.Error
+            page.status = Page.State.Error(e)
             Logger.e(e) { "NovelPageLoader: Failed to load chapter ${chapter.chapter.url}" }
         }
     }

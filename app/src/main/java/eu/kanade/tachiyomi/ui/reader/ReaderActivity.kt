@@ -108,7 +108,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.VerticalPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
-import hayai.novel.reader.NovelViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer
 import eu.kanade.tachiyomi.ui.security.SecureActivityDelegate
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
@@ -160,6 +160,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
@@ -228,6 +229,40 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
 
     private var intentPageNumber: Int? = null
 
+    /**
+     * Compose overlay mounted when the active viewer is a [NovelViewer] / [NovelWebViewViewer]
+     * to expose novel-only actions (TTS toggle, auto-scroll, scroll-to-top, settings) that the
+     * manga XML bars never carried. Lifecycle is tied to the viewer-swap path in [setManga];
+     * visibility is driven by [menuVisible] via [novelActionBarVisibleState].
+     */
+    internal var novelActionBarComposeView: androidx.compose.ui.platform.ComposeView? = null
+    private val novelActionBarVisibleState = androidx.compose.runtime.mutableStateOf(false)
+    private val novelActionBarTickState = androidx.compose.runtime.mutableStateOf(0)
+
+    /**
+     * Periodic sync coroutine that pushes the active viewer's TTS state into
+     * [hayai.novel.reader.service.NovelTtsPlaybackService] so the foreground notification
+     * stays accurate while the user is reading. Cancelled when TTS stops or the reader exits.
+     */
+    private var ttsNotificationSyncJob: Job? = null
+
+    /**
+     * Receives `ACTION_CONTROL` broadcasts dispatched by the TTS notification's pause/stop
+     * actions and forwards them to the active novel viewer's TTS engine. Registered in
+     * [onCreate] and unregistered in [onDestroy].
+     */
+    private val ttsNotificationControlReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            if (intent?.action != hayai.novel.reader.service.NovelTtsPlaybackService.ACTION_CONTROL) return
+            when (intent.getStringExtra(hayai.novel.reader.service.NovelTtsPlaybackService.EXTRA_COMMAND)) {
+                hayai.novel.reader.service.NovelTtsPlaybackService.COMMAND_TOGGLE_PAUSE ->
+                    togglePauseResumeFromNotification()
+                hayai.novel.reader.service.NovelTtsPlaybackService.COMMAND_STOP ->
+                    stopTtsFromNotification()
+            }
+        }
+    }
+
     var isLoading = false
 
     private var lastShiftDoubleState: Boolean? = null
@@ -270,6 +305,20 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             intent.putExtra("manga", manga.id)
             intent.putExtra("chapter", chapter.id)
             if (page >= 0) intent.putExtra("page", page)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            return intent
+        }
+
+        /**
+         * Lightweight overload used by the novel TTS notification to deep-link back into the
+         * active reader. Accepts raw IDs instead of full [Manga]/[Chapter] objects so the service
+         * doesn't have to resolve them out of the database just to build a tap intent.
+         */
+        fun newIntent(context: Context, mangaId: Long?, chapterId: Long?): Intent {
+            MainActivity.chapterIdToExitTo = 0L
+            val intent = Intent(context, ReaderActivity::class.java)
+            mangaId?.let { intent.putExtra("manga", it) }
+            chapterId?.let { intent.putExtra("chapter", it) }
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             return intent
         }
@@ -398,6 +447,14 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         config = ReaderConfig()
         initializeMenu()
 
+        // Register the receiver that handles pause/stop actions from the TTS notification.
+        ContextCompat.registerReceiver(
+            this,
+            ttsNotificationControlReceiver,
+            android.content.IntentFilter(hayai.novel.reader.service.NovelTtsPlaybackService.ACTION_CONTROL),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+
         preferences.incognitoMode()
             .changesIn(lifecycleScope) {
                 SecureActivityDelegate.setSecure(this)
@@ -488,6 +545,19 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
      * Called when the activity is destroyed. Cleans up the viewer, configuration and any view.
      */
     override fun onDestroy() {
+        // Cleanup must happen BEFORE super.onDestroy(): unregisterReceiver and the
+        // foreground-service stop both rely on Activity context state that super tears down.
+        // This mirrors Tsundoku's `ReaderActivity.onDestroy` ordering exactly.
+        try {
+            unregisterReceiver(ttsNotificationControlReceiver)
+        } catch (_: IllegalArgumentException) {
+            // Already unregistered or never registered (e.g. early-finish from missing manga/chapter).
+        }
+        // If the user disabled background playback, stop the service when the reader closes;
+        // otherwise leave it running so audio continues from the persistent notification.
+        if (!readerPreferences.novelTtsBackgroundPlayback.get()) {
+            stopBackgroundTtsIfRunning()
+        }
         super.onDestroy()
         viewer?.destroy()
         binding.chaptersSheet.chaptersBottomSheet.adapter = null
@@ -497,6 +567,137 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         bottomSheet = null
         snackbar?.dismiss()
         snackbar = null
+    }
+
+    /**
+     * Starts the TTS foreground service (if background-playback is enabled) and begins
+     * pushing TTS state into its notification at a steady cadence.
+     */
+    private fun startBackgroundTtsIfEnabled() {
+        if (readerPreferences.novelTtsBackgroundPlayback.get()) {
+            hayai.novel.reader.service.NovelTtsPlaybackService.start(this)
+            startTtsNotificationSync()
+        }
+    }
+
+    private fun stopBackgroundTtsIfRunning() {
+        hayai.novel.reader.service.NovelTtsPlaybackService.stop(this)
+        stopTtsNotificationSync()
+    }
+
+    private fun syncBackgroundTtsState() {
+        if (!readerPreferences.novelTtsBackgroundPlayback.get()) {
+            stopBackgroundTtsIfRunning()
+            return
+        }
+
+        val state = currentNovelTtsState() ?: return
+        if (!state.active) {
+            hayai.novel.reader.service.NovelTtsPlaybackService.stop(this)
+            stopTtsNotificationSync()
+            return
+        }
+
+        hayai.novel.reader.service.NovelTtsPlaybackService.syncState(
+            context = this,
+            isPaused = state.paused,
+            progressPercent = state.progressPercent,
+            novelTitle = state.novelTitle,
+            chapterTitle = state.chapterTitle,
+            mangaId = state.mangaId,
+            chapterId = state.chapterId,
+        )
+    }
+
+    private fun startTtsNotificationSync() {
+        ttsNotificationSyncJob?.cancel()
+        ttsNotificationSyncJob = lifecycleScope.launch {
+            while (isActive) {
+                syncBackgroundTtsState()
+                delay(750)
+            }
+        }
+    }
+
+    private fun stopTtsNotificationSync() {
+        ttsNotificationSyncJob?.cancel()
+        ttsNotificationSyncJob = null
+    }
+
+    private data class NovelTtsState(
+        val active: Boolean,
+        val paused: Boolean,
+        val progressPercent: Int,
+        val novelTitle: String,
+        val chapterTitle: String,
+        val mangaId: Long,
+        val chapterId: Long,
+    )
+
+    private fun currentNovelTtsState(): NovelTtsState? {
+        val novelTitle = viewModel.manga?.title.orEmpty().ifBlank { "TTS playback" }
+        val chapterTitle = viewModel.getCurrentChapter()?.chapter?.name.orEmpty()
+        val mangaId = viewModel.manga?.id ?: -1L
+        val chapterId = viewModel.getCurrentChapter()?.chapter?.id ?: -1L
+
+        return when (val v = viewer) {
+            is NovelViewer -> {
+                val paused = v.isTtsPaused()
+                val speaking = v.isTtsSpeaking()
+                NovelTtsState(
+                    active = paused || speaking || v.isTtsStarting(),
+                    paused = paused,
+                    progressPercent = v.getTtsProgressPercent(),
+                    novelTitle = novelTitle,
+                    chapterTitle = chapterTitle,
+                    mangaId = mangaId,
+                    chapterId = chapterId,
+                )
+            }
+            is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer -> {
+                val paused = v.isTtsPaused()
+                val speaking = v.isTtsSpeaking()
+                NovelTtsState(
+                    active = paused || speaking || v.isTtsStarting(),
+                    paused = paused,
+                    progressPercent = v.getTtsProgressPercent(),
+                    novelTitle = novelTitle,
+                    chapterTitle = chapterTitle,
+                    mangaId = mangaId,
+                    chapterId = chapterId,
+                )
+            }
+            else -> null
+        }
+    }
+
+    private fun stopAnyActiveNovelTts() {
+        when (val v = viewer) {
+            is NovelViewer -> if (v.isTtsSpeaking() || v.isTtsPaused()) v.stopTts()
+            is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer ->
+                if (v.isTtsSpeaking() || v.isTtsPaused()) v.stopTts()
+            else -> Unit
+        }
+    }
+
+    private fun togglePauseResumeFromNotification() {
+        when (val v = viewer) {
+            is NovelViewer -> {
+                if (v.isTtsSpeaking()) v.pauseTts() else if (v.isTtsPaused()) v.resumeTts()
+            }
+            is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer -> {
+                if (v.isTtsSpeaking()) v.pauseTts() else if (v.isTtsPaused()) v.resumeTts()
+            }
+            else -> Unit
+        }
+        syncBackgroundTtsState()
+        novelActionBarTickState.value = novelActionBarTickState.value + 1
+    }
+
+    private fun stopTtsFromNotification() {
+        stopAnyActiveNovelTts()
+        stopBackgroundTtsIfRunning()
+        novelActionBarTickState.value = novelActionBarTickState.value + 1
     }
 
     /**
@@ -587,11 +788,13 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     private fun updateCropBordersShortcut() {
+        val isNovel = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
+            viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
         val isPagerType = viewer is PagerViewer || (viewer as? WebtoonViewer)?.hasMargins == true
-        val enabled = if (isPagerType) {
-            preferences.cropBorders().get()
-        } else {
-            preferences.cropBordersWebtoon().get()
+        val enabled = when {
+            isNovel -> readerPreferences.novelMarginsCropped.get()
+            isPagerType -> preferences.cropBorders().get()
+            else -> preferences.cropBordersWebtoon().get()
         }
 
         with(binding.chaptersSheet.cropBordersSheetButton) {
@@ -625,12 +828,13 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 ReaderBottomButton.Rotation.isIn(enabledButtons)
             doublePage.isVisible = viewer is PagerViewer &&
                 ReaderBottomButton.PageLayout.isIn(enabledButtons)
-            cropBordersSheetButton.isVisible =
-                if (viewer is PagerViewer) {
+            cropBordersSheetButton.isVisible = when {
+                viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
+                    viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer -> true
+                viewer is PagerViewer ->
                     ReaderBottomButton.CropBordersPaged.isIn(enabledButtons)
-                } else {
-                    ReaderBottomButton.CropBordersWebtoon.isIn(enabledButtons)
-                }
+                else -> ReaderBottomButton.CropBordersWebtoon.isIn(enabledButtons)
+            }
             webviewButton.isVisible =
                 ReaderBottomButton.WebView.isIn(enabledButtons)
             chaptersButton.isVisible =
@@ -815,14 +1019,14 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 }
             }
             cropBordersSheetButton.setOnClickListener {
-                val pref =
-                    if ((viewer as? WebtoonViewer)?.hasMargins == true ||
-                        (viewer is PagerViewer)
-                    ) {
+                val isNovel = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
+                    viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+                val pref = when {
+                    isNovel -> readerPreferences.novelMarginsCropped
+                    (viewer as? WebtoonViewer)?.hasMargins == true || viewer is PagerViewer ->
                         preferences.cropBorders()
-                    } else {
-                        preferences.cropBordersWebtoon()
-                    }
+                    else -> preferences.cropBordersWebtoon()
+                }
                 pref.toggle()
             }
 
@@ -849,11 +1053,23 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
 
             displayOptions.setOnClickListener {
-                TabbedReaderSettingsSheet(this@ReaderActivity).show()
+                if (viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
+                    viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+                ) {
+                    eu.kanade.tachiyomi.ui.reader.settings.TabbedNovelReaderSettingsSheet(this@ReaderActivity).show()
+                } else {
+                    TabbedReaderSettingsSheet(this@ReaderActivity).show()
+                }
             }
 
             displayOptions.setOnLongClickListener {
-                TabbedReaderSettingsSheet(this@ReaderActivity, true).show()
+                if (viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
+                    viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+                ) {
+                    eu.kanade.tachiyomi.ui.reader.settings.TabbedNovelReaderSettingsSheet(this@ReaderActivity).show()
+                } else {
+                    TabbedReaderSettingsSheet(this@ReaderActivity, true).show()
+                }
                 true
             }
 
@@ -867,12 +1083,15 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
         }
 
-        listOf(preferences.cropBorders(), preferences.cropBordersWebtoon())
-            .forEach { pref ->
-                pref.changes()
-                    .onEach { updateCropBordersShortcut() }
-                    .launchIn(scope)
-            }
+        listOf(
+            preferences.cropBorders(),
+            preferences.cropBordersWebtoon(),
+            readerPreferences.novelMarginsCropped,
+        ).forEach { pref ->
+            pref.changes()
+                .onEach { updateCropBordersShortcut() }
+                .launchIn(scope)
+        }
 
         binding.chaptersSheet.shiftPageButton.setOnClickListener {
             shiftDoublePages()
@@ -937,7 +1156,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             if (viewer != null && fromUser) {
                 val prevValue = (viewer as? PagerViewer)?.pager?.currentItem ?: -1
                 when (val currentViewer = viewer) {
-                    is NovelViewer -> currentViewer.moveToProgress(value.roundToInt())
+                    is NovelViewer -> currentViewer.setProgressPercent(value.roundToInt())
                     else -> moveToPageIndex(value.roundToInt())
                 }
                 val newValue = (viewer as? PagerViewer)?.pager?.currentItem ?: -1
@@ -1222,6 +1441,113 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
         }
         menuTemporarilyVisible = false
+        // Mirror visibility into the Compose overlay so the novel action bar fades in/out
+        // alongside the existing manga app-bar / chapter-nav.
+        novelActionBarVisibleState.value = visible
+        if (visible) novelActionBarTickState.value = novelActionBarTickState.value + 1
+    }
+
+    /**
+     * Lazily creates the [androidx.compose.ui.platform.ComposeView] hosting the novel-only
+     * action bar and anchors it just above the existing chapter-nav layout. Re-entrant: a
+     * second call when the view is already mounted is a no-op.
+     */
+    private fun mountNovelActionBarIfNeeded() {
+        if (novelActionBarComposeView != null) return
+        val composeView = androidx.compose.ui.platform.ComposeView(this).apply {
+            id = View.generateViewId()
+            setContent {
+                yokai.presentation.theme.YokaiTheme {
+                    val visible = novelActionBarVisibleState.value
+                    // Tick state forces a recomposition each time the bars become visible so
+                    // the displayed TTS / auto-scroll booleans pick up out-of-band state.
+                    @Suppress("UNUSED_VARIABLE")
+                    val tick = novelActionBarTickState.value
+                    val novel = viewer as? NovelViewer
+                    val novelWeb = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+                    val ttsActive = novel?.isTtsSpeaking() == true ||
+                        novel?.isTtsPaused() == true ||
+                        novelWeb?.isTtsSpeaking() == true ||
+                        novelWeb?.isTtsPaused() == true
+                    val ttsPaused = novel?.isTtsPaused() == true || novelWeb?.isTtsPaused() == true
+                    val autoScrolling = novel?.isAutoScrollActive() == true ||
+                        novelWeb?.isAutoScrollActive() == true
+                    hayai.novel.reader.bars.NovelReaderActionBar(
+                        visible = visible,
+                        isTtsActive = ttsActive,
+                        isTtsPaused = ttsPaused,
+                        isAutoScrolling = autoScrolling,
+                        onToggleTts = {
+                            var startedFresh = false
+                            when {
+                                novel != null -> when {
+                                    novel.isTtsPaused() -> novel.resumeTts()
+                                    novel.isTtsSpeaking() -> novel.pauseTts()
+                                    else -> { novel.startTts(); startedFresh = true }
+                                }
+                                novelWeb != null -> when {
+                                    novelWeb.isTtsPaused() -> novelWeb.resumeTts()
+                                    novelWeb.isTtsSpeaking() -> novelWeb.pauseTts()
+                                    else -> { novelWeb.startTts(); startedFresh = true }
+                                }
+                            }
+                            if (startedFresh) startBackgroundTtsIfEnabled() else syncBackgroundTtsState()
+                            novelActionBarTickState.value = novelActionBarTickState.value + 1
+                        },
+                        onLongPressTts = {
+                            novel?.stopTts() ?: novelWeb?.stopTts()
+                            stopBackgroundTtsIfRunning()
+                            novelActionBarTickState.value = novelActionBarTickState.value + 1
+                        },
+                        onTtsStartFromViewport = {
+                            novel?.startTtsFromViewport() ?: novelWeb?.startTtsFromViewport()
+                            startBackgroundTtsIfEnabled()
+                            novelActionBarTickState.value = novelActionBarTickState.value + 1
+                        },
+                        onToggleAutoScroll = {
+                            novel?.toggleAutoScroll() ?: novelWeb?.toggleAutoScroll()
+                            novelActionBarTickState.value = novelActionBarTickState.value + 1
+                        },
+                        onScrollToTop = {
+                            novel?.scrollToTop() ?: novelWeb?.scrollToTop()
+                        },
+                        onClickFindReplace = {
+                            hayai.novel.reader.settings.showNovelFindReplaceSheet(this@ReaderActivity)
+                        },
+                        onClickQuotes = {
+                            val manga = viewModel.manga ?: return@NovelReaderActionBar
+                            val novelId = manga.id ?: return@NovelReaderActionBar
+                            val chapter = viewModel.state.value.viewerChapters?.currChapter?.chapter
+                            hayai.novel.reader.quote.showQuotesSheet(
+                                activity = this@ReaderActivity,
+                                novelId = novelId,
+                                novelName = manga.title,
+                                chapterName = chapter?.name ?: "",
+                            )
+                        },
+                    )
+                }
+            }
+        }
+        novelActionBarComposeView = composeView
+        val twelveDp = (12 * resources.displayMetrics.density).toInt()
+        val coordinatorParams = CoordinatorLayout.LayoutParams(
+            CoordinatorLayout.LayoutParams.MATCH_PARENT,
+            CoordinatorLayout.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            setMargins(twelveDp, 0, twelveDp, 0)
+            marginStart = twelveDp
+            marginEnd = twelveDp
+            anchorId = R.id.nav_layout
+            anchorGravity = android.view.Gravity.TOP
+            gravity = android.view.Gravity.TOP
+        }
+        binding.root.addView(composeView, coordinatorParams)
+    }
+
+    private fun removeNovelActionBar() {
+        novelActionBarComposeView?.let { binding.root.removeView(it) }
+        novelActionBarComposeView = null
     }
 
     /**
@@ -1238,7 +1564,10 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             ReadingModeType.LONG_STRIP.flagValue -> WebtoonViewer(this)
             ReadingModeType.CONTINUOUS_VERTICAL.flagValue -> WebtoonViewer(this, hasMargins = true)
             // NOVEL -->
-            ReadingModeType.NOVEL.flagValue -> NovelViewer(this)
+            ReadingModeType.NOVEL.flagValue -> when (readerPreferences.novelRenderingMode.get()) {
+                "webview" -> eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer(this)
+                else -> NovelViewer(this)
+            }
             // NOVEL <--
             else -> R2LPagerViewer(this)
         }
@@ -1284,6 +1613,13 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         }
         viewer = newViewer
         binding.viewerContainer.addView(newViewer.getView())
+
+        // Mount/dismount the Compose overlay that hosts the novel-only action bar.
+        if (newViewer is NovelViewer || newViewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) {
+            mountNovelActionBarIfNeeded()
+        } else {
+            removeNovelActionBar()
+        }
 
         if (newViewer is R2LPagerViewer) {
             binding.readerNav.leftChapter.compatToolTipText = getString(MR.strings.next_chapter)
@@ -1578,6 +1914,64 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     fun onNovelProgressChanged(page: ReaderPage, progressPercent: Int) {
         viewModel.onNovelScrollProgress(page)
         updateNovelProgressUi(progressPercent.coerceIn(0, 100))
+    }
+
+    /**
+     * Float overload called by the Tsundoku-derived NovelViewer when scroll progress changes.
+     * Updates the progress slider in real-time.
+     */
+    fun onNovelProgressChanged(progress: Float) {
+        val percentage = (progress * 100).toInt().coerceIn(0, 100)
+        updateNovelProgressUi(percentage)
+    }
+
+    /**
+     * Called from the novel viewer to save reading progress with a percentage.
+     * Progress is stored as percentage (0-100) in last_page_read.
+     */
+    fun saveNovelProgress(page: ReaderPage, progressPercentage: Int) {
+        page.chapter.chapter.last_page_read = progressPercentage.coerceIn(0, 100)
+        viewModel.onNovelScrollProgress(page)
+    }
+
+    /**
+     * Tells the view model to load the next chapter and mark it as active.
+     */
+    internal fun loadNextChapter() {
+        lifecycleScope.launch {
+            val next = viewModel.adjacentChapter(next = true) ?: return@launch
+            viewModel.loadChapter(next)
+        }
+    }
+
+    /**
+     * Tells the view model to load the previous chapter and mark it as active.
+     */
+    internal fun loadPreviousChapter() {
+        lifecycleScope.launch {
+            val prev = viewModel.adjacentChapter(next = false) ?: return@launch
+            viewModel.loadChapter(prev)
+        }
+    }
+
+    /**
+     * Check if translation mode is currently enabled.
+     * Translation is out of scope for the initial port — always returns false.
+     */
+    fun isTranslationEnabled(): Boolean = false
+
+    /**
+     * Translate text content using the translation service.
+     * Translation is out of scope for the initial port — returns content unchanged.
+     */
+    suspend fun translateContentIfEnabled(content: String): String = content
+
+    /**
+     * Called when the "Remember" action is triggered from the text-selection menu.
+     * Quotes feature is out of scope for the initial port — no-op stub.
+     */
+    fun onRememberSelectedText() {
+        // No-op — quotes feature ships in a later phase.
     }
 
     @SuppressLint("SetTextI18n")

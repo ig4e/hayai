@@ -203,6 +203,9 @@ dependencies {
     // HTML parser
     implementation(libs.jsoup)
 
+    // Markdown parser (used by novel reader for .md chapter content)
+    implementation(libs.markdown)
+
     implementation(libs.play.services.gcm)
 
     // Database

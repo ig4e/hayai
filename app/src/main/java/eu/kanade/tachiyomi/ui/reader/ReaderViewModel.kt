@@ -551,6 +551,91 @@ class ReaderViewModel(
         }
     }
 
+    /**
+     * Called by the Tsundoku-derived NovelViewer when the on-screen chapter changes during
+     * infinite-scroll reading. Trigger preload of the next chapter so it's ready to splice in.
+     */
+    fun setNovelVisibleChapter(chapter: eu.kanade.tachiyomi.data.database.models.Chapter?) {
+        chapter ?: return
+        val readerChapter = state.value.viewerChapters?.let {
+            when (chapter.id) {
+                it.currChapter.chapter.id -> it.currChapter
+                it.prevChapter?.chapter?.id -> it.prevChapter
+                it.nextChapter?.chapter?.id -> it.nextChapter
+                else -> null
+            }
+        } ?: return
+        viewModelScope.launchIO { preload(readerChapter) }
+    }
+
+    /**
+     * Prepares the next chapter for seamless infinite-scroll appending.
+     * Loads pages for the chapter immediately after [anchor] in [chapterList] without flipping
+     * state to it, so the user keeps reading [anchor] while the next chapter is spliced in by
+     * the viewer. Returns the prepared [ReaderChapter], or null if there is no next chapter
+     * (or pages could not be loaded).
+     */
+    suspend fun prepareNextChapterForInfiniteScroll(
+        anchor: ReaderChapter,
+    ): ReaderChapter? {
+        if (!::chapterList.isInitialized) return null
+        val loader = loader ?: return null
+        val anchorIndex = chapterList.indexOf(anchor).takeIf { it >= 0 } ?: return null
+        val next = chapterList.getOrNull(anchorIndex + 1) ?: return null
+        return try {
+            withIOContext { loader.loadChapter(next, page = 0) }
+            next
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            Logger.e(e) { "Failed to prepare next chapter for infinite scroll" }
+            null
+        }
+    }
+
+    /**
+     * Mirror of [prepareNextChapterForInfiniteScroll] for backward (prepend) infinite scroll.
+     */
+    suspend fun preparePreviousChapterForInfiniteScroll(
+        anchor: ReaderChapter,
+    ): ReaderChapter? {
+        if (!::chapterList.isInitialized) return null
+        val loader = loader ?: return null
+        val anchorIndex = chapterList.indexOf(anchor).takeIf { it >= 0 } ?: return null
+        val prev = chapterList.getOrNull(anchorIndex - 1) ?: return null
+        return try {
+            withIOContext { loader.loadChapter(prev, page = 0) }
+            prev
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            Logger.e(e) { "Failed to prepare previous chapter for infinite scroll" }
+            null
+        }
+    }
+
+    /**
+     * Edit-mode hook from Tsundoku's WebView novel viewer. Edit mode is out of scope for
+     * the initial Hayai port; this is a no-op stub so the viewer compiles unchanged.
+     */
+    fun setHasUnsavedChanges(unsaved: Boolean) {
+        // No-op — chapter editing is a Tsundoku-only feature, unimplemented here.
+    }
+
+    /**
+     * Edit-mode hook from Tsundoku's WebView novel viewer. Edit mode is out of scope for
+     * the initial Hayai port; this is a no-op stub so the viewer compiles unchanged.
+     */
+    fun saveEditedChapterContent(json: String) {
+        // No-op — chapter editing is a Tsundoku-only feature, unimplemented here.
+    }
+
+    /**
+     * Reload-from-source hook used by Tsundoku's WebView edit mode.
+     * Edit mode is out of scope for the initial Hayai port; this no-ops.
+     */
+    fun reloadChapter(fromSource: Boolean) {
+        // No-op — full chapter-reload reuses [setChapters] in Hayai's flow.
+    }
+
     private fun downloadNextChapters() {
         val manga = manga ?: return
         viewModelScope.launchNonCancellableIO {

@@ -45,6 +45,7 @@ class NovelDownloadPageLoader(
                 ?: throw Exception("Downloaded chapter file not found")
 
             val bytes = htmlFile.openInputStream().readBytes()
+            page.text = bytes.toString(Charsets.UTF_8)
             page.stream = { ByteArrayInputStream(bytes) }
             page.status = Page.State.Ready
         } catch (e: Throwable) {
@@ -52,7 +53,7 @@ class NovelDownloadPageLoader(
             // fetch causes the next bind to flash "Failed to load pages" before the relaunched
             // load updates state.
             if (e is CancellationException) throw e
-            page.status = Page.State.Error
+            page.status = Page.State.Error(e)
             Logger.e(e) { "NovelDownloadPageLoader: Failed to load chapter ${chapter.chapter.url}" }
         }
     }

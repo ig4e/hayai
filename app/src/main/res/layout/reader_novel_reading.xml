@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<eu.kanade.tachiyomi.ui.reader.settings.NovelReadingView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/novel_reading_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bottom_sheet_rounded_background"
+    android:clipToPadding="false">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/material_component_dialogs_padding_around_content_area"
+        android:paddingEnd="@dimen/material_component_dialogs_padding_around_content_area"
+        android:paddingTop="0dp"
+        android:paddingBottom="16dp">
+
+        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
+            android:id="@+id/rendering_mode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:title="@string/novel_rendering_mode" />
+
+        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
+            android:id="@+id/font_family"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            app:title="@string/novel_font_family" />
+
+        <com.google.android.material.textview.MaterialTextView
+            style="?textAppearanceTitleSmall"
+            android:textSize="15sp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textColor="?attr/colorSecondary"
+            android:text="@string/novel_text_align" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/text_align_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/text_align_left"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:icon="@drawable/ic_format_align_left_24dp"
+                app:iconGravity="textStart"
+                android:contentDescription="@string/novel_text_align_left" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/text_align_center"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:icon="@drawable/ic_format_align_center_24dp"
+                app:iconGravity="textStart"
+                android:contentDescription="@string/novel_text_align_center" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/text_align_right"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:icon="@drawable/ic_format_align_right_24dp"
+                app:iconGravity="textStart"
+                android:contentDescription="@string/novel_text_align_right" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/text_align_justify"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:icon="@drawable/ic_format_align_justify_24dp"
+                app:iconGravity="textStart"
+                android:contentDescription="@string/novel_text_align_justify" />
+
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <include
+            android:id="@+id/font_size"
+            layout="@layout/widget_novel_slider_int" />
+
+        <include
+            android:id="@+id/line_height"
+            layout="@layout/widget_novel_slider_float" />
+
+        <include
+            android:id="@+id/paragraph_indent"
+            layout="@layout/widget_novel_slider_float" />
+
+        <include
+            android:id="@+id/paragraph_spacing"
+            layout="@layout/widget_novel_slider_float" />
+
+        <include
+            android:id="@+id/margin_left"
+            layout="@layout/widget_novel_slider_int" />
+
+        <include
+            android:id="@+id/margin_right"
+            layout="@layout/widget_novel_slider_int" />
+
+        <include
+            android:id="@+id/margin_top"
+            layout="@layout/widget_novel_slider_int" />
+
+        <include
+            android:id="@+id/margin_bottom"
+            layout="@layout/widget_novel_slider_int" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/use_original_fonts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/novel_use_original_fonts"
+            android:textColor="?attr/colorOnBackground" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/auto_split_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/novel_auto_split_text"
+            android:textColor="?attr/colorOnBackground" />
+
+        <include
+            android:id="@+id/auto_split_word_count"
+            layout="@layout/widget_novel_slider_int" />
+    </LinearLayout>
+</eu.kanade.tachiyomi.ui.reader.settings.NovelReadingView>

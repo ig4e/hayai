@@ -238,12 +238,7 @@ object PreferenceKeys {
 
     const val chaptersDescAsDefault = "chapters_desc_as_default"
 
-    // NOVEL -->
-    const val novelFontSize = "novel_font_size"
-    const val novelFontFamily = "novel_font_family"
-    const val novelLineHeight = "novel_line_height"
-    const val novelTextAlign = "novel_text_align"
-    const val novelPadding = "novel_padding"
-    const val novelReaderTheme = "novel_reader_theme"
-    // NOVEL <--
+    // NOVEL: legacy keys removed — Tsundoku-compatible pref_novel_* keys live inline on
+    // ReaderPreferences. NovelReaderPrefsMigration reads the old key strings directly from
+    // SharedPreferences for the one-shot migration; no constants needed here.
 }

@@ -14,6 +14,7 @@ junit = "5.11.3"
 kermit = "2.0.5"
 koin = "4.0.4"
 leakcanary = "2.14"
+markdown = "0.7.3"
 voyager = "1.1.0-beta03"
 
 [libraries]
@@ -59,6 +60,7 @@ leakcanary-plumber = { module = "com.squareup.leakcanary:plumber-android", versi
 libarchive = { module = "me.zhanghai.android.libarchive:library", version = "1.1.5" }
 
 material = { module = "com.google.android.material:material", version = "1.14.0-alpha09" }
+markdown = { module = "org.jetbrains:markdown", version.ref = "markdown" }
 markwon = { module = "io.noties.markwon:core", version = "4.6.2" }
 mpandroidchart = { module = "com.github.PhilJay:MPAndroidChart", version = "v3.1.0" }
 java-nat-sort = { module = "com.github.gpanther:java-nat-sort", version = "natural-comparator-1.1" }

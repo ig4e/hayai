@@ -45,6 +45,7 @@ class StorageManager(
                     }
                     parent.createDirectory(COVERS_PATH)
                     parent.createDirectory(PAGES_PATH)
+                    parent.createDirectory(QUOTES_PATH)
                     parent.createDirectory(LOGS_PATH)?.also {
                         try {
                             Logger.setToDefault(buildLogWritersToAdd(it))
@@ -94,6 +95,10 @@ class StorageManager(
         return baseDir?.createDirectory(LOGS_PATH)
     }
 
+    fun getQuotesDirectory(): UniFile? {
+        return baseDir?.createDirectory(QUOTES_PATH)
+    }
+
     companion object {
         private const val BACKUPS_PATH = "backup"
         private const val AUTOMATIC_BACKUPS_PATH = "autobackup"
@@ -102,5 +107,6 @@ class StorageManager(
         private const val COVERS_PATH = "covers"
         private const val PAGES_PATH = "pages"
         private const val LOGS_PATH = "logs"
+        private const val QUOTES_PATH = "quotes"
     }
 }

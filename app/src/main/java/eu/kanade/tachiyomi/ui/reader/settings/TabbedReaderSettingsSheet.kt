@@ -20,10 +20,9 @@ import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.isCollapsed
 import eu.kanade.tachiyomi.widget.TabbedBottomSheetDialog
-// NOVEL -->
-import hayai.novel.reader.ReaderNovelView
-// NOVEL <--
 
+// MANGA-ONLY: do not add novel options here. The novel reader uses the Compose bottom
+// sheet at hayai.novel.reader.settings.NovelReaderSettingsSheet instead.
 class TabbedReaderSettingsSheet(
     val readerActivity: ReaderActivity,
     showColorFilterSettings: Boolean = false,
@@ -43,24 +42,11 @@ class TabbedReaderSettingsSheet(
         R.layout.reader_color_filter,
         null,
     ) as ReaderFilterView
-    // NOVEL -->
-    private val novelView: ReaderNovelView = View.inflate(
-        readerActivity,
-        R.layout.reader_novel_layout,
-        null,
-    ) as ReaderNovelView
-    // NOVEL <--
 
     var showWebtoonView: Boolean = run {
         val mangaViewer = readerActivity.viewModel.getMangaReadingMode()
         ReadingModeType.isWebtoonType(mangaViewer)
     }
-    // NOVEL -->
-    var showNovelView: Boolean = run {
-        val mangaViewer = readerActivity.viewModel.getMangaReadingMode()
-        mangaViewer == ReadingModeType.NOVEL.flagValue
-    }
-    // NOVEL <--
 
     override var offset = 0
 
@@ -76,24 +62,13 @@ class TabbedReaderSettingsSheet(
 
     override fun getTabViews(): List<View> = listOf(
         generalView,
-        // NOVEL -->
-        when {
-            showNovelView -> novelView
-            else -> pagedView
-        },
-        // NOVEL <--
+        pagedView,
         filterView,
     )
 
     override fun getTabTitles(): List<StringResource> = listOf(
         MR.strings.general,
-        // NOVEL -->
-        when {
-            showNovelView -> MR.strings.novel_reader
-            showWebtoonView -> MR.strings.long_strip
-            else -> MR.strings.paged
-        },
-        // NOVEL <--
+        if (showWebtoonView) MR.strings.long_strip else MR.strings.paged,
         MR.strings.custom_filter,
     )
 
@@ -101,9 +76,6 @@ class TabbedReaderSettingsSheet(
         generalView.activity = readerActivity
         pagedView.activity = readerActivity
         filterView.activity = readerActivity
-        // NOVEL -->
-        novelView.activity = readerActivity
-        // NOVEL <--
         filterView.window = window
         generalView.sheet = this
 
@@ -190,10 +162,7 @@ class TabbedReaderSettingsSheet(
 
     fun updateTabs(isWebtoon: Boolean) {
         showWebtoonView = isWebtoon
-        // NOVEL -->
-        showNovelView = readerActivity.viewModel.getMangaReadingMode() == ReadingModeType.NOVEL.flagValue
-        // NOVEL <--
         binding.pager.adapter?.notifyDataSetChanged()
-        if (!showNovelView) pagedView.updatePrefs()
+        pagedView.updatePrefs()
     }
 }

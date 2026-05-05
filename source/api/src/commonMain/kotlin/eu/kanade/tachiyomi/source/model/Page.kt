@@ -15,6 +15,14 @@ open class Page(
     @Transient var uri: Uri? = null, // Deprecated but can't be deleted due to extensions
 ) : ProgressListener {
 
+    /**
+     * Novel text content. This is a body property (not a constructor parameter)
+     * to preserve binary compatibility with extensions compiled against the
+     * upstream 4-param Page(index, url, imageUrl, uri) constructor.
+     */
+    @Transient
+    var text: String? = null
+
     val number: Int
         get() = index + 1
 
@@ -53,6 +61,6 @@ open class Page(
         data object LoadPage : State
         data object DownloadImage : State
         data object Ready : State
-        data object Error : State
+        data class Error(val error: Throwable) : State
     }
 }

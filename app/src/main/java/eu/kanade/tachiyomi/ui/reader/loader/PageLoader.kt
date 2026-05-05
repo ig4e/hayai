@@ -43,4 +43,11 @@ abstract class PageLoader {
      * online source is used.
      */
     open fun retryPage(page: ReaderPage) {}
+
+    /**
+     * Returns an [InputStream] for an arbitrary asset referenced by [path] inside the chapter
+     * (e.g. an EPUB image at `hayai-novel-image://chapter/img.png`). Implementations that don't
+     * carry packaged assets return null, in which case callers should silently skip the asset.
+     */
+    open fun getPageDataStream(path: String): java.io.InputStream? = null
 }

@@ -433,12 +433,7 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun useStaggeredGrid() = preferenceStore.getBoolean("use_staggered_grid", false)
 
-    // NOVEL -->
-    fun novelFontSize() = preferenceStore.getInt(Keys.novelFontSize, 18)
-    fun novelFontFamily() = preferenceStore.getInt(Keys.novelFontFamily, 0)
-    fun novelLineHeight() = preferenceStore.getInt(Keys.novelLineHeight, 18)
-    fun novelTextAlign() = preferenceStore.getInt(Keys.novelTextAlign, 0)
-    fun novelPadding() = preferenceStore.getInt(Keys.novelPadding, 16)
-    fun novelReaderTheme() = preferenceStore.getInt(Keys.novelReaderTheme, 0)
-    // NOVEL <--
+    // NOVEL: legacy accessors removed — see yokai.domain.ui.settings.ReaderPreferences.novelFontSize
+    // and friends. NovelReaderPrefsMigration translates the old keys (novel_font_size etc.) to the
+    // Tsundoku-compatible pref_novel_* namespace once on upgrade.
 }

@@ -5,6 +5,7 @@ import androidx.annotation.DrawableRes
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.database.models.isOneShotOrCompleted
+import eu.kanade.tachiyomi.data.track.model.TrackContentType
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.collections.immutable.ImmutableList
@@ -25,6 +26,13 @@ abstract class TrackService(val id: Long) {
     open fun canRemoveFromService() = false
     open val client: OkHttpClient
         get() = networkService.client
+
+    /**
+     * Content types this tracker supports. Defaults to manga-only; novel-specific trackers
+     * (NovelUpdates, NovelList) override to `setOf(TrackContentType.NOVEL)`. Tracker-selection
+     * UI filters by the entry's content type so manga and novel trackers don't cross-pollute.
+     */
+    open val supportedContentTypes: Set<TrackContentType> = setOf(TrackContentType.MANGA)
 
     // Name of the manga sync service to display
     abstract fun nameRes(): StringResource

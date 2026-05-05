@@ -1,0 +1,2884 @@
+package eu.kanade.tachiyomi.ui.reader.viewer.text
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.view.ActionMode
+import android.view.GestureDetector
+import android.view.KeyEvent
+import android.view.Menu
+import android.view.MenuItem
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import android.webkit.JavascriptInterface
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import androidx.annotation.Keep
+import co.touchlab.kermit.Logger
+import eu.kanade.presentation.reader.settings.CodeSnippet
+import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
+import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
+import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
+import eu.kanade.tachiyomi.ui.reader.viewer.BaseViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
+import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import org.json.JSONObject
+import uy.kohesive.injekt.injectLazy
+import yokai.domain.library.LibraryPreferences
+import yokai.domain.ui.settings.ReaderPreferences
+import yokai.i18n.MR
+import yokai.util.lang.getString
+import java.util.Locale
+
+/**
+ * NovelWebViewViewer renders novel content using a WebView for more flexibility.
+ * Supports custom CSS and JavaScript injection.
+ */
+class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeech.OnInitListener {
+
+    private val container = FrameLayout(activity)
+    private lateinit var webView: WebView
+    private var loadingIndicator: ReaderProgressIndicator? = null
+    // Compose `LoadingIndicator` overlay shown on top of the WebView while a chapter loads.
+    private var loadingComposeOverlay: androidx.compose.ui.platform.ComposeView? = null
+    private val preferences: ReaderPreferences by injectLazy()
+    // Translation feature is out of scope for the initial Hayai port; the donor's
+    // TranslationPreferences class has no Hayai counterpart. realTimeTranslation calls
+    // are stubbed to false at the call site (see displayContent).
+    private val libraryPreferences: LibraryPreferences by injectLazy()
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var loadJob: Job? = null
+    private var currentPage: ReaderPage? = null
+    private var currentChapters: ViewerChapters? = null
+
+    // Track scroll progress
+    private var lastSavedProgress = 0f
+
+    // Infinite scroll state tracking
+    private var isInfiniteScrollNavigation = false
+    private var isInfiniteScrollPrepend = false
+    private var loadedChapterIds = mutableListOf<Long>()
+    private var loadedChapters = mutableListOf<ReaderChapter>()
+    private var currentChapterIndex = 0
+    private var isLoadingNext = false
+    private var isDestroyed = false
+    private var isEditingMode = false
+
+    // Tracks the (chapter, page) pair the user can retry when the error overlay is showing.
+    // Cleared once retry is initiated or content loads successfully.
+    private var lastErrorRetryContext: Pair<ReaderChapter, ReaderPage>? = null
+
+    // Auto-scroll state
+    private var isAutoScrolling = false
+    private var autoScrollJob: Job? = null
+
+    private var navigator: eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation = eu.kanade.tachiyomi.ui.reader.viewer.navigation.DisabledNavigation()
+
+    // TTS support
+    private var tts: TextToSpeech? = null
+    private var ttsInitialized = false
+    private var pendingTtsText: String? = null
+    private var isTtsAutoPlay = false // Track if TTS should auto-continue to next chapter
+    private var ttsPaused = false
+    private var ttsChunks: List<String> = emptyList()
+    private var ttsChunkParagraphIndexes: List<Int> = emptyList()
+    private var ttsCurrentParagraphs: List<NovelViewerTextUtils.ParagraphInfo> = emptyList()
+
+    private enum class TtsStartRequest {
+        NORMAL,
+        VIEWPORT,
+    }
+
+    private var pendingTtsStartRequest: TtsStartRequest? = null
+
+    @Volatile private var ttsCurrentChunkIndex = 0
+    private var ttsResumeChunkIndex: Int = 0 // Track which chunk to resume from after pause
+    private var ttsViewportParagraphIndex: Int = 0
+    private var hasViewportStartOverride: Boolean = false
+
+    private data class CustomStylePayload(
+        val css: String,
+        val hideChapterTitle: Boolean,
+        val backgroundColor: Int,
+    )
+
+    var pendingSelectedText: String? = null
+
+    private val gestureDetector = GestureDetector(
+        activity,
+        object : GestureDetector.SimpleOnGestureListener() {
+            // Increased thresholds for less sensitive swipe detection
+            private val SWIPE_THRESHOLD = 150
+            private val SWIPE_VELOCITY_THRESHOLD = 200
+
+            // Require horizontal swipe to be significantly more horizontal than vertical
+            private val DIRECTION_RATIO = 1.5f
+
+            override fun onDown(e: MotionEvent): Boolean = false
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float,
+            ): Boolean {
+                if (isEditingMode) return false
+                if (!preferences.novelSwipeNavigation.get()) return false
+                if (e1 == null) return false
+
+                val diffX = e2.x - e1.x
+                val diffY = e2.y - e1.y
+
+                // Require horizontal swipe to be significantly more horizontal than vertical
+                val absDiffX = kotlin.math.abs(diffX)
+                val absDiffY = kotlin.math.abs(diffY)
+
+                if (absDiffX > absDiffY * DIRECTION_RATIO) {
+                    if (absDiffX > SWIPE_THRESHOLD && kotlin.math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                        if (diffX > 0) {
+                            // Swipe right - go to previous chapter
+                            activity.loadPreviousChapter()
+                        } else {
+                            // Swipe left - go to next chapter
+                            activity.loadNextChapter()
+                        }
+                        return true
+                    }
+                }
+                return false
+            }
+
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (isEditingMode) return false
+
+                val pos = android.graphics.PointF(
+                    e.x / container.width.toFloat(),
+                    e.y / container.height.toFloat(),
+                )
+
+                when (navigator.getAction(pos)) {
+                    eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.MENU -> {
+                        activity.toggleMenu()
+                    }
+                    eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.NEXT,
+                    eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.RIGHT -> {
+                        webView.evaluateJavascript("window.scrollBy(0, ${(container.height * 0.8).toInt()});", null)
+                    }
+                    eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.PREV,
+                    eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.LEFT -> {
+                        webView.evaluateJavascript("window.scrollBy(0, -${(container.height * 0.8).toInt()});", null)
+                    }
+                }
+
+                return true
+            }
+        },
+    ).apply {
+        // Disable long press handling so WebView can handle text selection
+        setIsLongpressEnabled(false)
+    }
+
+    init {
+        initWebView()
+        observePreferences()
+        // Defer TTS initialization until actually needed to avoid "not bound" errors
+        // TTS will be initialized lazily when startTts() is called
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            ttsInitialized = true
+            applyTtsSettings()
+            setupTtsListener()
+            pendingTtsStartRequest?.let { request ->
+                pendingTtsStartRequest = null
+                activity.runOnUiThread {
+                    when (request) {
+                        TtsStartRequest.NORMAL -> startTts()
+                        TtsStartRequest.VIEWPORT -> startTtsFromViewport()
+                    }
+                }
+            }
+        } else {
+            Logger.e { "TTS initialization failed with status: $status" }
+            ttsInitialized = false
+        }
+    }
+
+    private fun setupTtsListener() {
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                // Track which chunk is currently speaking
+                utteranceId?.removePrefix("tts_utterance_")?.toIntOrNull()?.let { chunkIndex ->
+                    ttsCurrentChunkIndex = chunkIndex
+                    // Apply highlighting to current chunk if enabled
+                    if (preferences.novelTtsEnableHighlight.get()) {
+                        activity.runOnUiThread {
+                            applyTtsHighlight(chunkIndex)
+                        }
+                    }
+                }
+            }
+
+            override fun onDone(utteranceId: String?) {
+                val finishedIndex = utteranceId?.removePrefix("tts_utterance_")?.toIntOrNull() ?: -1
+                val isLastChunk = finishedIndex >= ttsChunks.size - 1
+
+                // Check if this was the last chunk and auto-play is enabled
+                if (isLastChunk && isTtsAutoPlay && preferences.novelTtsAutoNextChapter.get()) {
+                    activity.runOnUiThread {
+                        scope.launch {
+                            delay(500)
+                            if (!isTtsSpeaking()) {
+                                saveTtsProgress()
+                                loadNextChapterForTts()
+                            }
+                        }
+                    }
+                } else if (isLastChunk) {
+                    activity.runOnUiThread {
+                        clearWebViewTtsHighlight()
+                    }
+                }
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                Logger.e { "TTS error on utterance: $utteranceId" }
+            }
+        })
+    }
+
+    /**
+     * Applies visual highlighting to the chunk currently being read by TTS using JavaScript.
+     */
+    private fun applyTtsHighlight(chunkIndex: Int) {
+        if (chunkIndex < 0 || chunkIndex >= ttsChunks.size) return
+
+        val paragraphIndex = ttsChunkParagraphIndexes.getOrElse(chunkIndex) { chunkIndex }
+        val highlightColor = String.format("#%06X", 0xFFFFFF and preferences.novelTtsHighlightColor.get())
+        val highlightTextColor = String.format("#%06X", 0xFFFFFF and preferences.novelTtsHighlightTextColor.get())
+        val highlightStyle = preferences.novelTtsHighlightStyle.get()
+        val keepInView = preferences.novelTtsKeepHighlightInView.get()
+
+        val jsCode = """
+            (function() {
+                var state = window.__tdTtsState || (window.__tdTtsState = {});
+                if (!state.styleEl) {
+                    state.styleEl = document.createElement('style');
+                    state.styleEl.id = 'td-tts-highlight-style';
+                    state.styleEl.textContent =
+                        '.td-tts-highlight-bg{background:var(--td-tts-highlight-bg)!important;color:var(--td-tts-highlight-text)!important;border-radius:6px;padding:0 .2em;}' +
+                        '.td-tts-highlight-underline{text-decoration:underline 2px var(--td-tts-highlight-bg)!important;text-underline-offset:0.2em;}' +
+                        '.td-tts-highlight-outline{outline:2px solid var(--td-tts-highlight-bg)!important;outline-offset:2px;border-radius:8px;padding:0 .2em;}' ;
+                    document.head.appendChild(state.styleEl);
+                }
+
+                document.documentElement.style.setProperty('--td-tts-highlight-bg', '$highlightColor');
+                document.documentElement.style.setProperty('--td-tts-highlight-text', '$highlightTextColor');
+
+                var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
+                var paragraphs = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
+                    return !!el && !!el.innerText && el.innerText.trim().length > 0;
+                });
+                if (!paragraphs.length) {
+                    paragraphs = Array.from(document.body.children).filter(function(el) {
+                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
+                    });
+                }
+
+                if (state.currentEl) {
+                    state.currentEl.classList.remove('td-tts-highlight-bg', 'td-tts-highlight-underline', 'td-tts-highlight-outline');
+                }
+
+                var targetIndex = Math.min(Math.max($paragraphIndex, 0), Math.max(paragraphs.length - 1, 0));
+                var target = paragraphs[targetIndex];
+                if (!target) {
+                    state.currentEl = null;
+                    return;
+                }
+
+                if ('$highlightStyle' === 'underline') {
+                    target.classList.add('td-tts-highlight-underline');
+                } else if ('$highlightStyle' === 'outline') {
+                    target.classList.add('td-tts-highlight-outline');
+                } else {
+                    target.classList.add('td-tts-highlight-bg');
+                }
+
+                state.currentEl = target;
+                if ($keepInView) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+                }
+            })();
+        """.trimIndent()
+
+        evaluateJavascriptSafe(jsCode)
+    }
+
+    private fun clearWebViewTtsHighlight() {
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var state = window.__tdTtsState;
+                if (state && state.currentEl) {
+                    state.currentEl.classList.remove('td-tts-highlight-bg', 'td-tts-highlight-underline', 'td-tts-highlight-outline');
+                    state.currentEl = null;
+                }
+            })();
+            """.trimIndent(),
+        )
+    }
+
+    private fun loadNextChapterForTts() {
+        val chapters = currentChapters ?: return
+        val nextChapter = chapters.nextChapter ?: return
+
+        Logger.d { "TTS (WebView): Auto-loading next chapter for playback" }
+
+        scope.launch {
+            activity.loadNextChapter()
+            delay(1000)
+            startTts()
+        }
+    }
+
+    private fun applyTtsSettings() {
+        tts?.let { textToSpeech ->
+            // Set voice/locale
+            val voicePref = preferences.novelTtsVoice.get()
+            if (voicePref.isNotEmpty()) {
+                val voices = textToSpeech.voices
+                val selectedVoice = voices?.find { it.name == voicePref }
+                if (selectedVoice != null) {
+                    textToSpeech.voice = selectedVoice
+                } else {
+                    try {
+                        val locale = Locale.forLanguageTag(voicePref)
+                        textToSpeech.language = locale
+                    } catch (e: Exception) {
+                        textToSpeech.language = Locale.getDefault()
+                    }
+                }
+            } else {
+                textToSpeech.language = Locale.getDefault()
+            }
+
+            // Set speech rate (speed)
+            val speed = preferences.novelTtsSpeed.get()
+            textToSpeech.setSpeechRate(speed)
+
+            // Set pitch
+            val pitch = preferences.novelTtsPitch.get()
+            textToSpeech.setPitch(pitch)
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
+    private fun initWebView() {
+        container.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                // Remove blocksDescendants from reader_activity.xml's viewer_container parent
+                // so the WebView can actually receive text input focus.
+                (container.parent as? ViewGroup)?.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            }
+            override fun onViewDetachedFromWindow(v: View) {}
+        })
+
+        webView = object : WebView(activity) {
+            override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? {
+                if (!preferences.novelTextSelectable.get() || callback == null) {
+                    return super.startActionMode(callback, type)
+                }
+                // Preserve Callback2 so the floating toolbar anchors correctly to the selection
+                val wrapped = if (callback is ActionMode.Callback2) {
+                    object : ActionMode.Callback2() {
+                        override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+                            val result = callback.onCreateActionMode(mode, menu)
+                            menu.add(
+                                Menu.NONE,
+                                REMEMBER_MENU_ITEM_ID,
+                                Menu.NONE,
+                                "Remember",
+                            )
+                                .setIcon(android.R.drawable.ic_menu_save)
+                                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                            return result
+                        }
+                        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean =
+                            callback.onPrepareActionMode(mode, menu)
+                        override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+                            if (item.itemId == REMEMBER_MENU_ITEM_ID) {
+                                onRememberSelectedText(mode) // pass mode in
+                                return true
+                            }
+                            return callback.onActionItemClicked(mode, item)
+                        }
+                        override fun onDestroyActionMode(mode: ActionMode) =
+                            callback.onDestroyActionMode(mode)
+
+                        // Forward the content rect so the toolbar floats near the selection
+                        override fun onGetContentRect(mode: ActionMode, view: View, outRect: android.graphics.Rect) =
+                            callback.onGetContentRect(mode, view, outRect)
+                    }
+                } else {
+                    object : ActionMode.Callback {
+                        override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+                            val result = callback.onCreateActionMode(mode, menu)
+                            menu.add(
+                                Menu.NONE,
+                                REMEMBER_MENU_ITEM_ID,
+                                Menu.NONE,
+                                "Remember",
+                            )
+                                .setIcon(android.R.drawable.ic_menu_save)
+                                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                            return result
+                        }
+                        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean =
+                            callback.onPrepareActionMode(mode, menu)
+                        override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+                            if (item.itemId == REMEMBER_MENU_ITEM_ID) {
+                                onRememberSelectedText()
+                                mode.finish()
+                                return true
+                            }
+                            return callback.onActionItemClicked(mode, item)
+                        }
+                        override fun onDestroyActionMode(mode: ActionMode) =
+                            callback.onDestroyActionMode(mode)
+                    }
+                }
+                return super.startActionMode(wrapped, type)
+            }
+        }.apply {
+            isFocusable = true
+            isFocusableInTouchMode = true
+            applyWebViewScrollbarSettings(this)
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                loadWithOverviewMode = true
+                useWideViewPort = true
+                setSupportZoom(false)
+                builtInZoomControls = false
+                displayZoomControls = false
+                cacheMode = WebSettings.LOAD_DEFAULT
+                // Block images/videos if preference is set
+                val shouldBlock = preferences.novelBlockMedia.get()
+                blockNetworkImage = shouldBlock
+                loadsImagesAutomatically = !shouldBlock
+            }
+
+            webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView?,
+                    request: android.webkit.WebResourceRequest?,
+                ): android.webkit.WebResourceResponse? {
+                    val url = request?.url?.toString() ?: return null
+                    if (url.startsWith("hayai-novel-image://")) {
+                        val imagePath = android.net.Uri.decode(url.removePrefix("hayai-novel-image://"))
+                        val loader = activity.viewModel.state.value.viewerChapters?.currChapter?.pageLoader
+                        if (loader != null) {
+                            val stream = kotlinx.coroutines.runBlocking { loader.getPageDataStream(imagePath) }
+                            if (stream != null) {
+                                val mimeType = when (imagePath.substringAfterLast('.', "").lowercase()) {
+                                    "png" -> "image/png"
+                                    "jpg", "jpeg" -> "image/jpeg"
+                                    "gif" -> "image/gif"
+                                    "svg" -> "image/svg+xml"
+                                    "webp" -> "image/webp"
+                                    "avif" -> "image/avif"
+                                    else -> "image/jpeg"
+                                }
+                                return android.webkit.WebResourceResponse(mimeType, "UTF-8", stream)
+                            }
+                        }
+                    }
+                    return super.shouldInterceptRequest(view, request)
+                }
+
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    hideLoadingIndicator()
+                    injectCustomScript()
+                    injectScrollTracking()
+                    restoreScrollPosition()
+                    syncShortChapterProgressIfNeeded()
+                    if (!preferences.novelInfiniteScroll.get()) {
+                        injectNextChapterButton()
+                    }
+                    if (isEditingMode) {
+                        toggleEditMode(true)
+                    }
+                }
+            }
+
+            // Add JavaScript interface for progress saving
+            addJavascriptInterface(this@NovelWebViewViewer.WebViewInterface(), "Android")
+
+            // Enable text selection via long press
+            isLongClickable = true
+
+            setOnTouchListener { _, event ->
+                gestureDetector.onTouchEvent(event)
+                false
+            }
+        }
+
+        // Initial setup for background to avoid white flashes
+        val theme = preferences.novelTheme.get()
+        val backgroundColor = preferences.novelBackgroundColor.get()
+        val (themeBgColor, _) = getThemeColors(theme)
+        val finalBgColor = if (theme == "custom" && backgroundColor != 0) backgroundColor else themeBgColor
+        webView.setBackgroundColor(finalBgColor)
+        container.setBackgroundColor(finalBgColor)
+
+        container.addView(webView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+    }
+
+    private fun observePreferences() {
+
+        scope.launch {
+            merge(
+                preferences.novelFontSize.changes().drop(1),
+                preferences.novelFontFamily.changes().drop(1),
+                preferences.novelTheme.changes().drop(1),
+                preferences.novelLineHeight.changes().drop(1),
+                preferences.novelTextAlign.changes().drop(1),
+                preferences.novelMarginLeft.changes().drop(1),
+                preferences.novelMarginRight.changes().drop(1),
+                preferences.novelMarginTop.changes().drop(1),
+                preferences.novelMarginBottom.changes().drop(1),
+                preferences.novelMarginsCropped.changes().drop(1),
+                preferences.novelFontColor.changes().drop(1),
+                preferences.novelBackgroundColor.changes().drop(1),
+                preferences.novelParagraphIndent.changes().drop(1),
+                preferences.novelParagraphSpacing.changes().drop(1),
+                preferences.novelCustomCss.changes().drop(1),
+                preferences.novelCustomCssSnippets.changes().drop(1),
+                preferences.novelUseOriginalFonts.changes().drop(1),
+                preferences.novelHideChapterTitle.changes().drop(1),
+                preferences.novelTextSelectable.changes().drop(1),
+            )
+                .collect {
+                    injectCustomStyles()
+                }
+        }
+
+        // Observe JS changes separately to re-inject scripts
+        scope.launch {
+            merge(
+                preferences.novelCustomJs.changes().drop(1),
+                preferences.novelCustomJsSnippets.changes().drop(1),
+            )
+                .collect {
+                    injectCustomScript()
+                }
+        }
+
+        scope.launch {
+            preferences.novelForceTextLowercase.changes()
+                .drop(1)
+                .collect {
+                    currentChapters?.let {
+                        // Reload the current chapter to reapply string transformations
+                        setChapters(it)
+                    }
+                }
+        }
+
+        // Observe block media preference
+        scope.launch {
+            preferences.novelBlockMedia.changes()
+                .drop(1)
+                .collect { blockMedia ->
+                    webView.settings.apply {
+                        blockNetworkImage = blockMedia
+                        loadsImagesAutomatically = !blockMedia
+                    }
+                    // Reload the page to apply media blocking
+                    webView.reload()
+                }
+        }
+
+        // Observe regex replacements — requires full content reload
+        scope.launch {
+            preferences.novelRegexReplacements.changes()
+                .drop(1)
+                .collect {
+                    currentChapters?.let { setChapters(it) }
+                }
+        }
+
+        scope.launch {
+            merge(
+                preferences.novelTtsVoice.changes(),
+                preferences.novelTtsSpeed.changes(),
+                preferences.novelTtsPitch.changes(),
+            ).drop(3)
+                .collect {
+                    if (ttsInitialized) {
+                        applyTtsSettings()
+                    }
+                }
+        }
+
+        // Recreate TTS on engine change — see NovelViewer for the rationale.
+        scope.launch {
+            preferences.novelTtsEngine.changes().drop(1).collect {
+                tts?.shutdown()
+                tts = null
+                ttsInitialized = false
+                ensureTtsInitialized()
+            }
+        }
+    }
+
+    private fun applyWebViewScrollbarSettings(target: WebView = webView) {
+        target.isVerticalScrollBarEnabled = true
+        target.isHorizontalScrollBarEnabled = false
+        target.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+        target.isScrollbarFadingEnabled = true
+        target.overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+        target.layoutDirection = View.LAYOUT_DIRECTION_LTR
+    }
+
+    private fun buildCustomStylePayload(): CustomStylePayload {
+        val fontSize = preferences.novelFontSize.get()
+        val fontFamily = preferences.novelFontFamily.get()
+        val lineHeight = preferences.novelLineHeight.get()
+        // Crop-borders toggle (driven by the chapters-sheet button) zeroes out margins
+        // without touching the underlying user-set values.
+        val cropped = preferences.novelMarginsCropped.get()
+        val marginLeft = if (cropped) 0 else preferences.novelMarginLeft.get()
+        val marginRight = if (cropped) 0 else preferences.novelMarginRight.get()
+        val marginTop = if (cropped) 0 else preferences.novelMarginTop.get()
+        val marginBottom = if (cropped) 0 else preferences.novelMarginBottom.get()
+        val fontColor = preferences.novelFontColor.get()
+        val backgroundColor = preferences.novelBackgroundColor.get()
+        val paragraphIndent = preferences.novelParagraphIndent.get()
+        val paragraphSpacing = preferences.novelParagraphSpacing.get()
+        val textAlign = preferences.novelTextAlign.get()
+        val theme = preferences.novelTheme.get()
+        val hideChapterTitle = preferences.novelHideChapterTitle.get()
+
+        val (themeBgColor, themeTextColor) = getThemeColors(theme)
+        val finalBgColor = if (theme == "custom" && backgroundColor != 0) backgroundColor else themeBgColor
+        val finalTextColor = if (theme == "custom" && fontColor != 0) fontColor else themeTextColor
+
+        val bgColorHex = String.format("#%06X", 0xFFFFFF and finalBgColor)
+        val textColorHex = String.format("#%06X", 0xFFFFFF and finalTextColor)
+
+        val customCss = preferences.novelCustomCss.get()
+        val useOriginalFonts = preferences.novelUseOriginalFonts.get()
+
+        // Collect enabled CSS snippets
+        val cssSnippetsJson = preferences.novelCustomCssSnippets.get()
+        val enabledSnippetsCss = try {
+            val snippets = Json.decodeFromString<List<CodeSnippet>>(cssSnippetsJson)
+            snippets.filter { it.enabled }.joinToString("\n") { it.code }
+        } catch (e: Exception) {
+            Logger.e { "Failed to parse CSS snippets: ${e.message}" }
+            ""
+        }
+
+        // Generate font-face declaration for custom fonts
+        // For custom fonts (URIs), copy to cache and use file:// URL
+        val (fontFaceDeclaration, effectiveFontFamily) = if (!useOriginalFonts &&
+            (fontFamily.startsWith("file://") || fontFamily.startsWith("content://"))
+        ) {
+            try {
+                // Copy font to cache directory for WebView access
+                val fontUri = android.net.Uri.parse(fontFamily)
+                val inputStream = activity.contentResolver.openInputStream(fontUri)
+                val fontFile = java.io.File(activity.cacheDir, "custom_font.ttf")
+                inputStream?.use { input ->
+                    fontFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                val fontUrl = "file://" + fontFile.absolutePath
+                val declaration = """
+                @font-face {
+                    font-family: 'CustomFont';
+                    src: url('$fontUrl');
+                }
+                """.trimIndent()
+                declaration to "'CustomFont', sans-serif"
+            } catch (e: Exception) {
+                Logger.e { "Failed to load custom font: ${e.message}" }
+                "" to fontFamily
+            }
+        } else {
+            "" to fontFamily
+        }
+
+        // Only include font-family if not using original fonts
+        val fontFamilyCss = if (useOriginalFonts) {
+            ""
+        } else {
+            "font-family: $effectiveFontFamily;"
+        }
+
+        val css = """
+            $fontFaceDeclaration
+            body {
+                font-size: ${fontSize}px;
+                $fontFamilyCss
+                line-height: $lineHeight;
+                margin: ${marginTop}px ${marginRight}px ${marginBottom}px ${marginLeft}px;
+                color: $textColorHex !important;
+                background-color: $bgColorHex !important;
+                text-align: $textAlign;
+                -webkit-user-select: ${if (preferences.novelTextSelectable.get()) "text" else "none"};
+                user-select: ${if (preferences.novelTextSelectable.get()) "text" else "none"};
+            }
+            p {
+                text-indent: ${paragraphIndent}em;
+                margin-top: ${paragraphSpacing}em;
+                margin-bottom: ${paragraphSpacing}em;
+            }
+            * {
+                color: inherit !important;
+            }
+            $customCss
+            $enabledSnippetsCss
+        """.trimIndent().replace("\n", " ")
+
+        return CustomStylePayload(
+            css = css,
+            hideChapterTitle = hideChapterTitle,
+            backgroundColor = finalBgColor,
+        )
+    }
+
+    private fun injectCustomStyles() {
+        val payload = buildCustomStylePayload()
+        webView.setBackgroundColor(payload.backgroundColor)
+        container.setBackgroundColor(payload.backgroundColor)
+
+        val js = """
+            (function() {
+                var style = document.getElementById('tsundoku-custom-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'tsundoku-custom-style';
+                    document.head.appendChild(style);
+                }
+                style.textContent = `${payload.css}`;
+
+                // Hide chapter title if enabled
+                if (${payload.hideChapterTitle}) {
+                    var headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                    if (headings.length > 0) {
+                        headings[0].style.display = 'none';
+                    }
+                }
+            })();
+        """
+
+        evaluateJavascriptSafe(js, null)
+    }
+
+    private fun injectCustomScript() {
+        val chapter = currentChapters?.currChapter?.chapter
+            ?: loadedChapters.getOrNull(currentChapterIndex)?.chapter
+        val chapterTitle = (chapter?.name ?: "").jsEscape()
+        val chapterNumber = chapter?.chapter_number ?: -1f
+        val chapterUrl = (chapter?.url ?: "").jsEscape()
+        val novelUrl = (activity.viewModel.manga?.url ?: "").jsEscape()
+
+        val script = """
+        window.Tsundoku = {
+            chapterTitle: "$chapterTitle",
+            chapterNumber: $chapterNumber,
+            chapterUrl: "$chapterUrl",
+            novelUrl: "$novelUrl",
+            isEditMode: $isEditingMode,
+            isInfScroll: ${preferences.novelInfiniteScroll.get()},
+            textSelectionBlocked: ${!preferences.novelTextSelectable.get()},
+            forcedLowercase: ${preferences.novelForceTextLowercase.get()}
+        };
+        """.trimIndent()
+        evaluateJavascriptSafe(script, null)
+
+        val customJs = preferences.novelCustomJs.get()
+        if (customJs.isNotBlank()) {
+            evaluateJavascriptSafe(customJs, null)
+        }
+
+        val jsSnippetsJson = preferences.novelCustomJsSnippets.get()
+        val enabledSnippetsJs = try {
+            val snippets = Json.decodeFromString<List<CodeSnippet>>(jsSnippetsJson)
+            snippets.filter { it.enabled }.joinToString("\n") { it.code }
+        } catch (e: Exception) {
+            Logger.e { "Failed to parse JS snippets: ${e.message}" }
+            ""
+        }
+        if (enabledSnippetsJs.isNotBlank()) {
+            evaluateJavascriptSafe(enabledSnippetsJs, null)
+        }
+    }
+
+    /**
+     * Injects a "Next Chapter" button at the bottom of the WebView content
+     * when infinite scroll is disabled.
+     */
+    private fun injectNextChapterButton() {
+        val hasNext = currentChapters?.nextChapter != null
+        if (!hasNext) return
+
+        val js = """
+            (function() {
+                // Remove existing button if any
+                var existing = document.getElementById('next-chapter-btn-container');
+                if (existing) existing.remove();
+
+                var container = document.createElement('div');
+                container.id = 'next-chapter-btn-container';
+                container.style.cssText = 'padding: 32px 16px; text-align: center;';
+
+                var btn = document.createElement('button');
+                btn.textContent = 'Next Chapter →';
+                btn.style.cssText = 'width: 100%; padding: 12px 24px; font-size: 16px; ' +
+                    'background-color: #ADD8E6; color: #000000; ' +
+                    'border: 2px solid #000000; border-radius: 8px; ' +
+                    'cursor: pointer; text-transform: none;';
+                btn.onclick = function() {
+                    Android.loadNextChapter();
+                };
+                container.appendChild(btn);
+                document.body.appendChild(container);
+            })();
+        """.trimIndent()
+
+        evaluateJavascriptSafe(js, null)
+    }
+
+    private fun injectScrollTracking() {
+        // Add scroll tracking script with infinite scroll support
+        val infiniteScrollEnabled = preferences.novelInfiniteScroll.get()
+        val autoLoadThreshold = preferences.novelAutoLoadNextChapterAt.get()
+        // Treat stored 0 as legacy/unset and use a sensible default.
+        val infiniteScrollActuallyEnabled = infiniteScrollEnabled
+        val effectiveThreshold = if (autoLoadThreshold > 0) autoLoadThreshold / 100.0 else 0.95
+        val scrollTrackingScript = """
+            (function() {
+                if (window.__tsundokuInfiniteScrollInstalled) {
+                    return;
+                }
+                window.__tsundokuInfiniteScrollInstalled = true;
+
+                var lastProgress = 0;
+                var saveTimeout = null;
+                window.__tsundokuLoadingNext = window.__tsundokuLoadingNext || false;
+                window.__tsundokuSetLoadingNext = function(v) { window.__tsundokuLoadingNext = !!v; };
+                var infiniteScrollEnabled = $infiniteScrollActuallyEnabled;
+                var loadThreshold = $effectiveThreshold;
+
+                // Track chapter boundaries for multi-chapter infinite scroll
+                window.chapterBoundaries = window.chapterBoundaries || [];
+                window.__tsundokuLastBoundaryUpdate = window.__tsundokuLastBoundaryUpdate || 0;
+
+                window.addEventListener('scroll', function() {
+                    // Keep chapter boundaries in sync with actual DOM markers.
+                    // This is important after appends/prepends.
+                    if (infiniteScrollEnabled && typeof window.updateChapterBoundaries === 'function') {
+                        var dividers = document.querySelectorAll('.chapter-divider');
+                        if (!window.chapterBoundaries || window.chapterBoundaries.length !== dividers.length) {
+                            window.updateChapterBoundaries();
+                        } else if (Date.now() - window.__tsundokuLastBoundaryUpdate > 1000) {
+                            window.__tsundokuLastBoundaryUpdate = Date.now();
+                            window.updateChapterBoundaries();
+                        }
+                    }
+
+                    var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+                    var scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                    var progress = scrollHeight > 0 ? scrollTop / scrollHeight : 1;
+                    // Round up if very close to 100% (within 2%) to allow reaching 100%
+                    if (progress >= 0.98) progress = 1.0;
+
+                    // For infinite scroll with multiple chapters, calculate per-chapter progress
+                    var currentChapterProgress = progress;
+                    var currentChapterIdx = 0;
+                    if (infiniteScrollEnabled && window.chapterBoundaries.length > 1) {
+                        var accumulatedHeight = 0;
+                        var docHeight = document.documentElement.scrollHeight;
+                        for (var i = 0; i < window.chapterBoundaries.length; i++) {
+                            var boundary = window.chapterBoundaries[i];
+                            var chapterEnd = boundary.startOffset + boundary.height;
+                            if (scrollTop >= boundary.startOffset && scrollTop < chapterEnd) {
+                                currentChapterIdx = i;
+                                var chapterScrollY = scrollTop - boundary.startOffset;
+                                var effectiveHeight = Math.max(boundary.height - window.innerHeight, 1);
+                                currentChapterProgress = Math.min(chapterScrollY / effectiveHeight, 1.0);
+                                break;
+                            }
+                        }
+                        // Notify Android of chapter change
+                        Android.onChapterScrollUpdate(currentChapterIdx, currentChapterProgress);
+                    }
+
+                    if (Math.abs(currentChapterProgress - lastProgress) > 0.01) {
+                        lastProgress = currentChapterProgress;
+
+                        // Immediate update for UI (throttled)
+                        if (!window.lastScrollUpdate || Date.now() - window.lastScrollUpdate > 50) {
+                            window.lastScrollUpdate = Date.now();
+                            Android.onScrollUpdate(currentChapterProgress);
+                        }
+
+                        clearTimeout(saveTimeout);
+                        saveTimeout = setTimeout(function() {
+                            Android.onScrollProgress(currentChapterProgress);
+                        }, 500);
+                    }
+
+                    // Infinite scroll: load next chapter when reaching threshold
+                    var shouldLoadNext = false;
+                    if (infiniteScrollEnabled) {
+                        if (window.chapterBoundaries.length > 1) {
+                            shouldLoadNext = (currentChapterIdx === (window.chapterBoundaries.length - 1)) && (currentChapterProgress >= loadThreshold);
+                        } else {
+                            shouldLoadNext = progress >= loadThreshold;
+                        }
+                    }
+                    if (shouldLoadNext && !window.__tsundokuLoadingNext) {
+                        console.log('Infinite scroll: Loading next chapter at progress ' + currentChapterProgress + ' (threshold: ' + loadThreshold + ')');
+                        window.__tsundokuLoadingNext = true;
+                        try {
+                            Android.loadNextChapter();
+                            console.log('Infinite scroll: Successfully called loadNextChapter()');
+                        } catch(e) {
+                            console.error('Infinite scroll: Error calling loadNextChapter:', e);
+                            window.__tsundokuLoadingNext = false; // Reset immediately on error
+                        }
+                    }
+                });
+
+                // Function to add a chapter boundary
+                window.addChapterBoundary = function(chapterId, startOffset, height) {
+                    window.chapterBoundaries.push({
+                        chapterId: chapterId,
+                        startOffset: startOffset,
+                        height: height
+                    });
+                };
+
+                // Function to update chapter boundary heights after content load
+                window.updateChapterBoundaries = function() {
+                    var dividers = document.querySelectorAll('.chapter-divider');
+                    var boundaries = [];
+                    var lastEnd = 0;
+                    dividers.forEach(function(divider, index) {
+                        var chapterId = divider.getAttribute('data-chapter-id');
+                        var nextDivider = dividers[index + 1];
+                        var endPos = nextDivider ? nextDivider.offsetTop : document.body.scrollHeight;
+                        boundaries.push({
+                            chapterId: chapterId,
+                            startOffset: divider.offsetTop,
+                            height: endPos - divider.offsetTop
+                        });
+                    });
+                    window.chapterBoundaries = boundaries;
+                    window.__tsundokuLastBoundaryUpdate = Date.now();
+                };
+
+                // Initialize boundaries on first load.
+                setTimeout(function() {
+                    if (typeof window.updateChapterBoundaries === 'function') {
+                        window.updateChapterBoundaries();
+                    }
+                }, 0);
+            })();
+        """
+        evaluateJavascriptSafe(scrollTrackingScript, null)
+    }
+
+    private fun restoreScrollPosition() {
+        currentPage?.let { page ->
+            val savedProgress = page.chapter.chapter.last_page_read
+            val isRead = page.chapter.chapter.read
+
+            Logger.d {
+                "NovelWebViewViewer: Restoring progress, savedProgress=$savedProgress, isRead=$isRead for ${page.chapter.chapter.name}"
+            }
+
+            // If chapter is marked as read, start from top (0%) to avoid infinite scroll issues
+            val shouldRestore = if (!isRead) {
+                savedProgress > 0 && savedProgress <= 100
+            } else {
+                libraryPreferences.novelReadProgress100().get() && savedProgress > 0 && savedProgress <= 100
+            }
+            if (shouldRestore) {
+                val progress = savedProgress / 100f
+                lastSavedProgress = progress
+
+                // Wait a bit for content to be fully rendered before scrolling
+                webView.postDelayed({
+                    val js = """
+                        (function() {
+                            var scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                            if (scrollHeight > 0) {
+                                window.scrollTo(0, scrollHeight * $progress);
+                                console.log('Restored scroll to ' + Math.round($progress * 100) + '% (' + Math.round(scrollHeight * $progress) + 'px)');
+                            } else {
+                                // Content not ready, retry in 200ms
+                                setTimeout(function() {
+                                    var newScrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                                    window.scrollTo(0, newScrollHeight * $progress);
+                                }, 200);
+                            }
+                        })();
+                    """
+                    webView.evaluateJavascript(js, null)
+                }, 100)
+            } else {
+                // Ensure we are at top for read chapters
+                webView.scrollTo(0, 0)
+                lastSavedProgress = 0f
+            }
+        }
+    }
+
+    private fun getThemeColors(theme: String): Pair<Int, Int> =
+        NovelViewerTextUtils.getThemeColors(activity, preferences, theme)
+
+    override fun destroy() {
+        // Save progress before destroying
+        saveProgress()
+
+        // Cleanup TTS - only if initialized
+        if (ttsInitialized) {
+            tts?.stop()
+            tts?.shutdown()
+        }
+        tts = null
+
+        // Mark destroyed first so coroutine finally-blocks won't touch WebView.
+        isDestroyed = true
+
+        scope.cancel()
+        loadJob?.cancel()
+        webView.destroy()
+    }
+
+    private fun evaluateJavascriptSafe(js: String, callback: ((String) -> Unit)? = null) {
+        if (isDestroyed) return
+        activity.runOnUiThread {
+            if (isDestroyed) return@runOnUiThread
+            try {
+                webView.evaluateJavascript(js, callback)
+            } catch (t: Throwable) {
+                // WebView may already be destroyed; avoid crashing.
+                Logger.w { "NovelWebViewViewer: evaluateJavascript ignored (${t.message})" }
+            }
+        }
+    }
+
+    private fun saveProgress() {
+        currentPage?.let { page ->
+            val progressValue = (lastSavedProgress * 100).toInt().coerceIn(0, 100)
+            activity.saveNovelProgress(page, progressValue)
+            Logger.d { "NovelWebViewViewer: Saving progress $progressValue%" }
+        }
+    }
+
+    private fun shouldAutoMarkShortChapter(page: ReaderPage?): Boolean {
+        if (!preferences.novelMarkShortChapterAsRead.get()) return false
+        val chapter = page?.chapter?.chapter ?: return false
+        return !chapter.read && chapter.last_page_read <= 0
+    }
+
+    private fun syncShortChapterProgressIfNeeded() {
+        val page = currentPage ?: return
+        if (!shouldAutoMarkShortChapter(page)) return
+        if (page.status != Page.State.Ready || page.text.isNullOrBlank()) return
+
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                return maxScroll <= 0;
+            })();
+            """.trimIndent(),
+        ) { result ->
+            if (result == "true") {
+                // If the whole chapter fits in the viewport, treat it as fully read.
+                lastSavedProgress = 1f
+                saveProgress()
+                activity.onNovelProgressChanged(1f)
+            }
+        }
+    }
+
+    override fun getView(): View = container
+
+    /**
+     * Reload content with current translation state.
+     * Re-renders the WebView with or without translation.
+     */
+    fun reloadWithTranslation() {
+        val page = currentPage ?: return
+        val chapter = currentChapters?.currChapter ?: return
+        val chapterId = chapter.chapter.id
+        var content = page.text ?: return
+
+        // Optionally strip chapter title from content
+        if (preferences.novelHideChapterTitle.get()) {
+            content = stripChapterTitle(content, chapter.chapter.name)
+        }
+
+        // Apply translation if enabled (async)
+        val finalContent = content
+        if (activity.isTranslationEnabled()) {
+            // Show loading indicator while translating
+            loadingIndicator?.show()
+            scope.launch {
+                val translatedContent = activity.translateContentIfEnabled(finalContent)
+                withContext(Dispatchers.Main) {
+                    loadingIndicator?.hide()
+                    loadHtmlContent(translatedContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+                }
+            }
+        } else {
+            loadHtmlContent(finalContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+        }
+    }
+
+    override fun setChapters(chapters: ViewerChapters) {
+        val page = chapters.currChapter.pages?.firstOrNull() as? ReaderPage ?: return
+        val chapterId = chapters.currChapter.chapter.id ?: return
+
+        loadJob?.cancel()
+        // Stop TTS when loading a new chapter (unless it's auto-play transition which handles restart)
+        // But even for auto-play, we want to stop the old chapter audio before loading new one.
+        tts?.stop()
+
+        currentPage = page
+        currentChapters = chapters
+
+        // setChapters() is for loading a single chapter (manual navigation or initial load).
+        // Infinite scroll appends/prepends are handled explicitly via WebViewInterface.loadNext/PrevChapter().
+        val isInfiniteScrollAppend = false
+
+        val isPrepend = isInfiniteScrollPrepend
+        isInfiniteScrollPrepend = false
+
+        // Reset the flag after checking
+        isInfiniteScrollNavigation = false
+
+        // Check if chapter is already loaded
+        if (loadedChapterIds.contains(chapterId)) {
+            Logger.d { "NovelWebViewViewer: Chapter $chapterId already loaded, skipping" }
+            // Find and scroll to this chapter
+            val index = loadedChapterIds.indexOf(chapterId)
+            if (index >= 0) {
+                currentChapterIndex = index
+            }
+            return
+        }
+
+        // Clear previous chapters for manual navigation / initial load.
+        if (!preferences.novelInfiniteScroll.get() || loadedChapterIds.isEmpty()) {
+            loadedChapterIds.clear()
+            loadedChapters.clear()
+            currentChapterIndex = 0
+        }
+
+        if (page.status == Page.State.Ready && !page.text.isNullOrEmpty()) {
+            if (!isInfiniteScrollAppend && !isPrepend) {
+                hideLoadingIndicator()
+            }
+            displayContent(chapters.currChapter, page, isInfiniteScrollAppend || isPrepend, isPrepend)
+            // Trigger download of next chapters (needed for non-infinite-scroll mode)
+            if (!isInfiniteScrollAppend && !isPrepend) {
+                activity.viewModel.setNovelVisibleChapter(page.chapter.chapter)
+            }
+            return
+        }
+
+        // Only show loading for manual navigation, NEVER for infinite scroll (seamless append)
+        if (!isInfiniteScrollAppend && !isPrepend) {
+            showLoadingIndicator()
+        }
+        // No loading indicator at all for infinite scroll - should be completely seamless
+
+        loadJob = scope.launch {
+            val loader = page.chapter.pageLoader
+            if (loader == null) {
+                Logger.e { "NovelWebViewViewer: No page loader available" }
+                if (!isInfiniteScrollAppend && !isPrepend) {
+                    hideLoadingIndicator()
+                }
+                return@launch
+            }
+
+            launch(Dispatchers.IO) {
+                loader.loadPage(page)
+            }
+
+            page.statusFlow.collectLatest { state ->
+                when (state) {
+                    Page.State.Queue, Page.State.LoadPage -> {
+                        if (!isInfiniteScrollAppend && !isPrepend) {
+                            showLoadingIndicator()
+                        }
+                    }
+                    Page.State.Ready -> {
+                        // Only hide loading for manual navigation
+                        if (!isInfiniteScrollAppend && !isPrepend) {
+                            hideLoadingIndicator()
+                        }
+                        // Infinite scroll is seamless - no loading indicators to hide
+                        displayContent(chapters.currChapter, page, isInfiniteScrollAppend || isPrepend, isPrepend)
+                        // Trigger download of next chapters (needed for non-infinite-scroll mode)
+                        if (!isInfiniteScrollAppend && !isPrepend) {
+                            activity.viewModel.setNovelVisibleChapter(page.chapter.chapter)
+                        }
+                    }
+                    is Page.State.Error -> {
+                        // Only hide loading for manual navigation
+                        if (!isInfiniteScrollAppend && !isPrepend) {
+                            hideLoadingIndicator()
+                        }
+                        // Infinite scroll is seamless - no loading indicators to hide
+                        lastErrorRetryContext = chapters.currChapter to page
+                        displayError(state.error)
+                    }
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    private fun showInlineLoading(isPrepend: Boolean) {
+        val js = """
+            (function() {
+                var loadingDiv = document.getElementById('inline-loading');
+                if (!loadingDiv) {
+                    loadingDiv = document.createElement('div');
+                    loadingDiv.id = 'inline-loading';
+                    loadingDiv.style.textAlign = 'center';
+                    loadingDiv.style.padding = '20px';
+                    loadingDiv.style.color = '#888';
+                    loadingDiv.innerHTML = 'Loading...';
+                }
+
+                if ($isPrepend) {
+                    document.body.insertBefore(loadingDiv, document.body.firstChild);
+                } else {
+                    document.body.appendChild(loadingDiv);
+                }
+            })();
+        """.trimIndent()
+        evaluateJavascriptSafe(js, null)
+    }
+
+    private fun hideInlineLoading(isPrepend: Boolean) {
+        val js = """
+            (function() {
+                var loadingDiv = document.getElementById('inline-loading');
+                if (loadingDiv) {
+                    loadingDiv.remove();
+                }
+            })();
+        """.trimIndent()
+        evaluateJavascriptSafe(js, null)
+    }
+
+    private fun showInlineError(message: String, isPrepend: Boolean) {
+        scope.launch(Dispatchers.Main) {
+            val escapedMessage = message.replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", "\\n")
+
+            val js = """
+                (function() {
+                    var errorDiv = document.getElementById('inline-error');
+                    if (errorDiv) {
+                        errorDiv.remove();
+                    }
+                    errorDiv = document.createElement('div');
+                    errorDiv.id = 'inline-error';
+                    errorDiv.style.textAlign = 'center';
+                    errorDiv.style.padding = '16px';
+                    errorDiv.style.color = '#FF5252';
+                    errorDiv.style.backgroundColor = 'rgba(255, 82, 82, 0.1)';
+                    errorDiv.style.cursor = 'pointer';
+                    errorDiv.innerHTML = '$escapedMessage (tap to dismiss)';
+                    errorDiv.onclick = function() { errorDiv.remove(); };
+
+                    if ($isPrepend) {
+                        document.body.insertBefore(errorDiv, document.body.firstChild);
+                    } else {
+                        document.body.appendChild(errorDiv);
+                    }
+                })();
+            """.trimIndent()
+            evaluateJavascriptSafe(js, null)
+
+            // Auto-dismiss after 8 seconds
+            delay(8000)
+            evaluateJavascriptSafe(
+                "document.getElementById('inline-error')?.remove();",
+                null,
+            )
+        }
+    }
+
+    private fun scrollToChapterIndex(index: Int) {
+        val js = """
+            (function() {
+                var dividers = document.querySelectorAll('.chapter-divider');
+                if (dividers[$index]) {
+                    dividers[$index].scrollIntoView({ behavior: 'smooth' });
+                }
+            })();
+        """.trimIndent()
+        evaluateJavascriptSafe(js, null)
+    }
+
+    private fun displayContent(
+        chapter: ReaderChapter,
+        page: ReaderPage,
+        isAppendOrPrepend: Boolean = false,
+        isPrepend: Boolean = false,
+    ) {
+        var content = page.text
+        if (content.isNullOrBlank()) {
+            lastErrorRetryContext = chapter to page
+            displayError(Exception(activity.getString(MR.strings.novel_error_no_text)))
+            return
+        }
+
+        val chapterId = chapter.chapter.id ?: return
+
+        // Optionally strip chapter title from content
+        if (preferences.novelHideChapterTitle.get()) {
+            content = stripChapterTitle(content, chapter.chapter.name)
+        }
+
+        // Keep preprocessing consistent with normal WebView loads.
+        content = applyRegexReplacements(content)
+
+        // Optionally force lowercase
+        if (preferences.novelForceTextLowercase.get()) {
+            content = content.lowercase()
+        }
+
+        val finalContent = content
+        scope.launch {
+            // Check if we should translate based on context
+            val shouldTranslate = if (isAppendOrPrepend) {
+                // For infinite scroll, only translate if real-time translation is enabled.
+                // Translation is out of scope for the initial Hayai port — stub to false.
+                false
+            } else {
+                // For manual navigation, always allow translation if enabled
+                true
+            }
+
+            // Apply translation logic if allowed
+            val processedContent = if (shouldTranslate) {
+                activity.translateContentIfEnabled(finalContent)
+            } else {
+                finalContent
+            }
+            val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(chapter.chapter.url)
+            val renderableContent = if (plainTextMode) {
+                NovelViewerTextUtils.normalizePlainTextContent(processedContent)
+            } else {
+                NovelViewerTextUtils.normalizeContentForHtml(
+                    processedContent,
+                    chapter.chapter.url,
+                )
+            }
+
+            withContext(Dispatchers.Main) {
+                if (isAppendOrPrepend && preferences.novelInfiniteScroll.get()) {
+                    if (!loadedChapterIds.contains(chapterId)) {
+                        if (isPrepend) {
+                            loadedChapterIds.add(0, chapterId)
+                            loadedChapters.add(0, chapter)
+                            // Keep the user's current chapter index stable after a prepend.
+                            currentChapterIndex += 1
+                        } else {
+                            loadedChapterIds.add(chapterId)
+                            loadedChapters.add(chapter)
+                        }
+                    }
+                    if (isPrepend) {
+                        prependHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+                    } else {
+                        appendHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+                    }
+                } else {
+                    loadHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+
+                    // Fresh load: reset tracking to this single chapter.
+                    loadedChapterIds.clear()
+                    loadedChapters.clear()
+                    loadedChapterIds.add(chapterId)
+                    loadedChapters.add(chapter)
+                    currentChapterIndex = 0
+                }
+            }
+        }
+    }
+
+    /**
+     * Prepend content to the existing WebView for infinite scroll (loading previous chapter)
+     */
+    private fun prependHtmlContent(content: String, chapterId: Long, chapterName: String, chapterUrl: String?) {
+        val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(chapterUrl)
+        // Strip script/style/noscript tags from content
+        var cleanContent = if (plainTextMode) {
+            NovelViewerTextUtils.normalizePlainTextContent(content)
+        } else {
+            normalizeContentForHtml(content, chapterUrl)
+                .replace(Regex("<script[^>]*>.*?</script>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+                .replace(Regex("<script[^>]*/>", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("<style[^>]*>.*?</style>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+                .replace(Regex("<noscript[^>]*>.*?</noscript>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+        }
+        if (preferences.novelBlockMedia.get()) {
+            cleanContent = stripMediaTags(cleanContent)
+        }
+        val escapedContent = JSONObject.quote(cleanContent)
+
+        val js = """
+            (function() {
+                var oldHeight = document.body.scrollHeight;
+                var oldScrollY = window.scrollY || window.pageYOffset;
+
+                var contentDiv = document.createElement('div');
+                contentDiv.className = 'chapter-content';
+                contentDiv.setAttribute('data-chapter-id', '$chapterId');
+                ${if (plainTextMode) "contentDiv.textContent = $escapedContent;" else "contentDiv.innerHTML = $escapedContent;"}
+
+                var divider = document.createElement('div');
+                divider.className = 'chapter-divider';
+                divider.setAttribute('data-chapter-id', '$chapterId');
+
+                var firstChild = document.body.firstChild;
+                document.body.insertBefore(contentDiv, firstChild);
+                document.body.insertBefore(divider, contentDiv);
+
+                // Restore scroll position
+                // Use setTimeout to ensure layout is updated
+                setTimeout(function() {
+                    var newHeight = document.body.scrollHeight;
+                    var diff = newHeight - oldHeight;
+                    if (diff > 0) {
+                        window.scrollTo(0, oldScrollY + diff);
+                    }
+
+                    // Update chapter boundaries after DOM update
+                    if (typeof window.updateChapterBoundaries === 'function') {
+                        window.updateChapterBoundaries();
+                    }
+                }, 10);
+            })();
+        """.trimIndent()
+
+        evaluateJavascriptSafe(js, null)
+
+        // Re-run custom JS for newly prepended DOM so selector-based scripts apply consistently.
+        webView.postDelayed({ injectCustomScript() }, 120)
+
+        Logger.d {
+            "NovelWebViewViewer: Prepended chapter $chapterId (${loadedChapterIds.size} total)"
+        }
+    }
+
+    /**
+     * Append content to the existing WebView for infinite scroll
+     */
+    private fun appendHtmlContent(content: String, chapterId: Long, chapterName: String, chapterUrl: String?) {
+        val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(chapterUrl)
+        // Strip script/style/noscript tags from content
+        var cleanContent = if (plainTextMode) {
+            NovelViewerTextUtils.normalizePlainTextContent(content)
+        } else {
+            normalizeContentForHtml(content, chapterUrl)
+                .replace(Regex("<script[^>]*>.*?</script>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+                .replace(Regex("<script[^>]*/>", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("<style[^>]*>.*?</style>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+                .replace(Regex("<noscript[^>]*>.*?</noscript>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+        }
+        if (preferences.novelBlockMedia.get()) {
+            cleanContent = stripMediaTags(cleanContent)
+        }
+        val escapedContent = JSONObject.quote(cleanContent)
+
+        val js = """
+            (function() {
+                var divider = document.createElement('hr');
+                divider.className = 'chapter-divider';
+                divider.setAttribute('data-chapter-id', '$chapterId');
+                document.body.appendChild(divider);
+
+                var contentDiv = document.createElement('div');
+                contentDiv.className = 'chapter-content';
+                contentDiv.setAttribute('data-chapter-id', '$chapterId');
+                ${if (plainTextMode) "contentDiv.textContent = $escapedContent;" else "contentDiv.innerHTML = $escapedContent;"}
+                document.body.appendChild(contentDiv);
+
+                // Update chapter boundaries after DOM update
+                setTimeout(function() {
+                    if (typeof window.updateChapterBoundaries === 'function') {
+                        window.updateChapterBoundaries();
+                    }
+                }, 100);
+            })();
+        """.trimIndent()
+
+        evaluateJavascriptSafe(js, null)
+
+        // Re-run custom JS for newly appended DOM so selector-based scripts apply consistently.
+        webView.postDelayed({ injectCustomScript() }, 120)
+
+        Logger.d { "NovelWebViewViewer: Appended chapter $chapterId (${loadedChapterIds.size} total)" }
+    }
+
+    private fun loadHtmlContent(
+        content: String,
+        chapterId: Long? = null,
+        chapterName: String? = null,
+        chapterUrl: String? = null,
+    ) {
+        val normalizedChapterUrl = normalizeUrl(chapterUrl)
+        val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(normalizedChapterUrl)
+        // Strip script/style/noscript tags from content to prevent unwanted JS execution
+        var cleanContent = if (plainTextMode) {
+            NovelViewerTextUtils.normalizePlainTextContent(content)
+        } else {
+            NovelViewerTextUtils.normalizeContentForHtml(content, normalizedChapterUrl)
+                .replace(Regex("<script[^>]*>.*?</script>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+                .replace(Regex("<script[^>]*/>", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("<style[^>]*>.*?</style>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+                .replace(Regex("<noscript[^>]*>.*?</noscript>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+        }
+
+        val blockMedia = preferences.novelBlockMedia.get()
+        if (blockMedia) {
+            cleanContent = stripMediaTags(cleanContent)
+        }
+
+        // Apply user's regex find & replace rules
+        cleanContent = applyRegexReplacements(cleanContent)
+
+        val stylePayload = buildCustomStylePayload()
+        webView.setBackgroundColor(stylePayload.backgroundColor)
+        container.setBackgroundColor(stylePayload.backgroundColor)
+
+        // Clear loaded chapters for fresh start
+        loadedChapterIds.clear()
+        loadedChapters.clear()
+        currentChapterIndex = 0
+
+        // Add initial invisible chapter divider marker for tracking (no visible separator)
+        val chapterDivider = if (chapterId != null && preferences.novelInfiniteScroll.get()) {
+            """<div class="chapter-divider" data-chapter-id="$chapterId" style="height:0;margin:0;padding:0;"></div>
+               <div class="chapter-content" data-chapter-id="$chapterId">"""
+        } else {
+            ""
+        }
+        val chapterDividerEnd = if (chapterId != null && preferences.novelInfiniteScroll.get()) "</div>" else ""
+
+        val mediaBlockCss = if (blockMedia) {
+            "img, video, audio, source, svg, image { display: none !important; }"
+        } else {
+            ""
+        }
+
+        // Build global JS variables for custom scripts
+        val chapterMetaScript = buildChapterMetaScript()
+
+        var finalContent = cleanContent
+        var embeddedHead = ""
+
+        if (plainTextMode) {
+            finalContent = """
+                <pre class="chapter-content" data-tsundoku-plain-text="1" style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; margin: 0;"></pre>
+                <script>
+                    document.querySelector('.chapter-content').textContent = ${JSONObject.quote(cleanContent)};
+                </script>
+            """.trimIndent()
+        } else {
+            try {
+                val doc = org.jsoup.Jsoup.parse(finalContent)
+
+
+                doc.select("style, link[rel=stylesheet]").remove()
+
+                doc.select("script, noscript").remove()
+
+                val bodyNode = doc.body()
+                if (bodyNode != null && bodyNode.hasText()) {
+                    finalContent = bodyNode.html()
+                } else if (bodyNode != null && bodyNode.children().isNotEmpty()) {
+                    finalContent = bodyNode.html()
+                }
+            } catch (_: Exception) {}
+        }
+
+        val escapedInitialStyle = stylePayload.css
+            .replace("</style>", "<\\/style>")
+            .replace("</Style>", "<\\/Style>")
+            .replace("</STYLE>", "<\\/STYLE>")
+
+        val hideHeadingCss = if (stylePayload.hideChapterTitle) {
+            "h1:first-of-type, h2:first-of-type, h3:first-of-type, h4:first-of-type, h5:first-of-type, h6:first-of-type { display: none !important; }"
+        } else {
+            ""
+        }
+
+        val html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    .chapter-divider {
+                        height: 1px;
+                        margin: 32px auto;
+                        padding: 0;
+                        border: none;
+                        border-top: 1px solid currentColor;
+                        opacity: 0.4;
+                        width: 60%;
+                    }
+                    img {
+                        max-width: 100%;
+                        height: auto;
+                        display: block;
+                        margin: 8px auto;
+                        min-height: 100px;
+                        background: rgba(150, 150, 150, 0.2) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="%23888" stroke-width="5" stroke-dasharray="31.4 31.4"><animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite"/></circle></svg>') no-repeat center center;
+                    }
+                    video {
+                        max-width: 100%;
+                        height: auto;
+                    }
+                    $hideHeadingCss
+                    $mediaBlockCss
+                </style>
+                <style id="tsundoku-custom-style">$escapedInitialStyle</style>
+                $embeddedHead
+                <script>$chapterMetaScript</script>
+            </head>
+            <body>
+                $chapterDivider
+                $finalContent
+                $chapterDividerEnd
+            </body>
+            </html>
+        """.trimIndent()
+
+        webView.loadDataWithBaseURL(resolveWebViewBaseUrl(normalizedChapterUrl), html, "text/html", "UTF-8", null)
+    }
+
+
+
+    private fun resolveWebViewBaseUrl(chapterUrl: String?): String? {
+        val repairedChapterUrl = normalizeUrl(chapterUrl)
+        val absoluteChapterUrl = repairedChapterUrl?.trim().takeUnless { it.isNullOrBlank() }
+            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        if (absoluteChapterUrl != null) return absoluteChapterUrl
+
+        val novelUrl = normalizeUrl(activity.viewModel.manga?.url)?.trim().takeUnless { it.isNullOrBlank() }
+            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        return novelUrl
+    }
+
+    private fun normalizeUrl(url: String?): String? {
+        val value = url?.trim().orEmpty()
+        if (value.isBlank()) return url
+        return when {
+            value.startsWith("https//") -> "https://" + value.removePrefix("https//")
+            value.startsWith("http//") -> "http://" + value.removePrefix("http//")
+            else -> value
+        }
+    }
+
+    private fun stripMediaTags(content: String): String {
+        return content
+            .replace(Regex("<img[^>]*>", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("<image[^>]*>", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("</image>", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("<svg[^>]*>.*?</svg>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+            .replace(Regex("<video[^>]*>.*?</video>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+            .replace(Regex("<audio[^>]*>.*?</audio>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+            .replace(Regex("<source[^>]*>", RegexOption.IGNORE_CASE), "")
+    }
+
+    /**
+     * Build a JS snippet that sets global chapter/novel metadata variables.
+     * Called during initial [loadHtmlContent] to embed in `<script>` tags.
+     */
+    private fun buildChapterMetaScript(): String {
+        val chapter = currentChapters?.currChapter?.chapter
+            ?: loadedChapters.getOrNull(currentChapterIndex)?.chapter
+        val chapterTitle = (chapter?.name ?: "").jsEscape()
+        val chapterNumber = chapter?.chapter_number ?: -1f
+        val chapterUrl = normalizeUrl(chapter?.url).orEmpty().jsEscape()
+        val novelUrl = normalizeUrl(activity.viewModel.manga?.url).orEmpty().jsEscape()
+
+        return """
+            window.__TSUNDOKU_CHAPTER_TITLE = "$chapterTitle";
+            window.__TSUNDOKU_CHAPTER_NUMBER = $chapterNumber;
+            window.__TSUNDOKU_CHAPTER_URL = "$chapterUrl";
+            window.__TSUNDOKU_NOVEL_URL = "$novelUrl";
+            window.__TSUNDOKU_IS_EDIT_MODE = $isEditingMode;
+            window.__TSUNDOKU_IS_INF_SCROLL = ${preferences.novelInfiniteScroll.get()};
+            window.__TSUNDOKU_TEXT_SELECTION_BLOCKED = ${!preferences.novelTextSelectable.get()};
+            window.__TSUNDOKU_FORCED_LOWERCASE = ${preferences.novelForceTextLowercase.get()};
+        """.trimIndent()
+    }
+
+    /**
+     * Update global JS chapter metadata variables after an infinite-scroll
+     * boundary change (when the user scrolls into a different chapter).
+     */
+    private fun updateChapterMetaJs() {
+        val js = buildChapterMetaScript()
+        evaluateJavascriptSafe("(function(){$js})();", null)
+    }
+
+    /**
+     * Escape a string for safe embedding inside a JS double-quoted literal.
+     * Also escapes `</script>` sequences which would prematurely close the script tag.
+     */
+    private fun String.jsEscape(): String =
+        this.replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("</script>", "<\\/script>")
+            .replace("</Script>", "<\\/Script>")
+            .replace("</SCRIPT>", "<\\/SCRIPT>")
+
+    /**
+     * Apply user-configured find & replace rules to content.
+     * Rules are stored as JSON in the novelRegexReplacements preference.
+     * Each enabled rule is applied in order — supports both plain text and regex patterns.
+     */
+    private fun applyRegexReplacements(content: String): String =
+        NovelViewerTextUtils.applyRegexReplacements(content, preferences)
+
+    private fun normalizeContentForHtml(content: String, chapterUrl: String?): String =
+        NovelViewerTextUtils.normalizeContentForHtml(content, chapterUrl)
+
+    /**
+     * Strips the chapter title from the beginning of the content.
+     * Removes the first H1-H6 heading element, first paragraph, div, span, or plain text if it matches the chapter name.
+     */
+    private fun stripChapterTitle(content: String, chapterName: String): String =
+        NovelViewerTextUtils.stripChapterTitle(content, chapterName)
+
+    private fun isTitleMatch(text: String, chapterName: String): Boolean =
+        NovelViewerTextUtils.isTitleMatch(text, chapterName)
+
+    private fun showLoadingIndicator() {
+        // Render a blank background-only WebView underneath, then layer the M3 Expressive
+        // LoadingIndicator on top via [showComposeLoadingOverlay] so the loader matches
+        // the native viewer.
+        val theme = preferences.novelTheme.get()
+        val backgroundColor = preferences.novelBackgroundColor.get()
+        val fontColor = preferences.novelFontColor.get()
+        val (themeBgColor, themeTextColor) = getThemeColors(theme)
+        val finalBgColor = if (theme == "custom" && backgroundColor != 0) backgroundColor else themeBgColor
+        val finalTextColor = if (theme == "custom" && fontColor != 0) fontColor else themeTextColor
+
+        val bgColorHex = String.format("#%06X", 0xFFFFFF and finalBgColor)
+        val textColorHex = String.format("#%06X", 0xFFFFFF and finalTextColor)
+
+        val loadingHtml = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {
+                        margin: 0;
+                        padding: 16px;
+                        background-color: $bgColorHex;
+                        color: $textColorHex;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        font-family: sans-serif;
+                    }
+                </style>
+            </head>
+            <body>
+            </body>
+            </html>
+        """.trimIndent()
+
+        webView.loadDataWithBaseURL(null, loadingHtml, "text/html", "UTF-8", null)
+
+        // Mount the M3 Expressive loader on top of the WebView until the chapter renders.
+        if (loadingComposeOverlay == null) {
+            val overlay = hayai.novel.reader.ui.buildNovelLoadingComposeView(
+                context = activity,
+                backgroundArgb = finalBgColor,
+            )
+            loadingComposeOverlay = overlay
+            container.addView(overlay)
+        }
+    }
+
+    private fun hideLoadingIndicator() {
+        loadingComposeOverlay?.let { container.removeView(it) }
+        loadingComposeOverlay = null
+    }
+
+    private fun displayError(error: Throwable) {
+        android.util.Log.e("NovelWebViewViewer", "displayError: ${error.javaClass.simpleName}: ${error.message}", error)
+        val theme = preferences.novelTheme.get()
+        val backgroundColor = preferences.novelBackgroundColor.get()
+        val fontColor = preferences.novelFontColor.get()
+        val (themeBgColor, themeTextColor) = getThemeColors(theme)
+        val finalBgColor = if (theme == "custom" && backgroundColor != 0) backgroundColor else themeBgColor
+        val finalTextColor = if (theme == "custom" && fontColor != 0) fontColor else themeTextColor
+        val bgColorHex = String.format("#%06X", 0xFFFFFF and finalBgColor)
+        val textColorHex = String.format("#%06X", 0xFFFFFF and finalTextColor)
+
+        val escapedMessage = "${error.javaClass.simpleName}: ${error.message ?: "(null)"}"
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&#39;")
+        val canRetry = lastErrorRetryContext != null
+        val retryLabel = activity.getString(MR.strings.retry)
+        val titleLabel = activity.getString(MR.strings.novel_error_loading_chapter)
+        val retryButtonHtml = if (canRetry) {
+            """<button onclick="Android.retryFailedChapter()"
+                       style="margin-top: 24px; padding: 12px 24px; font-size: 16px;
+                              background-color: #ff5555; color: white; border: none;
+                              border-radius: 8px; cursor: pointer;">$retryLabel</button>"""
+        } else {
+            ""
+        }
+        val errorHtml = """
+            <!DOCTYPE html>
+            <html>
+            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: $bgColorHex; color: $textColorHex;">
+                <div style="text-align: center; color: #ff5555;">
+                    <h2>$titleLabel</h2>
+                    <p>$escapedMessage</p>
+                    $retryButtonHtml
+                </div>
+            </body>
+            </html>
+        """.trimIndent()
+
+        webView.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
+    }
+
+    override fun moveToPage(page: ReaderPage, animated: Boolean) {
+        // For novels, navigation is by chapter not page
+    }
+
+    override fun moveToNext() {
+        webView.evaluateJavascript("window.scrollBy(0, ${(container.height * 0.8).toInt()});", null)
+    }
+
+    override fun moveToPrevious() {
+        webView.evaluateJavascript("window.scrollBy(0, -${(container.height * 0.8).toInt()});", null)
+    }
+
+    override fun handleKeyEvent(event: KeyEvent): Boolean {
+        val isUp = event.action == KeyEvent.ACTION_UP
+        // Use a smaller scroll amount (30% of viewport) for volume keys
+        val scrollAmount = (container.height * 0.30).toInt()
+
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_MENU -> {
+                if (isUp) activity.toggleMenu()
+                return true
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                if (preferences.novelVolumeKeysScroll.get()) {
+                    if (!isUp) webView.evaluateJavascript("window.scrollBy(0, $scrollAmount);", null)
+                    return true
+                }
+                return false
+            }
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                if (preferences.novelVolumeKeysScroll.get()) {
+                    if (!isUp) webView.evaluateJavascript("window.scrollBy(0, -$scrollAmount);", null)
+                    return true
+                }
+                return false
+            }
+            KeyEvent.KEYCODE_SPACE -> {
+                if (!isUp) {
+                    if (event.isShiftPressed) {
+                        webView.pageUp(false)
+                    } else {
+                        webView.pageDown(false)
+                    }
+                }
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> {
+                if (!isUp) webView.pageUp(false)
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> {
+                if (!isUp) webView.pageDown(false)
+                return true
+            }
+        }
+        return false
+    }
+
+    fun toggleEditMode(isEditing: Boolean, save: Boolean = true) {
+        if (!isEditing && !save) {
+            this.isEditingMode = false
+            webView.evaluateJavascript(
+                "(function() { window.getSelection().removeAllRanges(); document.activeElement.blur(); })();",
+                null,
+            )
+            webView.clearFocus()
+            val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+
+            // Reload chapter to discard edits
+            loadedChapterIds.clear()
+            loadedChapters.clear()
+            activity.viewModel.reloadChapter(fromSource = false)
+            return
+        }
+
+        this.isEditingMode = isEditing
+        injectCustomScript()
+        updateChapterMetaJs()
+
+        if (isEditing) {
+            webView.post {
+                activity.window.decorView.clearFocus()
+                webView.requestFocus()
+                webView.requestFocusFromTouch()
+                val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.showSoftInput(webView, 0)
+                webView.postDelayed({
+                    imm?.showSoftInput(webView, 0)
+                }, 120)
+            }
+        } else {
+            webView.evaluateJavascript(
+                "(function() { window.getSelection().removeAllRanges(); document.activeElement.blur(); })();",
+                null,
+            )
+            webView.clearFocus()
+            val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+        }
+
+        val script = """
+            (function() {
+                function enableEdit() {
+                    document.designMode = 'off';
+                    var styleId = 'edit-mode-style';
+                    if ('$isEditing' === 'true') {
+                        if (!document.getElementById(styleId)) {
+                            var style = document.createElement('style');
+                            style.id = styleId;
+                            style.innerHTML = '.chapter-content, [data-tsundoku-editable="1"], body { -webkit-user-select: text !important; user-select: text !important; pointer-events: auto !important; -webkit-tap-highlight-color: transparent; outline: none; } ' +
+                                'body { padding-bottom: max(220px, 38vh) !important; }';
+                            document.head.appendChild(style);
+                        }
+
+                        var editTargets = document.querySelectorAll('.chapter-content');
+                        if (editTargets.length === 0 && document.body) {
+                            document.body.setAttribute('contenteditable', 'true');
+                            document.body.setAttribute('data-tsundoku-editable', '1');
+                            document.body.setAttribute('tabindex', '0');
+                        } else {
+                            for (var i = 0; i < editTargets.length; i++) {
+                                editTargets[i].setAttribute('contenteditable', 'true');
+                                editTargets[i].setAttribute('data-tsundoku-editable', '1');
+                                editTargets[i].setAttribute('tabindex', '0');
+                            }
+                        }
+
+                        if (!window.__tsundokuEditInputBound) {
+                            window.__tsundokuEditInputBound = true;
+                            document.addEventListener('input', function(e) {
+                                if (window.Android && window.Android.onContentEdited) {
+                                    window.Android.onContentEdited();
+                                }
+                            });
+                        }
+                    } else {
+                        var style = document.getElementById(styleId);
+                        if (style) {
+                            style.parentNode.removeChild(style);
+                        }
+
+                        var editableNodes = document.querySelectorAll('[data-tsundoku-editable="1"]');
+                        for (var j = 0; j < editableNodes.length; j++) {
+                            editableNodes[j].removeAttribute('contenteditable');
+                            editableNodes[j].removeAttribute('data-tsundoku-editable');
+                            editableNodes[j].removeAttribute('tabindex');
+                        }
+
+                        var contents = [];
+                        var nodes = document.querySelectorAll('.chapter-content');
+                        if (nodes.length > 0) {
+                            for (var i = 0; i < nodes.length; i++) {
+                                var html = nodes[i].innerHTML;
+                                var chapterId = nodes[i].getAttribute('data-chapter-id');
+                                contents.push({id: chapterId, content: html});
+                            }
+                        } else if (document.body) {
+                            var currentId = '${currentChapters?.currChapter?.chapter?.id ?: -1}';
+                            contents.push({id: currentId, content: document.body.innerHTML});
+                        }
+                        if (window.Android && window.Android.onSaveEditedContent) {
+                            window.Android.onSaveEditedContent(JSON.stringify(contents));
+                        }
+                    }
+                }
+
+                if (document.readyState === 'complete') {
+                    enableEdit();
+                } else {
+                    window.addEventListener('load', enableEdit);
+                }
+            })();
+        """.trimIndent()
+
+        webView.evaluateJavascript(script, null)
+    }
+
+    override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
+
+    /**
+     * JavaScript interface for communication from WebView
+     */
+    @Keep
+    inner class WebViewInterface {
+        @JavascriptInterface
+        fun onContentEdited() {
+            activity.viewModel.setHasUnsavedChanges(true)
+        }
+
+        @JavascriptInterface
+        fun onSaveEditedContent(json: String) {
+            Logger.d { "NovelWebViewViewer: onSaveEditedContent(length=${json.length})" }
+            activity.viewModel.saveEditedChapterContent(json)
+        }
+
+        @JavascriptInterface
+        fun onScrollProgress(progress: Float) {
+            activity.runOnUiThread {
+                lastSavedProgress = progress
+                saveProgress()
+            }
+        }
+
+        @JavascriptInterface
+        fun onScrollUpdate(progress: Float) {
+            activity.runOnUiThread {
+                lastSavedProgress = progress
+                activity.onNovelProgressChanged(progress)
+            }
+        }
+
+        @JavascriptInterface
+        fun onChapterScrollUpdate(chapterIndex: Int, progress: Float) {
+            activity.runOnUiThread {
+                if (chapterIndex != currentChapterIndex && chapterIndex >= 0 && chapterIndex < loadedChapters.size) {
+                    val oldIndex = currentChapterIndex
+                    currentChapterIndex = chapterIndex
+                    Logger.d {
+                        "NovelWebViewViewer: Chapter scroll changed from $oldIndex to $chapterIndex"
+                    }
+
+                    activity.viewModel.setNovelVisibleChapter(loadedChapters.getOrNull(chapterIndex)?.chapter)
+
+                    loadedChapters.getOrNull(chapterIndex)?.pages?.firstOrNull()?.let { page ->
+                        currentPage = page
+                        activity.onPageSelected(page, false)
+                    }
+
+                    // Reset progress for new chapter - use 0f, not the incoming progress
+                    lastSavedProgress = 0f
+                    activity.onNovelProgressChanged(0f)
+
+                    // Update global JS variables for the new chapter
+                    updateChapterMetaJs()
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun retryFailedChapter() {
+            activity.runOnUiThread {
+                val ctx = lastErrorRetryContext ?: return@runOnUiThread
+                val (chapter, page) = ctx
+                val loader = chapter.pageLoader ?: return@runOnUiThread
+                lastErrorRetryContext = null
+                showLoadingIndicator()
+                loader.retryPage(page)
+                scope.launch(Dispatchers.IO) { loader.loadPage(page) }
+            }
+        }
+
+        @JavascriptInterface
+        fun loadNextChapter() {
+            activity.runOnUiThread {
+                Logger.d {
+                    "NovelWebViewViewer: loadNextChapter triggered, infiniteScroll=${preferences.novelInfiniteScroll.get()}, isLoadingNext=$isLoadingNext, loadedCount=${loadedChapterIds.size}"
+                }
+                if (!preferences.novelInfiniteScroll.get()) {
+                    activity.loadNextChapter()
+                } else if (!isLoadingNext) {
+                    isLoadingNext = true
+                    scope.launch {
+                        try {
+                            appendNextChapterIfAvailable()
+                        } finally {
+                            isLoadingNext = false
+                            setJsLoadingNext(false)
+                        }
+                    }
+                } else {
+                    Logger.w {
+                        "NovelWebViewViewer: loadNextChapter ignored (infiniteScroll=${preferences.novelInfiniteScroll.get()}, isLoadingNext=$isLoadingNext)"
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setJsLoadingNext(isLoading: Boolean) {
+        val flag = if (isLoading) "true" else "false"
+        evaluateJavascriptSafe(
+            "(function(){ if (window.__tsundokuSetLoadingNext) window.__tsundokuSetLoadingNext($flag); })();",
+            null,
+        )
+    }
+
+    private suspend fun awaitPageText(page: ReaderPage, loader: PageLoader, timeoutMs: Long): Boolean =
+        NovelViewerTextUtils.awaitPageText("NovelWebViewViewer", page, loader, timeoutMs, scope)
+
+    private suspend fun displayContentImmediate(
+        chapter: ReaderChapter,
+        page: ReaderPage,
+        isAppendOrPrepend: Boolean,
+        isPrepend: Boolean,
+    ) {
+        if (isDestroyed) return
+
+        var content = page.text
+        if (content.isNullOrBlank()) {
+            lastErrorRetryContext = chapter to page
+            displayError(Exception(activity.getString(MR.strings.novel_error_no_text)))
+            return
+        }
+
+        val chapterId = chapter.chapter.id ?: return
+
+        if (preferences.novelHideChapterTitle.get()) {
+            content = stripChapterTitle(content, chapter.chapter.name)
+        }
+
+        // Optionally force lowercase
+        if (preferences.novelForceTextLowercase.get()) {
+            content = content.lowercase()
+        }
+
+        val processedContent = activity.translateContentIfEnabled(content)
+        val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(chapter.chapter.url)
+        val renderableContent = if (plainTextMode) {
+            NovelViewerTextUtils.normalizePlainTextContent(processedContent)
+        } else {
+            NovelViewerTextUtils.normalizeContentForHtml(
+                processedContent,
+                chapter.chapter.url,
+            )
+        }
+
+        withContext(Dispatchers.Main) {
+            if (isDestroyed) return@withContext
+
+            if (isAppendOrPrepend && preferences.novelInfiniteScroll.get()) {
+                if (!loadedChapterIds.contains(chapterId)) {
+                    if (isPrepend) {
+                        // Backward prepend is disabled; keep behavior forward-only.
+                        return@withContext
+                    }
+                    loadedChapterIds.add(chapterId)
+                    loadedChapters.add(chapter)
+                }
+                appendHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+            } else {
+                loadHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+                loadedChapterIds.clear()
+                loadedChapters.clear()
+                loadedChapterIds.add(chapterId)
+                loadedChapters.add(chapter)
+                currentChapterIndex = 0
+            }
+        }
+    }
+
+    private suspend fun appendNextChapterIfAvailable() {
+        val anchor = loadedChapters.lastOrNull() ?: currentChapters?.currChapter ?: run {
+            Logger.e {
+                "NovelWebViewViewer: appendNext failed, no anchor chapter (loadedCount=${loadedChapters.size})"
+            }
+            showInlineError("No anchor chapter for infinite scroll", isPrepend = false)
+            return
+        }
+        Logger.d {
+            "NovelWebViewViewer: appendNext starting from anchor=${anchor.chapter.id}/${anchor.chapter.name}"
+        }
+
+        val preparedChapter = activity.viewModel.prepareNextChapterForInfiniteScroll(anchor) ?: run {
+            Logger.w { "NovelWebViewViewer: No next chapter available after ${anchor.chapter.name}" }
+            showInlineError("No next chapter available", isPrepend = false)
+            return
+        }
+        val nextId = preparedChapter.chapter.id ?: return
+        Logger.d { "NovelWebViewViewer: prepared next=$nextId/${preparedChapter.chapter.name}" }
+
+        if (loadedChapterIds.contains(nextId)) {
+            Logger.d { "NovelWebViewViewer: next chapter $nextId already loaded, skipping" }
+            return
+        }
+
+        val page = preparedChapter.pages?.firstOrNull() as? ReaderPage ?: run {
+            Logger.e { "NovelWebViewViewer: No page in prepared next chapter" }
+            showInlineError("No page in next chapter", isPrepend = false)
+            return
+        }
+        val loader = page.chapter.pageLoader ?: run {
+            Logger.e { "NovelWebViewViewer: No page loader for next chapter" }
+            showInlineError("No loader for next chapter", isPrepend = false)
+            return
+        }
+
+        showInlineLoading(isPrepend = false)
+        try {
+            Logger.d {
+                "NovelWebViewViewer: loading page for next chapter $nextId, state=${page.status}"
+            }
+            val loaded = try {
+                awaitPageText(page = page, loader = loader, timeoutMs = 30_000)
+            } catch (e: TimeoutCancellationException) {
+                Logger.e { "NovelWebViewViewer: Timed out loading next chapter page after 30s" }
+                showInlineError("Timeout loading next chapter", isPrepend = false)
+                false
+            } catch (e: CancellationException) {
+                Logger.d { "NovelWebViewViewer: appendNext cancelled" }
+                false
+            } catch (e: Exception) {
+                Logger.e { "NovelWebViewViewer: Error loading next chapter page: ${e.message}" }
+                showInlineError("Error: ${e.message ?: "Unknown error"}", isPrepend = false)
+                false
+            }
+
+            if (!loaded) return
+
+            Logger.d { "NovelWebViewViewer: appending content for chapter $nextId" }
+            displayContentImmediate(preparedChapter, page, isAppendOrPrepend = true, isPrepend = false)
+            Logger.i {
+                "NovelWebViewViewer: Successfully appended next chapter ${preparedChapter.chapter.name}"
+            }
+        } finally {
+            hideInlineLoading(isPrepend = false)
+            setJsLoadingNext(false)
+        }
+    }
+
+    private suspend fun prependPreviousChapterIfAvailable() {
+        val anchor = loadedChapters.firstOrNull() ?: currentChapters?.currChapter ?: return
+        val preparedChapter = activity.viewModel.preparePreviousChapterForInfiniteScroll(anchor) ?: return
+        val prevId = preparedChapter.chapter.id ?: return
+        if (loadedChapterIds.contains(prevId)) return
+
+        val page = preparedChapter.pages?.firstOrNull() as? ReaderPage ?: return
+        val loader = page.chapter.pageLoader ?: return
+
+        showInlineLoading(isPrepend = true)
+        try {
+            val loaded = awaitPageText(page, loader, 30_000)
+
+            if (!loaded) {
+                Logger.e { "NovelWebViewViewer: Failed to load previous chapter page" }
+                return
+            }
+
+            withContext(Dispatchers.Main) {
+                displayContent(preparedChapter, page, isAppendOrPrepend = true, isPrepend = true)
+            }
+        } finally {
+            hideInlineLoading(isPrepend = true)
+        }
+    }
+
+    /**
+     * Scroll to the top of the content
+     */
+    fun scrollToTop() {
+        webView.scrollTo(0, 0)
+    }
+
+    /**
+     * Toggle auto-scroll for WebView using JavaScript-based smooth scrolling
+     */
+    fun toggleAutoScroll() {
+        isAutoScrolling = !isAutoScrolling
+
+        if (isAutoScrolling) {
+            startAutoScroll()
+        } else {
+            stopAutoScroll()
+        }
+    }
+
+    private fun startAutoScroll() {
+        val speed = preferences.novelAutoScrollSpeed.get().coerceIn(1, 10)
+        isAutoScrolling = true
+
+        autoScrollJob?.cancel()
+        autoScrollJob = scope.launch {
+            while (isActive && isAutoScrolling) {
+                // Scroll amount per tick - higher speed = more scroll
+                val scrollAmount = speed // 1-10 pixels per tick
+                evaluateJavascriptSafe(
+                    """
+                    (function() {
+                        window.scrollBy(0, $scrollAmount);
+                    })();
+                    """.trimIndent(),
+                    null,
+                )
+                // Fixed delay between scroll ticks
+                // At speed 1: scroll 1px every 50ms = ~20px/sec
+                // At speed 10: scroll 10px every 50ms = ~200px/sec
+                delay(50L)
+            }
+        }
+    }
+
+    private fun stopAutoScroll() {
+        isAutoScrolling = false
+        autoScrollJob?.cancel()
+        autoScrollJob = null
+    }
+
+    /**
+     * Check if auto-scroll is currently active
+     */
+    fun isAutoScrollActive(): Boolean = isAutoScrolling
+
+    /**
+     * Gets the current scroll progress as percentage (0 to 100)
+     */
+    fun getProgressPercent(): Int {
+        // Return last saved progress since WebView scroll can't be accessed synchronously
+        return (lastSavedProgress * 100).toInt().coerceIn(0, 100)
+    }
+
+    /**
+     * Sets the scroll position by progress percentage (0 to 100)
+     */
+    fun setProgressPercent(percent: Int) {
+        val progress = percent.coerceIn(0, 100)
+        // Update local state immediately for consistent UI
+        lastSavedProgress = progress / 100f
+
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+                var targetScroll = scrollHeight * $progress / 100;
+                window.scrollTo(0, targetScroll);
+                // Update the tracking variable to prevent immediate re-report
+                if (typeof lastProgress !== 'undefined') {
+                    lastProgress = $progress / 100.0;
+                }
+            })();
+            """.trimIndent(),
+            null,
+        )
+    }
+
+    /**
+     * Reload the current chapter
+     */
+    fun reloadChapter() {
+        currentChapters?.let { setChapters(it) }
+    }
+
+    // TTS Methods
+
+    private fun ensureTtsInitialized() {
+        if (tts == null) {
+            // Check if TTS data is available first
+            val intent = android.content.Intent(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA)
+            try {
+                val engineName = preferences.novelTtsEngine.get().takeIf { it.isNotBlank() }
+                tts = if (engineName != null) {
+                    TextToSpeech(activity, this, engineName)
+                } else {
+                    TextToSpeech(activity, this)
+                }
+                Logger.d { "TTS (WebView): Initialization started${if (engineName != null) " with engine $engineName" else ""}" }
+            } catch (e: Exception) {
+                Logger.e { "TTS (WebView): Failed to create TextToSpeech instance: ${e.message}" }
+                activity.runOnUiThread {
+                    Logger.d {
+                        "TTS engine not available. Please install a TTS engine from Google Play."
+                    }
+                }
+            }
+        }
+    }
+
+    fun startTts() {
+        ensureTtsInitialized()
+
+        if (!ttsInitialized) {
+            Logger.w { "TTS (WebView): Not initialized yet, waiting..." }
+            pendingTtsStartRequest = TtsStartRequest.NORMAL
+            return
+        }
+
+        pendingTtsStartRequest = null
+        isTtsAutoPlay = true // Enable auto-continue
+        // Extract text from WebView using JavaScript
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var body = document.body;
+                return body ? body.innerText || body.textContent : '';
+            })();
+            """.trimIndent(),
+        ) { result ->
+            // JavaScript returns quoted string, need to unquote and unescape
+            val text = result?.let {
+                if (it.startsWith("\"") && it.endsWith("\"")) {
+                    it.substring(1, it.length - 1)
+                        .replace("\\n", "\n")
+                        .replace("\\t", "\t")
+                        .replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                } else {
+                    it
+                }
+            }
+
+            if (!text.isNullOrBlank() && text != "null") {
+                Logger.d { "TTS (WebView): Starting to speak ${text.length} characters" }
+                speak(text)
+            } else {
+                Logger.w { "TTS (WebView): No text to speak" }
+            }
+        }
+    }
+
+    fun stopTts() {
+        isTtsAutoPlay = false // Disable auto-continue when manually stopped
+        ttsPaused = false
+        pendingTtsStartRequest = null
+        ttsChunks = emptyList()
+        ttsChunkParagraphIndexes = emptyList()
+        ttsCurrentChunkIndex = 0
+        hasViewportStartOverride = false
+        if (ttsInitialized) {
+            tts?.stop()
+        }
+        clearWebViewTtsHighlight()
+    }
+
+    fun pauseTts() {
+        if (!ttsInitialized || ttsChunks.isEmpty()) return
+        ttsPaused = true
+        ttsResumeChunkIndex = ttsCurrentChunkIndex
+        tts?.stop()
+        saveTtsProgress()
+    }
+
+    fun resumeTts() {
+        if (ttsPaused && ttsChunks.isNotEmpty()) {
+            ttsPaused = false
+            // Resume from the chunk that was interrupted
+            speakChunksFrom(ttsResumeChunkIndex)
+        }
+    }
+
+    fun isTtsPaused(): Boolean = ttsPaused
+
+    fun isTtsSpeaking(): Boolean = ttsInitialized && tts?.isSpeaking == true
+
+    fun isTtsStarting(): Boolean = pendingTtsStartRequest != null || pendingTtsText != null || (!ttsInitialized && tts != null) || (ttsChunks.isEmpty() && isTtsAutoPlay)
+
+    fun getTtsProgressPercent(): Int {
+        if (ttsChunks.isEmpty()) return 0
+        val chunkCount = ttsChunks.size
+        val currentChunk = if (ttsPaused) ttsResumeChunkIndex else ttsCurrentChunkIndex
+        val clampedChunk = currentChunk.coerceIn(0, chunkCount - 1)
+        return (((clampedChunk + 1) * 100f) / chunkCount).toInt().coerceIn(0, 100)
+    }
+
+    /**
+     * Starts TTS from the first visible paragraph in the viewport.
+     */
+    fun startTtsFromViewport() {
+        ensureTtsInitialized()
+
+        if (!ttsInitialized) {
+            Logger.w { "TTS (WebView): Not initialized yet" }
+            pendingTtsStartRequest = TtsStartRequest.VIEWPORT
+            return
+        }
+
+        pendingTtsStartRequest = null
+        isTtsAutoPlay = true
+        // Determine first visible paragraph index in WebView, then start TTS from that position.
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
+                var elements = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
+                    return !!el && !!el.innerText && el.innerText.trim().length > 0;
+                });
+                if (!elements.length) {
+                    elements = Array.from(document.body.children).filter(function(el) {
+                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
+                    });
+                }
+                var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                for (var i = 0; i < elements.length; i++) {
+                    var rect = elements[i].getBoundingClientRect();
+                    if (rect.bottom > 0 && rect.top < viewportHeight) {
+                        return i;
+                    }
+                }
+                return 0;
+            })();
+            """.trimIndent(),
+        ) { rawIndex ->
+            val firstVisibleParagraphIndex = rawIndex?.trim('"')?.toIntOrNull() ?: 0
+            evaluateJavascriptSafe(
+                """
+                (function() {
+                    var body = document.body;
+                    return body ? body.innerText || body.textContent : '';
+                })();
+                """.trimIndent(),
+            ) { result ->
+                val text = result?.let {
+                    if (it.startsWith("\"") && it.endsWith("\"")) {
+                        it.substring(1, it.length - 1)
+                            .replace("\\n", "\n")
+                            .replace("\\t", "\t")
+                            .replace("\\\"", "\"")
+                            .replace("\\\\", "\\")
+                    } else {
+                        it
+                    }
+                }
+
+                if (!text.isNullOrBlank() && text != "null") {
+                    // Keep a forced resume index for this launch from viewport.
+                    ttsViewportParagraphIndex = firstVisibleParagraphIndex.coerceAtLeast(0)
+                    hasViewportStartOverride = true
+                    speak(text)
+                } else {
+                    Logger.w { "TTS (WebView): No text available for viewport start" }
+                }
+            }
+        }
+    }
+
+    /**
+     * Saves the current TTS playback progress to preferences.
+     */
+    private fun saveTtsProgress() {
+        val currentChapter = currentPage
+        if (currentChapter == null || ttsCurrentChunkIndex < 0) return
+
+        val chapterId = currentChapter.index.toLong()
+        val paragraphIndex = ttsCurrentChunkIndex.coerceAtLeast(0)
+
+        // Load existing progress map
+        val progressJson = preferences.novelTtsLastReadParagraph.get()
+        val progressMap = try {
+            kotlinx.serialization.json.Json.decodeFromString<Map<String, Int>>(progressJson)
+                .toMutableMap()
+        } catch (e: Exception) {
+            mutableMapOf()
+        }
+
+        // Update with current chapter progress
+        progressMap[chapterId.toString()] = paragraphIndex
+
+        // Save back to preferences
+        try {
+            val json = kotlinx.serialization.json.Json.encodeToString(progressMap)
+            preferences.novelTtsLastReadParagraph.set(json)
+        } catch (e: Exception) {
+            Logger.e { "Failed to save TTS progress: ${e.message}" }
+        }
+    }
+
+    /**
+     * Restores the last-read paragraph position for the current chapter.
+     * @return The chunk index to resume from, or 0 if no progress found.
+     */
+    private fun restoreTtsProgress(): Int {
+        val currentChapter = currentPage
+        if (currentChapter == null) return 0
+
+        val chapterId = currentChapter.index.toString()
+        val progressJson = preferences.novelTtsLastReadParagraph.get()
+
+        return try {
+            val progressMap = kotlinx.serialization.json.Json.decodeFromString<Map<String, Int>>(progressJson)
+            progressMap[chapterId]?.coerceAtLeast(0) ?: 0
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    /**
+     * Speaks TTS chunks starting from a specific index.
+     */
+    private fun speakChunksFrom(startIndex: Int) {
+        if (ttsChunks.isEmpty() || startIndex >= ttsChunks.size) return
+        ttsChunks.drop(startIndex).forEachIndexed { i, chunk ->
+            val actualIndex = startIndex + i
+            val queueMode = if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            tts?.speak(chunk, queueMode, null, "tts_utterance_$actualIndex")
+        }
+    }
+
+    private fun speak(text: String) {
+        if (!ttsInitialized || tts == null) {
+            // Store for later when TTS is initialized
+            pendingTtsText = text
+            Logger.w { "TTS not initialized, storing text for later" }
+            return
+        }
+
+        applyTtsSettings()
+
+        ttsPaused = false
+
+        // Android TTS has a max length limit (~4000 chars), chunk long text
+        val maxLength = TextToSpeech.getMaxSpeechInputLength()
+
+        val paragraphs = text.split("\n").filter { it.isNotBlank() }
+        val chunkParagraphIndexes = mutableListOf<Int>()
+        ttsChunks = if (paragraphs.size > 1) {
+            paragraphs.flatMapIndexed { paragraphIndex, para ->
+                val chunks = if (para.length <= maxLength) {
+                    listOf(para)
+                } else {
+                    splitTextForTts(para, maxLength)
+                }
+                repeat(chunks.size) { chunkParagraphIndexes.add(paragraphIndex) }
+                chunks
+            }
+        } else if (text.length <= maxLength) {
+            chunkParagraphIndexes.add(0)
+            listOf(text)
+        } else {
+            val chunks = splitTextForTts(text, maxLength)
+            repeat(chunks.size) { chunkParagraphIndexes.add(0) }
+            chunks
+        }
+        ttsChunkParagraphIndexes = chunkParagraphIndexes
+
+        // Extract paragraph info for highlighting support
+        ttsCurrentParagraphs = NovelViewerTextUtils.findParagraphs(text)
+
+        // Check if we should resume from saved progress
+        val savedChunkIndex = restoreTtsProgress()
+        ttsCurrentChunkIndex = 0
+        val startIndex = if (hasViewportStartOverride) {
+            // If launched from viewport, convert paragraph index into nearest chunk.
+            val viewportChunkIndex = ttsChunkParagraphIndexes.indexOfFirst { it >= ttsViewportParagraphIndex }
+            if (viewportChunkIndex >= 0) viewportChunkIndex else savedChunkIndex
+        } else {
+            savedChunkIndex
+        }
+        hasViewportStartOverride = false
+
+        speakChunksFrom(startIndex.coerceIn(0, (ttsChunks.size - 1).coerceAtLeast(0)))
+    }
+
+    private fun splitTextForTts(text: String, maxLength: Int): List<String> =
+        NovelViewerTextUtils.splitTextForTts(text, maxLength)
+
+    /**
+     * Get the currently selected text from the WebView
+     */
+    fun getSelectedText(): String? {
+        var selectedText: String? = null
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var selection = window.getSelection();
+                if (selection && selection.toString().trim()) {
+                    return selection.toString().trim();
+                }
+                return null;
+            })();
+            """.trimIndent(),
+        ) { result ->
+            // JavaScript returns quoted string, need to unquote and unescape
+            selectedText = result?.let {
+                if (it.startsWith("\"") && it.endsWith("\"")) {
+                    it.substring(1, it.length - 1)
+                        .replace("\\n", "\n")
+                        .replace("\\t", "\t")
+                        .replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                } else {
+                    it
+                }
+            }
+        }
+        return selectedText
+    }
+
+    /**
+     * Get the current chapter name for quote context
+     */
+    fun getCurrentChapterName(): String? {
+        val loaded = loadedChapters.getOrNull(currentChapterIndex) ?: return null
+        return loaded.chapter.name
+    }
+
+    /**
+     * Check if text is currently selected in the WebView
+     */
+    fun hasTextSelection(): Boolean {
+        var hasSelection = false
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var selection = window.getSelection();
+                return selection && selection.toString().trim().length > 0;
+            })();
+            """.trimIndent(),
+        ) { result ->
+            hasSelection = result == "true"
+        }
+        return hasSelection
+    }
+
+    /**
+     * Clear text selection in the WebView
+     */
+    fun clearTextSelection() {
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                }
+            })();
+            """.trimIndent(),
+            null,
+        )
+    }
+
+    /**
+     * Handle the "Remember" action from text selection menu
+     */
+    private fun onRememberSelectedText(actionMode: ActionMode? = null) {
+        evaluateJavascriptSafe(
+            """
+        (function() {
+            var selection = window.getSelection();
+            if (selection && selection.toString().trim()) {
+                return selection.toString().trim();
+            }
+            return null;
+        })();
+            """.trimIndent(),
+        ) { result ->
+            activity.runOnUiThread {
+                actionMode?.finish() // finish AFTER JS has read the selection
+                val selectedText = if (result != null && result != "null" &&
+                    result.startsWith("\"") && result.endsWith("\"")
+                ) {
+                    result.substring(1, result.length - 1)
+                        .replace("\\n", "\n")
+                        .replace("\\t", "\t")
+                        .replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                } else {
+                    null
+                }
+
+                if (!selectedText.isNullOrBlank()) {
+                    pendingSelectedText = selectedText
+                    val manga = activity.viewModel.manga
+                    val novelId = manga?.id
+                    val chapterName = getCurrentChapterName()
+                    if (novelId != null && chapterName != null) {
+                        val quote = hayai.novel.reader.quote.Quote.create(
+                            novelName = manga.title,
+                            chapterName = chapterName,
+                            content = selectedText,
+                        )
+                        hayai.novel.reader.quote.QuoteManager(activity).addQuote(novelId, quote)
+                        activity.toast(activity.getString(MR.strings.novel_quote_saved))
+                    }
+                    clearTextSelection()
+                } else {
+                    activity.toast(activity.getString(MR.strings.novel_quote_no_selection))
+                }
+            }
+        }
+    }
+    companion object {
+        private const val REMEMBER_MENU_ITEM_ID = 0xBEEF // arbitrary unique ID
+    }
+}

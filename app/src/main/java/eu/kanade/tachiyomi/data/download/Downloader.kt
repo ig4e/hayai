@@ -430,7 +430,7 @@ class Downloader(
             try {
                 page.imageUrl = httpSource.getImageUrl(page)
             } catch (e: Throwable) {
-                page.status = Page.State.Error
+                page.status = Page.State.Error(e)
             }
         }
 
@@ -544,7 +544,7 @@ class Downloader(
             if (e is CancellationException) throw e
             // Mark this page as error and allow to download the remaining
             page.progress = 0
-            page.status = Page.State.Error
+            page.status = Page.State.Error(e)
             notifier.onError(e.message, chapName, download.manga.title)
         }
     }

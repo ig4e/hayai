@@ -69,7 +69,7 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
             iconRes = R.drawable.ic_read_outline_24dp
             iconTint = tintColor
             titleRes = MR.strings.reader
-            onClick { navigateTo(SettingsReaderController()) }
+            onClick { navigateTo(SettingsReaderHubController()) }
         }
         preference {
             iconRes = R.drawable.ic_file_download_24dp

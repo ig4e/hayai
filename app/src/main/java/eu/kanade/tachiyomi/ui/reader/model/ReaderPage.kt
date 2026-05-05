@@ -8,10 +8,16 @@ open class ReaderPage(
     index: Int,
     url: String = "",
     imageUrl: String? = null,
+    text: String? = null,
     var stream: (() -> InputStream)? = null,
     var bg: Drawable? = null,
     var bgType: Int? = null,
 ) : Page(index, url, imageUrl, null), ReaderItem {
+
+    init {
+        this.text = text
+    }
+
 
     /** Value to check if this page is used to as if it was too wide */
     var shiftedPage: Boolean = false

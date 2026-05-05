@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
+import eu.kanade.tachiyomi.ui.setting.track.TrackerWebViewLoginActivity
 import eu.kanade.tachiyomi.ui.setting.add
 import eu.kanade.tachiyomi.ui.setting.defaultValue
 import eu.kanade.tachiyomi.ui.setting.iconRes
@@ -114,6 +115,32 @@ class SettingsTrackingController :
             infoPreference(MR.strings.tracking_info)
         }
         preferenceCategory {
+            titleRes = MR.strings.novels
+
+            trackPreference(trackManager.novelUpdates) {
+                val ctx = activity ?: return@trackPreference
+                ctx.startActivity(
+                    TrackerWebViewLoginActivity.newIntent(
+                        ctx,
+                        trackerId = TrackManager.NOVEL_UPDATES,
+                        trackerName = ctx.getString(MR.strings.novelupdates),
+                        loginUrl = "https://www.novelupdates.com/login/",
+                    ),
+                )
+            }
+            trackPreference(trackManager.novelList) {
+                val ctx = activity ?: return@trackPreference
+                ctx.startActivity(
+                    TrackerWebViewLoginActivity.newIntent(
+                        ctx,
+                        trackerId = TrackManager.NOVEL_LIST,
+                        trackerName = ctx.getString(MR.strings.novellist),
+                        loginUrl = "https://www.novellist.co/sign-in",
+                    ),
+                )
+            }
+        }
+        preferenceCategory {
             titleRes = MR.strings.enhanced_services
             val sourceManager = Injekt.get<SourceManager>()
             val enhancedTrackers = trackManager.services
@@ -165,6 +192,8 @@ class SettingsTrackingController :
         updatePreference(trackManager.aniList)
         updatePreference(trackManager.shikimori)
         updatePreference(trackManager.bangumi)
+        updatePreference(trackManager.novelUpdates)
+        updatePreference(trackManager.novelList)
     }
 
     private fun updatePreference(service: TrackService) {

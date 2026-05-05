@@ -24,7 +24,7 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.databinding.ReaderChaptersSheetBinding
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
-import hayai.novel.reader.NovelViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.isInNightMode
@@ -97,7 +97,9 @@ class ReaderChapterSheet @JvmOverloads constructor(context: Context, attrs: Attr
                     binding.root.isVisible = true
                     binding.pill.alpha = (1 - max(0f, progress)) * 0.25f
                     val trueProgress = max(progress, 0f)
-                    activity.binding.readerNav.root.alpha = (1 - abs(progress)).coerceIn(0f, 1f)
+                    val navAlpha = (1 - abs(progress)).coerceIn(0f, 1f)
+                    activity.binding.readerNav.root.alpha = navAlpha
+                    activity.novelActionBarComposeView?.alpha = navAlpha
                     backgroundTintList =
                         ColorStateList.valueOf(lerpColor(primary, fullPrimary, trueProgress))
                     binding.chapterRecycler.alpha = trueProgress
@@ -129,17 +131,26 @@ class ReaderChapterSheet @JvmOverloads constructor(context: Context, attrs: Attr
                             activity.binding.readerNav.root.isVisible = true
                         }
                         activity.binding.readerNav.root.alpha = 1f
+                        activity.novelActionBarComposeView?.let {
+                            it.isVisible = true
+                            it.alpha = 1f
+                        }
                     }
                     if (state == BottomSheetBehavior.STATE_DRAGGING || state == BottomSheetBehavior.STATE_SETTLING) {
                         if (canShowNav) {
                             activity.binding.readerNav.root.isVisible = true
                         }
+                        activity.novelActionBarComposeView?.isVisible = true
                     }
                     if (state == BottomSheetBehavior.STATE_EXPANDED) {
                         if (canShowNav) {
                             activity.binding.readerNav.root.isInvisible = true
                         }
                         activity.binding.readerNav.root.alpha = 0f
+                        activity.novelActionBarComposeView?.let {
+                            it.isInvisible = true
+                            it.alpha = 0f
+                        }
                         binding.chapterRecycler.alpha = 1f
                         if (activity.sheetManageNavColor) {
                             activity.window.navigationBarColor =
@@ -150,6 +161,10 @@ class ReaderChapterSheet @JvmOverloads constructor(context: Context, attrs: Attr
                         activity.binding.readerNav.root.alpha = 0f
                         if (canShowNav) {
                             activity.binding.readerNav.root.isInvisible = true
+                        }
+                        activity.novelActionBarComposeView?.let {
+                            it.isInvisible = true
+                            it.alpha = 0f
                         }
                         binding.root.isInvisible = true
                     } else if (binding.root.isVisible) {

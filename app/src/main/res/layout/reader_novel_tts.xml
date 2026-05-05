@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<eu.kanade.tachiyomi.ui.reader.settings.NovelTtsView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/novel_tts_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bottom_sheet_rounded_background"
+    android:clipToPadding="false">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/material_component_dialogs_padding_around_content_area"
+        android:paddingEnd="@dimen/material_component_dialogs_padding_around_content_area"
+        android:paddingTop="0dp"
+        android:paddingBottom="16dp">
+
+        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
+            android:id="@+id/tts_engine"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:title="@string/novel_tts_engine" />
+
+        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
+            android:id="@+id/tts_voice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            app:title="@string/novel_tts_voice" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/open_tts_settings"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="start|center_vertical"
+            android:text="@string/novel_tts_open_settings"
+            app:icon="@drawable/ic_outline_settings_24dp"
+            app:iconGravity="textStart" />
+
+        <include
+            android:id="@+id/tts_speed"
+            layout="@layout/widget_novel_slider_float" />
+
+        <include
+            android:id="@+id/tts_pitch"
+            layout="@layout/widget_novel_slider_float" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/tts_auto_next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/novel_tts_auto_next_chapter"
+            android:textColor="?attr/colorOnBackground" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/tts_enable_highlight"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/novel_tts_enable_highlight"
+            android:textColor="?attr/colorOnBackground" />
+
+        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
+            android:id="@+id/tts_highlight_style"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:title="@string/novel_tts_highlight_style" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/tts_keep_in_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/novel_tts_keep_highlight_in_view"
+            android:textColor="?attr/colorOnBackground" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/tts_background_playback"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/novel_tts_background_playback"
+            android:textColor="?attr/colorOnBackground" />
+    </LinearLayout>
+</eu.kanade.tachiyomi.ui.reader.settings.NovelTtsView>

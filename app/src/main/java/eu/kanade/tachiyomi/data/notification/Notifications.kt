@@ -97,6 +97,12 @@ object Notifications {
     const val CHANNEL_INCOGNITO_MODE = "incognito_mode_channel"
     const val ID_INCOGNITO_MODE = -701
 
+    /**
+     * Notification channel used for novel-reader text-to-speech background playback.
+     */
+    const val CHANNEL_TTS_PLAYBACK = "tts_playback_channel"
+    const val ID_TTS_PLAYBACK = -801
+
     private val deprecatedChannels = listOf(
         "backup_restore_channel",
         "library_channel",
@@ -250,6 +256,16 @@ object Notifications {
                 setShowBadge(false)
             },
             // EXH <--
+            // NOVEL: TTS background playback (foreground service)
+            NotificationChannel(
+                CHANNEL_TTS_PLAYBACK,
+                context.getString(MR.strings.novel_reader),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
+            },
         )
         context.notificationManager.createNotificationChannels(channels)
     }

@@ -16,4 +16,5 @@ val migrations: ImmutableList<Migration> = persistentListOf(
     ExtensionInstallerEnumMigration(),
     RepoJsonMigration(),
     ThePurgeMigration(),
+    NovelReaderPrefsMigration(),
 )
