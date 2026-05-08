@@ -24,11 +24,11 @@ import androidx.compose.material.icons.automirrored.outlined.ManageSearch
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.VerticalAlignTop
-import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -163,7 +163,7 @@ fun NovelReaderActionBar(
                 }
 
                 ActionBarButton(
-                    icon = Icons.Outlined.Visibility,
+                    icon = Icons.Outlined.PlayCircle,
                     contentDescription = stringResource(MR.strings.start_tts_here),
                     onClick = onTtsStartFromViewport,
                     tint = iconTint,

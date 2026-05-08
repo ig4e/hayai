@@ -65,6 +65,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     private var loadingIndicator: ReaderProgressIndicator? = null
     // Compose `LoadingIndicator` overlay shown on top of the WebView while a chapter loads.
     private var loadingComposeOverlay: androidx.compose.ui.platform.ComposeView? = null
+    private var loadingTimeoutJob: Job? = null
+    private var overlayScrollbar: hayai.novel.reader.ui.NovelOverlayScrollbar? = null
+    private var webViewScrollOffset: Int = 0
+    private var webViewScrollRange: Int = 0
+    private var webViewScrollExtent: Int = 0
     private val preferences: ReaderPreferences by injectLazy()
     // Translation feature is out of scope for the initial Hayai port; the donor's
     // TranslationPreferences class has no Hayai counterpart. realTimeTranslation calls
@@ -181,17 +186,26 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                     e.y / container.height.toFloat(),
                 )
 
+                val tapToScroll = preferences.novelTapToScroll.get()
                 when (navigator.getAction(pos)) {
                     eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.MENU -> {
                         activity.toggleMenu()
                     }
                     eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.NEXT,
                     eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.RIGHT -> {
-                        webView.evaluateJavascript("window.scrollBy(0, ${(container.height * 0.8).toInt()});", null)
+                        if (tapToScroll) {
+                            webView.evaluateJavascript("window.scrollBy(0, ${(container.height * 0.8).toInt()});", null)
+                        } else {
+                            return false
+                        }
                     }
                     eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.PREV,
                     eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion.LEFT -> {
-                        webView.evaluateJavascript("window.scrollBy(0, -${(container.height * 0.8).toInt()});", null)
+                        if (tapToScroll) {
+                            webView.evaluateJavascript("window.scrollBy(0, -${(container.height * 0.8).toInt()});", null)
+                        } else {
+                            return false
+                        }
                     }
                 }
 
@@ -416,6 +430,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                     return super.startActionMode(callback, type)
                 }
                 // Preserve Callback2 so the floating toolbar anchors correctly to the selection
+                // The label is the user-visible string. Keep it descriptive ("Add quote")
+                // and add to the front of the menu (`order = 0`) with SHOW_AS_ACTION_ALWAYS
+                // so it's not hidden behind the overflow menu on the floating action mode
+                // toolbar that often only has room for 2-3 visible items.
+                val quoteLabel = activity.getString(MR.strings.novel_quote_add)
                 val wrapped = if (callback is ActionMode.Callback2) {
                     object : ActionMode.Callback2() {
                         override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
@@ -423,15 +442,22 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                             menu.add(
                                 Menu.NONE,
                                 REMEMBER_MENU_ITEM_ID,
-                                Menu.NONE,
-                                "Remember",
+                                0,
+                                quoteLabel,
                             )
                                 .setIcon(android.R.drawable.ic_menu_save)
-                                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                             return result
                         }
-                        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean =
-                            callback.onPrepareActionMode(mode, menu)
+                        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+                            // The host action mode rebuilds the menu on prepare; re-add our item if it got dropped.
+                            if (menu.findItem(REMEMBER_MENU_ITEM_ID) == null) {
+                                menu.add(Menu.NONE, REMEMBER_MENU_ITEM_ID, 0, quoteLabel)
+                                    .setIcon(android.R.drawable.ic_menu_save)
+                                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                            }
+                            return callback.onPrepareActionMode(mode, menu)
+                        }
                         override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
                             if (item.itemId == REMEMBER_MENU_ITEM_ID) {
                                 onRememberSelectedText(mode) // pass mode in
@@ -453,15 +479,21 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                             menu.add(
                                 Menu.NONE,
                                 REMEMBER_MENU_ITEM_ID,
-                                Menu.NONE,
-                                "Remember",
+                                0,
+                                quoteLabel,
                             )
                                 .setIcon(android.R.drawable.ic_menu_save)
-                                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                             return result
                         }
-                        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean =
-                            callback.onPrepareActionMode(mode, menu)
+                        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+                            if (menu.findItem(REMEMBER_MENU_ITEM_ID) == null) {
+                                menu.add(Menu.NONE, REMEMBER_MENU_ITEM_ID, 0, quoteLabel)
+                                    .setIcon(android.R.drawable.ic_menu_save)
+                                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                            }
+                            return callback.onPrepareActionMode(mode, menu)
+                        }
                         override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
                             if (item.itemId == REMEMBER_MENU_ITEM_ID) {
                                 onRememberSelectedText()
@@ -475,6 +507,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                     }
                 }
                 return super.startActionMode(wrapped, type)
+            }
+
+            // computeVerticalScroll{Range,Extent,Offset} are protected on WebView, so push
+            // them into outer-class fields on every scroll instead of trying to expose them.
+            override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+                super.onScrollChanged(l, t, oldl, oldt)
+                webViewScrollOffset = computeVerticalScrollOffset()
+                webViewScrollRange = computeVerticalScrollRange()
+                webViewScrollExtent = computeVerticalScrollExtent()
+                updateOverlayScrollbarFromMetrics()
             }
         }.apply {
             isFocusable = true
@@ -529,10 +571,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                     injectCustomScript()
                     injectScrollTracking()
                     restoreScrollPosition()
-                    syncShortChapterProgressIfNeeded()
-                    if (!preferences.novelInfiniteScroll.get()) {
-                        injectNextChapterButton()
-                    }
                     if (isEditingMode) {
                         toggleEditMode(true)
                     }
@@ -546,6 +584,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             isLongClickable = true
 
             setOnTouchListener { _, event ->
+                // Pause autoscroll while a finger is down so the user's drag/select isn't
+                // fighting the scroll loop; resume on release/cancel.
+                when (event.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> pauseAutoScroll()
+                    android.view.MotionEvent.ACTION_UP,
+                    android.view.MotionEvent.ACTION_CANCEL -> resumeAutoScroll()
+                }
                 gestureDetector.onTouchEvent(event)
                 false
             }
@@ -560,6 +605,34 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         container.setBackgroundColor(finalBgColor)
 
         container.addView(webView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+
+        // Mount the custom scrollbar overlay on top of the WebView. Driven by
+        // applyOverlayScrollbarConfig + the WebView's scroll change listener below.
+        val bar = hayai.novel.reader.ui.NovelOverlayScrollbar(activity)
+        overlayScrollbar = bar
+        container.addView(
+            bar,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        applyOverlayScrollbarConfig()
+    }
+
+    private fun updateOverlayScrollbarFromMetrics() {
+        val bar = overlayScrollbar ?: return
+        val range = webViewScrollRange.toFloat()
+        val extent = webViewScrollExtent.toFloat()
+        val offset = webViewScrollOffset.toFloat()
+        if (range <= 0f) {
+            bar.setVisibleFraction(1f)
+            return
+        }
+        val fraction = (extent / range).coerceIn(0f, 1f)
+        bar.setVisibleFraction(fraction)
+        val maxOffset = (range - extent).coerceAtLeast(1f)
+        bar.setProgress((offset / maxOffset).coerceIn(0f, 1f))
     }
 
     private fun observePreferences() {
@@ -589,6 +662,25 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 .collect {
                     injectCustomStyles()
                 }
+        }
+
+        // Re-apply the overlay scrollbar config when any of its prefs change.
+        scope.launch {
+            merge(
+                preferences.novelVerticalScrollbar.changes().drop(1),
+                preferences.novelVerticalScrollbarPosition.changes().drop(1),
+                preferences.novelVerticalProgressSliderSize.changes().drop(1),
+            )
+                .collect {
+                    activity.runOnUiThread { applyOverlayScrollbarConfig() }
+                }
+        }
+
+        // Toggle the JS-side click handler when the sentence-tap-to-TTS pref flips.
+        scope.launch {
+            preferences.novelTtsTapToStart.changes().drop(1).collect { enabled ->
+                activity.runOnUiThread { setSentenceTapToTtsEnabled(enabled) }
+            }
         }
 
         // Observe JS changes separately to re-inject scripts
@@ -661,12 +753,35 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
 
     private fun applyWebViewScrollbarSettings(target: WebView = webView) {
-        target.isVerticalScrollBarEnabled = true
+        // Native scrollbar is permanently off — the overlay scrollbar handles all
+        // visibility / position / size preferences (the WebView APIs don't).
+        target.isVerticalScrollBarEnabled = false
         target.isHorizontalScrollBarEnabled = false
-        target.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
-        target.isScrollbarFadingEnabled = true
         target.overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
         target.layoutDirection = View.LAYOUT_DIRECTION_LTR
+        applyOverlayScrollbarConfig()
+    }
+
+    private fun applyOverlayScrollbarConfig() {
+        val bar = overlayScrollbar ?: return
+        val visible = preferences.novelVerticalScrollbar.get()
+        bar.visibility = if (visible) View.VISIBLE else View.GONE
+        if (!visible) return
+        val side = if (preferences.novelVerticalScrollbarPosition.get() == "left") {
+            hayai.novel.reader.ui.NovelOverlayScrollbar.Side.LEFT
+        } else {
+            hayai.novel.reader.ui.NovelOverlayScrollbar.Side.RIGHT
+        }
+        val track = if (preferences.novelVerticalProgressSliderSize.get() == "half") {
+            hayai.novel.reader.ui.NovelOverlayScrollbar.Track.HALF
+        } else {
+            hayai.novel.reader.ui.NovelOverlayScrollbar.Track.FULL
+        }
+        // Tint the thumb to contrast with the chosen page color.
+        val theme = preferences.novelTheme.get()
+        val (_, themeText) = getThemeColors(theme)
+        val customText = preferences.novelFontColor.get().takeIf { it != 0 } ?: themeText
+        bar.configure(side = side, track = track, thumbColor = (customText and 0x00FFFFFF) or 0x66000000)
     }
 
     private fun buildCustomStylePayload(): CustomStylePayload {
@@ -821,7 +936,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             chapterUrl: "$chapterUrl",
             novelUrl: "$novelUrl",
             isEditMode: $isEditingMode,
-            isInfScroll: ${preferences.novelInfiniteScroll.get()},
+            isInfScroll: true,
             textSelectionBlocked: ${!preferences.novelTextSelectable.get()},
             forcedLowercase: ${preferences.novelForceTextLowercase.get()}
         };
@@ -844,50 +959,72 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         if (enabledSnippetsJs.isNotBlank()) {
             evaluateJavascriptSafe(enabledSnippetsJs, null)
         }
+
+        installSentenceClickHandler()
     }
 
     /**
-     * Injects a "Next Chapter" button at the bottom of the WebView content
-     * when infinite scroll is disabled.
+     * Installs a delegated click handler that, on tap, finds the clicked paragraph
+     * (the same selector set used by [startTtsFromViewport]) and reports its index back
+     * via the JS bridge so TTS can start from there. Idempotent — re-running just refreshes
+     * the listener after DOM changes.
      */
-    private fun injectNextChapterButton() {
-        val hasNext = currentChapters?.nextChapter != null
-        if (!hasNext) return
-
-        val js = """
+    private fun installSentenceClickHandler() {
+        evaluateJavascriptSafe(
+            """
             (function() {
-                // Remove existing button if any
-                var existing = document.getElementById('next-chapter-btn-container');
-                if (existing) existing.remove();
+                if (window.__novelTtsClickInstalled) return;
+                window.__novelTtsClickInstalled = true;
+                window.__novelTtsClickEnabled = ${preferences.novelTtsTapToStart.get()};
+                var SELECTORS = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
+                document.addEventListener('click', function(e) {
+                    if (!window.__novelTtsClickEnabled) return;
+                    // Skip when there's an active text selection — the user is selecting, not starting TTS.
+                    var sel = window.getSelection();
+                    if (sel && sel.toString().length > 0) return;
+                    // Skip taps in the side / top navigation zones so they keep working as
+                    // menu / scroll / chapter-nav (Kotlin-side navigator handles those).
+                    // The middle ~70% horizontally is the reading zone where sentence-tap fires.
+                    var w = window.innerWidth || document.documentElement.clientWidth;
+                    var h = window.innerHeight || document.documentElement.clientHeight;
+                    if (e.clientX / w < 0.15 || e.clientX / w > 0.85) return;
+                    if (e.clientY / h < 0.20 || e.clientY / h > 0.80) return;
 
-                var container = document.createElement('div');
-                container.id = 'next-chapter-btn-container';
-                container.style.cssText = 'padding: 32px 16px; text-align: center;';
-
-                var btn = document.createElement('button');
-                btn.textContent = 'Next Chapter →';
-                btn.style.cssText = 'width: 100%; padding: 12px 24px; font-size: 16px; ' +
-                    'background-color: #ADD8E6; color: #000000; ' +
-                    'border: 2px solid #000000; border-radius: 8px; ' +
-                    'cursor: pointer; text-transform: none;';
-                btn.onclick = function() {
-                    Android.loadNextChapter();
-                };
-                container.appendChild(btn);
-                document.body.appendChild(container);
+                    var node = e.target;
+                    while (node && node !== document.body) {
+                        if (node.matches && node.matches(SELECTORS)) break;
+                        node = node.parentNode;
+                    }
+                    if (!node || node === document.body) return;
+                    var all = Array.from(document.querySelectorAll(SELECTORS)).filter(function(el) {
+                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
+                    });
+                    var idx = all.indexOf(node);
+                    if (idx < 0) return;
+                    if (window.Android && typeof Android.startTtsAtParagraph === 'function') {
+                        Android.startTtsAtParagraph(idx);
+                    }
+                }, true);
             })();
-        """.trimIndent()
+            """.trimIndent(),
+            null,
+        )
+    }
 
-        evaluateJavascriptSafe(js, null)
+    /**
+     * Toggles whether a single tap on a paragraph starts TTS from there. Off by default
+     * so a casual tap doesn't accidentally start the engine; enabled while the user is
+     * actively in TTS mode (or via a future preference).
+     */
+    fun setSentenceTapToTtsEnabled(enabled: Boolean) {
+        val flag = if (enabled) "true" else "false"
+        evaluateJavascriptSafe("window.__novelTtsClickEnabled = $flag;", null)
     }
 
     private fun injectScrollTracking() {
-        // Add scroll tracking script with infinite scroll support
-        val infiniteScrollEnabled = preferences.novelInfiniteScroll.get()
-        val autoLoadThreshold = preferences.novelAutoLoadNextChapterAt.get()
-        // Treat stored 0 as legacy/unset and use a sensible default.
-        val infiniteScrollActuallyEnabled = infiniteScrollEnabled
-        val effectiveThreshold = if (autoLoadThreshold > 0) autoLoadThreshold / 100.0 else 0.95
+        // Continuous chapter loading is always on; the JS treats every chapter the same.
+        val infiniteScrollActuallyEnabled = true
+        val effectiveThreshold = AUTO_LOAD_NEXT_THRESHOLD
         val scrollTrackingScript = """
             (function() {
                 if (window.__tsundokuInfiniteScrollInstalled) {
@@ -1041,25 +1178,30 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 val progress = savedProgress / 100f
                 lastSavedProgress = progress
 
-                // Wait a bit for content to be fully rendered before scrolling
-                webView.postDelayed({
-                    val js = """
-                        (function() {
+                // Wait for the WebView to actually have laid out content before scrolling.
+                // The previous `postDelayed(100)` raced with layout and frequently fired before
+                // scrollHeight was non-zero, leaving the user stuck unable to scroll. Now we
+                // poll inside JS via requestAnimationFrame until content height appears, with
+                // a hard cap so we don't loop forever on a genuinely-empty page.
+                val js = """
+                    (function() {
+                        var attempts = 0;
+                        function tryScroll() {
                             var scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                            if (scrollHeight > 0) {
+                            if (scrollHeight > 0 && document.readyState !== 'loading') {
                                 window.scrollTo(0, scrollHeight * $progress);
-                                console.log('Restored scroll to ' + Math.round($progress * 100) + '% (' + Math.round(scrollHeight * $progress) + 'px)');
-                            } else {
-                                // Content not ready, retry in 200ms
-                                setTimeout(function() {
-                                    var newScrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                                    window.scrollTo(0, newScrollHeight * $progress);
-                                }, 200);
+                                console.log('Restored scroll to ' + Math.round($progress * 100) + '% (' + Math.round(scrollHeight * $progress) + 'px) after ' + attempts + ' frames');
+                                return;
                             }
-                        })();
-                    """
-                    webView.evaluateJavascript(js, null)
-                }, 100)
+                            attempts++;
+                            if (attempts < 60) {  // give up after ~1s at 60fps
+                                requestAnimationFrame(tryScroll);
+                            }
+                        }
+                        requestAnimationFrame(tryScroll);
+                    })();
+                """
+                evaluateJavascriptSafe(js, null)
             } else {
                 // Ensure we are at top for read chapters
                 webView.scrollTo(0, 0)
@@ -1108,34 +1250,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             val progressValue = (lastSavedProgress * 100).toInt().coerceIn(0, 100)
             activity.saveNovelProgress(page, progressValue)
             Logger.d { "NovelWebViewViewer: Saving progress $progressValue%" }
-        }
-    }
-
-    private fun shouldAutoMarkShortChapter(page: ReaderPage?): Boolean {
-        if (!preferences.novelMarkShortChapterAsRead.get()) return false
-        val chapter = page?.chapter?.chapter ?: return false
-        return !chapter.read && chapter.last_page_read <= 0
-    }
-
-    private fun syncShortChapterProgressIfNeeded() {
-        val page = currentPage ?: return
-        if (!shouldAutoMarkShortChapter(page)) return
-        if (page.status != Page.State.Ready || page.text.isNullOrBlank()) return
-
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                var maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                return maxScroll <= 0;
-            })();
-            """.trimIndent(),
-        ) { result ->
-            if (result == "true") {
-                // If the whole chapter fits in the viewport, treat it as fully read.
-                lastSavedProgress = 1f
-                saveProgress()
-                activity.onNovelProgressChanged(1f)
-            }
         }
     }
 
@@ -1206,8 +1320,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             return
         }
 
-        // Clear previous chapters for manual navigation / initial load.
-        if (!preferences.novelInfiniteScroll.get() || loadedChapterIds.isEmpty()) {
+        // Clear previous chapters on initial load only (continuous scroll keeps them).
+        if (loadedChapterIds.isEmpty()) {
             loadedChapterIds.clear()
             loadedChapters.clear()
             currentChapterIndex = 0
@@ -1423,7 +1537,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             }
 
             withContext(Dispatchers.Main) {
-                if (isAppendOrPrepend && preferences.novelInfiniteScroll.get()) {
+                if (isAppendOrPrepend) {
                     if (!loadedChapterIds.contains(chapterId)) {
                         if (isPrepend) {
                             loadedChapterIds.add(0, chapterId)
@@ -1539,11 +1653,25 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
         val escapedContent = JSONObject.quote(cleanContent)
 
+        // Build a rich transition card (mirrors the manga reader's ReaderTransitionView):
+        // shows "Finished: <prev>" + "Next: <new>" so the chapter handoff is visible
+        // mid-scroll instead of being a bare horizontal rule.
+        val prevChapterName = loadedChapters.lastOrNull()?.chapter?.name.orEmpty()
+        val finishedLabel = JSONObject.quote(activity.getString(MR.strings.finished_chapter))
+        val nextLabel = JSONObject.quote(activity.getString(MR.strings.next_title))
+        val escapedPrevName = JSONObject.quote(prevChapterName)
+        val escapedNextName = JSONObject.quote(chapterName)
+
         val js = """
             (function() {
-                var divider = document.createElement('hr');
-                divider.className = 'chapter-divider';
+                var divider = document.createElement('div');
+                divider.className = 'chapter-divider chapter-transition';
                 divider.setAttribute('data-chapter-id', '$chapterId');
+                divider.innerHTML =
+                    '<div class="ch-trans-row"><div class="ch-trans-label">' + $finishedLabel + '</div>' +
+                    '<div class="ch-trans-title">' + $escapedPrevName + '</div></div>' +
+                    '<div class="ch-trans-row"><div class="ch-trans-label">' + $nextLabel + '</div>' +
+                    '<div class="ch-trans-title">' + $escapedNextName + '</div></div>';
                 document.body.appendChild(divider);
 
                 var contentDiv = document.createElement('div');
@@ -1605,14 +1733,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         loadedChapters.clear()
         currentChapterIndex = 0
 
-        // Add initial invisible chapter divider marker for tracking (no visible separator)
-        val chapterDivider = if (chapterId != null && preferences.novelInfiniteScroll.get()) {
+        // Initial invisible chapter divider marker for boundary tracking. The first chapter
+        // shouldn't show a visible card — that's reserved for the transitions added by
+        // appendHtmlContent / prependHtmlContent on subsequent chapter loads.
+        val chapterDivider = if (chapterId != null) {
             """<div class="chapter-divider" data-chapter-id="$chapterId" style="height:0;margin:0;padding:0;"></div>
                <div class="chapter-content" data-chapter-id="$chapterId">"""
         } else {
             ""
         }
-        val chapterDividerEnd = if (chapterId != null && preferences.novelInfiniteScroll.get()) "</div>" else ""
+        val chapterDividerEnd = if (chapterId != null) "</div>" else ""
 
         val mediaBlockCss = if (blockMedia) {
             "img, video, audio, source, svg, image { display: none !important; }"
@@ -1669,7 +1799,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
-                    .chapter-divider {
+                    /* Boundary marker without the transition card (used by the first chapter
+                       and as a JS scroll-position anchor). Kept invisible. */
+                    .chapter-divider:not(.chapter-transition) {
                         height: 1px;
                         margin: 32px auto;
                         padding: 0;
@@ -1677,6 +1809,27 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                         border-top: 1px solid currentColor;
                         opacity: 0.4;
                         width: 60%;
+                    }
+                    /* Transition card shown between chapters during continuous scroll. */
+                    .chapter-transition {
+                        margin: 48px auto;
+                        padding: 24px 16px;
+                        max-width: 540px;
+                        border: 1px solid currentColor;
+                        border-radius: 12px;
+                        opacity: 0.85;
+                    }
+                    .chapter-transition .ch-trans-row { margin: 8px 0; }
+                    .chapter-transition .ch-trans-label {
+                        font-size: 0.75em;
+                        text-transform: uppercase;
+                        letter-spacing: 0.08em;
+                        opacity: 0.65;
+                    }
+                    .chapter-transition .ch-trans-title {
+                        font-size: 1.05em;
+                        font-weight: 600;
+                        margin-top: 2px;
                     }
                     img {
                         max-width: 100%;
@@ -1760,7 +1913,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             window.__TSUNDOKU_CHAPTER_URL = "$chapterUrl";
             window.__TSUNDOKU_NOVEL_URL = "$novelUrl";
             window.__TSUNDOKU_IS_EDIT_MODE = $isEditingMode;
-            window.__TSUNDOKU_IS_INF_SCROLL = ${preferences.novelInfiniteScroll.get()};
+            window.__TSUNDOKU_IS_INF_SCROLL = true;
             window.__TSUNDOKU_TEXT_SELECTION_BLOCKED = ${!preferences.novelTextSelectable.get()};
             window.__TSUNDOKU_FORCED_LOWERCASE = ${preferences.novelForceTextLowercase.get()};
         """.trimIndent()
@@ -1859,15 +2012,28 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             loadingComposeOverlay = overlay
             container.addView(overlay)
         }
+
+        // Safety net: if a chapter fails to fire onPageFinished (blank page, network
+        // error, dropped JS bridge call), the overlay used to stay forever. Force-dismiss
+        // after LOADING_TIMEOUT_MS so the user can at least see the broken state and retry.
+        loadingTimeoutJob?.cancel()
+        loadingTimeoutJob = scope.launch {
+            delay(LOADING_TIMEOUT_MS)
+            hideLoadingIndicator()
+        }
     }
 
     private fun hideLoadingIndicator() {
+        loadingTimeoutJob?.cancel()
+        loadingTimeoutJob = null
         loadingComposeOverlay?.let { container.removeView(it) }
         loadingComposeOverlay = null
     }
 
     private fun displayError(error: Throwable) {
         android.util.Log.e("NovelWebViewViewer", "displayError: ${error.javaClass.simpleName}: ${error.message}", error)
+        // Make sure the loading overlay doesn't outlive a hard error.
+        hideLoadingIndicator()
         val theme = preferences.novelTheme.get()
         val backgroundColor = preferences.novelBackgroundColor.get()
         val fontColor = preferences.novelFontColor.get()
@@ -2163,14 +2329,20 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
 
         @JavascriptInterface
+        fun startTtsAtParagraph(paragraphIndex: Int) {
+            activity.runOnUiThread {
+                Logger.d { "NovelWebViewViewer: startTtsAtParagraph($paragraphIndex)" }
+                startTtsFromParagraph(paragraphIndex.coerceAtLeast(0))
+            }
+        }
+
+        @JavascriptInterface
         fun loadNextChapter() {
             activity.runOnUiThread {
                 Logger.d {
-                    "NovelWebViewViewer: loadNextChapter triggered, infiniteScroll=${preferences.novelInfiniteScroll.get()}, isLoadingNext=$isLoadingNext, loadedCount=${loadedChapterIds.size}"
+                    "NovelWebViewViewer: loadNextChapter triggered, isLoadingNext=$isLoadingNext, loadedCount=${loadedChapterIds.size}"
                 }
-                if (!preferences.novelInfiniteScroll.get()) {
-                    activity.loadNextChapter()
-                } else if (!isLoadingNext) {
+                if (!isLoadingNext) {
                     isLoadingNext = true
                     scope.launch {
                         try {
@@ -2181,9 +2353,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                         }
                     }
                 } else {
-                    Logger.w {
-                        "NovelWebViewViewer: loadNextChapter ignored (infiniteScroll=${preferences.novelInfiniteScroll.get()}, isLoadingNext=$isLoadingNext)"
-                    }
+                    Logger.w { "NovelWebViewViewer: loadNextChapter ignored (already loading)" }
                 }
             }
         }
@@ -2240,7 +2410,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         withContext(Dispatchers.Main) {
             if (isDestroyed) return@withContext
 
-            if (isAppendOrPrepend && preferences.novelInfiniteScroll.get()) {
+            if (isAppendOrPrepend) {
                 if (!loadedChapterIds.contains(chapterId)) {
                     if (isPrepend) {
                         // Backward prepend is disabled; keep behavior forward-only.
@@ -2380,31 +2550,72 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         val speed = preferences.novelAutoScrollSpeed.get().coerceIn(1, 10)
         isAutoScrolling = true
 
-        autoScrollJob?.cancel()
-        autoScrollJob = scope.launch {
-            while (isActive && isAutoScrolling) {
-                // Scroll amount per tick - higher speed = more scroll
-                val scrollAmount = speed // 1-10 pixels per tick
-                evaluateJavascriptSafe(
-                    """
-                    (function() {
-                        window.scrollBy(0, $scrollAmount);
-                    })();
-                    """.trimIndent(),
-                    null,
-                )
-                // Fixed delay between scroll ticks
-                // At speed 1: scroll 1px every 50ms = ~20px/sec
-                // At speed 10: scroll 10px every 50ms = ~200px/sec
-                delay(50L)
-            }
-        }
+        // Drive the scroll loop entirely in JS via requestAnimationFrame so the browser's
+        // own compositor schedules each frame. Speed maps to pixels-per-second; a sub-pixel
+        // accumulator avoids the 1px-per-tick stutter the previous setInterval(50ms) loop had.
+        val pixelsPerSecond = speed * 30  // speed 1 -> 30px/s, speed 10 -> 300px/s
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                window.__novelAutoScrollSpeed = $pixelsPerSecond;
+                window.__novelAutoScrollPaused = !!window.__novelAutoScrollPaused;
+                if (window.__novelAutoScrollRunning) return;
+                window.__novelAutoScrollRunning = true;
+                window.__novelAutoScrollAccum = 0;
+                window.__novelAutoScrollLast = 0;
+                var tick = function(now) {
+                    if (!window.__novelAutoScrollRunning) {
+                        window.__novelAutoScrollLast = 0;
+                        return;
+                    }
+                    if (window.__novelAutoScrollPaused) {
+                        window.__novelAutoScrollLast = 0;
+                        requestAnimationFrame(tick);
+                        return;
+                    }
+                    if (window.__novelAutoScrollLast === 0) window.__novelAutoScrollLast = now;
+                    var dt = (now - window.__novelAutoScrollLast) / 1000;
+                    window.__novelAutoScrollLast = now;
+                    window.__novelAutoScrollAccum += (window.__novelAutoScrollSpeed || 0) * dt;
+                    var px = Math.floor(window.__novelAutoScrollAccum);
+                    if (px > 0) {
+                        window.scrollBy(0, px);
+                        window.__novelAutoScrollAccum -= px;
+                    }
+                    requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+            })();
+            """.trimIndent(),
+            null,
+        )
     }
 
     private fun stopAutoScroll() {
         isAutoScrolling = false
         autoScrollJob?.cancel()
         autoScrollJob = null
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                window.__novelAutoScrollRunning = false;
+                window.__novelAutoScrollSpeed = 0;
+                window.__novelAutoScrollAccum = 0;
+                window.__novelAutoScrollLast = 0;
+            })();
+            """.trimIndent(),
+            null,
+        )
+    }
+
+    private fun pauseAutoScroll() {
+        if (!isAutoScrolling) return
+        evaluateJavascriptSafe("window.__novelAutoScrollPaused = true;", null)
+    }
+
+    private fun resumeAutoScroll() {
+        if (!isAutoScrolling) return
+        evaluateJavascriptSafe("window.__novelAutoScrollPaused = false;", null)
     }
 
     /**
@@ -2629,6 +2840,51 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 } else {
                     Logger.w { "TTS (WebView): No text available for viewport start" }
                 }
+            }
+        }
+    }
+
+    /**
+     * Starts TTS at the given paragraph index. Reuses the viewport-start machinery so the
+     * existing chunking / highlight / progress code paths work unchanged — we just override
+     * the starting paragraph.
+     */
+    fun startTtsFromParagraph(paragraphIndex: Int) {
+        ensureTtsInitialized()
+
+        if (!ttsInitialized) {
+            Logger.w { "TTS (WebView): Not initialized yet (paragraph $paragraphIndex)" }
+            // No queueing here: a sentence-tap is a one-shot user action; if TTS isn't ready
+            // yet, requesting again is the right UX rather than firing a stale start later.
+            return
+        }
+
+        isTtsAutoPlay = true
+        evaluateJavascriptSafe(
+            """
+            (function() {
+                var body = document.body;
+                return body ? body.innerText || body.textContent : '';
+            })();
+            """.trimIndent(),
+        ) { result ->
+            val text = result?.let {
+                if (it.startsWith("\"") && it.endsWith("\"")) {
+                    it.substring(1, it.length - 1)
+                        .replace("\\n", "\n")
+                        .replace("\\t", "\t")
+                        .replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                } else {
+                    it
+                }
+            }
+            if (!text.isNullOrBlank() && text != "null") {
+                ttsViewportParagraphIndex = paragraphIndex
+                hasViewportStartOverride = true
+                speak(text)
+            } else {
+                Logger.w { "TTS (WebView): No text available for paragraph start" }
             }
         }
     }
@@ -2880,5 +3136,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
     companion object {
         private const val REMEMBER_MENU_ITEM_ID = 0xBEEF // arbitrary unique ID
+        // Auto-load the next chapter once the user has scrolled past this fraction of the current one.
+        private const val AUTO_LOAD_NEXT_THRESHOLD = 0.95
+        // Force-dismiss the loading overlay after this long; protects against onPageFinished
+        // never firing (network failure, JS bridge crash, blank page).
+        private const val LOADING_TIMEOUT_MS = 15_000L
     }
 }

@@ -76,11 +76,15 @@ class SourceManager(
     private val delegatedSources = emptyList<DelegatedSource>().associateBy { it.sourceId }
 
     init {
-        scope.launch {
-            // Trigger novel plugin loading eagerly so the very first map emission already
-            // includes them and avoids a transient "no novel sources" frame on cold start.
-            novelPluginManager.ensureInstalledPluginsLoaded()
+        // Kick off novel-plugin loading in parallel — never await it from this init coroutine.
+        // The combine flow below will re-emit when installedSourcesFlow updates, so plugins
+        // get folded into sourcesMapFlow as soon as they're ready. Awaiting here previously
+        // gated the first source-map emission on QuickJS metadata extraction (700ms+ per
+        // plugin on cold start) and contributed to issue #14's splash hang when the recents
+        // path tried to render rows before the map had any sources.
+        scope.launch { novelPluginManager.ensureInstalledPluginsLoaded() }
 
+        scope.launch {
             // Single writer to sourcesMapFlow. Any change to extensions, the exhentai pref,
             // or installed novel sources triggers one rebuild. Replaces two racing collectors
             // that were both doing read-modify-write on sourcesMapFlow and clobbering each

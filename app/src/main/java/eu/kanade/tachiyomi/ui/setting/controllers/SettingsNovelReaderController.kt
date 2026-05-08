@@ -59,11 +59,6 @@ class SettingsNovelReaderController : SettingsLegacyController() {
             }
 
             switchPreference {
-                bindTo(readerPreferences.novelCustomBrightness)
-                titleRes = MR.strings.use_custom_brightness
-            }
-
-            switchPreference {
                 bindTo(readerPreferences.novelBlockMedia)
                 titleRes = MR.strings.novel_block_media
                 summaryRes = MR.strings.novel_block_media_summary
@@ -159,11 +154,6 @@ class SettingsNovelReaderController : SettingsLegacyController() {
                 titleRes = MR.strings.novel_show_progress_slider
             }
 
-            switchPreference {
-                bindTo(readerPreferences.novelInfiniteScroll)
-                titleRes = MR.strings.novel_infinite_scroll
-                summaryRes = MR.strings.novel_infinite_scroll_summary
-            }
         }
 
         preferenceCategory {
@@ -180,28 +170,6 @@ class SettingsNovelReaderController : SettingsLegacyController() {
 
         preferenceCategory {
             titleRes = MR.strings.novel_content
-
-            seekBarPreference {
-                bindTo(readerPreferences.novelAutoLoadNextChapterAt)
-                titleRes = MR.strings.novel_auto_load_next_at
-                summaryRes = MR.strings.novel_auto_load_next_at_summary
-                min = 50
-                max = 100
-                showSeekBarValue = true
-            }
-
-            seekBarPreference {
-                bindTo(readerPreferences.novelMarkAsReadThreshold)
-                titleRes = MR.strings.novel_mark_read_threshold
-                min = 50
-                max = 100
-                showSeekBarValue = true
-            }
-
-            switchPreference {
-                bindTo(readerPreferences.novelMarkShortChapterAsRead)
-                titleRes = MR.strings.novel_mark_short_chapter_read
-            }
 
             switchPreference {
                 bindTo(readerPreferences.enableEpubStyles)

@@ -64,11 +64,16 @@ class NovelPluginManager(
     @Volatile
     private var installedPluginsLoaded = false
 
-    // Cache the system UA once at construction. WebSettings.getDefaultUserAgent internally
-    // touches a WebView, which on some Android versions throws or returns "" if invoked from
-    // a thread without a Looper. Per-plugin calls from Dispatchers.IO previously produced
-    // inconsistent UAs across sources.
-    private val cachedUserAgent: String = computeUserAgent()
+    // Read the user agent lazily from NetworkHelper (preference-backed, no WebView).
+    // The previous eager `WebSettings.getDefaultUserAgent(context)` from this constructor
+    // could deadlock on cold start (issue #14): if NovelPluginManager is first injected
+    // from an IO scope (via SourceManager.init), the WebSettings call's internal WebView
+    // initialization needs the Main looper — but the Main thread can in turn be blocked
+    // waiting for this same constructor to finish. Plus computeUserAgent's try/catch only
+    // catches thrown exceptions; a hang is silent. NetworkHelper.defaultUserAgent reads a
+    // preference and never touches a WebView, so it's safe to call from any thread.
+    private val cachedUserAgent: String
+        get() = networkHelper.defaultUserAgent
 
     init {
         // Load installed plugins on startup
@@ -334,14 +339,6 @@ class NovelPluginManager(
     fun getPluginLastModified(pluginId: String): Long {
         val pluginDir = File(pluginsDir, pluginId)
         return if (pluginDir.exists()) pluginDir.lastModified() else 0L
-    }
-
-    private fun computeUserAgent(): String {
-        return try {
-            android.webkit.WebSettings.getDefaultUserAgent(context)
-        } catch (_: Exception) {
-            "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-        }
     }
 
     /**

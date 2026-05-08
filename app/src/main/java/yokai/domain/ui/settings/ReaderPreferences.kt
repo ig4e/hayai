@@ -146,17 +146,8 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     // Strip ALL non-ASCII after normalisation. Off by default — destroys CJK content.
     val novelTextAggressiveCleanup: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_text_aggressive_cleanup", false)
 
-    // Infinite scroll - automatically load next/previous chapters
-    val novelInfiniteScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_infinite_scroll", false)
-
     // Keep chapters loaded in memory (0 = only current, 1 = current + prev, 2 = current + next, 3 = both)
     val novelKeepChaptersLoaded: Preference<Int> = preferenceStore.getInt("pref_novel_keep_chapters_loaded", 0)
-
-    // Custom brightness for novel reader
-    val novelCustomBrightness: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_custom_brightness", false)
-
-    // Brightness value for novel reader (-75 to 100, 0 = system)
-    val novelCustomBrightnessValue: Preference<Int> = preferenceStore.getInt("pref_novel_custom_brightness_value", 0)
 
     // Show progress slider in novel reader (allows scrolling to position in current chapter)
     val novelShowProgressSlider: Preference<Boolean> = preferenceStore.getBoolean(
@@ -195,10 +186,6 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     // Use source's original fonts (don't force a specific font family)
     val novelUseOriginalFonts: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_use_original_fonts", false)
 
-    // Chapter sort order for novel reader: "source" = use source order, "chapter_number" = sort by chapter number
-    // Default is "source" since many novel sources don't provide proper chapter numbers
-    val novelChapterSortOrder: Preference<String> = preferenceStore.getString("pref_novel_chapter_sort_order", "source")
-
     // Keep screen on while reading
     val novelKeepScreenOn: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_keep_screen_on", false)
 
@@ -211,15 +198,6 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     // Chapter title display format: 0 = name only, 1 = number only, 2 = both (name + number)
     val novelChapterTitleDisplay: Preference<Int> = preferenceStore.getInt("pref_novel_chapter_title_display", 2)
 
-    // Auto-load next chapter at percentage (legacy 0 may exist; treated as default)
-    val novelAutoLoadNextChapterAt: Preference<Int> = preferenceStore.getInt("pref_novel_auto_load_next_at", 95)
-
-    // Mark chapter as read when progress reaches this percentage
-    val novelMarkAsReadThreshold: Preference<Int> = preferenceStore.getInt("pref_novel_mark_read_threshold", 95)
-
-    // If enabled, chapters that fully fit in the viewport are marked read immediately.
-    val novelMarkShortChapterAsRead: Preference<Boolean> =
-        preferenceStore.getBoolean("pref_novel_mark_short_chapter_read", true)
 
     // Show raw HTML (display HTML tags without parsing) - useful for debugging
     val novelShowRawHtml: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_show_raw_html", false)
@@ -239,6 +217,10 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     val novelTtsKeepHighlightInView: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tts_keep_highlight_in_view", true)
     val novelTtsBackgroundPlayback: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tts_background_playback", false)
     val novelTtsLastReadParagraph: Preference<String> = preferenceStore.getString("pref_novel_tts_last_read_para", "{}") // JSON map of chapterId -> paragraphIndex
+
+    // Tap a paragraph to start TTS from there. On by default per user request; can be
+    // disabled if the user finds it noisy with the existing tap-to-scroll / nav zones.
+    val novelTtsTapToStart: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tts_tap_to_start", true)
 
     val novelBottomBarItems: Preference<String> = preferenceStore.getString(
         "novel_bottom_bar_items",

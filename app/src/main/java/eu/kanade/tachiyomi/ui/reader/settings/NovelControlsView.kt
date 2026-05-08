@@ -18,12 +18,6 @@ class NovelControlsView @JvmOverloads constructor(context: Context, attrs: Attri
             bindIntSlider(autoScrollSpeed, MR.strings.novel_auto_scroll_speed, 1, 10, readerPreferences.novelAutoScrollSpeed.get()) {
                 readerPreferences.novelAutoScrollSpeed.set(it)
             }
-            bindIntSlider(autoLoadNextAt, MR.strings.novel_auto_load_next_at, 50, 100, readerPreferences.novelAutoLoadNextChapterAt.get()) {
-                readerPreferences.novelAutoLoadNextChapterAt.set(it)
-            }
-            bindIntSlider(markReadThreshold, MR.strings.novel_mark_read_threshold, 50, 100, readerPreferences.novelMarkAsReadThreshold.get()) {
-                readerPreferences.novelMarkAsReadThreshold.set(it)
-            }
 
             volumeKeysScroll.bindToPreference(readerPreferences.novelVolumeKeysScroll)
             tapToScroll.bindToPreference(readerPreferences.novelTapToScroll)
@@ -31,8 +25,6 @@ class NovelControlsView @JvmOverloads constructor(context: Context, attrs: Attri
             textSelectable.bindToPreference(readerPreferences.novelTextSelectable)
             showProgressSlider.bindToPreference(readerPreferences.novelShowProgressSlider)
             verticalScrollbar.bindToPreference(readerPreferences.novelVerticalScrollbar)
-            infiniteScroll.bindToPreference(readerPreferences.novelInfiniteScroll)
-            markShortChapterRead.bindToPreference(readerPreferences.novelMarkShortChapterAsRead)
 
             // Scrollbar position
             val scrollPosEntries = listOf(
@@ -60,20 +52,6 @@ class NovelControlsView @JvmOverloads constructor(context: Context, attrs: Attri
             )
             verticalSliderSize.onItemSelectedListener = { idx ->
                 readerPreferences.novelVerticalProgressSliderSize.set(sliderSizeEntries[idx].first)
-            }
-
-            // Chapter sort
-            val sortEntries = listOf(
-                "source" to context.getString(MR.strings.novel_chapter_sort_source),
-                "chapter_number" to context.getString(MR.strings.novel_chapter_sort_number),
-            )
-            chapterSort.setEntries(sortEntries.map { it.second })
-            chapterSort.setSelection(
-                sortEntries.indexOfFirst { it.first == readerPreferences.novelChapterSortOrder.get() }
-                    .coerceAtLeast(0),
-            )
-            chapterSort.onItemSelectedListener = { idx ->
-                readerPreferences.novelChapterSortOrder.set(sortEntries[idx].first)
             }
         }
     }

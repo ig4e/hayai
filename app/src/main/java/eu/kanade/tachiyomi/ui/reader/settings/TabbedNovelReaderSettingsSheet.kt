@@ -14,7 +14,7 @@ import yokai.i18n.MR
  * so the visual style matches `TabbedReaderSettingsSheet` exactly. Each tab is an XML-inflated
  * [eu.kanade.tachiyomi.widget.BaseReaderSettingsView] that binds to `ReaderPreferences`.
  *
- * Five tabs: Reading | Appearance | Controls | Advanced | TTS.
+ * Four tabs: Reading | Display | Controls | TTS.
  */
 class TabbedNovelReaderSettingsSheet(
     val readerActivity: ReaderActivity,
@@ -37,11 +37,12 @@ class TabbedNovelReaderSettingsSheet(
         readingView, appearanceView, controlsView, ttsView,
     )
 
-    // Short labels prevent text-wrap on narrower phones. EPUB toggles fold into Appearance;
-    // Find & Replace is reachable from the in-reader action bar (the FindReplace icon button).
+    // "Display" is shorter than "Appearance" and prevents tab-text wrap on narrower phones.
+    // EPUB toggles fold into Display; Find & Replace is reachable from the in-reader action
+    // bar (the FindReplace icon button).
     override fun getTabTitles(): List<StringResource> = listOf(
         MR.strings.reading,
-        MR.strings.appearance,
+        MR.strings.display,
         MR.strings.controls,
         MR.strings.novel_tts_tab,
     )

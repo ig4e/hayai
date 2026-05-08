@@ -267,8 +267,6 @@ private fun AppearanceTab(prefs: ReaderPreferences) {
             ),
             preference = prefs.novelChapterTitleDisplay,
         )
-        BoolPref(prefs.novelCustomBrightness, stringResource(MR.strings.use_custom_brightness))
-        IntSliderPref(prefs.novelCustomBrightnessValue, stringResource(MR.strings.novel_brightness_value), -75, 100)
         BoolPref(prefs.novelKeepScreenOn, stringResource(MR.strings.keep_screen_on))
         BoolPref(prefs.novelBlockMedia, stringResource(MR.strings.novel_block_media))
         BoolPref(prefs.novelShowRawHtml, stringResource(MR.strings.novel_show_raw_html))
@@ -301,18 +299,6 @@ private fun ControlsTab(prefs: ReaderPreferences) {
             ),
             preference = prefs.novelVerticalProgressSliderSize,
         )
-        BoolPref(prefs.novelInfiniteScroll, stringResource(MR.strings.novel_infinite_scroll))
-        IntSliderPref(prefs.novelAutoLoadNextChapterAt, stringResource(MR.strings.novel_auto_load_next_at), 50, 100)
-        ChipRow(
-            label = stringResource(MR.strings.novel_chapter_sort),
-            options = listOf(
-                "source" to stringResource(MR.strings.novel_chapter_sort_source),
-                "chapter_number" to stringResource(MR.strings.novel_chapter_sort_number),
-            ),
-            preference = prefs.novelChapterSortOrder,
-        )
-        IntSliderPref(prefs.novelMarkAsReadThreshold, stringResource(MR.strings.novel_mark_read_threshold), 50, 100)
-        BoolPref(prefs.novelMarkShortChapterAsRead, stringResource(MR.strings.novel_mark_short_chapter_read))
     }
 }
 

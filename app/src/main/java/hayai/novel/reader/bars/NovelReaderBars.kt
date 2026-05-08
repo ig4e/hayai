@@ -36,13 +36,13 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.OpenInBrowser
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.VerticalAlignTop
-import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -420,7 +420,7 @@ private fun NovelBottomBar(
                     modifier = Modifier.size(buttonSize),
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Visibility,
+                        imageVector = Icons.Outlined.PlayCircle,
                         contentDescription = "Start TTS here",
                         modifier = Modifier.size(iconSize),
                     )

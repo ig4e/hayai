@@ -18,6 +18,9 @@ enum class OrientationType(val prefValue: Int, val flag: Int, val stringRes: Str
     LANDSCAPE(3, ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE, MR.strings.landscape, R.drawable.ic_stay_current_landscape_24dp),
     LOCKED_PORTRAIT(4, ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, MR.strings.locked_portrait, R.drawable.ic_screen_lock_portrait_24dp),
     LOCKED_LANDSCAPE(5, ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, MR.strings.locked_landscape, R.drawable.ic_screen_lock_landscape_24dp),
+    // Locked upside-down. Sensor PORTRAIT already auto-rotates between portrait and reverse,
+    // so this entry covers the "force the screen flipped" case the sensor mode doesn't.
+    REVERSE_PORTRAIT(6, ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT, MR.strings.reverse_portrait, R.drawable.ic_screen_lock_portrait_24dp),
     ;
 
     val flagValue = prefValue shl SHIFT

@@ -61,11 +61,21 @@
             android:text="@string/novel_show_progress_slider"
             android:textColor="?attr/colorOnBackground" />
 
+        <!-- Scrollbar group -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="4dp"
+            android:text="@string/novel_scrollbar_section"
+            android:textAppearance="?attr/textAppearanceTitleSmall"
+            android:textColor="?attr/colorOnBackground" />
+
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/vertical_scrollbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="8dp"
             android:text="@string/novel_vertical_scrollbar"
             android:textColor="?attr/colorOnBackground" />
 
@@ -82,36 +92,5 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             app:title="@string/novel_vertical_slider_size" />
-
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/infinite_scroll"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/novel_infinite_scroll"
-            android:textColor="?attr/colorOnBackground" />
-
-        <include
-            android:id="@+id/auto_load_next_at"
-            layout="@layout/widget_novel_slider_int" />
-
-        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
-            android:id="@+id/chapter_sort"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:title="@string/novel_chapter_sort" />
-
-        <include
-            android:id="@+id/mark_read_threshold"
-            layout="@layout/widget_novel_slider_int" />
-
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/mark_short_chapter_read"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/novel_mark_short_chapter_read"
-            android:textColor="?attr/colorOnBackground" />
     </LinearLayout>
 </eu.kanade.tachiyomi.ui.reader.settings.NovelControlsView>

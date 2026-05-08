@@ -79,18 +79,21 @@ class NovelAppearanceView @JvmOverloads constructor(context: Context, attrs: Att
 
             hideChapterTitle.bindToPreference(readerPreferences.novelHideChapterTitle)
             forceLowercase.bindToPreference(readerPreferences.novelForceTextLowercase)
-            customBrightness.bindToPreference(readerPreferences.novelCustomBrightness)
+            // Brightness shares the manga reader's prefs so the existing
+            // ReaderActivity.ReaderConfig observers drive the window brightness
+            // without any novel-specific wiring.
+            customBrightness.bindToPreference(preferences.customBrightness())
             keepScreenOn.bindToPreference(readerPreferences.novelKeepScreenOn)
             blockMedia.bindToPreference(readerPreferences.novelBlockMedia)
             showRawHtml.bindToPreference(readerPreferences.novelShowRawHtml)
-            // EPUB toggles previously lived in a dedicated Advanced tab. Folded into Appearance
+            // EPUB toggles previously lived in a dedicated Advanced tab. Folded into Display
             // since they affect how the rendered chapter looks; Find & Replace lives on the
             // action bar so we don't need a tab just for those two switches.
             enableEpubStyles.bindToPreference(readerPreferences.enableEpubStyles)
             enableEpubJs.bindToPreference(readerPreferences.enableEpubJs)
 
-            bindIntSlider(brightnessValue, MR.strings.novel_brightness_value, -75, 100, readerPreferences.novelCustomBrightnessValue.get()) {
-                readerPreferences.novelCustomBrightnessValue.set(it)
+            bindIntSlider(brightnessValue, MR.strings.novel_brightness_value, -75, 100, preferences.customBrightnessValue().get()) {
+                preferences.customBrightnessValue().set(it)
             }
         }
     }

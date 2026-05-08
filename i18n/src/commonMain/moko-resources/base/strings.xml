@@ -480,6 +480,7 @@
     <string name="landscape">Landscape</string>
     <string name="locked_portrait">Locked portrait</string>
     <string name="locked_landscape">Locked landscape</string>
+    <string name="reverse_portrait">Reverse portrait</string>
     <string name="red_initial">R</string>
     <string name="green_initial">G</string>
     <string name="blue_initial">B</string>
@@ -1740,14 +1741,8 @@
     <string name="novel_swipe_navigation">Swipe to change chapters</string>
     <string name="novel_text_selectable">Selectable text (WebView)</string>
     <string name="novel_show_progress_slider">Show progress slider</string>
-    <string name="novel_infinite_scroll">Infinite scroll</string>
-    <string name="novel_infinite_scroll_summary">Load the next chapter automatically while scrolling</string>
     <string name="novel_auto_scroll_speed">Auto-scroll speed</string>
     <string name="novel_content">Content</string>
-    <string name="novel_auto_load_next_at">Auto-load next chapter at</string>
-    <string name="novel_auto_load_next_at_summary">Threshold percentage to begin loading the next chapter</string>
-    <string name="novel_mark_read_threshold">Mark chapter as read at</string>
-    <string name="novel_mark_short_chapter_read">Auto-mark short chapters as read</string>
     <string name="novel_enable_epub_styles">Apply EPUB styles</string>
     <string name="novel_enable_epub_js">Run EPUB JavaScript</string>
     <string name="novel_enable_epub_js_summary">Run scripts embedded in EPUB chapters (off for security)</string>
@@ -1756,6 +1751,7 @@
     <string name="novel_tts_speed">Speech rate</string>
     <string name="novel_tts_pitch">Speech pitch</string>
     <string name="novel_tts_auto_next_chapter">Auto-continue to next chapter</string>
+    <string name="novel_tts_tap_to_start">Tap a paragraph to start TTS there</string>
     <string name="novel_tts_enable_highlight">Highlight current paragraph</string>
     <string name="novel_tts_keep_highlight_in_view">Keep highlight in view</string>
     <string name="novel_tts_background_playback">Background playback</string>
@@ -1798,6 +1794,7 @@
     <string name="novel_color_blue">Blue</string>
     <string name="novel_color_alpha">Alpha</string>
 
+    <string name="novel_scrollbar_section">Scrollbar</string>
     <string name="novel_vertical_scrollbar">Vertical scrollbar</string>
     <string name="novel_scrollbar_position">Scrollbar position</string>
     <string name="novel_scrollbar_position_right">Right</string>
@@ -1805,9 +1802,6 @@
     <string name="novel_vertical_slider_size">Vertical slider size</string>
     <string name="novel_vertical_slider_half">Half</string>
     <string name="novel_vertical_slider_full">Full</string>
-    <string name="novel_chapter_sort">Chapter sort</string>
-    <string name="novel_chapter_sort_source">Source order</string>
-    <string name="novel_chapter_sort_number">By chapter number</string>
 
     <string name="novel_tts_engine">TTS engine</string>
     <string name="novel_tts_engine_default">System default</string>

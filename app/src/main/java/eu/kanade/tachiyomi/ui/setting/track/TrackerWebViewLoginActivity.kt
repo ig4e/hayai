@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.OpenInBrowser
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -142,12 +143,29 @@ private fun TrackerWebViewLoginScreen(
         }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     YokaiScaffold(
         onNavigationIconClicked = onUp,
         title = stringResource(MR.strings.log_in_to_, trackerName),
         navigationIcon = Icons.Outlined.Close,
         appBarType = AppBarType.SMALL,
         actions = {
+            // Escape hatch: open the current page in the system browser. Useful when
+            // Google's `disallowed_useragent` check blocks the in-app sign-in despite
+            // the UA strip — the user can complete OAuth in Chrome (which Google trusts),
+            // then return here to finish the cookie capture from the in-app session.
+            IconButton(onClick = {
+                runCatching {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(currentUrl))
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                }
+            }) {
+                Icon(
+                    imageVector = Icons.Outlined.OpenInBrowser,
+                    contentDescription = stringResource(MR.strings.open_in_browser),
+                )
+            }
             IconButton(onClick = { navigator.reload() }) {
                 Icon(
                     imageVector = Icons.Outlined.Refresh,
@@ -189,6 +207,14 @@ private fun TrackerWebViewLoginScreen(
                 modifier = Modifier.fillMaxSize(),
                 onCreated = { webView ->
                     webView.setDefaultSettings()
+                    // Trackers often redirect through Google OAuth ("Sign in with Google" on
+                    // NovelUpdates / NovelList), and Google's `disallowed_useragent` check
+                    // (Error 403) refuses any UA containing the Android WebView markers
+                    // (`; wv)` and the "Version/x.x" tag). Strip those so the OAuth page
+                    // sees a plain Chrome UA. Affects only this login activity; the global
+                    // setDefaultSettings used by source extensions is left alone so
+                    // Cloudflare interceptors and per-source UA logic still work normally.
+                    webView.settings.userAgentString = sanitizeUserAgentForOAuth(webView.settings.userAgentString)
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
                 },
@@ -224,6 +250,32 @@ private fun TrackerWebViewLoginScreen(
             }
         }
     }
+}
+
+/**
+ * Strips the markers Google's OAuth `disallowed_useragent` check uses to detect embedded
+ * browsers (HTTP `Error 403: disallowed_useragent`). After this rewrite the UA reads as
+ * vanilla Chrome on Android and Google's sign-in page accepts it. Setting the WebView's
+ * `userAgentString` updates BOTH the request header and `navigator.userAgent`.
+ *
+ * The strips:
+ *  - `; wv)` — Android System WebView marker since ~Lollipop.
+ *  - `Version/<x.x>` — Chrome WebView's secondary version tag (vanilla Chrome omits it).
+ *  - `wv ` — older WebView marker variant.
+ *  - In-app browser fingerprints (FBAN/FBAV/FB_IAB/Instagram/Line/KAKAOTALK) — defensive,
+ *    in case Google later expands its detection list.
+ *
+ * Falls back to the input verbatim if it's null/blank (e.g. unit tests, headless contexts).
+ */
+private fun sanitizeUserAgentForOAuth(userAgent: String?): String {
+    if (userAgent.isNullOrBlank()) return userAgent.orEmpty()
+    return userAgent
+        .replace("; wv)", ")")
+        .replace(" wv ", " ")
+        .replace(Regex("Version/[\\d.]+\\s*"), "")
+        .replace(Regex("\\s*(FBAN|FBAV|FB_IAB|Instagram|Line|KAKAOTALK|MicroMessenger)/[^\\s;]+"), "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
 }
 
 private suspend fun extractTokenFromCookies(trackerId: Long, currentUrl: String): String? {
