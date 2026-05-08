@@ -149,7 +149,8 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         val scope = ProcessLifecycleOwner.get().lifecycleScope
 
         // ── 4. One-shot side effects ──────────────────────────────────────────────────────
-        setupNotificationChannels()
+        // NotificationManager APIs are thread-safe and idempotent; defer off Main.
+        scope.launchIO { setupNotificationChannels() }
 
         // Cover ratio/colour cache: heavy SharedPreferences read on first access; on IO so it
         // can't block the main thread. MangaCoverMetadata.load() merges into the existing

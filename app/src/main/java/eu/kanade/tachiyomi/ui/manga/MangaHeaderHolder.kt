@@ -471,16 +471,20 @@ class MangaHeaderHolder(
         }
 
         // Page preview strip (above chapters)
+        // Defer setContent to the next animation frame so the push transition isn't charged
+        // for the ComposeView setup + PagePreviewInlineSection's LaunchedEffect lookup.
         binding?.pagePreviewCompose?.apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-            setContent {
-                yokai.presentation.theme.YokaiTheme {
-                    exh.ui.pagepreview.components.PagePreviewInlineSection(
-                        mangaId = manga.id ?: -1L,
-                        sourceId = manga.source,
-                        onOpenPagePreview = { adapter.delegate.openPagePreview() },
-                        onOpenReaderAtPage = { page -> adapter.delegate.openReaderAtPage(page) },
-                    )
+            postOnAnimation {
+                setContent {
+                    yokai.presentation.theme.YokaiTheme {
+                        exh.ui.pagepreview.components.PagePreviewInlineSection(
+                            mangaId = manga.id ?: -1L,
+                            sourceId = manga.source,
+                            onOpenPagePreview = { adapter.delegate.openPagePreview() },
+                            onOpenReaderAtPage = { page -> adapter.delegate.openReaderAtPage(page) },
+                        )
+                    }
                 }
             }
         }

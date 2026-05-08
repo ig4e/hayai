@@ -16,7 +16,6 @@ import eu.kanade.tachiyomi.util.system.withDefContext
 import java.util.*
 import kotlinx.coroutines.runBlocking
 import uy.kohesive.injekt.injectLazy
-import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.ui.UiPreferences
@@ -214,7 +213,6 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
 
     override fun onCreateBubbleText(position: Int): String {
         val preferences: PreferencesHelper by injectLazy()
-        val getCategories: GetCategories by injectLazy()
         val getChapter: GetChapter by injectLazy()
         val getHistory: GetHistory by injectLazy()
         val context = recyclerView.context
@@ -232,8 +230,10 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
                     when (getSort(position)) {
                         LibrarySort.DragAndDrop -> {
                             if (item.sectionHeader.category.isDynamic && item.manga.manga.id != null) {
-                                // FIXME: Don't do blocking
-                                val category = runBlocking { getCategories.awaitByMangaId(item.manga.manga.id!!) }.firstOrNull()?.name
+                                // O(1) lookup against the presenter cache; no DB hit on the scroll bubble.
+                                val category = controller?.presenter
+                                    ?.categoryNamesById
+                                    ?.get(item.manga.category)
                                 category ?: context.getString(MR.strings.default_value)
                             } else {
                                 val title = item.manga.manga.title
@@ -245,18 +245,11 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
                             }
                         }
                         LibrarySort.DateFetched -> {
-                            val id = item.manga.manga.id ?: return ""
-                            // FIXME: Don't do blocking
-                            val history = runBlocking { getChapter.awaitAll(id, false) }
-                            val last = history.maxOfOrNull { it.date_fetch }
-                            context.timeSpanFromNow(MR.strings.fetched_, last ?: 0)
+                            // Pre-computed by the LibraryManga SQL mapper.
+                            context.timeSpanFromNow(MR.strings.fetched_, item.manga.lastFetch)
                         }
                         LibrarySort.LastRead -> {
-                            val id = item.manga.manga.id ?: return ""
-                            // FIXME: Don't do blocking
-                            val history = runBlocking { getHistory.awaitAllByMangaId(id) }
-                            val last = history.maxOfOrNull { it.last_read }
-                            context.timeSpanFromNow(MR.strings.read_, last ?: 0)
+                            context.timeSpanFromNow(MR.strings.read_, item.manga.lastRead)
                         }
                         LibrarySort.Unread -> {
                             val unread = item.manga.unread

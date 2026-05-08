@@ -46,6 +46,7 @@ import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
 import com.bluelinelabs.conductor.Router
 import com.bluelinelabs.conductor.RouterTransaction
+import com.bluelinelabs.conductor.changehandler.SimpleSwapChangeHandler
 import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -785,6 +786,10 @@ fun Controller.withFadeTransaction(): RouterTransaction {
 }
 
 fun Controller.fadeTransactionHandler(): ControllerChangeHandler {
+    // Reduce-motion: skip the animator pipeline entirely.
+    if (yokai.presentation.theme.ReducedMotion.isEnabled()) {
+        return SimpleSwapChangeHandler(false)
+    }
     val isLowRam = activity?.getSystemService<ActivityManager>()?.isLowRamDevice == true
     return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || isLowRam) {
         FadeChangeHandler(isLowRam)
@@ -794,6 +799,11 @@ fun Controller.fadeTransactionHandler(): ControllerChangeHandler {
 }
 
 fun Controller.withFadeInTransaction(): RouterTransaction {
+    if (yokai.presentation.theme.ReducedMotion.isEnabled()) {
+        return RouterTransaction.with(this)
+            .pushChangeHandler(SimpleSwapChangeHandler(false))
+            .popChangeHandler(SimpleSwapChangeHandler(false))
+    }
     return RouterTransaction.with(this)
         .pushChangeHandler(FadeChangeHandler())
         .popChangeHandler(OneWayFadeChangeHandler())

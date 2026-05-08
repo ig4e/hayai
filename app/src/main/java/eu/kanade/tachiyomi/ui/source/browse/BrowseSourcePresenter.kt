@@ -30,6 +30,7 @@ import eu.kanade.tachiyomi.ui.source.filter.TriStateItem
 import eu.kanade.tachiyomi.ui.source.filter.TriStateSectionItem
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchNonCancellableIO
+import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.withUIContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.asFlow
@@ -127,7 +128,10 @@ open class BrowseSourcePresenter(
     override fun onCreate() {
         super.onCreate()
         if (!::pager.isInitialized) {
-            source = runBlocking { sourceManager.awaitCatalogueSource(sourceId) } ?: return
+            // Cheap in-memory lookup first; only block if the source isn't registered yet.
+            source = (sourceManager.get(sourceId) as? CatalogueSource)
+                ?: runBlocking { sourceManager.awaitCatalogueSource(sourceId) }
+                ?: return
 
             sourceFilters = source.getFilterList()
 
@@ -146,7 +150,10 @@ open class BrowseSourcePresenter(
             }
             filtersChanged = false
 
-            runBlocking { view?.savedSearches = loadSearches() }
+            // Saved searches don't gate first paint; load off Main.
+            presenterScope.launchUI {
+                view?.savedSearches = loadSearches()
+            }
 
             getSavedSearch.subscribeAllBySourceId(sourceId)
                 .map { it.applyAllSave(source.getFilterList()) }

@@ -147,6 +147,7 @@ import java.io.IOException
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import yokai.domain.manga.models.cover
@@ -665,20 +666,27 @@ class MangaDetailsController :
                     // or perhaps because it's HARDWARE configured, not entirely sure why, the behaviour is not
                     // documented by Google.
                     val bitmap = (drawable as? BitmapDrawable)?.bitmap
-                    // Generate the Palette on a background thread.
+                    // Skip Palette work on cache hit; cached color is set by MangaCoverMetadata.
+                    val cachedVibrant = manga?.vibrantCoverColor
                     if (bitmap != null) {
-                        Palette.from(bitmap).generate { palette ->
-                            if (presenter.preferences.themeMangaDetails().get()) {
-                                launchUI {
-                                    val vibrantColor = palette?.getBestColor() ?: return@launchUI
-                                    manga?.vibrantCoverColor = vibrantColor
-                                    setAccentColorValue(vibrantColor)
-                                    setHeaderColorValue(vibrantColor)
-                                    setItemColors()
+                        if (cachedVibrant != null && presenter.preferences.themeMangaDetails().get()) {
+                            setAccentColorValue(cachedVibrant)
+                            setHeaderColorValue(cachedVibrant)
+                            setItemColors()
+                        } else {
+                            Palette.from(bitmap).generate { palette ->
+                                if (presenter.preferences.themeMangaDetails().get()) {
+                                    launchUI {
+                                        val vibrantColor = palette?.getBestColor() ?: return@launchUI
+                                        manga?.vibrantCoverColor = vibrantColor
+                                        setAccentColorValue(vibrantColor)
+                                        setHeaderColorValue(vibrantColor)
+                                        setItemColors()
+                                    }
+                                } else {
+                                    setCoverColorValue()
+                                    coverColor?.let { color -> getHeader()?.setBackDrop(color) }
                                 }
-                            } else {
-                                setCoverColorValue()
-                                coverColor?.let { color -> getHeader()?.setBackDrop(color) }
                             }
                         }
                     }
@@ -716,16 +724,19 @@ class MangaDetailsController :
             presenter.isLockedFromSearch =
                 shouldLockIfNeeded && SecureActivityDelegate.shouldBeLocked()
             presenter.headerItem.isLocked = presenter.isLockedFromSearch
-            runBlocking { presenter.refreshMangaFromDb() }
-            presenter.syncData()
-            presenter.fetchChapters(refreshTracker == null)
-            if (refreshTracker != null) {
-                trackingBottomSheet?.refreshItem(refreshTracker ?: 0)
-                presenter.refreshTracking(trackIndex = refreshTracker)
-                refreshTracker = null
+            // Run the DB refresh + dependent calls off Main; ordering preserved by sequencing inside the launch.
+            viewScope.launch {
+                presenter.refreshMangaFromDb()
+                presenter.syncData()
+                presenter.fetchChapters(refreshTracker == null)
+                if (refreshTracker != null) {
+                    trackingBottomSheet?.refreshItem(refreshTracker ?: 0)
+                    presenter.refreshTracking(trackIndex = refreshTracker)
+                    refreshTracker = null
+                }
+                // fetch cover again in case the user set a new cover while reading
+                setPaletteColor()
             }
-            // fetch cover again in case the user set a new cover while reading
-            setPaletteColor()
         }
         if (isControllerVisible) {
             setStatusBarAndToolbar()
@@ -741,9 +752,10 @@ class MangaDetailsController :
         super.onAttach(view)
         if (!returningFromReader) return
         returningFromReader = false
-        runBlocking {
+        // DB await off Main so reader-back transition isn't blocked for up to 1s.
+        viewScope.launch {
             val itemAnimator = binding.recycler.itemAnimator
-            val chapters = withTimeoutOrNull(1000) { presenter.getChaptersNow() } ?: return@runBlocking
+            val chapters = withTimeoutOrNull(1000) { presenter.getChaptersNow() } ?: return@launch
             binding.recycler.itemAnimator = null
             tabletAdapter?.notifyItemChanged(0)
             adapter?.setChapters(chapters)

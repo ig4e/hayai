@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -193,6 +194,10 @@ fun VerticalFastScroller(
     }
 }
 
+// `original` is `val` and constrained to GridCells / StaggeredGridCells (both stable),
+// so the wrapper is effectively immutable. Without the annotation Compose defaults
+// `val original: Any` to Unstable.
+@Immutable
 class DynamicGridCells(
     val original: Any
 ) {

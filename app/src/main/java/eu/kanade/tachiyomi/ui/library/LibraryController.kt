@@ -1887,14 +1887,16 @@ open class LibraryController(
         }
         val manga = (activeAdapter.getItem(position) as? LibraryMangaItem)?.manga?.manga ?: return
         val activity = activity ?: return
-        val chapter = presenter.getFirstUnread(manga) ?: return
-        activity.apply {
-            if (view != null) {
-                val (intent, bundle) = ReaderActivity
-                    .newIntentWithTransitionOptions(activity, manga, chapter, view)
-                startActivity(intent, bundle)
-            } else {
-                startActivity(ReaderActivity.newIntent(activity, manga, chapter))
+        viewScope.launch {
+            val chapter = presenter.getFirstUnread(manga) ?: return@launch
+            activity.apply {
+                if (view != null) {
+                    val (intent, bundle) = ReaderActivity
+                        .newIntentWithTransitionOptions(activity, manga, chapter, view)
+                    startActivity(intent, bundle)
+                } else {
+                    startActivity(ReaderActivity.newIntent(activity, manga, chapter))
+                }
             }
         }
         destroyActionModeIfNeeded()

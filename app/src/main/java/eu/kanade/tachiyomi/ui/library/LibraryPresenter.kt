@@ -131,6 +131,10 @@ class LibraryPresenter(
     /** All categories of the library, in case they are hidden because of hide categories is on */
     private var allCategories: List<Category> = emptyList()
 
+    /** `categoryId → categoryName` snapshot for [LibraryCategoryAdapter]'s bubble lookup. */
+    var categoryNamesById: Map<Int, String> = emptyMap()
+        private set
+
     private var removeArticles: Boolean = preferences.removeArticles().get()
 
     /** List of all manga */
@@ -259,6 +263,10 @@ class LibraryPresenter(
             ) { data, _ -> data }.collectLatest { data ->
                 categories = data.categories
                 allCategories = data.allCategories
+                categoryNamesById = data.allCategories
+                    .asSequence()
+                    .filter { it.id != null }
+                    .associate { it.id!! to it.name }
 
                 val library = data.items
                 val hiddenItems = data.hiddenItems
@@ -1330,9 +1338,8 @@ class LibraryPresenter(
     }
 
     /** Returns first unread chapter of a manga */
-    fun getFirstUnread(manga: Manga): Chapter? {
-        // FIXME: Don't do blocking
-        val chapters = runBlocking { getChapter.awaitAll(manga) }
+    suspend fun getFirstUnread(manga: Manga): Chapter? {
+        val chapters = getChapter.awaitAll(manga)
         return ChapterSort(manga, chapterFilter, preferences).getNextUnreadChapter(chapters, false)
     }
 

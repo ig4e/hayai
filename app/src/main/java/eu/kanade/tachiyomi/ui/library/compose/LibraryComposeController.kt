@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import kotlinx.collections.immutable.toImmutableList
 import eu.kanade.tachiyomi.databinding.LibraryControllerBinding
 import eu.kanade.tachiyomi.ui.base.controller.BaseCoroutineController
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
@@ -77,7 +78,7 @@ class LibraryComposeController(
         val state by presenter.state.collectAsState()
         LibraryContent(
             modifier = Modifier.nestedScroll(nestedScrollInterop),
-            items = (0..50).map { LibraryItem.Blank(it) },
+            items = (0..50).map { LibraryItem.Blank(it) }.toImmutableList(),
             columns = 3,
         )
     }

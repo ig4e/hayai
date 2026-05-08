@@ -189,6 +189,7 @@ class MangaDetailsPresenter(
         val controller = view ?: return
 
         isLockedFromSearch = controller.shouldLockIfNeeded && SecureActivityDelegate.shouldBeLocked()
+        // Only fires on bundle-restore / deep-link; library push pre-initializes manga.
         if (!::manga.isInitialized) runBlocking { refreshMangaFromDb() }
         syncData()
 
@@ -208,7 +209,8 @@ class MangaDetailsPresenter(
             downloadManager.queueState.collectLatest(::onQueueUpdate)
         }
 
-        runBlocking {
+        // Tracks default to emptyList(); fetch async so push isn't gated on DB.
+        presenterScope.launchIO {
             tracks = getTrack.awaitAllByMangaId(mangaId)
         }
     }
@@ -225,13 +227,13 @@ class MangaDetailsPresenter(
             .launchIn(presenterScope)
 
         val fetchMangaNeeded = !manga.initialized
-        val fetchChaptersNeeded = runBlocking { getChaptersNow() }.isEmpty()
 
         presenterScope.launch {
             isLoading = true
             withUIContext {
                 controller.updateHeader()
             }
+            val fetchChaptersNeeded = getChaptersNow().isEmpty()
             val tasks = listOf(
                 async { if (fetchMangaNeeded) fetchMangaFromSource() },
                 async { if (fetchChaptersNeeded) fetchChaptersFromSource(false) },

@@ -198,7 +198,7 @@ private fun BrowseRecommendCard(
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(manga.thumbnail_url)
-                    .crossfade(true)
+                    .crossfade(!yokai.presentation.theme.ReducedMotion.isEnabled())
                     .build(),
                 contentDescription = manga.title,
                 modifier = Modifier

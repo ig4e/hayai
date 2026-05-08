@@ -139,6 +139,7 @@ import kotlin.math.min
 import kotlin.math.roundToLong
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import uy.kohesive.injekt.injectLazy
@@ -479,6 +480,8 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             downloadManager.isDownloaderRunning,
             downloadManager.queueState,
         ) { isDownloading, queueState -> isDownloading to queueState.size }
+            // queueState ticks per item; dedupe so the badge only re-renders when the pair changes.
+            .distinctUntilChanged()
             .onEach { downloadStatusChanged(it.first, it.second) }
             .launchIn(lifecycleScope)
         WindowCompat.setDecorFitsSystemWindows(window, false)

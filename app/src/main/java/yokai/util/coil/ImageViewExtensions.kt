@@ -9,7 +9,6 @@ import coil3.request.ImageRequest
 import coil3.request.maxBitmapSize
 import coil3.size.Precision
 import coil3.size.Size
-import coil3.size.SizeResolver
 import coil3.target.ImageViewTarget
 import eu.kanade.tachiyomi.data.coil.CoverViewTarget
 import eu.kanade.tachiyomi.data.coil.LibraryMangaImageTarget
@@ -28,7 +27,7 @@ fun ImageView.loadManga(
         .data(manga.cover())
         .target(LibraryMangaImageTarget(this, manga))
         .precision(Precision.INEXACT)
-        .size(SizeResolver.ORIGINAL)
+        // Default ViewSizeResolver decodes at view bounds; callers needing original opt in via builder.
         .maxBitmapSize(Size(MAX_BITMAP_SIZE, MAX_BITMAP_SIZE))
         .apply(builder)
         .build()
@@ -48,7 +47,6 @@ fun ImageView.loadManga(
         .data(cover)
         .target(target ?: CoverViewTarget(this, progress))
         .precision(Precision.INEXACT)
-        .size(SizeResolver.ORIGINAL)
         .maxBitmapSize(Size(MAX_BITMAP_SIZE, MAX_BITMAP_SIZE))
         .apply(builder)
         .build()
