@@ -1,6 +1,7 @@
 package exh.recs.sources
 
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
@@ -27,6 +28,18 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
     override val associatedTrackerId: Long
         get() = trackManager.myAnimeList.id
 
+    // MAL/Jikan groups manga, light novel, novel, manhwa, manhua, doujin and one-shot under
+    // the same `/manga/` namespace and `/manga/{id}/recommendations` returns mixed types.
+    // Bias the search lookup with `?type=` and post-filter the recommendations so a novel
+    // detail page never surfaces manga (and vice versa).
+    private val isNovel: Boolean = manga?.seriesType() == Manga.TYPE_NOVEL
+
+    override val contentType: RecommendationContentType =
+        if (isNovel) RecommendationContentType.NOVEL else RecommendationContentType.MANGA
+
+    /** Jikan recognises "lightnovel" alongside "novel"; the search endpoint accepts either. */
+    private val searchTypeFilter: String = if (isNovel) "lightnovel" else "manga"
+
     override suspend fun getRecsById(id: String): List<SManga> {
         val apiUrl = endpoint.toHttpUrl()
             .newBuilder()
@@ -39,6 +52,7 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
         return data["data"]?.jsonArray
             ?.mapNotNull { element ->
                 val rec = element.jsonObject["entry"]?.jsonObject ?: return@mapNotNull null
+                if (!matchesScope(rec)) return@mapNotNull null
                 val title = rec["title"]?.jsonPrimitive?.content ?: return@mapNotNull null
                 val url = rec["url"]?.jsonPrimitive?.content ?: return@mapNotNull null
                 SManga.create().also { manga ->
@@ -50,6 +64,17 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
                     manga.initialized = true
                 }
             } ?: emptyList()
+    }
+
+    /**
+     * Recommendation entries carry a `type` field with values like "Manga", "Light Novel",
+     * "Novel", "Manhwa", "Manhua", "Doujinshi", "One-shot". Treat any "* Novel" variant as
+     * a novel and everything else as manga.
+     */
+    private fun matchesScope(rec: JsonObject): Boolean {
+        val type = rec["type"]?.jsonPrimitive?.contentOrNull?.lowercase() ?: return !isNovel
+        val entryIsNovel = "novel" in type
+        return if (isNovel) entryIsNovel else !entryIsNovel
     }
 
     fun getImage(imageObject: JsonObject): String? {
@@ -70,6 +95,7 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
             .newBuilder()
             .addPathSegment("manga")
             .addQueryParameter("q", search)
+            .addQueryParameter("type", searchTypeFilter)
             .build()
 
         val data = client.newCall(GET(url)).awaitSuccess()

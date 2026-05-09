@@ -41,6 +41,8 @@ import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import exh.recs.batch.RankedSearchResults
+import exh.recs.components.RecommendationTypeBadge
+import exh.recs.sources.RecommendationContentType
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
@@ -128,6 +130,7 @@ class BrowseRecommendsScreen(
                     } else {
                         BrowseRecommendsGrid(
                             mangas = currentState.mangas,
+                            contentType = currentState.sourceContentType,
                             contentPadding = contentPadding,
                             onClickItem = { manga ->
                                 router?.pushController(
@@ -157,6 +160,7 @@ class BrowseRecommendsScreen(
 @Composable
 private fun BrowseRecommendsGrid(
     mangas: List<Manga>,
+    contentType: RecommendationContentType,
     contentPadding: PaddingValues,
     onClickItem: (Manga) -> Unit,
 ) {
@@ -177,6 +181,7 @@ private fun BrowseRecommendsGrid(
         ) { manga ->
             BrowseRecommendCard(
                 manga = manga,
+                contentType = contentType,
                 onClick = { onClickItem(manga) },
             )
         }
@@ -186,6 +191,7 @@ private fun BrowseRecommendsGrid(
 @Composable
 private fun BrowseRecommendCard(
     manga: Manga,
+    contentType: RecommendationContentType,
     onClick: () -> Unit,
 ) {
     Card(
@@ -195,17 +201,25 @@ private fun BrowseRecommendCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Column {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(manga.thumbnail_url)
-                    .crossfade(!yokai.presentation.theme.ReducedMotion.isEnabled())
-                    .build(),
-                contentDescription = manga.title,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(2f / 3f),
-                contentScale = ContentScale.Crop,
-            )
+            Box {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(manga.thumbnail_url)
+                        .crossfade(!yokai.presentation.theme.ReducedMotion.isEnabled())
+                        .build(),
+                    contentDescription = manga.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(2f / 3f),
+                    contentScale = ContentScale.Crop,
+                )
+                RecommendationTypeBadge(
+                    contentType = contentType,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp),
+                )
+            }
             Text(
                 text = manga.title,
                 modifier = Modifier.padding(4.dp),

@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
+import exh.recs.sources.RecommendationContentType
 import exh.recs.sources.RecommendationPagingSource
 import exh.recs.sources.StaticResultPagingSource
 import kotlinx.coroutines.Dispatchers
@@ -73,6 +74,7 @@ class BrowseRecommendsScreenModel(
                         currentPage = page,
                         sourceName = source.name,
                         sourceCategory = source.category,
+                        sourceContentType = source.contentType,
                     )
                 }
             } catch (e: Exception) {
@@ -95,6 +97,7 @@ class BrowseRecommendsScreenModel(
             val currentPage: Int,
             val sourceName: String,
             val sourceCategory: dev.icerock.moko.resources.StringResource,
+            val sourceContentType: RecommendationContentType,
         ) : State()
         data class Error(val message: String) : State()
     }

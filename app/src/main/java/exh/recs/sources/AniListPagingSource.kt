@@ -1,6 +1,7 @@
 package exh.recs.sources
 
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
@@ -29,6 +30,19 @@ class AniListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource(
 
     override val associatedTrackerId: Long
         get() = trackManager.aniList.id
+
+    // AniList's MediaType.MANGA covers manga, manhwa, manhua, oneshots AND light novels
+    // (NOVEL is a MediaFormat under it). We want to surface only the format that matches
+    // the entry the user is browsing — otherwise novel readers see manga recs (and vice
+    // versa) since the unfiltered query mixes them. Both the source-entry lookup and the
+    // recommendations get filtered using the same flag.
+    private val isNovel: Boolean = manga?.seriesType() == Manga.TYPE_NOVEL
+
+    override val contentType: RecommendationContentType =
+        if (isNovel) RecommendationContentType.NOVEL else RecommendationContentType.MANGA
+
+    private val formatFilterFragment: String =
+        if (isNovel) "format_in: [NOVEL]" else "format_not_in: [NOVEL]"
 
     private fun countOccurrence(arr: JsonArray, search: String): Int {
         return arr.count {
@@ -60,6 +74,16 @@ class AniListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource(
         }
     }
 
+    /**
+     * Drop recommendations whose format doesn't match the active scope. Defensive belt
+     * against AniList returning a NOVEL recommendation off a MANGA entry (or vice versa)
+     * even when the source query was filtered — the recommendations field is independent.
+     */
+    private fun matchesScope(rec: JsonObject): Boolean {
+        val format = rec["format"]?.jsonPrimitive?.contentOrNull
+        return if (isNovel) format == "NOVEL" else format != "NOVEL"
+    }
+
     private suspend fun getRecs(
         query: String,
         variables: JsonObject,
@@ -82,16 +106,18 @@ class AniListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource(
             .ifEmpty { throw NoResultsException() }
             .filter()
 
-        return media.flatMap { it.jsonObject["recommendations"]!!.jsonObject["edges"]!!.jsonArray }.map {
-            val rec = it.jsonObject["node"]!!.jsonObject["mediaRecommendation"]!!.jsonObject
-            val recTitle = getTitle(rec)
-            SManga.create().also { manga ->
-                manga.title = recTitle
-                manga.thumbnail_url = rec["coverImage"]!!.jsonObject["large"]!!.jsonPrimitive.content
-                manga.initialized = true
-                manga.url = rec["siteUrl"]!!.jsonPrimitive.content
+        return media.flatMap { it.jsonObject["recommendations"]!!.jsonObject["edges"]!!.jsonArray }
+            .mapNotNull {
+                val rec = it.jsonObject["node"]!!.jsonObject["mediaRecommendation"]!!.jsonObject
+                if (!matchesScope(rec)) return@mapNotNull null
+                val recTitle = getTitle(rec)
+                SManga.create().also { manga ->
+                    manga.title = recTitle
+                    manga.thumbnail_url = rec["coverImage"]!!.jsonObject["large"]!!.jsonPrimitive.content
+                    manga.initialized = true
+                    manga.url = rec["siteUrl"]!!.jsonPrimitive.content
+                }
             }
-        }
     }
 
     override suspend fun getRecsById(id: String): List<SManga> {
@@ -100,10 +126,12 @@ class AniListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource(
             |query Recommendations(${'$'}id: Int!) {
                 |Page {
                     |media(id: ${'$'}id, type: MANGA) {
+                        |format
                         |recommendations {
                             |edges {
                                 |node {
                                     |mediaRecommendation {
+                                        |format
                                         |countryOfOrigin
                                         |siteUrl
                                         |title {
@@ -139,7 +167,8 @@ class AniListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource(
             """
             |query Recommendations(${'$'}search: String!) {
                 |Page {
-                    |media(search: ${'$'}search, type: MANGA) {
+                    |media(search: ${'$'}search, type: MANGA, $formatFilterFragment) {
+                        |format
                         |title {
                             |romaji
                             |english
@@ -150,6 +179,7 @@ class AniListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource(
                             |edges {
                                 |node {
                                     |mediaRecommendation {
+                                        |format
                                         |countryOfOrigin
                                         |siteUrl
                                         |title {

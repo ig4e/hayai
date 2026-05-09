@@ -722,7 +722,14 @@ class ReaderViewModel(
      */
     private suspend fun saveChapterProgress(readerChapter: ReaderChapter, page: ReaderPage, hasExtraPage: Boolean) {
         val isTextSource = source is TextSource
-        readerChapter.requestedPage = if (isTextSource) 0 else readerChapter.chapter.last_page_read
+        // Use the page index we're saving, not the chapter's *previous* last_page_read.
+        // PagerViewer.setChaptersDoubleShift calls moveToPage twice — once via
+        // setChaptersInternal (first layout) and once in its own !hasMoved block — and
+        // the first moveToPage triggers onPageSelected → here on Dispatchers.IO. If we
+        // overwrite requestedPage with the stale last_page_read value before the second
+        // moveToPage reads it back on the UI thread, the second navigation snaps back
+        // to that stale page (typically 0), undoing a page-preview launch.
+        readerChapter.requestedPage = if (isTextSource) 0 else page.index
         getChapter.awaitById(readerChapter.chapter.id!!)?.let { dbChapter ->
             readerChapter.chapter.bookmark = dbChapter.bookmark
         }

@@ -22,6 +22,16 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 /**
+ * Content type a recommendation source returns. Used by the UI to render a per-card badge
+ * and by [createSources] to assemble the right source list for the entry being viewed.
+ */
+enum class RecommendationContentType {
+    MANGA,
+    NOVEL,
+    UNKNOWN,
+}
+
+/**
  * General class for recommendation sources.
  */
 abstract class RecommendationPagingSource(
@@ -32,6 +42,14 @@ abstract class RecommendationPagingSource(
 
     // Localized category name
     open val category: StringResource = MR.strings.similar_titles
+
+    /**
+     * What kind of entries this source returns AFTER its own filtering. Sources that look up
+     * an external service should set this based on the input manga's [seriesType] when
+     * relevant (so e.g. AniList reports NOVEL when filtering its recommendations to NOVEL
+     * format). Defaults to MANGA because most legacy sources only return manga.
+     */
+    open val contentType: RecommendationContentType = RecommendationContentType.MANGA
 
     /**
      * Recommendation sources that display results from a source extension
@@ -53,6 +71,7 @@ abstract class RecommendationPagingSource(
                     AniListPagingSource(manga),
                     MyAnimeListPagingSource(manga),
                     NovelUpdatesPagingSource(manga),
+                    NovelListPagingSource(manga),
                 ).sortedWith(compareBy({ it.name }, { it.category.resourceId }))
             }
 

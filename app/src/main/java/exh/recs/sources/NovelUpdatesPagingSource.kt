@@ -1,5 +1,6 @@
 package exh.recs.sources
 
+import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -12,19 +13,33 @@ import okhttp3.Headers
 import org.jsoup.Jsoup
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import uy.kohesive.injekt.injectLazy
+import yokai.domain.track.interactor.GetTrack
 
 class NovelUpdatesPagingSource(manga: Manga?) : RecommendationPagingSource(manga) {
     override val name: String = "NovelUpdates"
 
+    // NovelUpdates only catalogues novels, so this source is always novel-typed.
+    override val contentType: RecommendationContentType = RecommendationContentType.NOVEL
+
     private val client by lazy { Injekt.get<NetworkHelper>().client }
+    private val getTrack: GetTrack by injectLazy()
+    private val trackManager: TrackManager by injectLazy()
 
     override suspend fun requestNextPage(currentPage: Int): MangasPage {
         if (currentPage != 1) {
             return MangasPage(emptyList(), false)
         }
 
-        val query = manga?.title?.takeIf { it.isNotBlank() } ?: throw NoResultsException()
-        val seriesUrl = resolveSeriesUrl(query) ?: throw NoResultsException()
+        // Prefer the URL from a linked NovelUpdates tracker — it's exact and skips the
+        // ajax search + slug-guess round trip. The title-search fallback handles entries
+        // without a tracker (or with a stale/empty tracking_url).
+        val seriesUrl = resolveSeriesUrlFromTracker()
+            ?: run {
+                val query = manga?.title?.takeIf { it.isNotBlank() } ?: throw NoResultsException()
+                resolveSeriesUrl(query)
+            }
+            ?: throw NoResultsException()
         val seriesDocument = fetchDocument(seriesUrl)
 
         val results = buildList {
@@ -54,6 +69,19 @@ class NovelUpdatesPagingSource(manga: Manga?) : RecommendationPagingSource(manga
         }
 
         return MangasPage(results, false)
+    }
+
+    /**
+     * Look up a linked NovelUpdates tracker for the source manga and return its
+     * `tracking_url` if present and recognisably a NovelUpdates series URL. Returns null
+     * when there's no manga id, no NU track, or the URL doesn't look like one we can use.
+     */
+    private suspend fun resolveSeriesUrlFromTracker(): String? {
+        val mangaId = manga?.id ?: return null
+        val tracks = getTrack.awaitAllByMangaId(mangaId)
+        val nuTrack = tracks.find { it.sync_id == trackManager.novelUpdates.id } ?: return null
+        val url = nuTrack.tracking_url.takeIf { it.isNotBlank() } ?: return null
+        return url.takeIf { it.contains("novelupdates.com/series/") }
     }
 
     private suspend fun resolveSeriesUrl(query: String): String? {

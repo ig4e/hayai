@@ -140,10 +140,17 @@ class EHentai(
 
             // why is column2 null
             val favElement = column2.children().find { it.attr("style").startsWith("border-color") }
-            val infoElements = infoElement?.select("div")
+            // Use direct children of .gl3e and skip the optional favorite-color border div
+            // (only present on ExHentai when the gallery is in your favorites). Without this
+            // filter, positional indexing shifts by one for non-favorited entries and the
+            // category badge / date / rating / uploader / length all read the wrong source.
+            val infoChildren = infoElement?.children()
+                ?.filter { it.tagName() == "div" && !it.attr("style").startsWith("border-color") }
             val parsedTags = mutableListOf<RaisedTag>()
-            val categoryToken = if (infoElements != null) {
-                getGenre(infoElements.getOrNull(1))
+            val categoryToken = if (infoElement != null) {
+                // Prefer class-based selection over positional indexing: category badges
+                // carry .cn (compact) or .cs (extended) regardless of layout variant.
+                getGenre(infoElement.selectFirst(".cn, .cs") ?: infoChildren?.getOrNull(0))
             } else {
                 getGenre(body.selectFirst(".gl1c div"))
             }
@@ -159,7 +166,7 @@ class EHentai(
                     // Get image
                     thumbnail_url = thumbnailElement.attr("src")
 
-                    if (infoElements != null) {
+                    if (infoElement != null) {
                         linkElement.select("div div").getOrNull(1)?.select("tr")?.forEach { row ->
                             val namespace = row.select(".tc").text().removeSuffix(":")
                             parsedTags.addAll(
@@ -201,16 +208,19 @@ class EHentai(
                 metadata = EHentaiSearchMetadata().apply {
                     tags += parsedTags
 
-                    if (infoElements != null) {
+                    if (infoElement != null) {
                         genre = categoryToken
 
-                        datePosted = getDateTag(infoElements.getOrNull(2))
+                        // After filtering out the favorite-border div the order is
+                        // [category, date, rating, uploader, length]. Pick the rating by
+                        // class to stay robust even if EH adds new metadata divs later.
+                        datePosted = getDateTag(infoChildren?.getOrNull(1))
 
-                        averageRating = getRating(infoElements.getOrNull(3))
+                        averageRating = getRating(infoElement.selectFirst(".ir") ?: infoChildren?.getOrNull(2))
 
-                        uploader = getUploader(infoElements.getOrNull(4))
+                        uploader = getUploader(infoChildren?.getOrNull(3))
 
-                        length = getPageCount(infoElements.getOrNull(5))
+                        length = getPageCount(infoChildren?.getOrNull(4))
                     } else {
                         genre = categoryToken
 
@@ -268,18 +278,24 @@ class EHentai(
     }
 
     private fun getGenre(element: Element?): String? {
-        return element?.attr("onclick")
+        // onclick is typically "document.location='https://e-hentai.org/manga/'"; the
+        // trailing slash means a single substringAfterLast('/') yields just "'" → empty
+        // after removeSuffix. Strip the trailing quote+slash first, then take the last
+        // path segment. ifBlank{null} ensures we fall back to text instead of returning
+        // an empty string when the chain produces nothing usable.
+        val fromOnclick = element?.attr("onclick")
             ?.nullIfBlank()
-            ?.substringAfterLast('/')
             ?.removeSuffix("'")
+            ?.trimEnd('/')
+            ?.substringAfterLast('/')
             ?.trim()
-            ?.substringAfterLast('/')
-            ?.removeSuffix("'")
-            ?: element?.text()
-                ?.nullIfBlank()
-                ?.lowercase()
-                ?.replace(" ", "")
-                ?.trim()
+            ?.ifBlank { null }
+
+        return fromOnclick ?: element?.text()
+            ?.nullIfBlank()
+            ?.lowercase()
+            ?.replace(" ", "")
+            ?.trim()
     }
 
     private fun getDateTag(element: Element?): Long? {
