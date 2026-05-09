@@ -52,6 +52,9 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Browse-page filter (Settings → Sources from the browse menu) now lists novel sources alongside manga, grouped under their language. Novel icons are loaded from the plugin's `iconUrl` via Coil with a `ic_book_24dp` fallback.
 
 ### Changes
+- Library update report is now accessible from the Recents display options sheet (file-open icon in the tab dialog header) instead of the toolbar overflow, matching the pattern used by the library display sheet's settings button
+- Library update report app bar now hides on scroll (`enterAlwaysAppBarScrollBehavior`), matching other screens
+- Migrate all help and documentation links from `tachiyomi.org` to `mihon.app` (Mihon is the actively maintained Tachiyomi fork)
 - Novel browse pagination now follows the LNReader contract: keep loading until the plugin returns an empty list (was hard-stopped at page 1).
 - Tolerate plugins that emit `genres` joined with `","` instead of `", "` — they used to render as one big chip; now they split correctly. Duplicates and inconsistent casing are deduped at the novel parser too.
 - Novel summary is now HTML-stripped (preserving paragraph breaks) for plugins that return raw markup per the LNReader contract.
@@ -83,6 +86,8 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - EHentai gallery parsing: ignore optional favorite-color border div, prefer class-based category selection
 
 ### Fixes
+- **Fix library update report page always showing empty.** `createFileInCacheDir` writes to `externalCacheDir` but `read()` was reading from `cacheDir` — the JSON was saved but never found. `save()` now writes directly to `cacheDir` (matching `read()`), and `errorLogFile()`/`skippedLogFile()` now read from `externalCacheDir` to match where `writeErrorFile()` puts the `.txt` logs
+- **Fix duplicate three-dot overflow menus in Recents.** `action_update_report` (overflow item) and `action_more` (custom three-dot toolbar button) were creating two separate overflow menus simultaneously. Both removed; the update report is now accessible from the display options sheet
 - **Fix permission step onboarding not updating Grant button state after returning from Settings.** Switched from `LifecycleEventEffect` (which deferred re-checks until composition) to `DisposableEffect` + `DefaultLifecycleObserver` so install/notification/battery permission checks fire on each resume and button state updates immediately
 - **Fix tabbed library appbar not pinned to smallHeight when scrolled.** Fast scroll deltas or residual offsets were pushing appBar.y past smallHeight into the fully-hidden zone, making search/tabs/toolbar disappear. Clamp appBar.y to smallHeight before `updateAppBarAfterY` runs
 - **Fix tabbed library appbar not collapsing on scroll.** The bar was pinned via `appBar.lockYPos = true` preventing proper collapse animations. Appbar now follows per-tab recycler scroll with `onPageRecyclerScrolled` mirroring the continuous-mode scroll behavior and `onPageSelected` resets to top

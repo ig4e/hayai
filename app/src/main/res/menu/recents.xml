@@ -16,15 +16,4 @@
         android:title="@string/display_options"
         app:showAsAction="ifRoom" />
 
-    <item
-        android:id="@+id/action_update_report"
-        android:icon="@drawable/ic_file_open_24dp"
-        android:title="@string/last_update_report"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_more"
-        android:icon="@drawable/ic_more_vert_24dp"
-        android:title="@string/more"
-        app:showAsAction="ifRoom" />
 </menu>

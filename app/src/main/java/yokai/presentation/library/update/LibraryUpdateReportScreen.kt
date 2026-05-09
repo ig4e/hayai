@@ -62,6 +62,7 @@ import yokai.presentation.theme.ReducedMotion
 import yokai.presentation.theme.isReducedMotion
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
+import yokai.presentation.core.enterAlwaysAppBarScrollBehavior
 import yokai.presentation.component.EmptyScreen
 import yokai.presentation.component.ToolTipButton
 import yokai.presentation.manga.components.MangaCover as MangaCoverImage
@@ -95,6 +96,7 @@ class LibraryUpdateReportScreen(
             onNavigationIconClicked = onBackPress,
             title = stringResource(MR.strings.library_update_report),
             appBarType = AppBarType.SMALL,
+            scrollBehavior = enterAlwaysAppBarScrollBehavior(),
             actions = {
                 ToolTipButton(
                     toolTipLabel = stringResource(MR.strings.action_open_log_file),

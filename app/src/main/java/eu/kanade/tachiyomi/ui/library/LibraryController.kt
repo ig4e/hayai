@@ -1554,7 +1554,7 @@ open class LibraryController(
                 if (!hasActiveFilters) {
                     listOf(
                         EmptyView.Action(MR.strings.getting_started_guide) {
-                            activity?.openInBrowser("https://tachiyomi.org/docs/guides/getting-started#_2-adding-sources")
+                            activity?.openInBrowser("https://mihon.app/docs/guides/getting-started#_2-adding-sources")
                         },
                     )
                 } else {

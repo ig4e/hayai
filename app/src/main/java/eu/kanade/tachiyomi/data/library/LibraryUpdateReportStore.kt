@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.data.library
 
 import android.content.Context
 import co.touchlab.kermit.Logger
-import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import java.io.File
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -43,7 +42,7 @@ class LibraryUpdateReportStore(private val context: Context) {
 
     fun save(report: LibraryUpdateReport) {
         try {
-            val file = context.createFileInCacheDir(REPORT_FILE_NAME)
+            val file = File(context.cacheDir, REPORT_FILE_NAME)
             file.writeText(json.encodeToString(report))
         } catch (e: Exception) {
             Logger.e(e) { "Failed to persist library update report" }
@@ -66,9 +65,9 @@ class LibraryUpdateReportStore(private val context: Context) {
     }
 
     /** Path to the human-readable .txt log written alongside the JSON, if it still exists. */
-    fun errorLogFile(): File? = File(context.cacheDir, ERROR_LOG_FILE_NAME).takeIf { it.exists() }
+    fun errorLogFile(): File? = context.externalCacheDir?.let { File(it, ERROR_LOG_FILE_NAME) }?.takeIf { it.exists() }
 
-    fun skippedLogFile(): File? = File(context.cacheDir, SKIPPED_LOG_FILE_NAME).takeIf { it.exists() }
+    fun skippedLogFile(): File? = context.externalCacheDir?.let { File(it, SKIPPED_LOG_FILE_NAME) }?.takeIf { it.exists() }
 
     companion object {
         const val REPORT_FILE_NAME = "library_update_report.json"
