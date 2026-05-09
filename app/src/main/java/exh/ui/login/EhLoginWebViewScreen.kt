@@ -4,6 +4,8 @@ import android.content.pm.ApplicationInfo
 import android.webkit.CookieManager
 import android.webkit.WebView
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import yokai.presentation.theme.isReducedMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -93,9 +95,10 @@ fun EhLoginWebViewScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 is LoadingState.Loading -> {
+                    val reducedMotion = isReducedMotion
                     val animatedProgress by animateFloatAsState(
                         loadingState.progress,
-                        animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
+                        animationSpec = if (reducedMotion) snap() else ProgressIndicatorDefaults.ProgressAnimationSpec,
                         label = "webview_loading",
                     )
                     LinearProgressIndicator(

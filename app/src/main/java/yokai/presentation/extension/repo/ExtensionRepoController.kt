@@ -1,8 +1,10 @@
 package yokai.presentation.extension.repo
 
 import androidx.compose.runtime.Composable
+import cafe.adriel.voyager.navigator.CurrentScreen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.CrossfadeTransition
+import yokai.presentation.theme.LocalReducedMotion
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import yokai.i18n.MR
@@ -16,8 +18,9 @@ class ExtensionRepoController(private val repoUrl: String? = null) : BaseCompose
                 title = stringResource(MR.strings.repos),
                 repoUrl = repoUrl,
             ),
-            content = {
-                CrossfadeTransition(navigator = it)
+            content = { navigator ->
+                if (LocalReducedMotion.current) CurrentScreen()
+                else CrossfadeTransition(navigator = navigator)
             },
         )
     }

@@ -1,11 +1,14 @@
 package yokai.presentation.component.preference
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.runtime.Composable
+import yokai.presentation.theme.isReducedMotion
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -37,10 +40,11 @@ fun StatusWrapper(
 ) {
     val enabled = item.enabled
     val highlighted = item.title == highlightKey
+    val reducedMotion = isReducedMotion
     AnimatedVisibility(
         visible = enabled,
-        enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut(),
+        enter = if (reducedMotion) EnterTransition.None else expandVertically() + fadeIn(),
+        exit = if (reducedMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
         content = {
             CompositionLocalProvider(
                 LocalPreferenceHighlighted provides highlighted,

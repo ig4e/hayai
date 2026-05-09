@@ -8,7 +8,6 @@ import android.view.ViewGroup
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.changehandler.AnimatorChangeHandler
 import com.bluelinelabs.conductor.changehandler.FadeChangeHandler
-import yokai.presentation.theme.ReducedMotion
 
 /**
  * A variation of [FadeChangeHandler] that only fades in.
@@ -38,7 +37,6 @@ class OneWayFadeChangeHandler : AnimatorChangeHandler {
         if (from != null && (!isPush || removesFromViewOnPush)) {
             container.removeView(from)
         }
-        if (ReducedMotion.isEnabled()) animator.duration = 0L
         return animator
     }
 

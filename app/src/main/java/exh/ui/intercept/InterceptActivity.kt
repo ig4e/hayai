@@ -43,6 +43,7 @@ import uy.kohesive.injekt.api.get
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import yokai.i18n.MR
 import yokai.presentation.core.Constants
+import yokai.presentation.theme.ReducedMotion
 import yokai.presentation.theme.YokaiTheme
 import yokai.util.lang.getString
 
@@ -51,15 +52,17 @@ class InterceptActivity : BaseActivity<Nothing>() {
     private val status: MutableStateFlow<InterceptResult> = MutableStateFlow(InterceptResult.Idle)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            overrideActivityTransition(
-                Activity.OVERRIDE_TRANSITION_OPEN,
-                R.anim.shared_axis_x_push_enter,
-                R.anim.shared_axis_x_push_exit,
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            overridePendingTransition(R.anim.shared_axis_x_push_enter, R.anim.shared_axis_x_push_exit)
+        if (!ReducedMotion.isEnabled()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                overrideActivityTransition(
+                    Activity.OVERRIDE_TRANSITION_OPEN,
+                    R.anim.shared_axis_x_push_enter,
+                    R.anim.shared_axis_x_push_exit,
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                overridePendingTransition(R.anim.shared_axis_x_push_enter, R.anim.shared_axis_x_push_exit)
+            }
         }
         super.onCreate(savedInstanceState)
 
@@ -154,15 +157,17 @@ class InterceptActivity : BaseActivity<Nothing>() {
 
     override fun finish() {
         super.finish()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            overrideActivityTransition(
-                Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.shared_axis_x_pop_enter,
-                R.anim.shared_axis_x_pop_exit,
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            overridePendingTransition(R.anim.shared_axis_x_pop_enter, R.anim.shared_axis_x_pop_exit)
+        if (!ReducedMotion.isEnabled()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                overrideActivityTransition(
+                    Activity.OVERRIDE_TRANSITION_CLOSE,
+                    R.anim.shared_axis_x_pop_enter,
+                    R.anim.shared_axis_x_pop_exit,
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                overridePendingTransition(R.anim.shared_axis_x_pop_enter, R.anim.shared_axis_x_pop_exit)
+            }
         }
     }
 

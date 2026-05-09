@@ -76,6 +76,7 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import yokai.core.CrashlyticsLogWriter
 import yokai.core.RollingUniFileLogWriter
+import yokai.presentation.theme.ReducedMotion
 // EXH -->
 import exh.di.exhModule
 // EXH <--
@@ -193,6 +194,12 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
 
         preferences.nightMode().changes()
             .onEach { AppCompatDelegate.setDefaultNightMode(it) }
+            .launchIn(scope)
+
+        // Apply the global animator duration scale immediately, then keep it in sync.
+        ReducedMotion.applyGlobalAnimatorScale(ReducedMotion.isEnabled())
+        ReducedMotion.changes()
+            .onEach { ReducedMotion.applyGlobalAnimatorScale(it) }
             .launchIn(scope)
 
         basePreferences.hardwareBitmapThreshold().changes()
@@ -363,7 +370,7 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
 
             // Crossfade is gated by the user's reduced-motion preference. Since the ImageLoader
             // is built once at app start, toggling the setting takes effect after the next launch.
-            crossfade(!yokai.presentation.theme.ReducedMotion.isEnabled())
+            crossfade(!ReducedMotion.isEnabled())
             allowRgb565(this@App.getSystemService<ActivityManager>()!!.isLowRamDevice)
             // allowHardware(true)
             if (networkPreferences.verboseLogging().get()) {

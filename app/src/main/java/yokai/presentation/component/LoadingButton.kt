@@ -1,16 +1,20 @@
 package yokai.presentation.component
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Transition
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import yokai.presentation.theme.isReducedMotion
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
@@ -41,15 +45,14 @@ fun LoadingButton(
     loading: () -> Boolean,
     onClick: () -> Unit,
 ) {
+    val reducedMotion = isReducedMotion
     val transition = updateTransition(
         targetState = loading(),
         label = "master transition",
     )
     val horizontalContentPadding by transition.animateDp(
         transitionSpec = {
-            spring(
-                stiffness = SpringStiffness,
-            )
+            if (reducedMotion) snap() else spring(stiffness = SpringStiffness)
         },
         targetValueByState = { toLoading -> if (toLoading) 12.dp else 24.dp },
         label = "button's content padding",
@@ -65,10 +68,12 @@ fun LoadingButton(
         Box(contentAlignment = Alignment.Center) {
             LoadingContent(
                 loadingStateTransition = transition,
+                reducedMotion = reducedMotion,
             )
             PrimaryContent(
                 text = text(),
                 loadingStateTransition = transition,
+                reducedMotion = reducedMotion,
             )
         }
     }
@@ -77,11 +82,12 @@ fun LoadingButton(
 @Composable
 private fun LoadingContent(
     loadingStateTransition: Transition<Boolean>,
+    reducedMotion: Boolean,
 ) {
     loadingStateTransition.AnimatedVisibility(
         visible = { loading -> loading },
-        enter = fadeIn(),
-        exit = fadeOut(
+        enter = if (reducedMotion) EnterTransition.None else fadeIn(),
+        exit = if (reducedMotion) ExitTransition.None else fadeOut(
             animationSpec = spring(
                 stiffness = SpringStiffness,
                 visibilityThreshold = 0.10f,
@@ -101,10 +107,11 @@ private fun LoadingContent(
 private fun PrimaryContent(
     text: String,
     loadingStateTransition: Transition<Boolean>,
+    reducedMotion: Boolean,
 ) {
     loadingStateTransition.AnimatedVisibility(
         visible = { loading -> !loading },
-        enter = fadeIn() + expandHorizontally(
+        enter = if (reducedMotion) EnterTransition.None else fadeIn() + expandHorizontally(
             animationSpec = spring(
                 stiffness = SpringStiffness,
                 dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -112,7 +119,7 @@ private fun PrimaryContent(
             ),
             expandFrom = Alignment.CenterHorizontally,
         ),
-        exit = fadeOut(
+        exit = if (reducedMotion) ExitTransition.None else fadeOut(
             animationSpec = spring(
                 stiffness = SpringStiffness,
                 visibilityThreshold = 0.10f,

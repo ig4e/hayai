@@ -1,9 +1,12 @@
 package yokai.presentation.component
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import yokai.presentation.theme.isReducedMotion
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,9 +32,13 @@ fun CombinedCircularProgressIndicator(
     progress: () -> Float,
     isInverted: () -> Boolean,
 ) {
+    val reducedMotion = isReducedMotion
     AnimatedContent(
         targetState = progress() == 0f,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        transitionSpec = {
+            if (reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+            else fadeIn() togetherWith fadeOut()
+        },
         label = "progressState",
     ) { indeterminate ->
         if (indeterminate) {

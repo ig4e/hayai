@@ -1,11 +1,14 @@
 package hayai.novel.reader.bars
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import yokai.presentation.theme.isReducedMotion
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -126,15 +129,16 @@ fun NovelReaderBars(
     modifier: Modifier = Modifier,
 ) {
     val backgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val reducedMotion = isReducedMotion
 
     Column(modifier = modifier.fillMaxWidth()) {
         AnimatedVisibility(
             visible = visible,
-            enter = slideInVertically(
+            enter = if (reducedMotion) EnterTransition.None else slideInVertically(
                 initialOffsetY = { -it },
                 animationSpec = readerBarsSlideAnimationSpec,
             ) + fadeIn(animationSpec = readerBarsFadeAnimationSpec),
-            exit = slideOutVertically(
+            exit = if (reducedMotion) ExitTransition.None else slideOutVertically(
                 targetOffsetY = { -it },
                 animationSpec = readerBarsSlideAnimationSpec,
             ) + fadeOut(animationSpec = readerBarsFadeAnimationSpec),
@@ -156,11 +160,11 @@ fun NovelReaderBars(
 
         AnimatedVisibility(
             visible = visible,
-            enter = slideInVertically(
+            enter = if (reducedMotion) EnterTransition.None else slideInVertically(
                 initialOffsetY = { it },
                 animationSpec = readerBarsSlideAnimationSpec,
             ) + fadeIn(animationSpec = readerBarsFadeAnimationSpec),
-            exit = slideOutVertically(
+            exit = if (reducedMotion) ExitTransition.None else slideOutVertically(
                 targetOffsetY = { it },
                 animationSpec = readerBarsSlideAnimationSpec,
             ) + fadeOut(animationSpec = readerBarsFadeAnimationSpec),

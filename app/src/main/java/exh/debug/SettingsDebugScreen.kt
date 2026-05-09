@@ -3,8 +3,13 @@ package exh.debug
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import yokai.presentation.theme.isReducedMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -94,7 +99,8 @@ class SettingsDebugScreen : Screen() {
             navigationIcon = Icons.AutoMirrored.Outlined.ArrowBack,
             appBarType = AppBarType.SMALL,
         ) { paddingValues ->
-            Crossfade(functions == null, label = "debug_functions") {
+            val reducedMotion = isReducedMotion
+            Crossfade(functions == null, label = "debug_functions", animationSpec = if (reducedMotion) snap() else tween()) {
                 when (it) {
                     true -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -118,6 +124,7 @@ class SettingsDebugScreen : Screen() {
         onTogglesChanged: (ImmutableList<DebugToggle>) -> Unit,
     ) {
         Box(Modifier.fillMaxSize()) {
+            val reducedMotion = isReducedMotion
             var running by remember { mutableStateOf(false) }
             var result by remember { mutableStateOf<Pair<String, String>?>(null) }
             LazyColumn(
@@ -190,8 +197,8 @@ class SettingsDebugScreen : Screen() {
             }
             AnimatedVisibility(
                 running && result == null,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                enter = if (reducedMotion) EnterTransition.None else fadeIn(),
+                exit = if (reducedMotion) ExitTransition.None else fadeOut(),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 Box(

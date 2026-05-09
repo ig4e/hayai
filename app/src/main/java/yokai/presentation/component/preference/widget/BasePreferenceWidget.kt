@@ -5,6 +5,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.StartOffsetType
 import androidx.compose.animation.core.repeatable
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import yokai.presentation.component.preference.LocalPreferenceHighlighted
 import yokai.presentation.component.preference.LocalPreferenceMinHeight
+import yokai.presentation.theme.LocalReducedMotion
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
@@ -87,6 +89,7 @@ internal fun BasePreferenceWidget(
 }
 
 internal fun Modifier.highlightBackground(highlighted: Boolean): Modifier = composed {
+    val reducedMotion = LocalReducedMotion.current
     var highlightFlag by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (highlighted) {
@@ -101,7 +104,9 @@ internal fun Modifier.highlightBackground(highlighted: Boolean): Modifier = comp
         } else {
             Color.Transparent
         },
-        animationSpec = if (highlightFlag) {
+        animationSpec = if (reducedMotion) {
+            snap()
+        } else if (highlightFlag) {
             repeatable(
                 iterations = 5,
                 animation = tween(durationMillis = 200),

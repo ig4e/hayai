@@ -2,6 +2,9 @@ package yokai.presentation.onboarding
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +31,7 @@ import yokai.presentation.onboarding.steps.PermissionStep
 import yokai.presentation.onboarding.steps.StorageStep
 import yokai.presentation.onboarding.steps.ThemeStep
 import yokai.presentation.theme.Size
+import yokai.presentation.theme.isReducedMotion
 
 @Composable
 fun OnboardingScreen(
@@ -75,10 +79,12 @@ fun OnboardingScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
+            val reducedMotion = isReducedMotion
             AnimatedContent(
                 targetState = currentStep,
                 transitionSpec = {
-                    materialSharedAxisX(
+                    if (reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                    else materialSharedAxisX(
                         forward = targetState > initialState,
                         slideDistance = slideDistance,
                     )

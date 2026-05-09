@@ -174,6 +174,7 @@ import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.base.BasePreferences
 import yokai.domain.ui.settings.ReaderPreferences
+import yokai.presentation.theme.ReducedMotion
 import yokai.domain.ui.settings.ReaderPreferences.LandscapeCutoutBehaviour
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -1397,12 +1398,17 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
             if (animate && oldVisibility != menuVisible) {
                 if (!menuTemporarilyVisible) {
-                    val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.enter_from_top)
-                    toolbarAnimation.doOnStart {
+                    if (ReducedMotion.isEnabled()) {
                         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+                        delayTitleScroll()
+                    } else {
+                        val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.enter_from_top)
+                        toolbarAnimation.doOnStart {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+                        }
+                        toolbarAnimation.doOnEnd { delayTitleScroll() }
+                        binding.appBar.startAnimation(toolbarAnimation)
                     }
-                    toolbarAnimation.doOnEnd { delayTitleScroll() }
-                    binding.appBar.startAnimation(toolbarAnimation)
                 } else {
                     delayTitleScroll()
                 }
@@ -1415,12 +1421,17 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
 
             if (animate && binding.appBar.isVisible) {
-                val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.exit_to_top)
-                toolbarAnimation.doOnEnd {
+                if (ReducedMotion.isEnabled()) {
                     binding.appBar.isVisible = false
                     stopTitleScroll()
+                } else {
+                    val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.exit_to_top)
+                    toolbarAnimation.doOnEnd {
+                        binding.appBar.isVisible = false
+                        stopTitleScroll()
+                    }
+                    binding.appBar.startAnimation(toolbarAnimation)
                 }
-                binding.appBar.startAnimation(toolbarAnimation)
                 binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.isHideable = true
                 binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.hide()
             } else if (!animate) {
@@ -1743,7 +1754,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         binding.readerNav.pageSeekbar.isRTL = newViewer is R2LPagerViewer
 
         binding.pleaseWait.isVisible = true
-        binding.pleaseWait.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fade_in_long))
+        if (!ReducedMotion.isEnabled()) {
+            binding.pleaseWait.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fade_in_long))
+        }
         invalidateOptionsMenu()
         updateCropBordersShortcut()
         updateBottomShortcuts()
@@ -2402,11 +2415,15 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     )
             }
             binding.appBar.isVisible = true
-            val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.enter_from_top)
-            toolbarAnimation.doOnStart {
+            if (ReducedMotion.isEnabled()) {
                 window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            } else {
+                val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.enter_from_top)
+                toolbarAnimation.doOnStart {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+                }
+                binding.appBar.startAnimation(toolbarAnimation)
             }
-            binding.appBar.startAnimation(toolbarAnimation)
         } else if (!visible && (menuTemporarilyVisible || menuVisible)) {
             if (menuTemporarilyVisible && !menuVisible) {
                 setMenuVisibility(false)
