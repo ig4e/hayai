@@ -1921,14 +1921,15 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     private fun updateNovelChapterUi(readerChapter: ReaderChapter) {
         if (viewer !is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) return
         val manga = viewModel.manga ?: return
+        val readerChapterId = readerChapter.chapter.id ?: return
         binding.toolbar.subtitle = readerChapter.chapter.preferredChapterName(this, manga, preferences)
         updateToolbarMarquee()
         if (didTransitionFromChapter) {
-            MainActivity.chapterIdToExitTo = readerChapter.chapter.id ?: 0L
+            MainActivity.chapterIdToExitTo = readerChapterId
         }
         binding.readerNav.leftChapter.alpha = if (viewModel.adjacentChapter(next = false) != null) 1f else 0.5f
         binding.readerNav.rightChapter.alpha = if (viewModel.adjacentChapter(next = true) != null) 1f else 0.5f
-        if (binding.chaptersSheet.chaptersBottomSheet.selectedChapterId != readerChapter.chapter.id) {
+        if (binding.chaptersSheet.chaptersBottomSheet.selectedChapterId != readerChapterId) {
             binding.chaptersSheet.chaptersBottomSheet.refreshList()
         }
     }

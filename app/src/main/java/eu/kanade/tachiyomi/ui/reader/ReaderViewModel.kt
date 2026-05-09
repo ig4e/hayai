@@ -571,8 +571,8 @@ class ReaderViewModel(
     fun setNovelVisibleChapter(chapter: eu.kanade.tachiyomi.data.database.models.Chapter?) {
         chapter ?: return
         if (!::chapterList.isInitialized) return
-        val readerChapter = chapterList.firstOrNull { it.chapter.id == chapter.id } ?: return
-        val newChapterId = readerChapter.chapter.id ?: return
+        val newChapterId = chapter.id ?: return
+        val readerChapter = chapterList.firstOrNull { it.chapter.id == newChapterId } ?: return
         if (chapterId != newChapterId) {
             chapterId = newChapterId
             eventChannel.trySend(Event.NovelVisibleChapterChanged(readerChapter))
