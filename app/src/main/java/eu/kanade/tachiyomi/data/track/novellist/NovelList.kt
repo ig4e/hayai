@@ -99,7 +99,7 @@ class NovelList(private val context: Context, id: Long) : TrackService(id) {
         else -> READING
     }
 
-    /** Tsundoku-format `tracking_url`: `https://www.novellist.co/novel/<slug>#<uuid>`. */
+    /** `tracking_url` is `https://www.novellist.co/novels/<slug>#<uuid>`; the fragment is the API UUID. */
     internal fun uuidFromTrack(track: Track): String =
         track.tracking_url.substringAfter("#", "")
 

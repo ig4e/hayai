@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.track.novellist
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
@@ -84,6 +85,31 @@ class NovelListApi(
         val uuid = tracker.uuidFromTrack(track)
         if (uuid.isEmpty()) return
         val url = "$baseUrl/api/users/current/reading-list/$uuid"
+
+        // First try to load any existing entry from the user's reading list — this prevents
+        // bind() from clobbering progress/rating/status the user already has on NovelList.
+        val existing = try {
+            client.newCall(authBuilder(url).get().build()).awaitSuccess().parseAs<JsonObject>()
+        } catch (e: HttpException) {
+            if (e.code == 404) null else throw e
+        } catch (e: Exception) {
+            Logger.e(e) { "NovelList: bind GET failed; falling back to PUT" }
+            null
+        }
+
+        if (existing != null) {
+            // Already on the user's list — adopt the server-side state instead of overwriting it.
+            track.status = tracker.mapStatusFromApi(
+                existing["status"]?.jsonPrimitive?.contentOrNull ?: "IN_PROGRESS",
+            )
+            track.last_chapter_read = existing["chapter_count"]?.jsonPrimitive?.contentOrNull
+                ?.toFloatOrNull() ?: track.last_chapter_read
+            track.score = existing["rating"]?.jsonPrimitive?.contentOrNull
+                ?.toFloatOrNull() ?: 0f
+            return
+        }
+
+        // No existing entry — create one.
         sendOptions(url, "PUT")
         val body = buildJsonObject {
             put("status", if (track.last_chapter_read > 0f) "IN_PROGRESS" else "PLANNED")
@@ -130,7 +156,9 @@ class NovelListApi(
                     ?: ""
                 track.summary = obj["description"]?.jsonPrimitive?.contentOrNull ?: ""
                 val slug = obj["slug"]?.jsonPrimitive?.contentOrNull ?: idStr
-                track.tracking_url = "https://www.novellist.co/novel/$slug#$idStr"
+                // The site routes `/novels/<slug>` (plural). The trailing `#<uuid>` fragment is
+                // client-side only and is what `uuidFromTrack` reads back for API calls.
+                track.tracking_url = "https://www.novellist.co/novels/$slug#$idStr"
                 track.publishing_status = obj["status"]?.jsonPrimitive?.contentOrNull ?: ""
                 track
             }
