@@ -54,7 +54,12 @@ jobs:
         uses: useblacksmith/stickydisk@v1
         with:
           key: ${{ github.repository }}-gradle-home
-          path: /home/runner/.gradle
+          path: ~/.gradle
+
+      - name: Copy CI gradle.properties
+        run: |
+          mkdir -p ~/.gradle
+          cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -63,11 +68,6 @@ jobs:
 
       - name: Setup CHANGELOG parser
         uses: taiki-e/install-action@parse-changelog
-
-      - name: Copy CI gradle.properties
-        run: |
-          mkdir -p ~/.gradle
-          cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
 
       - name: Extract branch name
         id: branch_name

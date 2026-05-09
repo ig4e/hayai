@@ -38,8 +38,8 @@ jobs:
       - name: Mount Gradle home (sticky disk)
         uses: useblacksmith/stickydisk@v1
         with:
-          key: ${{ github.repository }}-gradle-home
-          path: /home/runner/.gradle
+          key: ${{ github.repository }}-gradle-home-pr
+          path: ~/.gradle
 
       - name: Copy CI gradle.properties
         run: |
