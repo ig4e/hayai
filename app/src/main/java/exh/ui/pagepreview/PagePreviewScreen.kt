@@ -25,8 +25,12 @@ class PagePreviewScreen(private val mangaId: Long) : Screen() {
         val state by screenModel.state.collectAsState()
         val onBackPress = LocalBackPress.currentOrThrow
 
-        val imageLoader = remember(state) {
-            val sourceClient = ((state as? PagePreviewState.Success)?.source as? HttpSource)?.client
+        // Key only on the source instance so the loader (and its memory cache) survives
+        // state updates from loadMore — otherwise every appended page rebuilds the loader
+        // and already-rendered thumbnails flicker as their cache is dropped.
+        val source = (state as? PagePreviewState.Success)?.source
+        val imageLoader = remember(context, source) {
+            val sourceClient = (source as? HttpSource)?.client
             if (sourceClient != null) {
                 val clientLazy = lazy { sourceClient }
                 ImageLoader.Builder(context)

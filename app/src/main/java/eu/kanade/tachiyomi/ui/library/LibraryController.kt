@@ -308,6 +308,11 @@ open class LibraryController(
     private val showCategoryInTitle
         get() = preferences.showCategoryInTitle().get() && presenter.showAllCategories
     private lateinit var elevateAppBar: ((Boolean) -> Unit)
+
+    // Mirrors scrollViewWith's internal isToolbarColor so per-tab scroll only invokes
+    // elevateAppBar() (a colorToolbar callback that cancels/restarts a ValueAnimator) when the
+    // elevated state actually flips — same gating recents uses, instead of firing every frame.
+    private var isPageToolbarElevated = false
     private var hopperOffset = 0f
     private val maxHopperOffset: Float
         get() = if (activityBinding?.bottomNav != null && !isSubClass) {
@@ -608,7 +613,7 @@ open class LibraryController(
                         appBar.y = 0f
                         appBar.updateAppBarAfterY(pageRecycler)
                     }
-                    if (::elevateAppBar.isInitialized) elevateAppBar(false)
+                    setPageToolbarElevated(false)
                 }
             }
         }
@@ -692,11 +697,16 @@ open class LibraryController(
             // Direct bg apply bypasses the colorToolbar animator so there's no fade from a stale color.
             val notAtTop = pageRecycler?.canScrollVertically(-1) == true
             setAppBarBG(if (notAtTop) 1f else 0f, includeTabView = true)
+            // Seed the gate to match what we just painted, so the first scroll only fires the
+            // animator when the elevated state genuinely flips.
+            isPageToolbarElevated = notAtTop
         } else {
             appBar.lockYPos = false
             if (::elevateAppBar.isInitialized) {
                 elevateAppBar(binding.libraryGridRecycler.recycler.canScrollVertically(-1))
             }
+            // Reset the tabbed-mode gate; it'll be reseeded the next time tabs are enabled.
+            isPageToolbarElevated = false
         }
     }
 
@@ -709,10 +719,30 @@ open class LibraryController(
     }
 
     /**
-     * Mirrors [scrollViewWith]'s onScrolled for the per-tab recycler so the appbar collapses/expands
-     * with scroll instead of toggling its background color in place. That collapse/expand IS the
-     * elevation cue, which avoids the bg-flicker on small libraries where scroll deltas barely cross
-     * the toolbar-elevated threshold.
+     * Same shape as [scrollViewWith]'s `atTopOfRecyclerView`: under a large toolbar with the activity
+     * tab strip, "at top" means we haven't scrolled past the cardFrame area, not just dy>0.
+     */
+    private fun atTopOfPageRecycler(recycler: RecyclerView): Boolean {
+        val ab = activityBinding ?: return true
+        if (ab.appBar.useLargeToolbar == false) return !recycler.canScrollVertically(-1)
+        return recycler.computeVerticalScrollOffset() - recycler.paddingTop <=
+            0 - ab.appBar.paddingTop - ab.toolbar.height - 48.dpToPx
+    }
+
+    /** Gated wrapper around [elevateAppBar] so the underlying ValueAnimator only restarts on flips. */
+    private fun setPageToolbarElevated(elevated: Boolean) {
+        if (isPageToolbarElevated == elevated) return
+        isPageToolbarElevated = elevated
+        if (::elevateAppBar.isInitialized) elevateAppBar(elevated)
+    }
+
+    /**
+     * Mirrors [scrollViewWith]'s onScrolled for the per-tab recycler. Two things keep this stable
+     * vs. the previous version: (1) the appbar collapse/expand IS the visual cue, so we don't toggle
+     * the bg color in place on every dy (avoids flicker on small libraries that barely cross the
+     * elevated threshold); (2) [setPageToolbarElevated] is gated on the tracked state, mirroring
+     * recents' [scrollViewWith.colorToolbar] gating, so the bg ValueAnimator only restarts on actual
+     * flips instead of being cancelled-and-restarted every frame.
      */
     fun onPageRecyclerScrolled(recycler: RecyclerView, dy: Int) {
         if (!isControllerVisible) return
@@ -721,11 +751,18 @@ open class LibraryController(
         if (!recycler.canScrollVertically(-1)) {
             appBar.y = 0f
             appBar.updateAppBarAfterY(recycler)
-            if (::elevateAppBar.isInitialized) elevateAppBar(false)
+            setPageToolbarElevated(false)
         } else {
             appBar.y -= dy
             appBar.updateAppBarAfterY(recycler)
-            if (::elevateAppBar.isInitialized) elevateAppBar(true)
+            // Defer the color-on until the bar is fully tucked away (or scroll is settling at dy=0),
+            // so brief intermediate scroll deltas don't kick the animator.
+            if (!isPageToolbarElevated && (dy == 0 || appBar.y <= -appBar.height.toFloat())) {
+                setPageToolbarElevated(true)
+            }
+            // Final reconcile against the large-toolbar offset threshold.
+            val notAtTop = !atTopOfPageRecycler(recycler)
+            if (notAtTop != isPageToolbarElevated) setPageToolbarElevated(notAtTop)
         }
     }
 
@@ -734,7 +771,7 @@ open class LibraryController(
         val appBar = activityBinding?.appBar ?: return
         if (appBar.height <= 0) return
         appBar.snapAppBarY(this, recycler, callback = null)
-        if (::elevateAppBar.isInitialized) elevateAppBar(recycler.canScrollVertically(-1))
+        setPageToolbarElevated(!atTopOfPageRecycler(recycler))
     }
 
     /**

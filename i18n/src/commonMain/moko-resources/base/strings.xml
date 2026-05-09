@@ -481,6 +481,7 @@
     <string name="locked_portrait">Locked portrait</string>
     <string name="locked_landscape">Locked landscape</string>
     <string name="reverse_portrait">Reverse portrait</string>
+    <string name="reverse_landscape">Reverse landscape</string>
     <string name="red_initial">R</string>
     <string name="green_initial">G</string>
     <string name="blue_initial">B</string>
@@ -1175,6 +1176,7 @@
     <string name="right">Right</string>
     <string name="rotation">Rotation</string>
     <string name="default_orientation">Default orientation</string>
+    <string name="novel_default_orientation">Default novel orientation</string>
     <string name="orientation">Orientation</string>
     <string name="save">Save</string>
     <string name="save_search_title">Saved searches</string>
@@ -1741,9 +1743,15 @@
     <string name="novel_text_selectable">Selectable text</string>
     <string name="novel_show_progress_slider">Show progress slider</string>
     <string name="novel_progress_slider_position">Progress slider position</string>
-    <string name="novel_progress_slider_position_top">Top</string>
-    <string name="novel_progress_slider_position_center">Center</string>
-    <string name="novel_progress_slider_position_bottom">Bottom</string>
+    <string name="novel_progress_slider_position_top_left">Top-left</string>
+    <string name="novel_progress_slider_position_top_center">Top-center</string>
+    <string name="novel_progress_slider_position_top_right">Top-right</string>
+    <string name="novel_progress_slider_position_center_left">Center-left</string>
+    <string name="novel_progress_slider_position_center_center">Center</string>
+    <string name="novel_progress_slider_position_center_right">Center-right</string>
+    <string name="novel_progress_slider_position_bottom_left">Bottom-left</string>
+    <string name="novel_progress_slider_position_bottom_center">Bottom-center</string>
+    <string name="novel_progress_slider_position_bottom_right">Bottom-right</string>
     <string name="novel_auto_scroll_speed">Auto-scroll speed</string>
     <string name="novel_content">Content</string>
     <string name="novel_enable_epub_styles">Apply EPUB styles</string>

@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.database.models.defaultReaderType
+import eu.kanade.tachiyomi.data.database.models.isNovel
 import eu.kanade.tachiyomi.data.database.models.orientationType
 import eu.kanade.tachiyomi.data.database.models.readingModeType
 import eu.kanade.tachiyomi.data.database.models.updateCoverLastModified
@@ -116,6 +117,8 @@ class ReaderViewModel(
     private val getHistory: GetHistory by injectLazy()
     private val upsertHistory: UpsertHistory by injectLazy()
     private val getTrack: GetTrack by injectLazy()
+    // Lazy because we only need it for novel-specific paths (orientation default, etc.).
+    private val readerPreferences: yokai.domain.ui.settings.ReaderPreferences by injectLazy()
 
     private val mutableState = MutableStateFlow(State())
     val state = mutableState.asStateFlow()
@@ -901,10 +904,18 @@ class ReaderViewModel(
     }
 
     /**
-     * Returns the orientation type used by this manga or the default one.
+     * Returns the orientation type used by this manga/novel or the type-appropriate default.
+     *
+     * Novels and manga share the per-series override (`Manga.orientationType` packed into
+     * `viewer_flags`), but each picks a different fallback preference so users can run e.g.
+     * locked-portrait for novels while leaving manga on free rotation.
      */
     fun getMangaOrientationType(): Int {
-        val default = preferences.defaultOrientationType().get()
+        val default = if (manga?.isNovel() == true) {
+            readerPreferences.novelDefaultOrientationType.get()
+        } else {
+            preferences.defaultOrientationType().get()
+        }
         return when (manga?.orientationType) {
             OrientationType.DEFAULT.flagValue -> default
             else -> manga?.orientationType ?: default

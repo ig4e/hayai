@@ -2,7 +2,9 @@ package eu.kanade.tachiyomi.ui.reader.settings
 
 import android.content.Context
 import android.util.AttributeSet
+import eu.kanade.tachiyomi.data.database.models.orientationType
 import eu.kanade.tachiyomi.databinding.ReaderNovelReadingBinding
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.bindToPreference
 import eu.kanade.tachiyomi.widget.BaseReaderSettingsView
 import yokai.i18n.MR
@@ -21,6 +23,20 @@ class NovelReadingView @JvmOverloads constructor(context: Context, attrs: Attrib
         with(binding) {
             // Rendering-mode spinner removed: novel reading is WebView-only after the
             // viewer consolidation. The widget is gone from the layout XML too.
+
+            // Orientation override — mirrors ReaderGeneralView's rotation_mode binding so the
+            // novel sheet writes through the same per-Manga `viewer_flags` storage path. The
+            // ReaderViewModel emits Event.SetOrientation, which ReaderActivity consumes to
+            // update `requestedOrientation`.
+            rotationMode.onItemSelectedListener = { position ->
+                val rotationType = OrientationType.fromSpinner(position)
+                (context as ReaderActivity).viewModel.setMangaOrientationType(rotationType.flagValue)
+            }
+            rotationMode.setSelection(
+                (context as ReaderActivity).viewModel.manga?.orientationType?.let {
+                    OrientationType.fromPreference(it).prefValue
+                } ?: 0,
+            )
 
             // Font family
             val fontEntries = listOf(

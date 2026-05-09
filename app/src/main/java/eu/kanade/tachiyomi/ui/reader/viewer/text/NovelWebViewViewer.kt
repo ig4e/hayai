@@ -95,6 +95,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     private var loadedChapters = mutableListOf<ReaderChapter>()
     private var currentChapterIndex = 0
     private var isLoadingNext = false
+    // Symmetric to isLoadingNext: gates the JS scroll-up trigger so we never fan out into
+    // multiple parallel prepends on the rebound from a fling. Reset in
+    // prependPreviousChapterIfAvailable's finally block.
+    private var isLoadingPrev = false
     private var isDestroyed = false
     private var isEditingMode = false
 
@@ -791,6 +795,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         val (_, themeText) = getThemeColors(theme)
         val customText = preferences.novelFontColor.get().takeIf { it != 0 } ?: themeText
         bar.configure(side = side, track = track, thumbColor = (customText and 0x00FFFFFF) or 0x66000000)
+        // Briefly flash the bar in so the user gets visual feedback that the toggle
+        // applied. Without this, side/size/visible changes are invisible until the next
+        // scroll event because the bar's alpha sits at 0 in idle state. Refresh the
+        // metrics first so the pulse reflects the current scroll position rather than
+        // the stale visibleFraction=1 the bar starts with before any scroll fires.
+        updateOverlayScrollbarFromMetrics()
+        bar.pulse()
     }
 
     private fun buildCustomStylePayload(): CustomStylePayload {
@@ -1061,8 +1072,23 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 var saveTimeout = null;
                 window.__tsundokuLoadingNext = window.__tsundokuLoadingNext || false;
                 window.__tsundokuSetLoadingNext = function(v) { window.__tsundokuLoadingNext = !!v; };
+                // Prepend (scroll-up to load previous chapter) — symmetric to the next-chapter
+                // path. Tracked separately so an in-flight prev load doesn't gate next-load,
+                // and vice versa.
+                window.__tsundokuLoadingPrev = window.__tsundokuLoadingPrev || false;
+                window.__tsundokuSetLoadingPrev = function(v) { window.__tsundokuLoadingPrev = !!v; };
                 var infiniteScrollEnabled = $infiniteScrollActuallyEnabled;
                 var loadThreshold = $effectiveThreshold;
+                // Trigger prepend when within this many CSS pixels of the document top while
+                // scrolling up. 200px is roughly one viewport-eighth on a phone — enough lead
+                // time for the chapter to fetch + render before the user hits a hard stop at
+                // scrollTop=0, but not so big that it fires on a glance-up.
+                var prevLoadOffset = 200;
+                var lastScrollTop = -1;
+                // Allow the post-load scroll-past-top-card script to seed lastScrollTop with
+                // the resting position so the very first scroll gesture is correctly
+                // classified as upward instead of "first event, ignore".
+                window.__novelPrimeLastScrollTop = function(v) { lastScrollTop = v | 0; };
 
                 // Track chapter boundaries for multi-chapter infinite scroll
                 window.chapterBoundaries = window.chapterBoundaries || [];
@@ -1141,6 +1167,31 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                         } catch(e) {
                             console.error('Infinite scroll: Error calling loadNextChapter:', e);
                             window.__tsundokuLoadingNext = false; // Reset immediately on error
+                        }
+                    }
+
+                    // Infinite scroll: load previous chapter when user scrolls UP near the top.
+                    // Direction guard (lastScrollTop) prevents firing on the natural rebound
+                    // from a fling — only an actual upward scroll past the threshold counts.
+                    var scrollingUp = (lastScrollTop !== -1) && (scrollTop < lastScrollTop);
+                    lastScrollTop = scrollTop;
+                    var shouldLoadPrev = false;
+                    if (infiniteScrollEnabled && scrollingUp) {
+                        if (window.chapterBoundaries.length > 1) {
+                            shouldLoadPrev = (currentChapterIdx === 0) && (scrollTop < prevLoadOffset);
+                        } else {
+                            shouldLoadPrev = scrollTop < prevLoadOffset;
+                        }
+                    }
+                    if (shouldLoadPrev && !window.__tsundokuLoadingPrev && !window.__tsundokuLoadingNext) {
+                        console.log('Infinite scroll: Loading previous chapter at scrollTop ' + scrollTop);
+                        window.__tsundokuLoadingPrev = true;
+                        try {
+                            Android.loadPrevChapter();
+                            console.log('Infinite scroll: Successfully called loadPrevChapter()');
+                        } catch(e) {
+                            console.error('Infinite scroll: Error calling loadPrevChapter:', e);
+                            window.__tsundokuLoadingPrev = false;
                         }
                     }
                 });
@@ -1892,6 +1943,18 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         chapterName: String? = null,
         chapterUrl: String? = null,
     ) {
+        // Resolve the current chapter (for the top transition card) from currentChapters,
+        // which setChapters wires up before we reach here. Falls back to the first loaded
+        // chapter for the reloadWithTranslation path. The top card mirrors the manga
+        // reader's "scroll up to see the prev-transition" affordance: render either
+        // "Previous: X / Current: Y" or a "There's no previous chapter" notice statically
+        // at the top of the body, with breathing room above so the card has a scroll
+        // target. After the page loads JS scrolls past the card so the user starts at
+        // the chapter content; scrolling back up reveals the card and (if a prev exists)
+        // eventually triggers the prepend handler.
+        val currChapterForCard: ReaderChapter? = currentChapters?.currChapter
+            ?: loadedChapters.firstOrNull()
+        val prevChapterForCard: ReaderChapter? = currentChapters?.prevChapter
         val normalizedChapterUrl = normalizeUrl(chapterUrl)
         val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(normalizedChapterUrl)
         // Strip script/style/noscript tags from content to prevent unwanted JS execution
@@ -1923,8 +1986,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         currentChapterIndex = 0
 
         // Initial invisible chapter divider marker for boundary tracking. The first chapter
-        // shouldn't show a visible card — that's reserved for the transitions added by
-        // appendHtmlContent / prependHtmlContent on subsequent chapter loads.
+        // shouldn't show a visible inline card — that's reserved for the transitions added
+        // by appendHtmlContent / prependHtmlContent on subsequent chapter loads. The static
+        // top card built below sits ABOVE this marker so it doesn't conflict with chapter
+        // boundary detection.
         val chapterDivider = if (chapterId != null) {
             """<div class="chapter-divider" data-chapter-id="$chapterId" style="height:0;margin:0;padding:0;"></div>
                <div class="chapter-content" data-chapter-id="$chapterId">"""
@@ -1932,6 +1997,24 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             ""
         }
         val chapterDividerEnd = if (chapterId != null) "</div>" else ""
+
+        // Static top card: scroll-up affordance that shows either the previous-chapter
+        // transition or a "no previous chapter" notice. Marked with `initial-prev-card`
+        // so the prepend handler can remove it once the real previous chapter loads
+        // (otherwise we'd end up with two stacked Prev/Current cards). Wrapped in a
+        // chapter-divider so updateChapterBoundaries() doesn't get confused — the .initial
+        // qualifier in CSS gives it visual whitespace without affecting boundary math.
+        val topCardHtml = if (currChapterForCard != null) {
+            val cardInner = buildTransitionCardHtml(
+                from = prevChapterForCard,
+                to = currChapterForCard,
+                isNext = false,
+            )
+            val cardId = prevChapterForCard?.chapter?.id?.toString() ?: "no-prev"
+            """<div class="chapter-divider chapter-transition initial-prev-card" data-chapter-id="$cardId">$cardInner</div>"""
+        } else {
+            ""
+        }
 
         val mediaBlockCss = if (blockMedia) {
             "img, video, audio, source, svg, image { display: none !important; }"
@@ -1998,6 +2081,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                         border-top: 1px solid currentColor;
                         opacity: 0.4;
                         width: 60%;
+                    }
+                    /* Static top card needs extra breathing room above so the user has
+                       a real scroll-up surface — the regular .chapter-transition margin
+                       would render the card flush with the page top edge otherwise. */
+                    .chapter-transition.initial-prev-card {
+                        margin-top: 80px;
                     }
                     /* Transition between chapters during continuous scroll. Mirrors the
                        manga ReaderTransitionView: a centered label header in the
@@ -2089,9 +2178,39 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 <script>$chapterMetaScript</script>
             </head>
             <body>
+                $topCardHtml
                 $chapterDivider
                 $finalContent
                 $chapterDividerEnd
+                <script>
+                    // Scroll past the static top card so the user starts at the chapter
+                    // content. The card stays accessible by scrolling up. We post the
+                    // scroll twice — once on DOMContentLoaded for fast paint, once after
+                    // image/font load so late layout shifts don't leave us short. After
+                    // the second scroll we prime lastScrollTop in the infinite-scroll
+                    // handler with the resting position so the next genuine upward gesture
+                    // is correctly detected as scrolling-up.
+                    (function() {
+                        function scrollPastTopCard() {
+                            var card = document.querySelector('.initial-prev-card');
+                            if (!card) return;
+                            var rect = card.getBoundingClientRect();
+                            var target = rect.top + window.pageYOffset + rect.height;
+                            // Snap rather than smooth-scroll — smooth would race with
+                            // the user's first touch and feel laggy.
+                            window.scrollTo(0, target);
+                            if (typeof window.__novelPrimeLastScrollTop === 'function') {
+                                window.__novelPrimeLastScrollTop(target);
+                            }
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', scrollPastTopCard);
+                        } else {
+                            scrollPastTopCard();
+                        }
+                        window.addEventListener('load', scrollPastTopCard);
+                    })();
+                </script>
             </body>
             </html>
         """.trimIndent()
@@ -2595,12 +2714,49 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 }
             }
         }
+
+        /**
+         * Symmetric counterpart of [loadNextChapter]. The JS scroll handler fires this
+         * when the user scrolls up to within `prevLoadOffset` pixels of the topmost
+         * loaded chapter's start. We immediately reset the JS flag if there's no prev
+         * chapter to load — otherwise the JS would stay "loading" forever and never
+         * retry on subsequent scroll events.
+         */
+        @JavascriptInterface
+        fun loadPrevChapter() {
+            activity.runOnUiThread {
+                Logger.d {
+                    "NovelWebViewViewer: loadPrevChapter triggered, isLoadingPrev=$isLoadingPrev, loadedCount=${loadedChapterIds.size}"
+                }
+                if (isLoadingPrev) {
+                    Logger.w { "NovelWebViewViewer: loadPrevChapter ignored (already loading)" }
+                    return@runOnUiThread
+                }
+                isLoadingPrev = true
+                scope.launch {
+                    try {
+                        prependPreviousChapterIfAvailable()
+                    } finally {
+                        isLoadingPrev = false
+                        setJsLoadingPrev(false)
+                    }
+                }
+            }
+        }
     }
 
     private fun setJsLoadingNext(isLoading: Boolean) {
         val flag = if (isLoading) "true" else "false"
         evaluateJavascriptSafe(
             "(function(){ if (window.__tsundokuSetLoadingNext) window.__tsundokuSetLoadingNext($flag); })();",
+            null,
+        )
+    }
+
+    private fun setJsLoadingPrev(isLoading: Boolean) {
+        val flag = if (isLoading) "true" else "false"
+        evaluateJavascriptSafe(
+            "(function(){ if (window.__tsundokuSetLoadingPrev) window.__tsundokuSetLoadingPrev($flag); })();",
             null,
         )
     }
@@ -2761,6 +2917,34 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
             withContext(Dispatchers.Main) {
                 displayContent(preparedChapter, page, isAppendOrPrepend = true, isPrepend = true)
+                // Remove the static top card now that the real previous chapter is loaded;
+                // prependHtmlContent already inserted its own transition card above the
+                // newly-prepended content, so leaving the static card would leave two
+                // stacked Prev/Current cards on the page. Scroll-position adjustment
+                // mirrors prependHtmlContent's: we measure the height shrink and pull
+                // the user's scroll up by that amount so they stay anchored.
+                evaluateJavascriptSafe(
+                    """
+                    (function() {
+                        var card = document.querySelector('.initial-prev-card');
+                        if (!card) return;
+                        var oldHeight = document.body.scrollHeight;
+                        var oldScrollY = window.scrollY || window.pageYOffset;
+                        card.parentNode.removeChild(card);
+                        setTimeout(function() {
+                            var newHeight = document.body.scrollHeight;
+                            var diff = oldHeight - newHeight;
+                            if (diff > 0) {
+                                window.scrollTo(0, Math.max(0, oldScrollY - diff));
+                            }
+                            if (typeof window.updateChapterBoundaries === 'function') {
+                                window.updateChapterBoundaries();
+                            }
+                        }, 10);
+                    })();
+                    """.trimIndent(),
+                    null,
+                )
             }
         } finally {
             hideInlineLoading(isPrepend = true)

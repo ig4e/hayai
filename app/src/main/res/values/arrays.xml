@@ -86,6 +86,7 @@
         <item>@string/locked_portrait</item>
         <item>@string/locked_landscape</item>
         <item>@string/reverse_portrait</item>
+        <item>@string/reverse_landscape</item>
     </string-array>
 
     <string-array name="color_filter_modes">

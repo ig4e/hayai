@@ -67,8 +67,12 @@ abstract class RecommendationPagingSource(
     companion object {
         fun createSources(manga: Manga, source: CatalogueSource): List<RecommendationPagingSource> {
             if (manga.seriesType() == Manga.TYPE_NOVEL) {
+                // MangaUpdates also catalogues light novels; only the Similar (category)
+                // list is included — the Community list rarely produces novel results
+                // because submitters skew toward manga.
                 return listOf(
                     AniListPagingSource(manga),
+                    MangaUpdatesSimilarPagingSource(manga),
                     MyAnimeListPagingSource(manga),
                     NovelUpdatesPagingSource(manga),
                     NovelListPagingSource(manga),

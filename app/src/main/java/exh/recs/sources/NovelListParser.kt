@@ -24,13 +24,25 @@ internal object NovelListParser {
             .distinctBy(::normalizeUrl)
     }
 
-    /** Novel links on a user-list page (or anywhere with `/novels/{slug}` anchors). */
+    /**
+     * Novel links on a user-list page (or anywhere with `/novels/{slug}` anchors). Each
+     * entry is rendered as two anchors sharing the same href — one wraps the cover `<img>`
+     * (no visible text, generic `alt="Novel cover Image"`) and one wraps the title. We
+     * group by normalised URL so the title-bearing anchor supplies the title and the
+     * cover anchor still contributes a thumbnail; if we naively kept the first match the
+     * alt text would leak through as every entry's title.
+     */
     fun parseNovelLinks(document: Document, excludeUrl: String? = null): List<SManga> {
         val excludeNormalized = normalizeUrl(excludeUrl)
-        return document.select("a[href*=/novels/]")
-            .mapNotNull(::parseNovelLink)
-            .distinctBy { normalizeUrl(it.url) }
-            .filterNot { normalizeUrl(it.url) == excludeNormalized }
+        val grouped = LinkedHashMap<String, MutableList<Element>>()
+        for (link in document.select("a[href*=/novels/]")) {
+            val href = link.absUrl("href").takeIf(String::isNotBlank) ?: continue
+            if (!isNovelDetailUrl(href)) continue
+            val key = normalizeUrl(href)
+            if (key.isBlank() || key == excludeNormalized) continue
+            grouped.getOrPut(key) { mutableListOf() }.add(link)
+        }
+        return grouped.values.mapNotNull(::mergeAnchorsToManga)
     }
 
     fun buildSearchQueries(title: String): List<String> {
@@ -71,23 +83,32 @@ internal object NovelListParser {
             }
     }
 
-    private fun parseNovelLink(link: Element): SManga? {
-        val href = link.absUrl("href").takeIf(String::isNotBlank) ?: return null
-        if (!href.contains("/novels/")) return null
+    private fun isNovelDetailUrl(href: String): Boolean {
+        if (!href.contains("/novels/")) return false
         // Skip the "list of all novels by user" link and similar collection pages —
         // those don't have a slug after `/novels/`.
         val afterSegment = href.substringAfter("/novels/", "").trimEnd('/')
-        if (afterSegment.isBlank() || afterSegment.contains('/')) return null
+        return afterSegment.isNotBlank() && !afterSegment.contains('/')
+    }
 
-        val title = link.text().trim()
-            .ifBlank { link.selectFirst("img")?.attr("alt")?.trim().orEmpty() }
-            .takeIf(String::isNotBlank)
+    private fun mergeAnchorsToManga(anchors: List<Element>): SManga? {
+        val href = anchors.firstNotNullOfOrNull { it.absUrl("href").takeIf(String::isNotBlank) }
             ?: return null
+        // Use the first anchor whose visible text is meaningful — the title anchor. The
+        // cover anchor's only text candidate is the image's `alt`, which on NovelList is a
+        // generic placeholder, so we deliberately don't fall back to it.
+        val title = anchors.asSequence()
+            .map { it.text().trim() }
+            .firstOrNull(String::isNotBlank)
+            ?: return null
+        val thumbnail = anchors.asSequence()
+            .mapNotNull { it.selectFirst("img")?.absUrl("src")?.ifBlank { null } }
+            .firstOrNull()
 
         return SManga.create().also { manga ->
             manga.title = title
             manga.url = href
-            manga.thumbnail_url = link.selectFirst("img")?.absUrl("src")?.ifBlank { null }
+            manga.thumbnail_url = thumbnail
             manga.initialized = true
         }
     }

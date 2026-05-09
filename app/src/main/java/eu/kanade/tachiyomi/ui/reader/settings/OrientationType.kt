@@ -21,11 +21,17 @@ enum class OrientationType(val prefValue: Int, val flag: Int, val stringRes: Str
     // Locked upside-down. Sensor PORTRAIT already auto-rotates between portrait and reverse,
     // so this entry covers the "force the screen flipped" case the sensor mode doesn't.
     REVERSE_PORTRAIT(6, ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT, MR.strings.reverse_portrait, R.drawable.ic_screen_lock_portrait_24dp),
+    // Locked landscape rotated 180° (e.g. for users whose device camera notch lands on the
+    // "wrong" side at the default landscape lock). Sensor LANDSCAPE auto-flips between the two,
+    // so this entry only matters as an explicit-direction lock.
+    REVERSE_LANDSCAPE(7, ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE, MR.strings.reverse_landscape, R.drawable.ic_screen_lock_landscape_24dp),
     ;
 
     val flagValue = prefValue shl SHIFT
 
     companion object {
+        // 3-bit mask (bits 3..5): prefValues 0..7 all fit, so adding REVERSE_LANDSCAPE (7)
+        // requires no on-disk migration.
         const val MASK = 7 shl SHIFT
 
         fun fromPreference(preference: Int): OrientationType =

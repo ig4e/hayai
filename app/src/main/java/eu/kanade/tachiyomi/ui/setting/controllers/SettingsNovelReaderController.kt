@@ -151,11 +151,21 @@ class SettingsNovelReaderController : SettingsLegacyController() {
                 bindTo(readerPreferences.novelProgressSliderPosition)
                 titleRes = MR.strings.novel_progress_slider_position
                 entries = listOf(
-                    context.getString(MR.strings.novel_progress_slider_position_top),
-                    context.getString(MR.strings.novel_progress_slider_position_center),
-                    context.getString(MR.strings.novel_progress_slider_position_bottom),
+                    context.getString(MR.strings.novel_progress_slider_position_top_left),
+                    context.getString(MR.strings.novel_progress_slider_position_top_center),
+                    context.getString(MR.strings.novel_progress_slider_position_top_right),
+                    context.getString(MR.strings.novel_progress_slider_position_center_left),
+                    context.getString(MR.strings.novel_progress_slider_position_center_center),
+                    context.getString(MR.strings.novel_progress_slider_position_center_right),
+                    context.getString(MR.strings.novel_progress_slider_position_bottom_left),
+                    context.getString(MR.strings.novel_progress_slider_position_bottom_center),
+                    context.getString(MR.strings.novel_progress_slider_position_bottom_right),
                 )
-                entryValues = listOf("top", "center", "bottom")
+                entryValues = listOf(
+                    "top-left", "top-center", "top-right",
+                    "center-left", "center-center", "center-right",
+                    "bottom-left", "bottom-center", "bottom-right",
+                )
             }
 
         }

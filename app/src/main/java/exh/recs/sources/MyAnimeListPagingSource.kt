@@ -3,15 +3,18 @@ package exh.recs.sources
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import yokai.i18n.MR
@@ -48,7 +51,7 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
             .addPathSegment("recommendations")
             .build()
 
-        val data = client.newCall(GET(apiUrl)).awaitSuccess().parseAs<JsonObject>()
+        val data = fetchJikan(apiUrl).parseAs<JsonObject>()
         return data["data"]?.jsonArray
             ?.mapNotNull { element ->
                 val rec = element.jsonObject["entry"]?.jsonObject ?: return@mapNotNull null
@@ -98,8 +101,7 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
             .addQueryParameter("type", searchTypeFilter)
             .build()
 
-        val data = client.newCall(GET(url)).awaitSuccess()
-            .parseAs<JsonObject>()
+        val data = fetchJikan(url).parseAs<JsonObject>()
         val malId = data["data"]?.jsonArray
             ?.firstOrNull()
             ?.jsonObject
@@ -108,5 +110,35 @@ class MyAnimeListPagingSource(manga: Manga?) : TrackerRecommendationPagingSource
             ?.content
             ?: return emptyList()
         return getRecsById(malId)
+    }
+
+    /**
+     * Jikan periodically returns 5xx for individual entries (cache misses, upstream MAL
+     * hiccups). Retry once after a short backoff so a single transient failure doesn't
+     * blank the MAL row, and on persistent server errors translate the raw HTTP message
+     * into something user-readable.
+     */
+    private suspend fun fetchJikan(url: HttpUrl): okhttp3.Response {
+        repeat(JIKAN_MAX_ATTEMPTS - 1) {
+            try {
+                return client.newCall(GET(url)).awaitSuccess()
+            } catch (e: HttpException) {
+                if (e.code !in 500..599) throw e
+                delay(JIKAN_RETRY_DELAY_MS)
+            }
+        }
+        return try {
+            client.newCall(GET(url)).awaitSuccess()
+        } catch (e: HttpException) {
+            if (e.code in 500..599) {
+                throw IllegalStateException("MyAnimeList is temporarily unavailable (HTTP ${e.code})", e)
+            }
+            throw e
+        }
+    }
+
+    companion object {
+        private const val JIKAN_MAX_ATTEMPTS = 2
+        private const val JIKAN_RETRY_DELAY_MS = 750L
     }
 }

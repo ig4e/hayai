@@ -1369,10 +1369,26 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             // Initialize option to open catalogue settings.
-            R.id.action_more -> showOverflowDialog()
+            R.id.action_more -> {
+                // Android's ActionBar dispatch runs Activity.onOptionsItemSelected before
+                // Conductor's fragment-backed dispatch reaches the active controller, so we have
+                // to consult the controller ourselves — otherwise [LibraryController]'s handler
+                // (which flags showUpdateLibrary=true) loses the race against the bare dialog
+                // shown here. The floating searchToolbar's setOnMenuItemClickListener already
+                // does this same first-crack-then-fallback dance, this just brings the regular
+                // appbar toolbar path in line with it.
+                val controller = if (this::router.isInitialized) {
+                    router.backstack.lastOrNull()?.controller
+                } else {
+                    null
+                }
+                if (controller?.onOptionsItemSelected(item) != true) {
+                    showOverflowDialog()
+                }
+            }
             else -> return super.onOptionsItemSelected(item)
         }
-        return super.onOptionsItemSelected(item)
+        return true
     }
 
     /**

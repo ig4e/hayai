@@ -20,6 +20,18 @@
         <!-- Rendering mode spinner removed: novel reading is WebView-only after the
              viewer consolidation. The native NovelViewer was deleted; no fallback exists. -->
 
+        <!-- Per-novel orientation override. Mirrors the manga reader's rotation_mode spinner
+             in reader_general_layout.xml: same spinner widget, same string-array, same
+             OrientationType.fromSpinner / setMangaOrientationType wiring. The position-0
+             "Default" entry falls back to novelDefaultOrientationType in ReaderPreferences. -->
+        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
+            android:id="@+id/rotation_mode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            app:title="@string/orientation"
+            android:entries="@array/rotation_type" />
+
         <eu.kanade.tachiyomi.widget.MaterialSpinnerView
             android:id="@+id/font_family"
             android:layout_width="match_parent"

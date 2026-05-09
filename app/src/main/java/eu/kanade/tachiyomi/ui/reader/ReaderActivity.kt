@@ -1017,10 +1017,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 compatToolTipText = getString(MR.strings.rotation)
 
                 setOnClickListener {
+                    // Highlight whichever orientation we'd actually apply if the popup were
+                    // dismissed unchanged. getMangaOrientationType() resolves the per-series
+                    // override → type-appropriate default fallback (novel vs manga) for us.
                     popupMenu(
                         items = OrientationType.entries.map { it.flagValue to it.stringRes },
-                        selectedItemId = viewModel.manga?.orientationType
-                            ?: preferences.defaultOrientationType().get(),
+                        selectedItemId = viewModel.getMangaOrientationType(),
                     ) {
                         val newOrientation = OrientationType.fromPreference(itemId)
 
@@ -1526,14 +1528,24 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
 
     /**
      * Reposition the chapter-nav layout (slider + prev/next chapter) and the novel action bar
-     * based on [ReaderPreferences.novelProgressSliderPosition].
+     * based on [ReaderPreferences.novelProgressSliderPosition], which is a 3x3 grid string
+     * formatted "<v>-<h>" where v ∈ {top, center, bottom} and h ∈ {left, center, right}.
      *
-     * Default ("bottom") matches the manga reader: nav_layout is anchored to chapters_sheet,
-     * with the action bar stacked just above it. "top" pins the slider under the toolbar so
-     * it's reachable while reading content high on the page; "center" parks it at the vertical
-     * midline for one-handed scrubbing. In both non-bottom modes the action bar is re-anchored
-     * back to chapters_sheet so TTS/auto-scroll/find-replace stay reachable at the bottom of
-     * the screen instead of following the slider away from the user's thumb.
+     * Layout rules:
+     *   - **bottom-center** (default): keeps the manga-reader layout exactly — nav_layout is
+     *     anchored to `chapters_sheet`, full-width, with the action bar stacked just above.
+     *   - any other **-center** (top-center, center-center): full-width stretch but anchored
+     *     to a different vertical zone (under the toolbar / vertically centered).
+     *   - any **-left or **-right**: compact pill (~360dp wide), anchored to that side via
+     *     gravity. Inside the pill the slider's `layout_weight=1` fills the remaining space
+     *     between the two prev/next buttons.
+     *
+     * Action bar (TTS / auto-scroll / find-replace) follows the slider only when slider is
+     * at bottom-center; in every other mode it re-anchors to `chapters_sheet` so the
+     * controls stay at the bottom-of-screen for thumb access.
+     *
+     * Backward-compat: the legacy preference values "top"/"center"/"bottom" (without a
+     * horizontal axis) map to their *-center equivalents so existing user prefs still work.
      *
      * Foldables: the hinge-gap branch (init block, line ~537) overrides nav width on dual-pane
      * layouts before this runs once per pref change. Re-running this from a hinge update would
@@ -1542,56 +1554,91 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
      */
     private fun applyNovelNavLayoutPosition() {
         val isNovelViewer = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
-        val position = if (isNovelViewer) {
+        val rawPosition = if (isNovelViewer) {
             readerPreferences.novelProgressSliderPosition.get()
         } else {
-            "bottom"
+            "bottom-center"
+        }
+        // Legacy 1D values → 2D *-center equivalents.
+        val position = when (rawPosition) {
+            "top" -> "top-center"
+            "center" -> "center-center"
+            "bottom" -> "bottom-center"
+            else -> rawPosition
+        }
+        val (vAxis, hAxis) = position.split("-").let {
+            (it.getOrNull(0) ?: "bottom") to (it.getOrNull(1) ?: "center")
         }
         val twelveDp = 12.dpToPx
+        // Compact pill width for the *-left / *-right corners. Capped at 360dp so it sits
+        // comfortably in the gutter without crowding content; the inner slider's
+        // layout_weight=1 fills the remaining space between the prev/next chapter buttons.
+        val compactWidthPx = 360.dpToPx
+        val isStretch = hAxis == "center"
+        // ?attr/actionBarSize resolved at runtime; falls back to 56dp. Used by top-* to push
+        // the slider below the toolbar; tracks live insets via the inset listener.
+        val toolbarPx by lazy {
+            val typed = TypedValue()
+            if (theme.resolveAttribute(android.R.attr.actionBarSize, typed, true)) {
+                TypedValue.complexToDimensionPixelSize(typed.data, resources.displayMetrics)
+            } else {
+                56.dpToPx
+            }
+        }
+        val statusBarTop = binding.root.rootWindowInsetsCompat?.getInsets(systemBars())?.top ?: 0
+        // Translate the v/h axis into Android Gravity flags. Note START/END (rather than
+        // LEFT/RIGHT) so RTL locales mirror correctly.
+        val verticalGravity = when (vAxis) {
+            "top" -> Gravity.TOP
+            "center" -> Gravity.CENTER_VERTICAL
+            else -> Gravity.BOTTOM
+        }
+        val horizontalGravity = when (hAxis) {
+            "left" -> Gravity.START
+            "right" -> Gravity.END
+            else -> Gravity.CENTER_HORIZONTAL
+        }
         binding.navLayout.updateLayoutParams<CoordinatorLayout.LayoutParams> {
-            when (position) {
-                "top" -> {
-                    anchorId = View.NO_ID
-                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                    // ?attr/actionBarSize resolved at runtime; falls back to 56dp.
-                    val typed = TypedValue()
-                    val toolbarPx = if (theme.resolveAttribute(android.R.attr.actionBarSize, typed, true)) {
-                        TypedValue.complexToDimensionPixelSize(typed.data, resources.displayMetrics)
-                    } else {
-                        56.dpToPx
-                    }
-                    topMargin = toolbarPx +
-                        (binding.root.rootWindowInsetsCompat?.getInsets(systemBars())?.top ?: 0)
-                    bottomMargin = 0
-                    width = CoordinatorLayout.LayoutParams.MATCH_PARENT
+            if (position == "bottom-center") {
+                // Preserve the original anchored behaviour for the manga-equivalent default —
+                // anchoring to chapters_sheet auto-handles sheet expansion (nav slides up
+                // with the sheet) and keeps the rotation/foldable code paths working.
+                anchorId = R.id.chapters_sheet
+                anchorGravity = Gravity.TOP
+                gravity = Gravity.TOP
+                topMargin = 0
+                bottomMargin = 0
+                width = CoordinatorLayout.LayoutParams.MATCH_PARENT
+            } else {
+                // All other 8 positions: detach anchor and use absolute gravity. Manual
+                // top/bottom margins compensate for toolbar/sheet so the slider doesn't
+                // collide with either.
+                anchorId = View.NO_ID
+                gravity = verticalGravity or horizontalGravity
+                topMargin = if (vAxis == "top") toolbarPx + statusBarTop else 0
+                // For bottom-left / bottom-right, lift above the chapters_sheet's peek
+                // height so the slider sits in the same band as bottom-center would.
+                bottomMargin = if (vAxis == "bottom") {
+                    (binding.chaptersSheet.root.sheetBehavior?.peekHeight ?: 50.dpToPx)
+                } else {
+                    0
                 }
-                "center" -> {
-                    anchorId = View.NO_ID
-                    gravity = Gravity.CENTER
-                    topMargin = 0
-                    bottomMargin = 0
-                    width = CoordinatorLayout.LayoutParams.MATCH_PARENT
-                }
-                else -> { // "bottom" / default
-                    anchorId = R.id.chapters_sheet
-                    anchorGravity = Gravity.TOP
-                    gravity = Gravity.TOP
-                    topMargin = 0
-                    bottomMargin = 0
-                    width = CoordinatorLayout.LayoutParams.MATCH_PARENT
+                width = if (isStretch) {
+                    CoordinatorLayout.LayoutParams.MATCH_PARENT
+                } else {
+                    compactWidthPx
                 }
             }
-            // Preserve horizontal margins applied by the inset listener (line ~1222).
+            // Preserve horizontal cutout/inset margins applied by the inset listener.
             marginStart = max(twelveDp, marginStart)
             marginEnd = max(twelveDp, marginEnd)
         }
-        // Re-anchor the action bar so it stays reachable even when the slider moves up.
+        // Action bar: only follow the slider when it's at bottom-center (so the action bar
+        // sits naturally above the slider, where the user expects controls). For every
+        // other slider position, re-anchor the action bar to chapters_sheet so TTS /
+        // auto-scroll / find-replace remain at thumb-reach at the bottom of the screen.
         novelActionBarComposeView?.updateLayoutParams<CoordinatorLayout.LayoutParams> {
-            if (position == "bottom") {
-                anchorId = R.id.nav_layout
-            } else {
-                anchorId = R.id.chapters_sheet
-            }
+            anchorId = if (position == "bottom-center") R.id.nav_layout else R.id.chapters_sheet
             anchorGravity = Gravity.TOP
             gravity = Gravity.TOP
         }
@@ -2491,6 +2538,17 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 }
 
             preferences.defaultOrientationType().changes()
+                .drop(1)
+                .onEach {
+                    delay(250)
+                    setOrientation(viewModel.getMangaOrientationType())
+                }
+                .launchIn(scope)
+
+            // Novel reader has its own default-orientation pref so a user can lock novels to
+            // portrait without dragging manga along. Observe it the same way as the manga
+            // default; getMangaOrientationType() picks the right one based on the loaded series.
+            readerPreferences.novelDefaultOrientationType.changes()
                 .drop(1)
                 .onEach {
                     delay(250)

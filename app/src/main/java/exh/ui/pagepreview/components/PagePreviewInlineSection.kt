@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
@@ -138,22 +140,39 @@ fun PagePreviewInlineSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(s.previews) { preview ->
+                        var isLoading by remember(preview.imageUrl) { mutableStateOf(true) }
                         Column(
                             modifier = Modifier
                                 .clip(MaterialTheme.shapes.small)
                                 .clickable { onOpenReaderAtPage(preview.index - 1) },
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            AsyncImage(
-                                model = preview.imageUrl,
-                                contentDescription = "Page ${preview.index}",
-                                imageLoader = imageLoader,
+                            Box(
                                 modifier = Modifier
                                     .height(THUMB_HEIGHT)
                                     .width(THUMB_WIDTH)
                                     .clip(MaterialTheme.shapes.small),
-                                contentScale = ContentScale.FillWidth,
-                            )
+                            ) {
+                                AsyncImage(
+                                    model = preview.imageUrl,
+                                    contentDescription = "Page ${preview.index}",
+                                    imageLoader = imageLoader,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.FillWidth,
+                                    onState = { state ->
+                                        isLoading = state is AsyncImagePainter.State.Loading
+                                    },
+                                )
+                                if (isLoading) {
+                                    val alpha by rememberShimmerAlpha(label = "previewShimmer")
+                                    Surface(
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = MaterialTheme.shapes.small,
+                                        color = MaterialTheme.colorScheme.surfaceVariant
+                                            .copy(alpha = alpha),
+                                    ) {}
+                                }
+                            }
                             Text(
                                 text = preview.index.toString(),
                                 style = MaterialTheme.typography.labelSmall,

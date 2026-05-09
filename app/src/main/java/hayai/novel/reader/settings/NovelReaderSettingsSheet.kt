@@ -279,9 +279,15 @@ private fun ControlsTab(prefs: ReaderPreferences) {
         ChipRow(
             label = stringResource(MR.strings.novel_progress_slider_position),
             options = listOf(
-                "top" to stringResource(MR.strings.novel_progress_slider_position_top),
-                "center" to stringResource(MR.strings.novel_progress_slider_position_center),
-                "bottom" to stringResource(MR.strings.novel_progress_slider_position_bottom),
+                "top-left" to stringResource(MR.strings.novel_progress_slider_position_top_left),
+                "top-center" to stringResource(MR.strings.novel_progress_slider_position_top_center),
+                "top-right" to stringResource(MR.strings.novel_progress_slider_position_top_right),
+                "center-left" to stringResource(MR.strings.novel_progress_slider_position_center_left),
+                "center-center" to stringResource(MR.strings.novel_progress_slider_position_center_center),
+                "center-right" to stringResource(MR.strings.novel_progress_slider_position_center_right),
+                "bottom-left" to stringResource(MR.strings.novel_progress_slider_position_bottom_left),
+                "bottom-center" to stringResource(MR.strings.novel_progress_slider_position_bottom_center),
+                "bottom-right" to stringResource(MR.strings.novel_progress_slider_position_bottom_right),
             ),
             preference = prefs.novelProgressSliderPosition,
         )

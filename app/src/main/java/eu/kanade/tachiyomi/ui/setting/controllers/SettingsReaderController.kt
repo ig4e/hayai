@@ -114,6 +114,17 @@ class SettingsReaderController : SettingsLegacyController() {
                 defaultValue = OrientationType.FREE.flagValue
             }
             intListPreference(activity) {
+                // Mirrors the manga default-orientation row above so users get a separate
+                // novel-reader fallback. Key is the same string literal declared in
+                // ReaderPreferences.novelDefaultOrientationType — keep the two in sync.
+                key = "pref_novel_default_orientation_type_key"
+                titleRes = MR.strings.novel_default_orientation
+                val enumConstants = OrientationType.entries.drop(1)
+                entriesRes = enumConstants.map { it.stringRes }.toTypedArray()
+                entryValues = enumConstants.map { value -> value.flagValue }
+                defaultValue = OrientationType.FREE.flagValue
+            }
+            intListPreference(activity) {
                 key = Keys.readerTheme
                 titleRes = MR.strings.background_color
                 val enumConstants = ReaderBackgroundColor.entries

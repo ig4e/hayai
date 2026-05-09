@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.core.preference.getEnum
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys
+import eu.kanade.tachiyomi.ui.reader.settings.OrientationType
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerConfig
 import yokai.i18n.MR
 
@@ -157,12 +158,15 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
         true,
     )
 
-    // Where the horizontal progress slider is anchored: "top", "center", or "bottom" (default).
-    // Bottom matches the manga reader. Center positions it vertically centered on screen for
-    // tap-friendly scrubbing during one-handed use; top tucks it under the toolbar.
+    // 3x3 grid position for the horizontal progress slider. Format: "<v>-<h>" where v is
+    // top/center/bottom and h is left/center/right. The *-center positions stretch the
+    // slider full width (matching the manga reader); the *-left/*-right positions render
+    // a compact pill (~360dp) anchored to that side. Default "bottom-center" matches the
+    // manga-reader behaviour. Backward-compat: legacy values "top"/"center"/"bottom" are
+    // mapped to the *-center equivalent at read time in applyNovelNavLayoutPosition.
     val novelProgressSliderPosition: Preference<String> = preferenceStore.getString(
         "pref_novel_progress_slider_position",
-        "bottom",
+        "bottom-center",
     )
 
     // Show the platform vertical scrollbar in novel readers.
@@ -235,6 +239,17 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     val novelBottomBarItems: Preference<String> = preferenceStore.getString(
         "novel_bottom_bar_items",
         DefaultBottomBarItems.serialize(),
+    )
+
+    // App-level default screen orientation when reading novels. Stored as a packed
+    // OrientationType.flagValue (matches the manga `defaultOrientationType` storage shape) so the
+    // same `OrientationType.fromPreference()` decoder works for both. Per-novel overrides live on
+    // `Manga.orientationType` and take precedence; this is the fallback used when the per-novel
+    // value is `OrientationType.DEFAULT.flagValue`. Key is referenced by string in
+    // SettingsReaderController — keep both in sync.
+    val novelDefaultOrientationType: Preference<Int> = preferenceStore.getInt(
+        "pref_novel_default_orientation_type_key",
+        OrientationType.FREE.flagValue,
     )
     // endregion
 }

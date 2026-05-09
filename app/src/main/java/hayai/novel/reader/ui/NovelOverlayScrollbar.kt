@@ -75,6 +75,47 @@ class NovelOverlayScrollbar @JvmOverloads constructor(
     }
 
     /**
+     * Briefly fade the bar in so the user sees a config change applied (side, size,
+     * visibility toggle) even when they're not currently scrolling. Without this the
+     * bar stays at alpha=0 until the next real scroll event, making the prefs feel
+     * broken: toggle "show vertical scrollbar" → no visible change → "doesn't work".
+     *
+     * Unlike [setProgress] this does NOT respect the visibleFraction guard: if the
+     * user explicitly toggled a scrollbar pref we owe them visual feedback even when
+     * the current chapter happens to fit on one screen. We force visibleFraction to
+     * a thumb-sized value just for the pulse so the user sees a real thumb, not a
+     * full-track filled bar; the next real scroll call from
+     * [setVisibleFraction]/[setProgress] will overwrite it with accurate metrics.
+     */
+    fun pulse() {
+        if (visibleFraction >= 0.999f) {
+            // Make the thumb a sensible quarter-track placeholder so the user can see
+            // it rather than a full-track filled bar.
+            visibleFraction = 0.25f
+        }
+        // Bypass showAndScheduleHide's own fraction guard by inlining the fade-in
+        // here — the fraction was just re-set above so the guard would be redundant.
+        fadeAnimator?.cancel()
+        if (fadeAlpha < 200) {
+            fadeAnimator = ValueAnimator.ofInt(fadeAlpha, 200).apply {
+                duration = 120
+                addUpdateListener {
+                    fadeAlpha = it.animatedValue as Int
+                    thumbPaint.alpha = fadeAlpha
+                    invalidate()
+                }
+                start()
+            }
+        } else {
+            fadeAlpha = 200
+            thumbPaint.alpha = fadeAlpha
+        }
+        removeCallbacks(idleHideTrigger)
+        postDelayed(idleHideTrigger, IDLE_HIDE_MS)
+        invalidate()
+    }
+
+    /**
      * Ratio of viewport height to total content height (0..1). At 1 the thumb fills the
      * track (no scrollable area) and the bar fades out; below 1 the thumb scales down.
      */
