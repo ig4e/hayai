@@ -23,6 +23,9 @@
     <string name="onboarding_permission_ignore_battery_opts">Background battery usage</string>
     <string name="onboarding_permission_ignore_battery_opts_description">Avoid interruptions to long-running library updates, downloads, and backup restores.</string>
     <string name="onboarding_permission_action_grant">Grant</string>
+    <string name="onboarding_library_view_description">Pick how categories appear in your library. You can switch any time from settings.</string>
+    <string name="onboarding_library_view_continuous_description">All categories scroll together in a single list, with category headers between them.</string>
+    <string name="onboarding_library_view_tabbed_description">Each category gets its own tab at the top, so only one category is visible at a time.</string>
 
     <string name="no_location_set">No storage location set</string>
     <string name="invalid_location">Invalid location: %s</string>

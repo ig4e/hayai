@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,8 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.getSystemService
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.util.system.isShizukuInstalled
 import yokai.i18n.MR
@@ -48,26 +50,39 @@ internal class PermissionStep : OnboardingStep {
     @Composable
     override fun Content() {
         val context = LocalContext.current
+        val lifecycleOwner = LocalLifecycleOwner.current
 
-        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-            installGranted =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.packageManager.canRequestPackageInstalls()
-                } else {
-                    @Suppress("DEPRECATION")
-                    Settings.Secure.getInt(
-                        context.contentResolver,
-                        Settings.Secure.INSTALL_NON_MARKET_APPS
-                    ) != 0
-                } || context.isShizukuInstalled
-            notificationGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
-                    PackageManager.PERMISSION_GRANTED
-            } else {
-                true
+        // LifecycleEventEffect(ON_RESUME) didn't reliably re-fire when returning from the system
+        // Settings activity that the Grant buttons launch, so the buttons stayed stuck on "Grant"
+        // even after the user had granted the permission. Attaching a DefaultLifecycleObserver
+        // directly mirrors Mihon's approach and re-checks each permission on every resume.
+        DisposableEffect(lifecycleOwner.lifecycle) {
+            val observer = object : DefaultLifecycleObserver {
+                override fun onResume(owner: LifecycleOwner) {
+                    installGranted =
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.packageManager.canRequestPackageInstalls()
+                        } else {
+                            @Suppress("DEPRECATION")
+                            Settings.Secure.getInt(
+                                context.contentResolver,
+                                Settings.Secure.INSTALL_NON_MARKET_APPS
+                            ) != 0
+                        } || context.isShizukuInstalled
+                    notificationGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                            PackageManager.PERMISSION_GRANTED
+                    } else {
+                        true
+                    }
+                    batteryGranted = context.getSystemService<PowerManager>()!!
+                        .isIgnoringBatteryOptimizations(context.packageName)
+                }
             }
-            batteryGranted = context.getSystemService<PowerManager>()!!
-                .isIgnoringBatteryOptimizations(context.packageName)
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
         }
 
         Column(
