@@ -31,7 +31,7 @@ concurrency:
 jobs:
   build:
     name: Build app
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: build
 
     steps:
