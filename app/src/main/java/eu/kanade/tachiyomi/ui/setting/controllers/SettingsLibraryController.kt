@@ -135,6 +135,18 @@ class SettingsLibraryController : SettingsLegacyController() {
 
         preferenceCategory {
             titleRes = MR.strings.global_updates
+            preference {
+                key = "view_last_update_report"
+                isPersistent = false
+                titleRes = MR.strings.last_update_report
+                summaryRes = MR.strings.tap_to_see_details
+                onClick {
+                    router.pushController(
+                        eu.kanade.tachiyomi.ui.library.update.LibraryUpdateReportController()
+                            .withFadeTransaction(),
+                    )
+                }
+            }
             intListPreference(activity) {
                 key = Keys.libraryUpdateInterval
                 titleRes = MR.strings.library_update_frequency

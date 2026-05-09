@@ -997,6 +997,12 @@ class RecentsController(bundle: Bundle? = null) :
                 )
                 displaySheet?.show()
             }
+            R.id.action_update_report -> {
+                router.pushController(
+                    eu.kanade.tachiyomi.ui.library.update.LibraryUpdateReportController()
+                        .withFadeTransaction(),
+                )
+            }
         }
         return super.onOptionsItemSelected(item)
     }

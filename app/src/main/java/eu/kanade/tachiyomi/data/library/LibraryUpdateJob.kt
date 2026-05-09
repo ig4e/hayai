@@ -148,6 +148,8 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
 
     private val notifier = LibraryUpdateNotifier(context.localeContext)
 
+    private val reportStore = LibraryUpdateReportStore(context.localeContext)
+
     override suspend fun doWork(): Result {
         if (tags.contains(WORK_NAME_AUTO)) {
             val preferences = Injekt.get<PreferencesHelper>()
@@ -359,6 +361,16 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             }
         }
         newUpdates.clear()
+        // Snapshot a structured report so the in-app screen can render covers/sources/messages
+        // without re-parsing the .txt log. Always written (even when both maps are empty) so
+        // the screen can display a deterministic "no errors / no skips on last run" state.
+        reportStore.save(
+            LibraryUpdateReport(
+                timestampMs = System.currentTimeMillis(),
+                errors = failedUpdates.toReportEntries(),
+                skipped = skippedUpdates.toReportEntries(),
+            ),
+        )
         if (skippedUpdates.isNotEmpty() && Notifications.isNotificationChannelEnabled(context, Notifications.CHANNEL_LIBRARY_SKIPPED)) {
             val skippedFile = writeErrorFile(
                 skippedUpdates,
@@ -555,6 +567,28 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             ForegroundInfo(id, notification)
         }
     }
+
+    /**
+     * Converts a collected error/skip map into structured entries for the JSON report. The
+     * `message` is already-localized (skip reasons) or a raw exception string (errors); we
+     * substitute a placeholder when the throwable had no message so the screen never shows
+     * an empty row.
+     */
+    private fun Map<Manga, String?>.toReportEntries(): List<LibraryUpdateReportEntry> =
+        map { (manga, message) ->
+            val source = sourceManager.getOrStub(manga.source)
+            LibraryUpdateReportEntry(
+                mangaId = manga.id ?: 0L,
+                mangaTitle = manga.title,
+                mangaThumbnailUrl = manga.thumbnail_url,
+                mangaCoverLastModified = manga.cover_last_modified,
+                mangaInLibrary = manga.favorite,
+                sourceId = manga.source,
+                sourceName = source.toString(),
+                message = message?.takeIf { it.isNotBlank() }
+                    ?: context.getString(MR.strings.unknown_error),
+            )
+        }
 
     /**
      * Writes basic file of update errors to cache dir.

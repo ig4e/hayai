@@ -1132,6 +1132,19 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                     controller?.showSheet()
                 }
             }
+            SHORTCUT_LIBRARY_UPDATE_REPORT -> {
+                if (router.backstack.isEmpty()) nav.selectedItemId = R.id.nav_library
+                val tabName = intent.getStringExtra(EXTRA_LIBRARY_UPDATE_REPORT_TAB)
+                val tab = tabName?.let {
+                    runCatching {
+                        yokai.presentation.library.update.LibraryUpdateReportScreenModel.ReportTab.valueOf(it)
+                    }.getOrNull()
+                } ?: yokai.presentation.library.update.LibraryUpdateReportScreenModel.ReportTab.ERRORS
+                router.pushController(
+                    eu.kanade.tachiyomi.ui.library.update.LibraryUpdateReportController(tab)
+                        .withFadeTransaction(),
+                )
+            }
             Intent.ACTION_VIEW -> {
                 if (router.backstack.isEmpty()) nav.selectedItemId = R.id.nav_library
                 if (intent.scheme == "tachiyomi" && intent.data?.host == "add-repo") {
@@ -1667,6 +1680,8 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         const val SHORTCUT_SOURCE = "eu.kanade.tachiyomi.SHOW_SOURCE"
         const val SHORTCUT_READER_SETTINGS = "eu.kanade.tachiyomi.READER_SETTINGS"
         const val SHORTCUT_EXTENSIONS = "eu.kanade.tachiyomi.EXTENSIONS"
+        const val SHORTCUT_LIBRARY_UPDATE_REPORT = "eu.kanade.tachiyomi.SHOW_LIBRARY_UPDATE_REPORT"
+        const val EXTRA_LIBRARY_UPDATE_REPORT_TAB = "library_update_report_tab"
 
         const val INTENT_SEARCH = "eu.kanade.tachiyomi.SEARCH"
         const val INTENT_SEARCH_QUERY = "query"

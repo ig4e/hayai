@@ -517,6 +517,32 @@ class NotificationReceiver : BroadcastReceiver() {
         }
 
         /**
+         * Returns [PendingIntent] that opens the in-app library update report screen on the
+         * given tab. Used for notification body taps and the new "View details" action; the
+         * existing [openErrorOrSkippedLogPendingActivity] is preserved as a sibling action so
+         * the .txt log is still one tap away.
+         *
+         * @param context context of application
+         * @param tab "ERRORS" or "SKIPPED" (matches LibraryUpdateReportScreenModel.ReportTab)
+         */
+        internal fun openLibraryUpdateReportPendingActivity(context: Context, tab: String): PendingIntent {
+            // Distinct request codes per tab so PendingIntent.FLAG_UPDATE_CURRENT replaces the
+            // intent for the same tab without colliding with the other tab's pending intent.
+            val requestCode = if (tab == "SKIPPED") 1001 else 1000
+            val intent = Intent(context, MainActivity::class.java).apply {
+                action = MainActivity.SHORTCUT_LIBRARY_UPDATE_REPORT
+                putExtra(MainActivity.EXTRA_LIBRARY_UPDATE_REPORT_TAB, tab)
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            return PendingIntent.getActivity(
+                context,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
+        /**
          * Returns [PendingIntent] that opens the extensions controller,
          *
          * @param context context of application

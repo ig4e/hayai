@@ -104,7 +104,11 @@ class LibraryUpdateNotifier(private val context: Context) {
         if (errors.isEmpty()) {
             return
         }
-        val pendingIntent = NotificationReceiver.openErrorOrSkippedLogPendingActivity(context, uri)
+        // Body tap goes to the in-app report screen; the .txt log stays available via the
+        // separate "Open log" action so power users keep their existing flow.
+        val reportIntent =
+            NotificationReceiver.openLibraryUpdateReportPendingActivity(context, "ERRORS")
+        val openLogIntent = NotificationReceiver.openErrorOrSkippedLogPendingActivity(context, uri)
         context.notificationManager.notify(
             Notifications.ID_LIBRARY_ERROR,
             context.notificationBuilder(Notifications.CHANNEL_LIBRARY_ERROR) {
@@ -117,12 +121,13 @@ class LibraryUpdateNotifier(private val context: Context) {
                         },
                     ),
                 )
-                setContentIntent(pendingIntent)
+                setContentIntent(reportIntent)
+                setAutoCancel(true)
                 setSmallIcon(R.drawable.ic_hayai)
                 addAction(
                     R.drawable.ic_file_open_24dp,
                     context.getString(MR.strings.open_log),
-                    pendingIntent,
+                    openLogIntent,
                 )
             }
                 .build(),
@@ -140,11 +145,15 @@ class LibraryUpdateNotifier(private val context: Context) {
             return
         }
 
+        // Body tap goes to the in-app report (Skipped tab); "Open log" still launches the
+        // .txt file, and the "Learn why" link is unchanged.
+        val reportIntent =
+            NotificationReceiver.openLibraryUpdateReportPendingActivity(context, "SKIPPED")
         context.notificationManager.notify(
             Notifications.ID_LIBRARY_SKIPPED,
             context.notificationBuilder(Notifications.CHANNEL_LIBRARY_SKIPPED) {
                 setContentTitle(context.getString(MR.strings.notification_update_skipped, skips.size))
-                setContentText(context.getString(MR.strings.tap_to_learn_more))
+                setContentText(context.getString(MR.strings.tap_to_see_details))
                 setStyle(
                     NotificationCompat.BigTextStyle().bigText(
                         skips.joinToString("\n") {
@@ -152,7 +161,8 @@ class LibraryUpdateNotifier(private val context: Context) {
                         },
                     ),
                 )
-                setContentIntent(NotificationHandler.openUrl(context, HELP_SKIPPED_URL))
+                setContentIntent(reportIntent)
+                setAutoCancel(true)
                 setSmallIcon(R.drawable.ic_hayai)
                 addAction(
                     R.drawable.ic_file_open_24dp,

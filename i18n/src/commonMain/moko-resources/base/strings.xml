@@ -228,6 +228,18 @@
     <string name="channel_errors">Errors</string>
     <string name="channel_skipped">Skipped</string>
 
+    <!-- Library update report screen -->
+    <string name="library_update_report">Library update report</string>
+    <string name="library_update_report_errors">Errors</string>
+    <string name="library_update_report_skipped">Skipped</string>
+    <string name="library_update_report_no_errors">No update errors from the last run.</string>
+    <string name="library_update_report_no_skipped">No titles were skipped during the last run.</string>
+    <string name="library_update_report_empty">No library update has run yet.</string>
+    <string name="library_update_report_last_run">Last run %1$s</string>
+    <string name="action_view_details">View details</string>
+    <string name="action_open_log_file">Open log file</string>
+    <string name="last_update_report">Last update report</string>
+
     <!-- Library settings -->
     <string name="library_update_frequency">Library update frequency</string>
     <string name="pref_library_update_manga_restriction">Skip updating titles</string>
