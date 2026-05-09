@@ -391,7 +391,7 @@
 \n
 \nSinun on asennattava puuttuvat laajennukset ja kirjauduttava seurantapalveluihin jälkeenpäin käyttääksesi niitä.</string>
     <string name="restoring_backup_canceled">Palautus peruttu</string>
-    <string name="restore_duration">%02d min, %02d sek</string>
+    <string name="restore_duration">%1$02d min, %2$02d sek</string>
     <string name="animate_page_transitions">Animoi sivusiirtymät</string>
     <string name="default_reading_mode">Oletuslukutila</string>
     <string name="l_nav">L-muotoinen</string>

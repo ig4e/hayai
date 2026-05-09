@@ -349,7 +349,7 @@
 \n
 \nKakailanganin mo na ma-install ang mga nawawalang mga extension at mag-login sa mga tracking service pagkatapos para magamit muli.</string>
     <string name="restoring_backup_canceled">Kinansela ang pag-restore</string>
-    <string name="restore_duration">%02d (na) min, %02d (na) seg</string>
+    <string name="restore_duration">%1$02d (na) min, %2$02d (na) seg</string>
     <string name="file_picker_error">Walang nakitang app para makapili</string>
     <string name="open_log">Buksan ang log</string>
     <string name="chapters">Mga Kabanata</string>

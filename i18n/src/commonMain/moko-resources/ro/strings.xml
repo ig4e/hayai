@@ -347,7 +347,7 @@
     <string name="restore_missing_sources">Surse lipsă:</string>
     <string name="restore_missing_trackers">Trackerele nu sunt conectate la:</string>
     <string name="restoring_backup_canceled">Restaurare anulată</string>
-    <string name="restore_duration">%02d minute, %02d secunde</string>
+    <string name="restore_duration">%1$02d minute, %2$02d secunde</string>
     <string name="source_migration_guide">Ghid de migrare a sursei</string>
     <string name="nsfw_sources">Conținut NSFW (18+)</string>
     <string name="whats_new">Ce este nou</string>

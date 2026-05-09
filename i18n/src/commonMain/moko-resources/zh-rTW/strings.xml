@@ -349,7 +349,7 @@
     <string name="restore_missing_sources">遺失來源：</string>
     <string name="restore_missing_trackers">尚未登入至歷程平台：</string>
     <string name="restoring_backup_canceled">已取消還原</string>
-    <string name="restore_duration">%02d 分 %02d 秒</string>
+    <string name="restore_duration">%1$02d 分 %2$02d 秒</string>
     <string name="no_chapters_error">沒有章節</string>
     <string name="badges">標籤</string>
     <string name="last_used">最近使用</string>

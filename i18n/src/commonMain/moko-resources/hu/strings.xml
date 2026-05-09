@@ -373,7 +373,7 @@
     <string name="split_tall_images">Magas képek szétvágása</string>
     <string name="split_tall_images_summary">Növeli a teljesítményt a nagy képek elválasztásával.</string>
     <string name="restore_completed">Helyreállítás befejeződött</string>
-    <string name="restore_duration">%02d perc, %02d másodperc</string>
+    <string name="restore_duration">%1$02d perc, %2$02d másodperc</string>
     <string name="empty_backup_error">Nincs könyvtári elem, amit menteni lehetne</string>
     <string name="confirm_manga_add_duplicate">Már van a könyvtárban elem ilyen néven, csak más forrásból (%1$s).
 \n

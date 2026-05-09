@@ -556,7 +556,7 @@
     <string name="restore_missing_sources">Fuentes que faltan:</string>
     <string name="restore_missing_trackers">Rastreadores no conectados:</string>
     <string name="restoring_backup_canceled">Se ha cancelado la restauración</string>
-    <string name="restore_duration">%02d min, %02d seg</string>
+    <string name="restore_duration">%1$02d min, %2$02d seg</string>
     <string name="source_migration_guide">Guía de migración de fuentes</string>
     <string name="nsfw_sources">Fuentes NSFW (18+)</string>
     <string name="does_not_prevent_unofficial_nsfw">Esto no evita que las extensiones no oficiales o potencialmente marcadas incorrectamente muestren contenido para mayores de 18 años dentro de la aplicación.</string>

@@ -564,7 +564,7 @@
 \n
 \nВам потрібно встановити розширення яких бракує та увійти в сервіси відстеження для їх використання.</string>
     <string name="restoring_backup_canceled">Відновлення відмінено</string>
-    <string name="restore_duration">%02d хв, %02d сек</string>
+    <string name="restore_duration">%1$02d хв, %2$02d сек</string>
     <string name="source_migration_guide">Гайд по міграції джерел</string>
     <string name="nsfw_sources">NSFW (18+) джерела</string>
     <string name="does_not_prevent_unofficial_nsfw">Це не заважає неофіційним або потенційно неправильно позначеним розширенням розміщувати вміст NSFW (18+) у застосунку.</string>

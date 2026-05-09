@@ -279,7 +279,7 @@
     <string name="cover_saved">표지 이미지 저장</string>
     <string name="requires_app_restart">설정을 적용하기 위해 앱을 재시작해야 합니다</string>
     <string name="restoring_backup_canceled">복원 취소</string>
-    <string name="restore_duration">%02d분 %02d초</string>
+    <string name="restore_duration">%1$02d분 %2$02d초</string>
     <string name="invalid_backup_file_type">부적합한 백업 파일 타입: %1$s
 \n백업파일은 .photo .gz 또는 .json으로 끝나야 합니다.</string>
     <string name="invalid_backup_file">잘못된 백업 파일</string>

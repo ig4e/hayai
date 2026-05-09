@@ -360,7 +360,7 @@
 \n
 \nआपको किसी भी लापता एक्सटेंशन को इंस्टॉल करना होगा और बाद में सेवाओं को ट्रैक करने के लिए लॉग इन करना होगा ताकि उनका उपयोग किया जा सके।</string>
     <string name="restoring_backup_canceled">पुनर्स्थापना रद्द की गई</string>
-    <string name="restore_duration">%02d मिनट,%02d सेकंड</string>
+    <string name="restore_duration">%1$02d मिनट,%2$02d सेकंड</string>
     <string name="source_migration_guide">स्रोत माइग्रेशन गाइड</string>
     <string name="nsfw_sources">NSFW (18+) स्रोत</string>
     <string name="does_not_prevent_unofficial_nsfw">यह अनौपचारिक या संभावित रूप से फ़्लैग किए गए एक्सटेंशन को ऐप के भीतर NSFW (18+) सामग्री के सामने आने से नहीं रोकता है।</string>

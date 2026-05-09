@@ -439,7 +439,7 @@
     <string name="restore_missing_sources">Fontes em falta:</string>
     <string name="restore_missing_trackers">Monitorizadores sem sessão iniciada:</string>
     <string name="restoring_backup_canceled">Restauro cancelado</string>
-    <string name="restore_duration">%02d min, %02d seg</string>
+    <string name="restore_duration">%1$02d min, %2$02d seg</string>
     <string name="source_migration_guide">Guia de migração de fonte</string>
     <string name="nsfw_sources">Conteúdo 18+ (NSFW)</string>
     <string name="does_not_prevent_unofficial_nsfw">Isto não impede que extensões não oficiais ou potencialmente marcadas de forma incorreta surjam com conteúdos de NSFW (18+) dentro da aplicação.</string>

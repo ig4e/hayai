@@ -318,7 +318,7 @@
     <string name="no_chapters_error">Fant ingen kapitler</string>
     <string name="restore_missing_sources">Manglende kilder:</string>
     <string name="restoring_backup_canceled">Avbrutt gjenoppretting</string>
-    <string name="restore_duration">%02d min, %02d sek</string>
+    <string name="restore_duration">%1$02d min, %2$02d sek</string>
     <string name="whats_new">Hva er nytt</string>
     <string name="badges">merker</string>
     <string name="last_used">Sist brukt</string>

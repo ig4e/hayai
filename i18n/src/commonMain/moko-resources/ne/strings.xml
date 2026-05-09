@@ -284,7 +284,7 @@
     <string name="creating_backup">ब्याकअप सिर्जना गर्दै</string>
     <string name="what_should_backup">तपाई के ब्याकअप गर्न चाहनुहुन्छ\?</string>
     <string name="restoring_backup">ब्याकअप रिस्टोर गर्दै</string>
-    <string name="restore_duration">%02d मिनेट, %02d सेकेन्ड</string>
+    <string name="restore_duration">%1$02d मिनेट, %2$02d सेकेन्ड</string>
     <string name="restore_miui_warning">यदि MIUI अप्टिमाइजेसन असक्षम छ भने ब्याकअप/रिस्टोरले राम्ररी काम नगर्न सक्छ।</string>
     <string name="complete">पूरा</string>
     <string name="clear_chapter_cache">अध्याय क्यास खाली गर्नुहोस्</string>

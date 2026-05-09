@@ -598,7 +598,7 @@
 \n
 \nVous devrez installer les extensions manquantes et vous connecter ensuite aux services de suivi pour les utiliser.</string>
     <string name="restoring_backup_canceled">Restauration de sauvegarde annulée</string>
-    <string name="restore_duration">%02d min, %02d s</string>
+    <string name="restore_duration">%1$02d min, %2$02d s</string>
     <string name="source_migration_guide">Guide de migration des sources</string>
     <string name="nsfw_sources">Contenu +18</string>
     <string name="does_not_prevent_unofficial_nsfw">Cela n\'empêche pas les extensions non officielles ou potentiellement mal signalées de diffuser du contenu +18 dans l\'application.</string>

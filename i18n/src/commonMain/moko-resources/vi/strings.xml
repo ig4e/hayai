@@ -390,7 +390,7 @@
     <string name="whats_new">Có gì mới</string>
     <string name="website">Trang chủ</string>
     <string name="restoring_backup_canceled">Quá trình khôi phục đã bị ngắt</string>
-    <string name="restore_duration">%02d phút, %02d giây</string>
+    <string name="restore_duration">%1$02d phút, %2$02d giây</string>
     <string name="pref_long_strip_side_padding">Kích cỡ hai bên</string>
     <string name="long_strip_side_padding_0">Không</string>
     <string name="right_and_left_nav">Phải và trái</string>

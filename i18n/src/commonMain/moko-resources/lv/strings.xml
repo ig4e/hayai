@@ -172,7 +172,7 @@
     <string name="search_settings">Meklēt Uzstādījumos</string>
     <string name="backup_has_no_manga">Dublējums nesatur nekādu mangu.</string>
     <string name="restore_missing_sources">Trūkst avotu:</string>
-    <string name="restore_duration">%02d min, %02d sec</string>
+    <string name="restore_duration">%1$02d min, %2$02d sec</string>
     <string name="open_log">Atvērt žurnālfailu</string>
     <string name="next_chapter">Nākama nodaļa</string>
     <string name="previous_chapter">Iepriekšēja nodaļa</string>

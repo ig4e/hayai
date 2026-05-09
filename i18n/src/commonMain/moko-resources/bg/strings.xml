@@ -375,7 +375,7 @@
     <string name="restore_missing_sources">Липсващи източници:</string>
     <string name="restore_missing_trackers">Не сте влезли като потребител в:</string>
     <string name="restoring_backup_canceled">Отменено възстановяване</string>
-    <string name="restore_duration">%02d мин, %02d сек</string>
+    <string name="restore_duration">%1$02d мин, %2$02d сек</string>
     <string name="open_log">Отвори лога</string>
     <string name="backup_and_restore">Резервно копие и възстановяване</string>
     <string name="progress">Прогрес</string>

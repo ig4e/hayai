@@ -240,7 +240,7 @@
     <string name="backup_info">עדכונים אוטומטיים מאוד מומלצים. רצוי לשמור עותקים נוספים במקומות אחרים.</string>
     <string name="what_should_backup">מה אתה רוצה לגבות\?</string>
     <string name="restoring_backup">משחזר גיבוי</string>
-    <string name="restore_duration">%02d דקות, %02d שניות</string>
+    <string name="restore_duration">%1$02d דקות, %2$02d שניות</string>
     <string name="restore_miui_warning">יכול להיות שהגיבוי/השחזור לא יעבדו כמו שצריך אם אופטמיזציית MIUI מנועה.</string>
     <string name="progress">התקדמות</string>
     <string name="complete">הושלם</string>

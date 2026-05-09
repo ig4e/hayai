@@ -426,7 +426,7 @@
     <string name="channel_skipped">Omitidas</string>
     <string name="clear_history">Eliminar o historial</string>
     <string name="type">Tipo</string>
-    <string name="restore_duration">%02d min y %02d seg</string>
+    <string name="restore_duration">%1$02d min y %2$02d seg</string>
     <string name="dump_crash_logs">Baixar os rexistros de erros</string>
     <string name="empty_backup_error">Ningún elemento na biblioteca co que facer a copia de seguridade</string>
     <string name="restore_missing_trackers">Servizos de seguemento sen conectar:</string>

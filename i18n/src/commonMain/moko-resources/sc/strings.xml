@@ -550,7 +550,7 @@
 \n
 \nA pustis as a dèpere installare sas estensiones chi mancant e atzèdere a sos servìtzios de arrastamentu pro los pòdere impreare.</string>
     <string name="restoring_backup_canceled">Riprìstinu annulladu</string>
-    <string name="restore_duration">%02d min e %02d seg</string>
+    <string name="restore_duration">%1$02d min e %2$02d seg</string>
     <string name="source_migration_guide">Ghia a su tramudòngiu de sas mitzas</string>
     <string name="nsfw_sources">Cuntenutu NSFW (18+)</string>
     <string name="does_not_prevent_unofficial_nsfw">Custu no impedit a estensiones no ufitziales o potentzialmente non curretas de ammustrare cuntenutos NSFW (18+) in s\'aplicatzione.</string>

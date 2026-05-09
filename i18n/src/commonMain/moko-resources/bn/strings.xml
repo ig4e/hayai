@@ -509,7 +509,7 @@
     <string name="restore_missing_sources">উৎস অনুপলব্ধ:</string>
     <string name="restore_missing_trackers">ট্র্যাকারগুলিতে প্রবেশ হয়নি:</string>
     <string name="restoring_backup_canceled">পুনরুদ্ধার বাতিল করা হয়েছে</string>
-    <string name="restore_duration">%02d মিনিট, %02d সেকেন্ড</string>
+    <string name="restore_duration">%1$02d মিনিট, %2$02d সেকেন্ড</string>
     <string name="open_log">লগ খুলুন</string>
     <string name="backup_and_restore">ব্যাকআপ এবং পুনঃস্থাপন</string>
     <string name="progress">অগ্রগতি</string>

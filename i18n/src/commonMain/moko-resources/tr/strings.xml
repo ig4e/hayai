@@ -446,7 +446,7 @@
 \n
 \nEksik uzantıları yüklemeniz ve daha sonra bunları kullanmak için izleme hizmetlerinde oturum açmanız gerekecektir.</string>
     <string name="restoring_backup_canceled">Geri yükleme iptal edildi</string>
-    <string name="restore_duration">%02d dk, %02d sn</string>
+    <string name="restore_duration">%1$02d dk, %2$02d sn</string>
     <string name="no_chapters_error">Bölüm bulunamadı</string>
     <string name="badges">Rozetler</string>
     <string name="last_used">Son kullanılan</string>

@@ -362,7 +362,7 @@
     <string name="animate_page_transitions">Anima les transicions de pàgina</string>
     <string name="no_chapters_error">No s’ha trobat cap capítol</string>
     <string name="restoring_backup_canceled">S’ha cancel·lat la restauració</string>
-    <string name="restore_duration">%02d min i %02d s</string>
+    <string name="restore_duration">%1$02d min i %2$02d s</string>
     <string name="badges">Icones</string>
     <string name="last_used">Utilitzada per darrer cop</string>
     <string name="unofficial_extension_message">Aquesta extensió no pertany a la llista d’extensions oficials del Tachiyomi.</string>

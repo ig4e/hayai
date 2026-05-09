@@ -567,7 +567,7 @@
     <string name="previous_chapter">Capitolo precedente</string>
     <string name="animate_page_transitions">Anima le transazioni di pagina</string>
     <string name="no_chapters_error">Nessun capitolo trovato</string>
-    <string name="restore_duration">%02d min, %02d sec</string>
+    <string name="restore_duration">%1$02d min, %2$02d sec</string>
     <string name="source_migration_guide">Guida alla migrazione di origine</string>
     <string name="nsfw_sources">Fonti NSFW (18+)</string>
     <string name="does_not_prevent_unofficial_nsfw">Questo non impedisce a estensioni non ufficiali o potenzialmente segnalate in modo errato mostrare contenuti 18+ all\'interno dell\'applicazione.</string>

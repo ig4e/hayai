@@ -351,7 +351,7 @@
     <string name="wish_list">Zoznam prianí</string>
     <string name="website">Webová stránka</string>
     <string name="long_strip_side_padding_15">15%</string>
-    <string name="restore_duration">%02d min., %02d s</string>
+    <string name="restore_duration">%1$02d min., %2$02d s</string>
     <string name="whats_new">Čo je nové</string>
     <string name="not_started">Nezačaté</string>
     <string name="marked_as_read">Označené ako prečítané</string>

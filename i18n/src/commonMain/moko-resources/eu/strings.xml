@@ -467,7 +467,7 @@
     <string name="restoring_backup">Babeskopiatik berreskuratzen</string>
     <string name="creating_backup">Babeskopia sortzen</string>
     <string name="what_should_backup">Zeren babeskopia nahi duzu\?</string>
-    <string name="restore_duration">%02d min, %02d seg</string>
+    <string name="restore_duration">%1$02d min, %2$02d seg</string>
     <string name="restore_miui_warning">Baliteke babeskopiak/berreskuratzeak behar bezala ez funtzionatzea MIUI optimizazioa desgaituta badago.</string>
     <string name="progress">Aurrerapena</string>
     <string name="clear_database">Garbitu datu-basea</string>

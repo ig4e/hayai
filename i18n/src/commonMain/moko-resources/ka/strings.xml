@@ -212,7 +212,7 @@
     <string name="invalid_backup_file">არასწორი სარეზერვო ფაილი</string>
     <string name="restoring_backup">რეზერვის აღდგენა</string>
     <string name="clear_chapter_cache">თავის ქეშის გასუფთავება</string>
-    <string name="restore_duration">%02d წუთი, %02d წამი</string>
+    <string name="restore_duration">%1$02d წუთი, %2$02d წამი</string>
     <string name="clear_database">მონაცემთა ბაზის გასუფთავება</string>
     <string name="clear_database_confirmation">დარწმუნებული ბრძანდებით\? წაკითხული თავები და ბიბლიოთეკაში არ არსებული ჩანაწერების პროგრესი დაიკარგება</string>
     <string name="disable_battery_optimization">გამორთე ბატარეის ოპტიმიზაცია</string>

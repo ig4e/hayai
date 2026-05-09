@@ -596,7 +596,7 @@
 \n
 \nВам будет нужно установить все недостающие расширения и после этого, войти в сервисы отслеживания для их использования.</string>
     <string name="restoring_backup_canceled">Восстановление отменено</string>
-    <string name="restore_duration">%02d мин, %02d сек</string>
+    <string name="restore_duration">%1$02d мин, %2$02d сек</string>
     <string name="file_picker_error">Приложение для выбора файлов не найдено</string>
     <string name="next">Следующее</string>
     <string name="open_log">Открыть журнал</string>

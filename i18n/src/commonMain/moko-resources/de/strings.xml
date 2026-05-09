@@ -581,7 +581,7 @@
 \n
 \nDu musst jegliche fehlende Erweiterungen installieren und dich anschließend bei den Tracking-Anbietern einloggen, um sie zu benutzen.</string>
     <string name="restoring_backup_canceled">Wiederherstellung abgebrochen</string>
-    <string name="restore_duration">%02d min, %02d s</string>
+    <string name="restore_duration">%1$02d min, %2$02d s</string>
     <string name="source_migration_guide">Quellenmigration</string>
     <string name="nsfw_sources">NSFW/Ü18-Quellen</string>
     <string name="does_not_prevent_unofficial_nsfw">Dies verhindert nicht, dass inoffizielle oder möglicherweise falsch gekennzeichnete Erweiterungen NSFW/Ü18-Inhalte in der App anzeigen.</string>

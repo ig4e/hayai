@@ -560,7 +560,7 @@
     <string name="restore_missing_trackers">未登录的追踪源：</string>
     <string name="restore_content_full">来自备份文件的数据将被还原。 \n \n你需要安装所有缺少的插件，之后登录到跟踪服务以使用它们。</string>
     <string name="restoring_backup_canceled">已取消还原</string>
-    <string name="restore_duration">%02d 分，%02d 秒</string>
+    <string name="restore_duration">%1$02d 分，%2$02d 秒</string>
     <string name="source_migration_guide">图源迁移指南</string>
     <string name="nsfw_sources">NSFW (18+) 图源</string>
     <string name="does_not_prevent_unofficial_nsfw">这并不能防止非官方或被错误标记的插件在应用程序中显示 NSFW (18+) 内容。</string>

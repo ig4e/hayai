@@ -187,7 +187,7 @@
     <string name="pref_lowest">Ең төмен</string>
     <string name="services">Қызметтер</string>
     <string name="enhanced_services">Күшейтілген қызметтер</string>
-    <string name="restore_duration">%02d мин, %02d сек</string>
+    <string name="restore_duration">%1$02d мин, %2$02d сек</string>
     <string name="cookies_cleared">Куки тазартылды</string>
     <string name="network">Желі</string>
     <string name="download_new_chapters">Жаңа тарауларды жүктеу</string>

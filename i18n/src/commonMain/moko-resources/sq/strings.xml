@@ -320,7 +320,7 @@
     <string name="invert_tapping">Inverto zonat e trokitjes</string>
     <string name="last_read_chapter">Kapitulli i fundit i lexuar</string>
     <string name="cancel_all_for_series">Anulo të gjitha për këtë seri</string>
-    <string name="restore_duration">%02d min, %02d sek</string>
+    <string name="restore_duration">%1$02d min, %2$02d sek</string>
     <string name="sort">Rendit</string>
     <string name="empty_backup_error">Nuk ka hyrje në bibliotekë për të rezervuar</string>
     <string name="weekly">Javore</string>

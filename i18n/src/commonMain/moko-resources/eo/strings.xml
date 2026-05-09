@@ -142,7 +142,7 @@
     <string name="cache_delete_error">Eraro okazis dum viŝado de kaŝmemoro</string>
     <string name="cookies_cleared">Kuketoj viŝitis</string>
     <string name="creating_backup">Kreas savkopion</string>
-    <string name="restore_duration">%02d min, %02d sek</string>
+    <string name="restore_duration">%1$02d min, %2$02d sek</string>
     <string name="last_read_chapter">Laste legita ĉapitro</string>
     <string name="right_to_left_viewer">Dekstre maldekstren</string>
     <string name="left_to_right_viewer">Maldekstre dekstren</string>

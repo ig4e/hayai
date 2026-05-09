@@ -647,7 +647,7 @@
 \n
 \nVocê precisará instalar quaisquer extensões que estejam faltando e depois realizar o login nos serviços de monitoramento para utilizá-los.</string>
     <string name="restoring_backup_canceled">Restauração cancelada</string>
-    <string name="restore_duration">%02d min e %02d seg</string>
+    <string name="restore_duration">%1$02d min e %2$02d seg</string>
     <string name="source_migration_guide">Guia de migração de fonte</string>
     <string name="nsfw_sources">Fontes NSFW (+18)</string>
     <string name="does_not_prevent_unofficial_nsfw">Isso não impede que extensões não oficiais ou potencialmente sinalizadas de maneira incorreta apresentem conteúdo NSFW (+18) no aplicativo.</string>

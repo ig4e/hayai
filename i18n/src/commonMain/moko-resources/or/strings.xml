@@ -55,7 +55,7 @@
     <string name="long_strip_side_padding_20">୨୦%</string>
     <string name="long_strip_side_padding_25">୨୫%</string>
     <string name="services">ସେବା</string>
-    <string name="restore_duration">%02d ମି, %02d ସେ</string>
+    <string name="restore_duration">%1$02d ମି, %2$02d ସେ</string>
     <string name="uninstall">ଅନଇନଷ୍ଟଲ୍ କରିବା</string>
     <string name="help">ସହାୟତା</string>
     <string name="open_in_webview">WebViewରେ ଖୋଲନ୍ତୁ</string>

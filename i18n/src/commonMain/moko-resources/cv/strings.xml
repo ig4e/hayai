@@ -344,7 +344,7 @@
     <string name="restore_missing_sources">Ҫук ҫӑл куҫсем:</string>
     <string name="restore_missing_trackers">Кӗмен сӑнанусем:</string>
     <string name="restoring_backup_canceled">Тавӑрнине пӑрахӑҫланӑ</string>
-    <string name="restore_duration">%02d минут та %02d ҫеккунт</string>
+    <string name="restore_duration">%1$02d минут та %2$02d ҫеккунт</string>
     <string name="source_migration_guide">Ҫӑл куҫ куҫарассипе пулӑшу</string>
     <string name="nsfw_sources">NSFW (18+) шалаш</string>
     <string name="does_not_prevent_unofficial_nsfw">Ҫакӑ хушӑмра официаллӑ мар е тӗрӗс мар палӑртнӑ хушмасен NSFW (18+) шалашне кӑтартма чӑрмантармасть.</string>

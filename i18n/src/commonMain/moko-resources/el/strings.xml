@@ -444,7 +444,7 @@
 \n
 \nΘα χρειαστεί να εγκαταστήσετε τυχόν επεκτάσεις που λείπουν και στη συνέχεια να συνδεθείτε στις υπηρεσίες παρακολούθησης για να τις χρησιμοποιήσετε.</string>
     <string name="restoring_backup_canceled">Η επαναφορά ακυρώθηκε</string>
-    <string name="restore_duration">%02d λεπτά, %02d δευτερόλεπτα</string>
+    <string name="restore_duration">%1$02d λεπτά, %2$02d δευτερόλεπτα</string>
     <string name="source_migration_guide">Οδηγός μετεγκατάστασης πηγής</string>
     <string name="nsfw_sources">Πηγές NSFW (18+)</string>
     <string name="does_not_prevent_unofficial_nsfw">Αυτό δεν εμποδίζει τις ανεπίσημες ή ενδεχομένως εσφαλμένα επισημασμένες επεκτάσεις να εμφανίζουν περιεχόμενο NSFW (18+) μέσα στην εφαρμογή.</string>

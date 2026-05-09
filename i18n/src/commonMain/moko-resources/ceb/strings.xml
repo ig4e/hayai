@@ -217,7 +217,7 @@
     <string name="pref_lowest">Kinaubsan</string>
     <string name="backup_restore_invalid_uri">Sayop: walay sulod nga URI</string>
     <string name="creating_backup">Paghimo og backup</string>
-    <string name="restore_duration">%02d minuto , %02d ikaduha</string>
+    <string name="restore_duration">%1$02d minuto , %2$02d ikaduha</string>
     <string name="restoring_backup">Pag-uli sa backup</string>
     <string name="backup_info">Ang mga awtomatikong pag-backup girekomendar kaayo. Kinahanglan nimong tipigan ang mga kopya sa ubang mga dapit usab.</string>
     <string name="requires_app_restart">Nagkinahanglan nga i-restart ang app aron ma-epekto</string>

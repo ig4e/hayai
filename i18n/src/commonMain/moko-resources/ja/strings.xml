@@ -711,7 +711,7 @@
     <string name="backup_info">バックアップの自動作成は強く推奨されます。ほかの場所にもコピーを保管してください。</string>
     <string name="what_should_backup">バックアップしたいのは？</string>
     <string name="restoring_backup">バックアップを復元中</string>
-    <string name="restore_duration">%02d分%02d秒</string>
+    <string name="restore_duration">%1$02d分%2$02d秒</string>
     <string name="restore_miui_warning">MIUI最適化が有効な場合はバックアップ・復元が正常に機能しない恐れがあります。</string>
     <string name="progress">プログレス</string>
     <string name="complete">完了</string>

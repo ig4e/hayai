@@ -309,7 +309,7 @@
     <string name="search_settings">Podešavanja pretrage</string>
     <string name="locale">Jezik</string>
     <string name="restoring_backup_canceled">Враћање је отказано</string>
-    <string name="restore_duration">%02d мин, %02d сек</string>
+    <string name="restore_duration">%1$02d мин, %2$02d сек</string>
     <string name="open_log">Otvori zapisnik</string>
     <string name="next_chapter">Naredno poglavlje</string>
     <string name="previous_chapter">Prijašnje poglavlje</string>

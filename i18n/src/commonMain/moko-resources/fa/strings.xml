@@ -330,7 +330,7 @@
     <string name="myanimelist_relogin">لطفا دوباره به MAL وارد شوید</string>
     <string name="search_settings">جست و جوی تنضیمات</string>
     <string name="restoring_backup_canceled">بازیابی لغو شده</string>
-    <string name="restore_duration">%02d دقیقه, %02d ثانیه</string>
+    <string name="restore_duration">%1$02d دقیقه, %2$02d ثانیه</string>
     <string name="source_migration_guide">راهنمای تعویض منبع</string>
     <string name="nsfw_sources">منابع محتوای جنسی (+18)</string>
     <string name="file_picker_error">هیچ نرم افزار انتخاب فایلی یافت نشد</string>

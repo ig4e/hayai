@@ -25,7 +25,7 @@
     <string name="long_strip_side_padding_20">20%</string>
     <string name="invalid_backup_file">Ugyldig reservekopifil</string>
     <string name="restore_completed">Gjenoppretting fullført</string>
-    <string name="restore_duration">%02d min, %02d sek</string>
+    <string name="restore_duration">%1$02d min, %2$02d sek</string>
     <string name="creating_backup">Lagar reservekopi</string>
     <string name="restoring_backup">Gjenoppretter reservekopi</string>
     <string name="restoring_backup_canceled">Avbroten gjenoppretting</string>

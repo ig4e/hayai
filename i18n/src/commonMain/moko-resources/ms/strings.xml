@@ -565,7 +565,7 @@
 \n
 \nAnda perlu memasang sambungan yang hilang dan log masuk ke penjejakan untuk menggunakannya.</string>
     <string name="restoring_backup_canceled">Pemulih dibatalkan</string>
-    <string name="restore_duration">%02d minit, %02d saat</string>
+    <string name="restore_duration">%1$02d minit, %2$02d saat</string>
     <string name="file_picker_error">Tiada aplikasi memilih fail</string>
     <string name="next">Seterusnya</string>
     <string name="open_log">Buka log</string>

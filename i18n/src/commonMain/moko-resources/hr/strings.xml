@@ -475,7 +475,7 @@
 \n
 \nZa upotrebu podataka, morat ćeš instalirati nedostajuća proširenja i nakon toga se prijaviti na usluge praćenja.</string>
     <string name="restoring_backup_canceled">Obnavljanje prekinuto</string>
-    <string name="restore_duration">%02d min, %02d s</string>
+    <string name="restore_duration">%1$02d min, %2$02d s</string>
     <string name="source_migration_guide">Vodič za migraciju izvora</string>
     <string name="nsfw_sources">Izvori neprikladnog sadržaja (18+)</string>
     <string name="does_not_prevent_unofficial_nsfw">To ne sprečava neslužbene ili potencijalno krivo označene dodatke prikazati neprikladan sadržaj (18+) unutar aplikacije.</string>

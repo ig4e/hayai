@@ -132,7 +132,7 @@
     <string name="creating_backup">Atsarginės kopijos kūrimas</string>
     <string name="what_should_backup">Ką norite įtraukti į atsarginę kopiją\?</string>
     <string name="restoring_backup">Atkuriama atsarginė kopija</string>
-    <string name="restore_duration">%02d min, %02d sek</string>
+    <string name="restore_duration">%1$02d min, %2$02d sek</string>
     <string name="restore_miui_warning">Atsarginės kopijos kūrimas / atkūrimas gali veikti netinkamai, jei \"MIUI Optimization\" yra išjungtas.</string>
     <string name="progress">Progresas</string>
     <string name="complete">Baigtas</string>

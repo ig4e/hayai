@@ -346,7 +346,7 @@
 \n
 \nDu måste installera eventuella tillägg som saknas och logga in på spårningstjänster efteråt för att kunna använda dem.</string>
     <string name="restoring_backup_canceled">Avbruten återställning</string>
-    <string name="restore_duration">%02d minuter, %02d sekunder</string>
+    <string name="restore_duration">%1$02d minuter, %2$02d sekunder</string>
     <string name="source_migration_guide">Migreringsguide för källor</string>
     <string name="nsfw_sources">NSFW (18+) källor</string>
     <string name="does_not_prevent_unofficial_nsfw">Detta förhindrar inte inofficiella eller potentiellt felaktigt flaggade tillägg från att visa NSFW(18+) innehåll i appen.</string>

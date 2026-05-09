@@ -286,7 +286,7 @@
     <string name="crash_log_saved">บันทึกบันทึกข้อขัดข้องแล้ว</string>
     <string name="requires_app_restart">ต้องรีสตาร์ทแอปจึงจะมีผล</string>
     <string name="restoring_backup_canceled">ยกเลิกการคืนค่า</string>
-    <string name="restore_duration">%02d นาที %02d วินาที</string>
+    <string name="restore_duration">%1$02d นาที %2$02d วินาที</string>
     <string name="invalid_backup_file_type">ประเภทแฟ้มข้อมูลสำรองไม่ถูกต้อง: %1$s
 \nควรลงท้ายด้วย .proto.gz หรือ .json</string>
     <string name="invalid_backup_file">ข้อมูลสำรองไม่ถูกต้อง</string>

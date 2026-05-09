@@ -599,7 +599,7 @@
     <string name="restore_missing_sources">Brakujące źródła:</string>
     <string name="restore_missing_trackers">Serwisy, do których nie zalogowono:</string>
     <string name="restoring_backup_canceled">Anulowano przywracanie</string>
-    <string name="restore_duration">%02d min, %02d s</string>
+    <string name="restore_duration">%1$02d min, %2$02d s</string>
     <string name="source_migration_guide">Migracja źródła - poradnik</string>
     <string name="nsfw_sources">NFSW Materiały 18+</string>
     <string name="does_not_prevent_unofficial_nsfw">Nie zapobiega to nieoficjalnym lub potencjalnie niepoprawnie oflagowanym rozszerzeniom przed pokazywaniem zwartości NSFW(18+) w aplikacji.</string>

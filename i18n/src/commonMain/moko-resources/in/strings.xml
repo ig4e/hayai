@@ -469,7 +469,7 @@
     <string name="restore_missing_sources">Kehilangan sumber:</string>
     <string name="restore_missing_trackers">Pelacakan tidak tersinkronisasi di:</string>
     <string name="restoring_backup_canceled">Pemulihan dibatalkan</string>
-    <string name="restore_duration">%02d menit, %02d detik</string>
+    <string name="restore_duration">%1$02d menit, %2$02d detik</string>
     <string name="open_log">Buka log</string>
     <string name="backup_and_restore">Cadangkan dan pulihkan</string>
     <string name="progress">Kemajuan</string>
