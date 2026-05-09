@@ -770,10 +770,21 @@ open class LibraryController(
             setPageToolbarElevated(false)
         } else {
             appBar.y -= dy
+            // Pin the small toolbar + search card + tabs strip when scrolled. updateAppBarAfterY's
+            // own clamp on phones is [-realHeight, smallHeight] — wide enough that a fast dy or a
+            // residual offset (e.g. swiping back to a previously-scrolled tab) pushes appBar.y
+            // well below smallHeight, sending the tabs and search card off-screen. The bg color
+            // paints onto the now-hidden appbar, so visually it looks like the header vanished
+            // into an empty band at the top. Holding appBar.y at smallHeight keeps the scrolled
+            // variant pinned (which is what the tabbed-mode design assumes).
+            val pinnedY = -appBar.height.toFloat() +
+                appBar.attrToolbarHeight + appBar.paddingTop + 48.dpToPx
+            if (appBar.y < pinnedY) appBar.y = pinnedY
             appBar.updateAppBarAfterY(recycler)
-            // Defer the color-on until the bar is fully tucked away (or scroll is settling at dy=0),
-            // so brief intermediate scroll deltas don't kick the animator.
-            if (!isPageToolbarElevated && (dy == 0 || appBar.y <= -appBar.height.toFloat())) {
+            // Defer the color-on until scroll is settling at dy=0; with the pin in place the
+            // "fully tucked" branch (appBar.y <= -appBar.height) can never trigger, so the
+            // notAtTop reconcile below is what flips bg on while scrolling past the threshold.
+            if (!isPageToolbarElevated && dy == 0) {
                 setPageToolbarElevated(true)
             }
             // Final reconcile against the large-toolbar offset threshold.
