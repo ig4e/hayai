@@ -294,39 +294,48 @@ private suspend fun extractTokenFromCookies(trackerId: Long, currentUrl: String)
             }
             TrackManager.NOVEL_LIST -> {
                 val cookies = cookieManager.getCookie("https://www.novellist.co")
-                Logger.d { "NovelList cookies: $cookies" }
-                if (cookies != null) {
-                    val regex = Regex("novellist=([^;]+)")
-                    val match = regex.find(cookies)
-                    val novellistCookie = match?.groupValues?.get(1)
+                if (cookies == null) {
+                    Logger.w { "NovelList cookies header missing" }
+                    return@withContext null
+                }
 
-                    if (novellistCookie != null) {
-                        val decoded = try {
-                            if (novellistCookie.startsWith("base64-")) {
-                                val base64Part = novellistCookie.removePrefix("base64-")
-                                val decodedBytes = android.util.Base64.decode(base64Part, android.util.Base64.DEFAULT)
-                                String(decodedBytes)
-                            } else {
-                                novellistCookie
-                            }
-                        } catch (e: Exception) {
-                            Logger.e(e) { "Failed to decode NovelList cookie" }
-                            novellistCookie
-                        }
+                // NovelList runs Supabase Auth. When the encoded session exceeds the
+                // ~3.18 KB per-cookie limit (Google OAuth tokens routinely do — the live
+                // cookie measures ~4.6 KB joined) Supabase chunks it into `novellist.0`,
+                // `novellist.1`, … with the literal `base64-` prefix on chunk 0 only.
+                // Older sessions that still fit come back as a single `novellist=` cookie.
+                // Match both shapes, sort by chunk index, then concatenate before decoding.
+                // Verified live via Playwright on novellist.co (chunkOrder [0,1], joined
+                // length 4662, decoded JSON contains `access_token`).
+                val chunkRegex = Regex("(?:^|;\\s*)novellist(?:\\.(\\d+))?=([^;]+)")
+                val joined = chunkRegex.findAll(cookies)
+                    .map { (it.groupValues[1].toIntOrNull() ?: -1) to it.groupValues[2] }
+                    .sortedBy { it.first }
+                    .joinToString(separator = "") { it.second }
 
-                        try {
-                            val jsonRegex = Regex("\"access_token\"\\s*:\\s*\"([^\"]+)\"")
-                            val tokenMatch = jsonRegex.find(decoded)
-                            tokenMatch?.groupValues?.get(1) ?: decoded
-                        } catch (e: Exception) {
-                            decoded
-                        }
+                if (joined.isEmpty()) {
+                    Logger.w { "NovelList cookie not found (looked for novellist[.N]=)" }
+                    return@withContext null
+                }
+
+                val decoded = try {
+                    if (joined.startsWith("base64-")) {
+                        val base64Part = joined.removePrefix("base64-")
+                        val decodedBytes = android.util.Base64.decode(base64Part, android.util.Base64.DEFAULT)
+                        String(decodedBytes, Charsets.UTF_8)
                     } else {
-                        Logger.w { "NovelList cookie not found" }
-                        null
+                        joined
                     }
-                } else {
-                    null
+                } catch (e: Exception) {
+                    Logger.e(e) { "Failed to decode NovelList session payload" }
+                    joined
+                }
+
+                try {
+                    val jsonRegex = Regex("\"access_token\"\\s*:\\s*\"([^\"]+)\"")
+                    jsonRegex.find(decoded)?.groupValues?.get(1) ?: decoded
+                } catch (e: Exception) {
+                    decoded
                 }
             }
             else -> null

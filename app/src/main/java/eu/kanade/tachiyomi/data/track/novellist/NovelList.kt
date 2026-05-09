@@ -124,14 +124,25 @@ class NovelList(private val context: Context, id: Long) : TrackService(id) {
     override suspend fun refresh(track: Track): Track = api.refresh(track) ?: track
 
     /**
-     * Decode the `novellist` cookie that the WebView login captures. Cookie format:
-     * `base64-{base64 JSON containing access_token}`.
+     * Decode a NovelList Supabase session payload. Pass the full cookie header (the
+     * `Cookie:` value) — the helper picks out `novellist` / `novellist.<n>` chunks, sorts
+     * them by index, joins them, strips the `base64-` prefix and decodes. Also accepts a
+     * pre-joined `base64-…` value (legacy single-cookie form) for back-compat.
      */
     fun extractTokenFromCookie(cookieValue: String): String? = try {
-        if (!cookieValue.startsWith("base64-")) {
+        val chunkRegex = Regex("(?:^|;\\s*)novellist(?:\\.(\\d+))?=([^;]+)")
+        val joined = chunkRegex.findAll(cookieValue)
+            .map { (it.groupValues[1].toIntOrNull() ?: -1) to it.groupValues[2] }
+            .sortedBy { it.first }
+            .joinToString(separator = "") { it.second }
+            .ifBlank {
+                // Caller passed a single cookie value rather than a `Cookie:` header.
+                cookieValue
+            }
+        if (!joined.startsWith("base64-")) {
             null
         } else {
-            val payload = cookieValue.removePrefix("base64-")
+            val payload = joined.removePrefix("base64-")
             val decoded = String(Base64.decode(payload, Base64.DEFAULT), Charsets.UTF_8)
             val obj = json.decodeFromString<JsonObject>(decoded)
             obj["access_token"]?.jsonPrimitive?.contentOrNull
