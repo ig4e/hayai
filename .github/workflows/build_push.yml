@@ -31,7 +31,7 @@ concurrency:
 jobs:
   build:
     name: Build app
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-16vcpu-ubuntu-2404
     environment: build
 
     steps:
@@ -50,8 +50,16 @@ jobs:
           java-version: 17
           distribution: temurin
 
+      - name: Mount Gradle home (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: ${{ github.repository }}-gradle-home
+          path: /home/runner/.gradle
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
 
       - name: Setup CHANGELOG parser
         uses: taiki-e/install-action@parse-changelog
