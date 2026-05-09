@@ -5,6 +5,7 @@ import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.ActionMode
+import android.view.Choreographer
 import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.Menu
@@ -106,9 +107,48 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     // Cleared once retry is initiated or content loads successfully.
     private var lastErrorRetryContext: Pair<ReaderChapter, ReaderPage>? = null
 
-    // Auto-scroll state
+    // Auto-scroll state. Driven by Choreographer (vsync-aligned) and applied via the WebView's
+    // native scrollBy so the compositor handles the actual scroll on the render thread, instead
+    // of routing every frame through the JS event loop where it competes with reflows/listeners.
     private var isAutoScrolling = false
-    private var autoScrollJob: Job? = null
+    private var isAutoScrollPaused = false
+    private var autoScrollAccumPx = 0f
+    private var autoScrollLastFrameNanos = 0L
+    private val autoScrollFrameCallback = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (!isAutoScrolling || isDestroyed) {
+                autoScrollLastFrameNanos = 0L
+                return
+            }
+            if (isAutoScrollPaused) {
+                // Drop dt accumulation while paused so we don't lurch on resume.
+                autoScrollLastFrameNanos = 0L
+                Choreographer.getInstance().postFrameCallback(this)
+                return
+            }
+            if (autoScrollLastFrameNanos == 0L) {
+                autoScrollLastFrameNanos = frameTimeNanos
+                Choreographer.getInstance().postFrameCallback(this)
+                return
+            }
+            // Cap dt at 50ms so a janky frame can't snap-scroll a chunk on the next tick.
+            val dtSec = ((frameTimeNanos - autoScrollLastFrameNanos) / 1_000_000_000f)
+                .coerceIn(0f, 0.05f)
+            autoScrollLastFrameNanos = frameTimeNanos
+            val pxPerSec = preferences.novelAutoScrollSpeed.get().coerceIn(1, 10) * 30f
+            autoScrollAccumPx += pxPerSec * dtSec
+            val whole = autoScrollAccumPx.toInt()
+            if (whole > 0) {
+                autoScrollAccumPx -= whole.toFloat()
+                try {
+                    webView.scrollBy(0, whole)
+                } catch (t: Throwable) {
+                    Logger.w { "NovelWebViewViewer: autoScroll scrollBy ignored (${t.message})" }
+                }
+            }
+            Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
 
     private var navigator: eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation = eu.kanade.tachiyomi.ui.reader.viewer.navigation.DisabledNavigation()
 
@@ -1299,6 +1339,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             tts?.shutdown()
         }
         tts = null
+
+        // Stop the auto-scroll vsync callback before tearing the WebView down so the next
+        // doFrame doesn't reach into a destroyed view.
+        stopAutoScroll()
 
         // Mark destroyed first so coroutine finally-blocks won't touch WebView.
         isDestroyed = true
@@ -2959,88 +3003,40 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
 
     /**
-     * Toggle auto-scroll for WebView using JavaScript-based smooth scrolling
+     * Toggle auto-scroll for the WebView. Backed by a vsync-aligned Choreographer loop that
+     * drives the WebView's native scroll, so motion is paced by the same render thread that
+     * handles user-initiated scrolls instead of a JS rAF loop fighting reflows.
      */
     fun toggleAutoScroll() {
-        isAutoScrolling = !isAutoScrolling
-
-        if (isAutoScrolling) {
-            startAutoScroll()
-        } else {
-            stopAutoScroll()
-        }
+        if (isAutoScrolling) stopAutoScroll() else startAutoScroll()
     }
 
     private fun startAutoScroll() {
-        val speed = preferences.novelAutoScrollSpeed.get().coerceIn(1, 10)
+        if (isAutoScrolling) return
         isAutoScrolling = true
-
-        // Drive the scroll loop entirely in JS via requestAnimationFrame so the browser's
-        // own compositor schedules each frame. Speed maps to pixels-per-second; a sub-pixel
-        // accumulator avoids the 1px-per-tick stutter the previous setInterval(50ms) loop had.
-        val pixelsPerSecond = speed * 30  // speed 1 -> 30px/s, speed 10 -> 300px/s
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                window.__novelAutoScrollSpeed = $pixelsPerSecond;
-                window.__novelAutoScrollPaused = !!window.__novelAutoScrollPaused;
-                if (window.__novelAutoScrollRunning) return;
-                window.__novelAutoScrollRunning = true;
-                window.__novelAutoScrollAccum = 0;
-                window.__novelAutoScrollLast = 0;
-                var tick = function(now) {
-                    if (!window.__novelAutoScrollRunning) {
-                        window.__novelAutoScrollLast = 0;
-                        return;
-                    }
-                    if (window.__novelAutoScrollPaused) {
-                        window.__novelAutoScrollLast = 0;
-                        requestAnimationFrame(tick);
-                        return;
-                    }
-                    if (window.__novelAutoScrollLast === 0) window.__novelAutoScrollLast = now;
-                    var dt = (now - window.__novelAutoScrollLast) / 1000;
-                    window.__novelAutoScrollLast = now;
-                    window.__novelAutoScrollAccum += (window.__novelAutoScrollSpeed || 0) * dt;
-                    var px = Math.floor(window.__novelAutoScrollAccum);
-                    if (px > 0) {
-                        window.scrollBy(0, px);
-                        window.__novelAutoScrollAccum -= px;
-                    }
-                    requestAnimationFrame(tick);
-                };
-                requestAnimationFrame(tick);
-            })();
-            """.trimIndent(),
-            null,
-        )
+        isAutoScrollPaused = false
+        autoScrollAccumPx = 0f
+        autoScrollLastFrameNanos = 0L
+        Choreographer.getInstance().postFrameCallback(autoScrollFrameCallback)
     }
 
     private fun stopAutoScroll() {
+        if (!isAutoScrolling) return
         isAutoScrolling = false
-        autoScrollJob?.cancel()
-        autoScrollJob = null
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                window.__novelAutoScrollRunning = false;
-                window.__novelAutoScrollSpeed = 0;
-                window.__novelAutoScrollAccum = 0;
-                window.__novelAutoScrollLast = 0;
-            })();
-            """.trimIndent(),
-            null,
-        )
+        isAutoScrollPaused = false
+        autoScrollAccumPx = 0f
+        autoScrollLastFrameNanos = 0L
+        Choreographer.getInstance().removeFrameCallback(autoScrollFrameCallback)
     }
 
     private fun pauseAutoScroll() {
         if (!isAutoScrolling) return
-        evaluateJavascriptSafe("window.__novelAutoScrollPaused = true;", null)
+        isAutoScrollPaused = true
     }
 
     private fun resumeAutoScroll() {
         if (!isAutoScrolling) return
-        evaluateJavascriptSafe("window.__novelAutoScrollPaused = false;", null)
+        isAutoScrollPaused = false
     }
 
     /**

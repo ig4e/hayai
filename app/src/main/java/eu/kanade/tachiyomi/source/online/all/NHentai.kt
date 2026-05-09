@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewPage
 import eu.kanade.tachiyomi.source.PagePreviewSource
+import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -20,7 +21,10 @@ import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import exh.metadata.metadata.NHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
+import exh.nh.NHTags
 import exh.source.DelegatedHttpSource
+import exh.util.dropBlank
+import exh.util.trimAll
 import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchManga
 import exh.util.urlImportFetchSearchMangaSuspend
@@ -64,15 +68,83 @@ class NHentai(delegate: HttpSource, val context: Context) :
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getSearchManga"))
     override fun fetchSearchManga(page: Int, query: String, filters: FilterList) =
         urlImportFetchSearchManga(context, query) {
+            val (mergedQuery, strippedFilters) = mergeAutoCompleteTags(query, filters)
             @Suppress("DEPRECATION")
-            super<DelegatedHttpSource>.fetchSearchManga(page, query, filters)
+            super<DelegatedHttpSource>.fetchSearchManga(page, mergedQuery, strippedFilters)
         }
 
     override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
         return urlImportFetchSearchMangaSuspend(context, query) {
-            super<DelegatedHttpSource>.getSearchManga(page, query, filters)
+            val (mergedQuery, strippedFilters) = mergeAutoCompleteTags(query, filters)
+            super<DelegatedHttpSource>.getSearchManga(page, mergedQuery, strippedFilters)
         }
     }
+
+    /**
+     * Prepend an [AutoCompleteTags] filter to whatever the bundled extension exposes.
+     * The extension never sees the autocomplete filter — [mergeAutoCompleteTags] folds
+     * its chips into the query string before delegating.
+     */
+    override fun getFilterList(): FilterList {
+        val delegateFilters = super<DelegatedHttpSource>.getFilterList().toList()
+        return FilterList(listOf(AutoCompleteTags()) + delegateFilters)
+    }
+
+    /**
+     * Convert chips like `tag:big breasts`, `-language:chinese`, `~artist:foo` into nhentai's
+     * search syntax (`tag:"big breasts" -language:chinese artist:foo`) and append them to the
+     * user-typed query. Returns the rewritten query plus the filter list with all
+     * [Filter.AutoComplete] entries removed so the delegate doesn't choke on an unknown filter.
+     */
+    private fun mergeAutoCompleteTags(query: String, filters: FilterList): Pair<String, FilterList> {
+        val autoCompleteEntries = filters
+            .filterIsInstance<Filter.AutoComplete>()
+            .flatMap { it.state.trimAll().dropBlank() }
+
+        if (autoCompleteEntries.isEmpty()) return query to filters
+
+        val rendered = autoCompleteEntries.mapNotNull(::renderTag).joinToString(" ")
+        val mergedQuery = listOf(query.trim(), rendered).filter { it.isNotEmpty() }.joinToString(" ")
+        val strippedFilters = FilterList(filters.filterNot { it is Filter.AutoComplete })
+        return mergedQuery to strippedFilters
+    }
+
+    /** Format a single autocomplete chip into nhentai's `[-]namespace:value` token. */
+    private fun renderTag(raw: String): String? {
+        var tag = raw.trim()
+        if (tag.isEmpty()) return null
+        // `~` (OR) isn't part of nhentai's query syntax — treat it as include.
+        if (tag.startsWith("~")) tag = tag.removePrefix("~").trim()
+        val exclude = tag.startsWith("-")
+        if (exclude) tag = tag.removePrefix("-").trim()
+
+        val colon = tag.indexOf(':')
+        val (namespace, value) = if (colon > 0 && colon < tag.length - 1) {
+            tag.substring(0, colon).trim() to tag.substring(colon + 1).trim()
+        } else {
+            null to tag
+        }
+        if (value.isBlank()) return null
+
+        // Quote multi-word values; bare slugs (`big-breasts`) and single words don't need it.
+        val needsQuotes = value.any { it.isWhitespace() }
+        val rendered = buildString {
+            if (exclude) append('-')
+            if (namespace != null) append(namespace).append(':')
+            if (needsQuotes) append('"').append(value).append('"') else append(value)
+        }
+        return rendered
+    }
+
+    inner class AutoCompleteTags :
+        Filter.AutoComplete(
+            name = "Tags",
+            hint = "Search tags here (e.g. tag:big breasts, -language:chinese)",
+            values = NHTags.getNamespaces().map { "$it:" } + NHTags.getAllTags(context),
+            skipAutoFillTags = NHTags.getNamespaces().map { "$it:" },
+            validPrefixes = listOf("-", "~"),
+            state = emptyList(),
+        )
 
     override suspend fun getMangaDetails(manga: SManga): SManga {
         val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()

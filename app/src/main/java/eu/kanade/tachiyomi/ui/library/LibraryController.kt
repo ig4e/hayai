@@ -689,6 +689,22 @@ open class LibraryController(
         val appBar = activityBinding?.appBar ?: return
         appBar.useTabsInPreLayout = enabled
         appBar.requestLayout()
+        // The category overlay's topMargin is normally maintained by the scrollViewWith
+        // afterInsets callback, but inset events don't fire just because the tabs strip
+        // appeared/disappeared. Recompute the margin synchronously here so toggling
+        // tabbed mode while the overlay is open (or about to open) lands the overlay at
+        // the right Y instead of being clipped behind the new tabs strip.
+        view?.post {
+            val systemTop = activityBinding?.appBar?.rootWindowInsetsCompat
+                ?.getInsets(systemBars())?.top ?: 0
+            val tabsHeight = if (enabled) 48.dpToPx else 0
+            binding.categoryRecycler.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                topMargin = systemTop +
+                    (activityBinding?.searchToolbar?.height ?: 0) +
+                    tabsHeight +
+                    12.dpToPx
+            }
+        }
         if (enabled) {
             val pageRecycler = pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
             // Sync the bar to the active page's scroll offset so it lands collapsed/expanded to match.
@@ -965,8 +981,21 @@ open class LibraryController(
                 ignoreInsetVisibility = true,
                 afterInsets = { insets ->
                     val systemInsets = insets.ignoredSystemInsets
+                    // In tabbed mode the appbar carries an extra 48dp tab strip below the
+                    // search toolbar; without folding that into the category overlay's top
+                    // margin the overlay starts UNDER the tabs and its first ~48dp is
+                    // unreachable. Use the live tabsFrameLayout visibility (matches what
+                    // ExpandedAppBarLayout uses internally for height calculations).
+                    val tabsHeight = if (activityBinding?.tabsFrameLayout?.isVisible == true) {
+                        48.dpToPx
+                    } else {
+                        0
+                    }
                     binding.categoryRecycler.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                        topMargin = systemInsets.top + (activityBinding?.searchToolbar?.height ?: 0) + 12.dpToPx
+                        topMargin = systemInsets.top +
+                            (activityBinding?.searchToolbar?.height ?: 0) +
+                            tabsHeight +
+                            12.dpToPx
                     }
                     updateSmallerViewsTopMargins()
                     binding.headerCard.updateLayoutParams<ViewGroup.MarginLayoutParams> {
@@ -1728,6 +1757,15 @@ open class LibraryController(
                 updateHopperY()
             }
         }.start()
+        // In tabbed mode the libraryGridRecycler is hidden; the visible content is the
+        // libraryPager. Without translating the pager too, the all-categories overlay
+        // would be invisible (Z-order: pager sits on top of category_recycler in the
+        // FrameLayout) AND its scroll wouldn't work because the pager would intercept
+        // touches across the whole screen. Animate both — only the visible one shifts
+        // visually but updating both keeps the two layouts consistent.
+        if (binding.libraryPager.isVisible) {
+            binding.libraryPager.animate().translationY(translateY).start()
+        }
         binding.recyclerShadow.animate().translationY(translateY - 8.dpToPx).start()
         binding.recyclerCover.animate().translationY(translateY).start()
         binding.recyclerCover.animate().alpha(if (show) 0.75f else 0f).start()
@@ -1736,6 +1774,11 @@ open class LibraryController(
         setSubtitle()
         binding.categoryRecycler.isInvisible = !show
         if (show) {
+            // Pull the category overlay above the pager / grid recycler / cover so its
+            // child views actually receive scroll/click touches. bringToFront only
+            // mutates Z-order within the FrameLayout, so the appbar still sits above.
+            binding.categoryRecycler.bringToFront()
+            binding.recyclerCover.bringToFront()
             binding.categoryRecycler.post {
                 binding.categoryRecycler.scrollToCategory(activeCategory)
             }
