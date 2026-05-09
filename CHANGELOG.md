@@ -13,6 +13,27 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Additions
+- Add **Library display onboarding step** during setup that lets users choose between continuous or tabbed library view modes with visual preview cards
+- Add **Library update report screen** that displays structured results from library updates, including per-title errors, skipped entries, and reasons, accessible from Library settings and Recents. Report can be accessed via notification or viewed in-app with option to open full log file
+- Add **NHentai tag assets** (artist, character, group, parody, tag, language) with prebuilt JSON lists for local filtering and search without external API calls
+- Add **Reduce motion support** throughout the app: process-wide ValueAnimator duration scale toggle (Settings → Appearance → Motion) that disables Conductor transitions, Compose animations, Coil image crossfades, and per-Activity transitions when enabled. Reflection fallback for hidden API; per-site fallbacks where unavailable
+- Add **Novel reader accessibility & UX improvements**:
+  - Previous-chapter infinite-scroll with JS bridge, static top card, and automatic scroll-past to prevent duplicates
+  - 3×3 progress slider positioning (top/center/bottom × left/center/right) with backward-compatible migration from old single position
+  - Novel-specific default orientation preference (separate from manga) with per-series override
+  - Chapter transition card between appended chapters (mirrors manga reader style)
+  - Smooth auto-scroll with sub-pixel accumulation, pause/resume on touch, configurable speed
+  - Tap-to-scroll gating by preference for both text and WebView viewers
+  - Sentence-tap-to-TTS JS handler for WebView
+  - Overlay scrollbar for WebView with state driven from scroll metrics; native scrollbar disabled
+  - Reverse portrait orientation option
+  - Improved WebView scroll restore using requestAnimationFrame polling
+  - Text-selection quote menu: persistent localized item, always-show action, stable re-add
+- Add **Recommendation system enhancements**:
+  - Explicit recommendation content type handling (Manga/Novel) with UI badge
+  - NovelList paging source for novel recommendations
+  - NovelUpdates marked as novel content type with preference for linked tracker URL
+  - AniList and MyAnimeList filter recommendations by viewed entry's seriesType to avoid mixing manga vs novel
 - Add **Tabbed library view** as a second display mode in Settings → Library → Display. The continuous (single scroll, headers between categories) layout stays the default; tabbed renders each category on its own swipeable page with a pinned top tab strip and a per-tab item-count badge. Each tab opens at the top of its own content, the appbar collapses with per-tab scroll like the regular library, and pull-to-refresh updates only the active tab's category — refreshing the whole library moved into a new "Update library" entry in the toolbar overflow (3-dots). Custom `HorizontalAwareSwipeRefreshLayout` keeps SwipeRefreshLayout from stealing horizontal swipes, and the presenter ignores the continuous-mode collapsed-categories flag in tabbed mode so every category gets a tab. New `HorizontalEagerViewPager` lowers the pager's internal `mTouchSlop` to `scaledTouchSlop` so horizontal swipes activate at the same threshold as the inner recycler's vertical claim — matching Compose `HorizontalPager` responsiveness.
 - Add **novel reader regex find-and-replace** with a full editor in the in-reader settings sheet's Advanced tab. Each rule has a title, pattern, replacement, regex-vs-literal toggle, and a live test field that previews the result against arbitrary sample input. Rules are applied in order and persisted as JSON in `pref_novel_regex_replacements`. Ships with four prefilled (disabled-by-default) rules covering common scraped-text artifacts: zero-width characters, repeated promotional URLs, "Read more at …" footers, and mid-paragraph site watermarks.
 - Add **novel reader text normalization** under the regex editor, with two switches:
@@ -42,7 +63,37 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Per-language source toggle in the browse-page filter renamed to **Select all** (was "All sources") so it reads as a UI control rather than a phantom iconless source.
 - App icons & branding assets refreshed for all density buckets and flavors (main, debug, nightly).
 
+### Changes
+- Novel browser pagination follows LNReader contract: keep loading until plugin returns empty list
+- Plugins emitting genres joined with `","` instead of `", "` now split correctly
+- Novel summary HTML is stripped (preserving paragraph breaks) for plugins returning raw markup
+- Remove legacy native NovelViewer; consolidate all novel reading to WebView-based viewer
+- Consolidate novel TTS_VIEWPORT button into main TTS control for cleaner bottom bar
+- Novel layout preference (Display tab) renamed from Appearance to match manga terminology
+- Remove legacy infinite-scroll toggle and related UI (next-chapter button, chapter sort, short-chapter auto-marking) — continuous chapter loading is now always-on
+- Overlay menu dispatch: library 3-dot menu now shows in MainActivity's global overflow dialog instead of separate popup; "Update library" action unified with other app actions
+- NovelList tracker: correct tracking_url to use `/novels/<slug>#<uuid>` path and preserve server-side status/rating when binding
+- Preference migration: convert old single `novelProgressSliderPosition` value to 3×3 grid coordinate system with backward compatibility
+- Performance optimization: load novel plugins asynchronously to avoid blocking initial source map emission
+- Page preview: ensure ImageLoader key survives state updates to prevent thumbnail flickering
+- AppBar color-elevation animator gating for per-tab scroll to avoid unnecessary cancel/restart and visual flicker
+- Improve NovelList/Supabase session cookie parsing: handle chunked cookies split across novellist, novellist.0, novellist.1, ... and decode Base64-prefixed payloads
+- NovelUpdates recommendations: detect linked tracker URL and prioritize it
+- AniList/MyAnimeList recommendations: detect viewer's seriesType and filter recommendations to avoid mixing manga/novel results
+- EHentai gallery parsing: ignore optional favorite-color border div, prefer class-based category selection
+
 ### Fixes
+- **Fix permission step onboarding not updating Grant button state after returning from Settings.** Switched from `LifecycleEventEffect` (which deferred re-checks until composition) to `DisposableEffect` + `DefaultLifecycleObserver` so install/notification/battery permission checks fire on each resume and button state updates immediately
+- **Fix tabbed library appbar not pinned to smallHeight when scrolled.** Fast scroll deltas or residual offsets were pushing appBar.y past smallHeight into the fully-hidden zone, making search/tabs/toolbar disappear. Clamp appBar.y to smallHeight before `updateAppBarAfterY` runs
+- **Fix tabbed library appbar not collapsing on scroll.** The bar was pinned via `appBar.lockYPos = true` preventing proper collapse animations. Appbar now follows per-tab recycler scroll with `onPageRecyclerScrolled` mirroring the continuous-mode scroll behavior and `onPageSelected` resets to top
+- **Fix novel reader window inset changes not repositioning slider.** Recompute reader navigator vertical position whenever window insets change to handle immersive mode toggles and display cutout transitions
+- **Fix novel reader scroll state not restoring reliably.** Replace simple getter with requestAnimationFrame polling to avoid racing with WebView layout completion
+- **Fix SaveChapterProgress using stale page index.** ReaderViewModel was saving `chapter.last_page_read` instead of the actual `page.index` being saved, causing pager snap-back on resume
+- **Fix NovelUpdatesParser and MdUtil regex crashes on Android's ICU parser.** Escape bare `]` and `}` characters outside character classes (invalid in ICU); `[^\]]` → `[^\\]]`, bare `}` → `\\}`
+- **Fix i18n restore_duration string AAPT errors.** Multiple non-positional substitutions invalid; converted all 52 locales to positional format `%1$` and `%2$`
+- **Fix chapter transition card missing download state indicators.** Add per-row download lookup (isChapterDownloadedSafe) mirroring manga reader; render check-circle or cloud icon depending on state
+- **Fix recommendation sources not disambiguating MangaUpdates vs NovelUpdates.** Thread content type through recommendation paging sources and parser logic so novels bias toward NovelUpdates
+- **Fix EHentai gallery description parsing.** Ignore optional favorite-color border div that was breaking category extraction
 - **Fix tabbed library flashing the continuous-mode layout when opening a manga.** `mAdapter` (the continuous-mode adapter that backs `libraryGridRecycler.recycler`) was being populated with the full library data even when the user was in tabbed mode. Its view was set to `View.GONE`, but conductor's hardware-accelerated push transition was occasionally compositing the populated content through. Root-cause fix: `onNextLibraryUpdate` now passes `emptyList()` to `mAdapter` whenever `binding.libraryPager.isVisible` (i.e. the per-tab pager is the active surface), and `setupTabbedView` clears `mAdapter` immediately on entering tabbed mode so the next library update can't beat the visibility flip. `teardownTabbedView` repopulates from `presenter.libraryItemsToDisplay` when going back to continuous, so flatten-on-search and other code paths that toggle teardown without firing a fresh library update don't leave the recycler empty. `binding.libraryPager.isVisible` (rather than `isTabbedMode`) is used so sub-class picker mode (`forceShowAllCategories=true` → tabbed view torn down even when the pref is on) keeps populating `mAdapter` correctly.
 - **Fix tabbed library briefly rendering "old continuous category headers" on tab switch.** `LibraryPagerAdapter.bindCategoryItems` was passing the presenter's per-category list (which embeds `LibraryHeaderItem` at index 0 for continuous-mode rendering) straight to the per-tab adapter, then calling `hideAllHeaders()`. Flexible-adapter rendered the header item for one frame before the hide took effect. Now the header items are filtered out before `setItems`, so they never enter the page's data set.
 - **Fix tabbed library appbar not collapsing on scroll.** The bar was pinned via `appBar.lockYPos = true` so only the per-tab recycler scrolled; combined with a bg-color toggle as the elevation cue, this produced visible flickering on small libraries where scroll deltas just barely crossed the elevated/non-elevated threshold. `applyTabbedAppBarMode` no longer locks `lockYPos`, and `onPageRecyclerScrolled` / `onPageRecyclerScrollIdle` now mirror `scrollViewWith.onScrolled` / `onScrollIdle` (move `appBar.y` by `dy`, call `updateAppBarAfterY`, then `snapAppBarY` on idle). `onPageSelected` resets `appBar.y = 0f` when switching tabs so the new tab's content lines up directly under a fully-expanded bar.
@@ -75,6 +126,26 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Fix `.nomedia` not being created in download chapter directories on devices using SAF — `UniFile.renameTo` invalidates the `DocumentFile` handle on many devices, so the post-rename create silently no-op'd. Now writes `.nomedia` before the rename. CBZ branch correctly skips.
 - Guard `DownloadManager.buildPageList` against `TextSource` so callers can't surface a misleading "no pages found" for novel chapters.
 - Fix novel sources rendering without their icon in the Migrations tab — the migration `SourceHolder` now falls back to the plugin's `iconUrl` (or a book glyph) when the manga `ExtensionManager` has no app icon, matching the regular browse list. The same fallback was added to the per-manga Migrate target list.
+
+### Other
+- Migrate CI workflows to Blacksmith for improved reliability and cost optimization
+- Add Gradle sticky-disk cache (separate cache keys for PR vs release builds for untrusted fork code)
+- Pin R8 to 8.13.19 to parse Kotlin 2.3 metadata (AGP 8.12 ships an older R8 that spams warnings)
+- Update repository URLs from ig4e to HayaiApp organization (tracker user-agents, AppUpdateChecker, nightly release target, GitHub links)
+- Add scraped NHentai tags JSON assets and scrape_nhtags.py tool script
+- Separate splash and notification icon drawables: splash uses 288dp at 0.72 scale, notification uses 24dp at 0.92 scale for status bar visibility
+- Performance optimizations from perf-optimizations branch:
+  - BrowseSourcePresenter: cheap sourceManager.get() before awaitCatalogueSource; load saved searches async
+  - MangaDetailsPresenter: tracks fetch and chapters load on presenterScope/viewScope
+  - LibraryPresenter: getFirstUnread suspension and FirstUnread computation via viewScope
+  - Dynamic category lookup uses libraryPresenter.categoryNamesById cache rebuilt on library emit
+  - yokai.util.coil: drop Size.ORIGINAL for list/grid thumbnails to decode at view bounds
+  - MangaDetailsController: early-return when vibrantCoverColor cached; defer ComposeView setup with postOnAnimation
+  - DynamicGridCells annotated @Immutable for Compose stability
+  - MainActivity bottom-nav badge: distinctUntilChanged on (isDownloading, queueSize) pair
+  - ControllerExtensions fade transitions skip AnimatorSet pipeline when ReducedMotion enabled
+- Startup refactor: centralize splash lifecycle in BaseActivity via installSplash/configure/release gates; fix lifecycle leaks by cancelling SourcePresenter scope
+- MangaCoverMetadata: merge on-disk entries into in-memory maps instead of replacing; add loaded flag to prevent premature saves during IO race; use ConcurrentHashMap for thread safety
 - Fix novel sources rendering oversized in the browse-page filter list — raw `BitmapDrawable`s from Coil filled the icon slot 100% while manga `AdaptiveIconDrawable`s have a built-in ~16.7% safe zone. Novel icons are now wrapped in an `InsetDrawable` with the same fraction so both source types render at consistent visual size.
 - Fix `MergedSource` appearing in the per-manga Migrate target source list — `PreMigrationController` now filters out `BlacklistedSources.HIDDEN_SOURCES` for both manga and novel migrations.
 - Per-manga Migrate now picks the right catalogue for the entry being migrated: novels see only novel (`TextSource`) sources, manga see only `HttpSource` sources. `MigrationSourceItem`/`MigrationSourceHolder` widened from `HttpSource` to `CatalogueSource`.
