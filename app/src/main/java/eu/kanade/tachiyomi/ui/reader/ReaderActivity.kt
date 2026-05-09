@@ -519,6 +519,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     is ReaderViewModel.Event.ShareTrackingError -> {
                         showTrackingError(event.errors)
                     }
+                    is ReaderViewModel.Event.NovelVisibleChapterChanged -> {
+                        updateNovelChapterUi(event.chapter)
+                    }
                 }
             }
             .launchIn(lifecycleScope)
@@ -1876,16 +1879,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         binding.toolbar.subtitle =
             chapter.preferredChapterName(this, viewModel.manga!!, preferences)
 
-        listOfNotNull(getTitleTextView(), getSubtitleTextView()).forEach { textView ->
-            textView.ellipsize = TextUtils.TruncateAt.MARQUEE
-            textView.marqueeRepeatLimit = -1
-            textView.isSingleLine = true
-            textView.isFocusable = true
-            textView.isFocusableInTouchMode = true
-            textView.isHorizontalFadingEdgeEnabled = true
-            textView.setFadingEdgeLength(16.dpToPx)
-            textView.setHorizontallyScrolling(true)
-        }
+        updateToolbarMarquee()
 
         if (isNovelViewer) {
             binding.readerNav.leftChapter.isVisible = true
@@ -1908,6 +1902,35 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         }
         if (didTransitionFromChapter) {
             MainActivity.chapterIdToExitTo = viewerChapters.currChapter.chapter.id ?: 0L
+        }
+    }
+
+    private fun updateToolbarMarquee() {
+        listOfNotNull(getTitleTextView(), getSubtitleTextView()).forEach { textView ->
+            textView.ellipsize = TextUtils.TruncateAt.MARQUEE
+            textView.marqueeRepeatLimit = -1
+            textView.isSingleLine = true
+            textView.isFocusable = true
+            textView.isFocusableInTouchMode = true
+            textView.isHorizontalFadingEdgeEnabled = true
+            textView.setFadingEdgeLength(16.dpToPx)
+            textView.setHorizontallyScrolling(true)
+        }
+    }
+
+    private fun updateNovelChapterUi(readerChapter: ReaderChapter) {
+        if (viewer !is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) return
+        val manga = viewModel.manga ?: return
+        val readerChapterId = readerChapter.chapter.id ?: return
+        binding.toolbar.subtitle = readerChapter.chapter.preferredChapterName(this, manga, preferences)
+        updateToolbarMarquee()
+        if (didTransitionFromChapter) {
+            MainActivity.chapterIdToExitTo = readerChapterId
+        }
+        binding.readerNav.leftChapter.alpha = if (viewModel.adjacentChapter(next = false) != null) 1f else 0.5f
+        binding.readerNav.rightChapter.alpha = if (viewModel.adjacentChapter(next = true) != null) 1f else 0.5f
+        if (binding.chaptersSheet.chaptersBottomSheet.selectedChapterId != readerChapterId) {
+            binding.chaptersSheet.chaptersBottomSheet.refreshList()
         }
     }
 
