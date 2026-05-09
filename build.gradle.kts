@@ -1,5 +1,20 @@
 import java.util.Locale
 
+// Force a newer R8 than the one bundled with AGP 8.12 so it understands the
+// Kotlin metadata format emitted by Kotlin 2.3+. Without this override R8 logs:
+//   "WARNING: R8: An error occurred when parsing kotlin metadata."
+// for every class compiled by Kotlin 2.3, and may skip optimising them.
+// See: https://developer.android.com/build/kotlin-d8-r8-versions
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools:r8:8.13.19")
+    }
+}
+
 plugins {
     alias(libs.plugins.kotlinter)
     alias(libs.plugins.gradle.versions)
