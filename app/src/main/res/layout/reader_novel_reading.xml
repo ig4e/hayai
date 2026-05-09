@@ -17,12 +17,8 @@
         android:paddingTop="0dp"
         android:paddingBottom="16dp">
 
-        <eu.kanade.tachiyomi.widget.MaterialSpinnerView
-            android:id="@+id/rendering_mode"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:title="@string/novel_rendering_mode" />
+        <!-- Rendering mode spinner removed: novel reading is WebView-only after the
+             viewer consolidation. The native NovelViewer was deleted; no fallback exists. -->
 
         <eu.kanade.tachiyomi.widget.MaterialSpinnerView
             android:id="@+id/font_family"

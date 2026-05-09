@@ -23,6 +23,7 @@ import android.os.Bundle
 import android.text.TextUtils
 import android.text.style.DynamicDrawableSpan
 import android.text.style.ImageSpan
+import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -108,7 +109,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.VerticalPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
-import eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer
 import eu.kanade.tachiyomi.ui.security.SecureActivityDelegate
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
@@ -652,55 +652,29 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         val mangaId = viewModel.manga?.id ?: -1L
         val chapterId = viewModel.getCurrentChapter()?.chapter?.id ?: -1L
 
-        return when (val v = viewer) {
-            is NovelViewer -> {
-                val paused = v.isTtsPaused()
-                val speaking = v.isTtsSpeaking()
-                NovelTtsState(
-                    active = paused || speaking || v.isTtsStarting(),
-                    paused = paused,
-                    progressPercent = v.getTtsProgressPercent(),
-                    novelTitle = novelTitle,
-                    chapterTitle = chapterTitle,
-                    mangaId = mangaId,
-                    chapterId = chapterId,
-                )
-            }
-            is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer -> {
-                val paused = v.isTtsPaused()
-                val speaking = v.isTtsSpeaking()
-                NovelTtsState(
-                    active = paused || speaking || v.isTtsStarting(),
-                    paused = paused,
-                    progressPercent = v.getTtsProgressPercent(),
-                    novelTitle = novelTitle,
-                    chapterTitle = chapterTitle,
-                    mangaId = mangaId,
-                    chapterId = chapterId,
-                )
-            }
-            else -> null
-        }
+        val v = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer ?: return null
+        val paused = v.isTtsPaused()
+        val speaking = v.isTtsSpeaking()
+        return NovelTtsState(
+            active = paused || speaking || v.isTtsStarting(),
+            paused = paused,
+            progressPercent = v.getTtsProgressPercent(),
+            novelTitle = novelTitle,
+            chapterTitle = chapterTitle,
+            mangaId = mangaId,
+            chapterId = chapterId,
+        )
     }
 
     private fun stopAnyActiveNovelTts() {
-        when (val v = viewer) {
-            is NovelViewer -> if (v.isTtsSpeaking() || v.isTtsPaused()) v.stopTts()
-            is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer ->
-                if (v.isTtsSpeaking() || v.isTtsPaused()) v.stopTts()
-            else -> Unit
-        }
+        val v = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer ?: return
+        if (v.isTtsSpeaking() || v.isTtsPaused()) v.stopTts()
     }
 
     private fun togglePauseResumeFromNotification() {
-        when (val v = viewer) {
-            is NovelViewer -> {
-                if (v.isTtsSpeaking()) v.pauseTts() else if (v.isTtsPaused()) v.resumeTts()
-            }
-            is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer -> {
-                if (v.isTtsSpeaking()) v.pauseTts() else if (v.isTtsPaused()) v.resumeTts()
-            }
-            else -> Unit
+        val v = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+        if (v != null) {
+            if (v.isTtsSpeaking()) v.pauseTts() else if (v.isTtsPaused()) v.resumeTts()
         }
         syncBackgroundTtsState()
         novelActionBarTickState.value = novelActionBarTickState.value + 1
@@ -800,8 +774,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     private fun updateCropBordersShortcut() {
-        val isNovel = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
-            viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+        val isNovel = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
         val isPagerType = viewer is PagerViewer || (viewer as? WebtoonViewer)?.hasMargins == true
         val enabled = when {
             isNovel -> readerPreferences.novelMarginsCropped.get()
@@ -841,8 +814,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             doublePage.isVisible = viewer is PagerViewer &&
                 ReaderBottomButton.PageLayout.isIn(enabledButtons)
             cropBordersSheetButton.isVisible = when {
-                viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
-                    viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer -> true
+                viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer -> true
                 viewer is PagerViewer ->
                     ReaderBottomButton.CropBordersPaged.isIn(enabledButtons)
                 else -> ReaderBottomButton.CropBordersWebtoon.isIn(enabledButtons)
@@ -1031,8 +1003,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 }
             }
             cropBordersSheetButton.setOnClickListener {
-                val isNovel = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
-                    viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+                val isNovel = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
                 val pref = when {
                     isNovel -> readerPreferences.novelMarginsCropped
                     (viewer as? WebtoonViewer)?.hasMargins == true || viewer is PagerViewer ->
@@ -1065,9 +1036,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
 
             displayOptions.setOnClickListener {
-                if (viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
-                    viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
-                ) {
+                if (viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) {
                     eu.kanade.tachiyomi.ui.reader.settings.TabbedNovelReaderSettingsSheet(this@ReaderActivity).show()
                 } else {
                     TabbedReaderSettingsSheet(this@ReaderActivity).show()
@@ -1075,9 +1044,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
 
             displayOptions.setOnLongClickListener {
-                if (viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelViewer ||
-                    viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
-                ) {
+                if (viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) {
                     eu.kanade.tachiyomi.ui.reader.settings.TabbedNovelReaderSettingsSheet(this@ReaderActivity).show()
                 } else {
                     TabbedReaderSettingsSheet(this@ReaderActivity, true).show()
@@ -1168,7 +1135,8 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             if (viewer != null && fromUser) {
                 val prevValue = (viewer as? PagerViewer)?.pager?.currentItem ?: -1
                 when (val currentViewer = viewer) {
-                    is NovelViewer -> currentViewer.setProgressPercent(value.roundToInt())
+                    is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer ->
+                        currentViewer.setProgressPercent(value.roundToInt())
                     else -> moveToPageIndex(value.roundToInt())
                 }
                 val newValue = (viewer as? PagerViewer)?.pager?.currentItem ?: -1
@@ -1181,7 +1149,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         }
 
         binding.readerNav.pageSeekbar.setLabelFormatter { value ->
-            if (viewer is NovelViewer) {
+            if (viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) {
                 return@setLabelFormatter "${value.roundToInt()}%"
             }
 
@@ -1475,15 +1443,10 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     // the displayed TTS / auto-scroll booleans pick up out-of-band state.
                     @Suppress("UNUSED_VARIABLE")
                     val tick = novelActionBarTickState.value
-                    val novel = viewer as? NovelViewer
                     val novelWeb = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
-                    val ttsActive = novel?.isTtsSpeaking() == true ||
-                        novel?.isTtsPaused() == true ||
-                        novelWeb?.isTtsSpeaking() == true ||
-                        novelWeb?.isTtsPaused() == true
-                    val ttsPaused = novel?.isTtsPaused() == true || novelWeb?.isTtsPaused() == true
-                    val autoScrolling = novel?.isAutoScrollActive() == true ||
-                        novelWeb?.isAutoScrollActive() == true
+                    val ttsActive = novelWeb?.isTtsSpeaking() == true || novelWeb?.isTtsPaused() == true
+                    val ttsPaused = novelWeb?.isTtsPaused() == true
+                    val autoScrolling = novelWeb?.isAutoScrollActive() == true
                     hayai.novel.reader.bars.NovelReaderActionBar(
                         visible = visible,
                         isTtsActive = ttsActive,
@@ -1491,13 +1454,8 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                         isAutoScrolling = autoScrolling,
                         onToggleTts = {
                             var startedFresh = false
-                            when {
-                                novel != null -> when {
-                                    novel.isTtsPaused() -> novel.resumeTts()
-                                    novel.isTtsSpeaking() -> novel.pauseTts()
-                                    else -> { novel.startTts(); startedFresh = true }
-                                }
-                                novelWeb != null -> when {
+                            if (novelWeb != null) {
+                                when {
                                     novelWeb.isTtsPaused() -> novelWeb.resumeTts()
                                     novelWeb.isTtsSpeaking() -> novelWeb.pauseTts()
                                     else -> { novelWeb.startTts(); startedFresh = true }
@@ -1507,21 +1465,19 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                             novelActionBarTickState.value = novelActionBarTickState.value + 1
                         },
                         onLongPressTts = {
-                            novel?.stopTts() ?: novelWeb?.stopTts()
+                            novelWeb?.stopTts()
                             stopBackgroundTtsIfRunning()
                             novelActionBarTickState.value = novelActionBarTickState.value + 1
                         },
-                        onTtsStartFromViewport = {
-                            novel?.startTtsFromViewport() ?: novelWeb?.startTtsFromViewport()
-                            startBackgroundTtsIfEnabled()
-                            novelActionBarTickState.value = novelActionBarTickState.value + 1
-                        },
+                        // onTtsStartFromViewport removed: the TTS_VIEWPORT button was
+                        // consolidated into the main TTS toggle (which now starts from the
+                        // top of the chapter on the first tap, then pauses/resumes).
                         onToggleAutoScroll = {
-                            novel?.toggleAutoScroll() ?: novelWeb?.toggleAutoScroll()
+                            novelWeb?.toggleAutoScroll()
                             novelActionBarTickState.value = novelActionBarTickState.value + 1
                         },
                         onScrollToTop = {
-                            novel?.scrollToTop() ?: novelWeb?.scrollToTop()
+                            novelWeb?.scrollToTop()
                         },
                         onClickFindReplace = {
                             hayai.novel.reader.settings.showNovelFindReplaceSheet(this@ReaderActivity)
@@ -1563,6 +1519,79 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     /**
+     * Reposition the chapter-nav layout (slider + prev/next chapter) and the novel action bar
+     * based on [ReaderPreferences.novelProgressSliderPosition].
+     *
+     * Default ("bottom") matches the manga reader: nav_layout is anchored to chapters_sheet,
+     * with the action bar stacked just above it. "top" pins the slider under the toolbar so
+     * it's reachable while reading content high on the page; "center" parks it at the vertical
+     * midline for one-handed scrubbing. In both non-bottom modes the action bar is re-anchored
+     * back to chapters_sheet so TTS/auto-scroll/find-replace stay reachable at the bottom of
+     * the screen instead of following the slider away from the user's thumb.
+     *
+     * Foldables: the hinge-gap branch (init block, line ~537) overrides nav width on dual-pane
+     * layouts before this runs once per pref change. Re-running this from a hinge update would
+     * stomp that width — currently the foldable path only fires on layout-info changes, which
+     * happen rarely enough that we don't bother re-merging.
+     */
+    private fun applyNovelNavLayoutPosition() {
+        val isNovelViewer = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+        val position = if (isNovelViewer) {
+            readerPreferences.novelProgressSliderPosition.get()
+        } else {
+            "bottom"
+        }
+        val twelveDp = 12.dpToPx
+        binding.navLayout.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+            when (position) {
+                "top" -> {
+                    anchorId = View.NO_ID
+                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                    // ?attr/actionBarSize resolved at runtime; falls back to 56dp.
+                    val typed = TypedValue()
+                    val toolbarPx = if (theme.resolveAttribute(android.R.attr.actionBarSize, typed, true)) {
+                        TypedValue.complexToDimensionPixelSize(typed.data, resources.displayMetrics)
+                    } else {
+                        56.dpToPx
+                    }
+                    topMargin = toolbarPx +
+                        (binding.root.rootWindowInsetsCompat?.getInsets(systemBars())?.top ?: 0)
+                    bottomMargin = 0
+                    width = CoordinatorLayout.LayoutParams.MATCH_PARENT
+                }
+                "center" -> {
+                    anchorId = View.NO_ID
+                    gravity = Gravity.CENTER
+                    topMargin = 0
+                    bottomMargin = 0
+                    width = CoordinatorLayout.LayoutParams.MATCH_PARENT
+                }
+                else -> { // "bottom" / default
+                    anchorId = R.id.chapters_sheet
+                    anchorGravity = Gravity.TOP
+                    gravity = Gravity.TOP
+                    topMargin = 0
+                    bottomMargin = 0
+                    width = CoordinatorLayout.LayoutParams.MATCH_PARENT
+                }
+            }
+            // Preserve horizontal margins applied by the inset listener (line ~1222).
+            marginStart = max(twelveDp, marginStart)
+            marginEnd = max(twelveDp, marginEnd)
+        }
+        // Re-anchor the action bar so it stays reachable even when the slider moves up.
+        novelActionBarComposeView?.updateLayoutParams<CoordinatorLayout.LayoutParams> {
+            if (position == "bottom") {
+                anchorId = R.id.nav_layout
+            } else {
+                anchorId = R.id.chapters_sheet
+            }
+            anchorGravity = Gravity.TOP
+            gravity = Gravity.TOP
+        }
+    }
+
+    /**
      * Called from the view model when a manga is ready. Used to instantiate the appropriate viewer
      * and the binding.toolbar title.
      */
@@ -1576,10 +1605,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             ReadingModeType.LONG_STRIP.flagValue -> WebtoonViewer(this)
             ReadingModeType.CONTINUOUS_VERTICAL.flagValue -> WebtoonViewer(this, hasMargins = true)
             // NOVEL -->
-            ReadingModeType.NOVEL.flagValue -> when (readerPreferences.novelRenderingMode.get()) {
-                "webview" -> eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer(this)
-                else -> NovelViewer(this)
-            }
+            // Novel reading is WebView-only as of the viewer consolidation. The legacy
+            // native NovelViewer was deleted; the `novelRenderingMode` preference is gone.
+            // Keeping the WHEN branch lets ReadingModeType.NOVEL stay distinct so manga
+            // viewer flags don't accidentally route a novel through a Pager/Webtoon.
+            ReadingModeType.NOVEL.flagValue ->
+                eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer(this)
             // NOVEL <--
             else -> R2LPagerViewer(this)
         }
@@ -1627,11 +1658,14 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         binding.viewerContainer.addView(newViewer.getView())
 
         // Mount/dismount the Compose overlay that hosts the novel-only action bar.
-        if (newViewer is NovelViewer || newViewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) {
+        if (newViewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) {
             mountNovelActionBarIfNeeded()
         } else {
             removeNovelActionBar()
         }
+        // Position the slider/nav (top/center/bottom) — must run after the action bar is
+        // mounted so it can re-anchor that view too.
+        applyNovelNavLayoutPosition()
 
         if (newViewer is R2LPagerViewer) {
             binding.readerNav.leftChapter.compatToolTipText = getString(MR.strings.next_chapter)
@@ -1722,7 +1756,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             indexPageToShift = null
         }
         val currentChapterPageCount = viewerChapters.currChapter.pages?.size ?: 1
-        val isNovelViewer = viewer is NovelViewer
+        val isNovelViewer = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
         binding.readerNav.root.visibility = when {
             isNovelViewer && binding.chaptersSheet.root.sheetBehavior.isCollapsed() -> View.VISIBLE
             !isNovelViewer && currentChapterPageCount == 1 -> View.GONE
@@ -1731,8 +1765,13 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         }
 
         if (isNovelViewer) {
-            binding.readerNav.pageSeekbar.isVisible = true
-            binding.readerNav.pageSeekbar.isEnabled = true
+            // Honour the user's "Show progress slider" preference instead of force-showing.
+            // Previously the slider was unconditionally pinned visible here, which fought
+            // the preference: toggling the pref off had no effect because setChapters
+            // re-set it to true on every chapter rebind.
+            val showSlider = readerPreferences.novelShowProgressSlider.get()
+            binding.readerNav.pageSeekbar.isVisible = showSlider
+            binding.readerNav.pageSeekbar.isEnabled = showSlider
             binding.readerNav.leftPageText.isVisible = false
             binding.readerNav.rightPageText.isVisible = false
         } else {
@@ -1893,7 +1932,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     fun onPageSelected(page: ReaderPage, hasExtraPage: Boolean) {
         viewModel.onPageSelected(page, hasExtraPage)
 
-        if (viewer is NovelViewer) {
+        if (viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) {
             if (binding.chaptersSheet.chaptersBottomSheet.selectedChapterId != page.chapter.chapter.id) {
                 binding.chaptersSheet.chaptersBottomSheet.refreshList()
             }
@@ -2499,6 +2538,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 .launchIn(scope)
 
             preferences.readerBottomButtons().changesIn(scope) { updateBottomShortcuts() }
+
+            // React to live changes from the novel quick-settings sheet so the slider snaps
+            // to the new position without re-creating the viewer.
+            readerPreferences.novelProgressSliderPosition.changes().onEach {
+                applyNovelNavLayoutPosition()
+            }.launchIn(scope)
         }
 
         /**

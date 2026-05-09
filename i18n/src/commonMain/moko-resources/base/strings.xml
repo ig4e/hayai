@@ -1723,10 +1723,9 @@
     <string name="novel_reader_settings_summary">Text rendering, themes, TTS, custom CSS / JS</string>
 
     <!-- Novel reader settings -->
-    <string name="novel_rendering_mode">Rendering mode</string>
-    <string name="novel_rendering_mode_default">Native</string>
-    <string name="novel_rendering_mode_webview">WebView</string>
-    <string name="novel_use_original_fonts">Use original fonts (WebView only)</string>
+    <!-- novel_rendering_mode strings removed: novels render via WebView only after the
+         viewer consolidation. -->
+    <string name="novel_use_original_fonts">Use original fonts</string>
     <string name="novel_use_original_fonts_summary">Preserve fonts from the source website</string>
     <string name="novel_text_align_left">Left</string>
     <string name="novel_text_align_center">Center</string>
@@ -1739,8 +1738,12 @@
     <string name="novel_volume_keys_scroll">Volume keys scroll</string>
     <string name="novel_tap_to_scroll">Tap to scroll</string>
     <string name="novel_swipe_navigation">Swipe to change chapters</string>
-    <string name="novel_text_selectable">Selectable text (WebView)</string>
+    <string name="novel_text_selectable">Selectable text</string>
     <string name="novel_show_progress_slider">Show progress slider</string>
+    <string name="novel_progress_slider_position">Progress slider position</string>
+    <string name="novel_progress_slider_position_top">Top</string>
+    <string name="novel_progress_slider_position_center">Center</string>
+    <string name="novel_progress_slider_position_bottom">Bottom</string>
     <string name="novel_auto_scroll_speed">Auto-scroll speed</string>
     <string name="novel_content">Content</string>
     <string name="novel_enable_epub_styles">Apply EPUB styles</string>

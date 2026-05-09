@@ -120,7 +120,6 @@ fun NovelReaderBars(
     isTtsPaused: Boolean,
     onToggleTts: () -> Unit,
     onLongPressTts: () -> Unit,
-    onTtsStartFromViewport: () -> Unit,
     // Customization
     bottomBarItems: List<BottomBarItemState>,
     isWebView: Boolean,
@@ -198,7 +197,6 @@ fun NovelReaderBars(
                         isTtsPaused = isTtsPaused,
                         onToggleTts = onToggleTts,
                         onLongPressTts = onLongPressTts,
-                        onTtsStartFromViewport = onTtsStartFromViewport,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp),
@@ -315,7 +313,6 @@ private fun NovelBottomBar(
     isTtsPaused: Boolean,
     onToggleTts: () -> Unit,
     onLongPressTts: () -> Unit,
-    onTtsStartFromViewport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // EDIT only renders in WebView mode (it relies on contentEditable). Translation is still
@@ -415,16 +412,7 @@ private fun NovelBottomBar(
                         modifier = Modifier.size(iconSize),
                     )
                 }
-                BottomBarItem.TTS_VIEWPORT -> IconButton(
-                    onClick = onTtsStartFromViewport,
-                    modifier = Modifier.size(buttonSize),
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.PlayCircle,
-                        contentDescription = "Start TTS here",
-                        modifier = Modifier.size(iconSize),
-                    )
-                }
+                // TTS_VIEWPORT removed: see BottomBarItem comment.
                 BottomBarItem.SETTINGS -> IconButton(
                     onClick = onClickSettings,
                     modifier = Modifier.size(buttonSize),

@@ -90,7 +90,6 @@ fun NovelReaderActionBar(
     isAutoScrolling: Boolean,
     onToggleTts: () -> Unit,
     onLongPressTts: () -> Unit,
-    onTtsStartFromViewport: () -> Unit,
     onToggleAutoScroll: () -> Unit,
     onScrollToTop: () -> Unit,
     onClickFindReplace: () -> Unit,
@@ -162,15 +161,9 @@ fun NovelReaderActionBar(
                     )
                 }
 
-                ActionBarButton(
-                    icon = Icons.Outlined.PlayCircle,
-                    contentDescription = stringResource(MR.strings.start_tts_here),
-                    onClick = onTtsStartFromViewport,
-                    tint = iconTint,
-                    rippleColor = rippleColor,
-                    iconSize = iconSize,
-                    buttonSize = buttonSize,
-                )
+                // Second "start TTS here" button removed: the main TTS button above starts
+                // from the top on first tap, becomes pause/resume thereafter, and long-press
+                // resets — single icon now drives the whole TTS lifecycle.
 
                 ActionBarButton(
                     icon = if (isAutoScrolling) Icons.Outlined.Stop else Icons.Outlined.SwapVert,

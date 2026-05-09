@@ -29,6 +29,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.BaseViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
+import eu.kanade.tachiyomi.ui.reader.viewer.calculateChapterDifference
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -257,6 +258,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                         }
                     }
                 }
+                // First chunk in a fresh playback — sentence-tap should now navigate TTS
+                // (the user pref `novelTtsTapToStart` still has to be on; the helper gates).
+                activity.runOnUiThread { refreshSentenceTapToTtsState() }
             }
 
             override fun onDone(utteranceId: String?) {
@@ -676,10 +680,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 }
         }
 
-        // Toggle the JS-side click handler when the sentence-tap-to-TTS pref flips.
+        // Re-evaluate sentence-tap-to-TTS when the master preference flips. We call the
+        // gated refresh (not setSentenceTapToTtsEnabled directly) so the pref-on case
+        // still respects the "TTS must currently be active" rule.
         scope.launch {
-            preferences.novelTtsTapToStart.changes().drop(1).collect { enabled ->
-                activity.runOnUiThread { setSentenceTapToTtsEnabled(enabled) }
+            preferences.novelTtsTapToStart.changes().drop(1).collect {
+                activity.runOnUiThread { refreshSentenceTapToTtsState() }
             }
         }
 
@@ -975,7 +981,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             (function() {
                 if (window.__novelTtsClickInstalled) return;
                 window.__novelTtsClickInstalled = true;
-                window.__novelTtsClickEnabled = ${preferences.novelTtsTapToStart.get()};
+                // Initialise OFF: sentence-tap only navigates TTS when TTS is currently
+                // active. The Kotlin side flips this true via setSentenceTapToTtsEnabled
+                // once both the master pref is on AND TTS is speaking/paused.
+                window.__novelTtsClickEnabled = false;
                 var SELECTORS = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
                 document.addEventListener('click', function(e) {
                     if (!window.__novelTtsClickEnabled) return;
@@ -1013,12 +1022,25 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
     /**
      * Toggles whether a single tap on a paragraph starts TTS from there. Off by default
-     * so a casual tap doesn't accidentally start the engine; enabled while the user is
-     * actively in TTS mode (or via a future preference).
+     * so a casual tap doesn't accidentally start the engine; the public hook is
+     * [refreshSentenceTapToTtsState] which gates the JS flag on `(pref ON) && (TTS active)`.
      */
     fun setSentenceTapToTtsEnabled(enabled: Boolean) {
         val flag = if (enabled) "true" else "false"
         evaluateJavascriptSafe("window.__novelTtsClickEnabled = $flag;", null)
+    }
+
+    /**
+     * Recompute whether a sentence-tap should drive TTS based on current state. Sentence-tap
+     * activates ONLY while TTS is already speaking or paused — otherwise stray taps on text
+     * would unexpectedly start the engine. The user pref [novelTtsTapToStart] is a master
+     * enable: when off, sentence-tap is always disabled regardless of TTS state. Call this
+     * after any TTS state transition (start, pause, resume, stop, utterance done).
+     */
+    fun refreshSentenceTapToTtsState() {
+        val prefOn = preferences.novelTtsTapToStart.get()
+        val ttsActive = isTtsSpeaking() || isTtsPaused()
+        setSentenceTapToTtsEnabled(prefOn && ttsActive)
     }
 
     private fun injectScrollTracking() {
@@ -1538,6 +1560,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
             withContext(Dispatchers.Main) {
                 if (isAppendOrPrepend) {
+                    // Capture the existing edge chapter BEFORE mutating loadedChapters so the
+                    // transition card binds the right "from" → "to" pair. Without this snapshot
+                    // the prepend/append helpers would see the just-inserted chapter as the
+                    // anchor and label the card "Finished: <new>" / "Next: <new>".
+                    val fromChapter = if (isPrepend) loadedChapters.firstOrNull() else loadedChapters.lastOrNull()
                     if (!loadedChapterIds.contains(chapterId)) {
                         if (isPrepend) {
                             loadedChapterIds.add(0, chapterId)
@@ -1550,9 +1577,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                         }
                     }
                     if (isPrepend) {
-                        prependHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+                        prependHtmlContent(renderableContent, chapterId, chapter, fromChapter)
                     } else {
-                        appendHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+                        appendHtmlContent(renderableContent, chapterId, chapter, fromChapter)
                     }
                 } else {
                     loadHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
@@ -1569,11 +1596,28 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
 
     /**
-     * Prepend content to the existing WebView for infinite scroll (loading previous chapter)
+     * Prepend content to the existing WebView for infinite scroll (loading previous chapter).
+     *
+     * Inserts a "Previous: <new>" / "Current: <existing top>" transition card BETWEEN the
+     * prepended chapter and the previously-first chapter — i.e. above the boundary marker
+     * that anchors the previously-first content. The user scrolling up sees:
+     *
+     *     [prepended chapter content]
+     *     [transition card: Previous / Current]
+     *     [previously-first chapter content (unchanged)]
+     *
+     * Scroll-position preservation: we measure the document height delta after the DOM
+     * mutates and offset `window.scrollTo` by that diff so the user's reading position
+     * doesn't jump when the new content shifts everything below it.
      */
-    private fun prependHtmlContent(content: String, chapterId: Long, chapterName: String, chapterUrl: String?) {
+    private fun prependHtmlContent(
+        content: String,
+        chapterId: Long,
+        chapter: ReaderChapter,
+        fromChapter: ReaderChapter?,
+    ) {
+        val chapterUrl = chapter.chapter.url
         val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(chapterUrl)
-        // Strip script/style/noscript tags from content
         var cleanContent = if (plainTextMode) {
             NovelViewerTextUtils.normalizePlainTextContent(content)
         } else {
@@ -1588,34 +1632,49 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
         val escapedContent = JSONObject.quote(cleanContent)
 
+        // Visible Prev/Current card. `from` is the previously-top chapter (the one the user
+        // is scrolling up from); `to` is the chapter being prepended above it.
+        val transitionHtml = buildTransitionCardHtml(from = fromChapter, to = chapter, isNext = false)
+        val escapedTransition = JSONObject.quote(transitionHtml)
+
         val js = """
             (function() {
                 var oldHeight = document.body.scrollHeight;
                 var oldScrollY = window.scrollY || window.pageYOffset;
 
+                // Boundary marker for the prepended chapter (kept invisible — same
+                // shape as the initial chapter divider in loadHtmlContent).
+                var marker = document.createElement('div');
+                marker.className = 'chapter-divider';
+                marker.setAttribute('data-chapter-id', '$chapterId');
+                marker.style.height = '0';
+                marker.style.margin = '0';
+                marker.style.padding = '0';
+
+                // Visible transition card sits between the prepended content and the
+                // previously-first content (which already has its own boundary marker).
+                var transition = document.createElement('div');
+                transition.className = 'chapter-divider chapter-transition';
+                transition.setAttribute('data-chapter-id', '$chapterId');
+                transition.innerHTML = $escapedTransition;
+
+                // New chapter content above the visible card.
                 var contentDiv = document.createElement('div');
                 contentDiv.className = 'chapter-content';
                 contentDiv.setAttribute('data-chapter-id', '$chapterId');
                 ${if (plainTextMode) "contentDiv.textContent = $escapedContent;" else "contentDiv.innerHTML = $escapedContent;"}
 
-                var divider = document.createElement('div');
-                divider.className = 'chapter-divider';
-                divider.setAttribute('data-chapter-id', '$chapterId');
-
                 var firstChild = document.body.firstChild;
-                document.body.insertBefore(contentDiv, firstChild);
-                document.body.insertBefore(divider, contentDiv);
+                document.body.insertBefore(transition, firstChild);
+                document.body.insertBefore(contentDiv, transition);
+                document.body.insertBefore(marker, contentDiv);
 
-                // Restore scroll position
-                // Use setTimeout to ensure layout is updated
                 setTimeout(function() {
                     var newHeight = document.body.scrollHeight;
                     var diff = newHeight - oldHeight;
                     if (diff > 0) {
                         window.scrollTo(0, oldScrollY + diff);
                     }
-
-                    // Update chapter boundaries after DOM update
                     if (typeof window.updateChapterBoundaries === 'function') {
                         window.updateChapterBoundaries();
                     }
@@ -1624,21 +1683,29 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         """.trimIndent()
 
         evaluateJavascriptSafe(js, null)
-
-        // Re-run custom JS for newly prepended DOM so selector-based scripts apply consistently.
         webView.postDelayed({ injectCustomScript() }, 120)
-
         Logger.d {
-            "NovelWebViewViewer: Prepended chapter $chapterId (${loadedChapterIds.size} total)"
+            "NovelWebViewViewer: Prepended chapter $chapterId with transition (${loadedChapterIds.size} total)"
         }
     }
 
     /**
-     * Append content to the existing WebView for infinite scroll
+     * Append content to the existing WebView for infinite scroll.
+     *
+     * Renders a "Finished: <prev>" / "Next: <new>" transition card mirroring the manga
+     * ReaderTransitionView (Compose `ChapterTransition.Next`): two stacked rows with the
+     * `titleMedium` label, the `titleLarge` chapter name, an optional scanlator subtitle
+     * line, an inline cloud icon next to the chapter name, and a missing-chapters warning
+     * card slotted between the rows when a numerical gap is detected.
      */
-    private fun appendHtmlContent(content: String, chapterId: Long, chapterName: String, chapterUrl: String?) {
+    private fun appendHtmlContent(
+        content: String,
+        chapterId: Long,
+        chapter: ReaderChapter,
+        fromChapter: ReaderChapter?,
+    ) {
+        val chapterUrl = chapter.chapter.url
         val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(chapterUrl)
-        // Strip script/style/noscript tags from content
         var cleanContent = if (plainTextMode) {
             NovelViewerTextUtils.normalizePlainTextContent(content)
         } else {
@@ -1652,26 +1719,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             cleanContent = stripMediaTags(cleanContent)
         }
         val escapedContent = JSONObject.quote(cleanContent)
-
-        // Build a rich transition card (mirrors the manga reader's ReaderTransitionView):
-        // shows "Finished: <prev>" + "Next: <new>" so the chapter handoff is visible
-        // mid-scroll instead of being a bare horizontal rule.
-        val prevChapterName = loadedChapters.lastOrNull()?.chapter?.name.orEmpty()
-        val finishedLabel = JSONObject.quote(activity.getString(MR.strings.finished_chapter))
-        val nextLabel = JSONObject.quote(activity.getString(MR.strings.next_title))
-        val escapedPrevName = JSONObject.quote(prevChapterName)
-        val escapedNextName = JSONObject.quote(chapterName)
+        val transitionHtml = buildTransitionCardHtml(from = fromChapter, to = chapter, isNext = true)
+        val escapedTransition = JSONObject.quote(transitionHtml)
 
         val js = """
             (function() {
                 var divider = document.createElement('div');
                 divider.className = 'chapter-divider chapter-transition';
                 divider.setAttribute('data-chapter-id', '$chapterId');
-                divider.innerHTML =
-                    '<div class="ch-trans-row"><div class="ch-trans-label">' + $finishedLabel + '</div>' +
-                    '<div class="ch-trans-title">' + $escapedPrevName + '</div></div>' +
-                    '<div class="ch-trans-row"><div class="ch-trans-label">' + $nextLabel + '</div>' +
-                    '<div class="ch-trans-title">' + $escapedNextName + '</div></div>';
+                divider.innerHTML = $escapedTransition;
                 document.body.appendChild(divider);
 
                 var contentDiv = document.createElement('div');
@@ -1680,7 +1736,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 ${if (plainTextMode) "contentDiv.textContent = $escapedContent;" else "contentDiv.innerHTML = $escapedContent;"}
                 document.body.appendChild(contentDiv);
 
-                // Update chapter boundaries after DOM update
                 setTimeout(function() {
                     if (typeof window.updateChapterBoundaries === 'function') {
                         window.updateChapterBoundaries();
@@ -1690,12 +1745,102 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         """.trimIndent()
 
         evaluateJavascriptSafe(js, null)
-
-        // Re-run custom JS for newly appended DOM so selector-based scripts apply consistently.
         webView.postDelayed({ injectCustomScript() }, 120)
-
         Logger.d { "NovelWebViewViewer: Appended chapter $chapterId (${loadedChapterIds.size} total)" }
     }
+
+    /**
+     * Build the inner HTML for a chapter-transition card. Mirrors the layout of
+     * `yokai.presentation.reader.ChapterTransition` (manga widget):
+     *
+     *   - top row: header label (titleMedium spirit) + chapter name (titleLarge, ~20sp) + cloud icon + scanlator
+     *   - 24dp spacer
+     *   - optional missing-chapters warning card (OutlinedCard with warning icon)
+     *   - bottom row: same shape as top
+     *   - or a "no next/previous chapter" fallback notification card if [to] is null
+     *
+     * `currentColor` lets the card inherit whatever `novelFontColor` body is using, so
+     * the theming follows the active novel theme automatically. The warning/end-of-book
+     * cards use a 1px outline at 40% opacity to stay visible on every theme without
+     * needing a per-theme palette.
+     */
+    private fun buildTransitionCardHtml(from: ReaderChapter?, to: ReaderChapter, isNext: Boolean): String {
+        val topLabelStr: String
+        val topChapter: ReaderChapter?
+        val bottomLabelStr: String
+        val bottomChapter: ReaderChapter?
+        val fallbackLabelStr: String
+        if (isNext) {
+            topLabelStr = activity.getString(MR.strings.finished_chapter)
+            topChapter = from
+            bottomLabelStr = activity.getString(MR.strings.next_title)
+            bottomChapter = to
+            fallbackLabelStr = activity.getString(MR.strings.theres_no_next_chapter)
+        } else {
+            topLabelStr = activity.getString(MR.strings.previous_title)
+            topChapter = to
+            bottomLabelStr = activity.getString(MR.strings.current_chapter)
+            bottomChapter = from
+            fallbackLabelStr = activity.getString(MR.strings.theres_no_previous_chapter)
+        }
+
+        val gap = if (from != null) {
+            val higher = if (isNext) to else from
+            val lower = if (isNext) from else to
+            calculateChapterDifference(higher, lower).toInt().coerceAtLeast(0)
+        } else {
+            0
+        }
+
+        val gapHtml = if (gap > 0) {
+            // moko-resources Context extension (yokai.util.lang.getString) routes through
+            // StringDesc.PluralFormatted so the quantity selects the right plural form.
+            val warning = activity.getString(MR.plurals.missing_chapters_warning, gap, gap)
+            """<div class="ch-trans-warning">$WARNING_ICON_SVG<span>${escapeHtml(warning)}</span></div>"""
+        } else {
+            ""
+        }
+
+        val topHtml = if (topChapter != null) {
+            renderChapterRow(topLabelStr, topChapter)
+        } else {
+            renderFallbackNotice(fallbackLabelStr)
+        }
+        val bottomHtml = if (bottomChapter != null) {
+            renderChapterRow(bottomLabelStr, bottomChapter)
+        } else {
+            renderFallbackNotice(fallbackLabelStr)
+        }
+
+        return buildString {
+            append(topHtml)
+            append(gapHtml)
+            append(bottomHtml)
+        }
+    }
+
+    private fun renderChapterRow(label: String, chapter: ReaderChapter): String {
+        val name = chapter.chapter.name
+        val scanlator = chapter.chapter.scanlator?.takeIf { it.isNotBlank() }
+        val scanlatorHtml = scanlator?.let {
+            """<div class="ch-trans-scanlator">${escapeHtml(it)}</div>"""
+        }.orEmpty()
+        return """
+            <div class="ch-trans-row">
+                <div class="ch-trans-label">${escapeHtml(label)}</div>
+                <div class="ch-trans-title">$CLOUD_ICON_SVG<span>${escapeHtml(name)}</span></div>
+                $scanlatorHtml
+            </div>
+        """.trimIndent()
+    }
+
+    private fun renderFallbackNotice(text: String): String {
+        return """<div class="ch-trans-notice">$INFO_ICON_SVG<span>${escapeHtml(text)}</span></div>"""
+    }
+
+    private fun escapeHtml(value: String): String =
+        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace("\"", "&quot;").replace("'", "&#39;")
 
     private fun loadHtmlContent(
         content: String,
@@ -1810,26 +1955,75 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                         opacity: 0.4;
                         width: 60%;
                     }
-                    /* Transition card shown between chapters during continuous scroll. */
+                    /* Transition between chapters during continuous scroll. Mirrors the
+                       manga ReaderTransitionView: a centered label header in the
+                       titleMedium spirit, followed by a large titleLarge-sized chapter
+                       name with an inline cloud "online" icon, an optional scanlator
+                       subtitle (bodySmall, secondary alpha), a 24dp gap-spacer between
+                       rows, and an optional missing-chapters warning card slotted between
+                       the rows. The "outer" card has no border — only the warning and
+                       end-of-book notice are wrapped in an outlined Surface, exactly like
+                       the manga widget which uses OutlinedCard for those alerts only. */
                     .chapter-transition {
-                        margin: 48px auto;
-                        padding: 24px 16px;
-                        max-width: 540px;
+                        margin: 56px auto 48px;
+                        padding: 0 8px;
+                        max-width: 460px;
+                        text-align: left;
+                    }
+                    .chapter-transition .ch-trans-row { margin: 0; }
+                    /* 24dp gap between rows / between row and warning card. */
+                    .chapter-transition .ch-trans-row + .ch-trans-row,
+                    .chapter-transition .ch-trans-row + .ch-trans-warning,
+                    .chapter-transition .ch-trans-warning + .ch-trans-row {
+                        margin-top: 24px;
+                    }
+                    .chapter-transition .ch-trans-label {
+                        font-size: 0.95em;
+                        font-weight: 500;
+                        letter-spacing: 0.01em;
+                        opacity: 0.80;
+                        margin-bottom: 4px;
+                    }
+                    .chapter-transition .ch-trans-title {
+                        font-size: 1.40em;
+                        font-weight: 600;
+                        line-height: 1.3;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    }
+                    .chapter-transition .ch-trans-title svg {
+                        width: 22px;
+                        height: 22px;
+                        flex: 0 0 auto;
+                        opacity: 0.85;
+                    }
+                    .chapter-transition .ch-trans-scanlator {
+                        font-size: 0.80em;
+                        opacity: 0.60;
+                        margin-top: 4px;
+                        line-height: 1.2;
+                    }
+                    /* Outlined warning + end-of-book notice cards: 1px outline at 40%
+                       opacity stays visible across all novel themes without per-theme
+                       palette knobs (manga's OutlinedCard uses the colorScheme outline). */
+                    .chapter-transition .ch-trans-warning,
+                    .chapter-transition .ch-trans-notice {
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                        padding: 12px 16px;
                         border: 1px solid currentColor;
                         border-radius: 12px;
                         opacity: 0.85;
+                        font-size: 0.95em;
+                        line-height: 1.35;
                     }
-                    .chapter-transition .ch-trans-row { margin: 8px 0; }
-                    .chapter-transition .ch-trans-label {
-                        font-size: 0.75em;
-                        text-transform: uppercase;
-                        letter-spacing: 0.08em;
-                        opacity: 0.65;
-                    }
-                    .chapter-transition .ch-trans-title {
-                        font-size: 1.05em;
-                        font-weight: 600;
-                        margin-top: 2px;
+                    .chapter-transition .ch-trans-warning svg,
+                    .chapter-transition .ch-trans-notice svg {
+                        width: 24px;
+                        height: 24px;
+                        flex: 0 0 auto;
                     }
                     img {
                         max-width: 100%;
@@ -2411,15 +2605,18 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             if (isDestroyed) return@withContext
 
             if (isAppendOrPrepend) {
+                if (isPrepend) {
+                    // Backward prepend is disabled in this code path; keep behavior forward-only.
+                    return@withContext
+                }
+                // Snapshot the previous tail BEFORE the add so the transition card binds the
+                // correct from/to pair (see displayContent for the same pattern + rationale).
+                val fromChapter = loadedChapters.lastOrNull()
                 if (!loadedChapterIds.contains(chapterId)) {
-                    if (isPrepend) {
-                        // Backward prepend is disabled; keep behavior forward-only.
-                        return@withContext
-                    }
                     loadedChapterIds.add(chapterId)
                     loadedChapters.add(chapter)
                 }
-                appendHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+                appendHtmlContent(renderableContent, chapterId, chapter, fromChapter)
             } else {
                 loadHtmlContent(renderableContent, chapterId, chapter.chapter.name, chapter.chapter.url)
                 loadedChapterIds.clear()
@@ -2741,6 +2938,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             tts?.stop()
         }
         clearWebViewTtsHighlight()
+        refreshSentenceTapToTtsState()
     }
 
     fun pauseTts() {
@@ -2749,6 +2947,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         ttsResumeChunkIndex = ttsCurrentChunkIndex
         tts?.stop()
         saveTtsProgress()
+        refreshSentenceTapToTtsState()
     }
 
     fun resumeTts() {
@@ -2756,6 +2955,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             ttsPaused = false
             // Resume from the chunk that was interrupted
             speakChunksFrom(ttsResumeChunkIndex)
+            refreshSentenceTapToTtsState()
         }
     }
 
@@ -2763,7 +2963,15 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
     fun isTtsSpeaking(): Boolean = ttsInitialized && tts?.isSpeaking == true
 
-    fun isTtsStarting(): Boolean = pendingTtsStartRequest != null || pendingTtsText != null || (!ttsInitialized && tts != null) || (ttsChunks.isEmpty() && isTtsAutoPlay)
+    /**
+     * "TTS is bootstrapping but not yet emitting audio." Narrowed from the previous heuristic
+     * that flagged the bare "engine not initialized" case on every viewer mount — that made
+     * the TTS icon report `active=true` on the very first tap before audio actually started,
+     * so the icon stayed on the static voice glyph for an extra tick and the user had to tap
+     * twice to see the pause icon. This now only fires when there's specifically deferred
+     * work waiting: a queued start request or a queued text payload.
+     */
+    fun isTtsStarting(): Boolean = pendingTtsStartRequest != null || pendingTtsText != null
 
     fun getTtsProgressPercent(): Int {
         if (ttsChunks.isEmpty()) return 0
@@ -3141,5 +3349,17 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         // Force-dismiss the loading overlay after this long; protects against onPageFinished
         // never firing (network failure, JS bridge crash, blank page).
         private const val LOADING_TIMEOUT_MS = 15_000L
+
+        // Inline SVGs sized via the surrounding CSS rule (see .ch-trans-* selectors).
+        // `currentColor` lets each icon inherit the active novel theme's foreground so
+        // the transition card automatically themes itself without per-theme overrides.
+        // Paths are condensed Material Symbols outlines (Cloud, Info, Warning) to keep
+        // the embedded HTML small.
+        private const val CLOUD_ICON_SVG =
+            """<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4a7.5 7.5 0 0 0-6.98 4.78A5.5 5.5 0 0 0 6 19.5h13a4.5 4.5 0 0 0 .35-9.46zM19 17.5H6a3.5 3.5 0 0 1-.45-6.97l1.16-.15.43-1.09A5.5 5.5 0 0 1 17.5 11.5l.27 1.5h1.23a2.5 2.5 0 0 1 0 5z"/></svg>"""
+        private const val INFO_ICON_SVG =
+            """<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-1-13h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg>"""
+        private const val WARNING_ICON_SVG =
+            """<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>"""
     }
 }

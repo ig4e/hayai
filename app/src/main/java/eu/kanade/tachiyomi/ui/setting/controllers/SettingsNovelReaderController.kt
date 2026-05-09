@@ -30,15 +30,8 @@ class SettingsNovelReaderController : SettingsLegacyController() {
         preferenceCategory {
             titleRes = MR.strings.display
 
-            listPreference(activity) {
-                bindTo(readerPreferences.novelRenderingMode)
-                titleRes = MR.strings.novel_rendering_mode
-                entries = listOf(
-                    context.getString(MR.strings.novel_rendering_mode_default),
-                    context.getString(MR.strings.novel_rendering_mode_webview),
-                )
-                entryValues = listOf("default", "webview")
-            }
+            // Rendering mode toggle removed: novel reading is WebView-only after the
+            // viewer consolidation. The native NovelViewer was deleted; no fallback exists.
 
             listPreference(activity) {
                 bindTo(readerPreferences.novelTheme)
@@ -152,6 +145,17 @@ class SettingsNovelReaderController : SettingsLegacyController() {
             switchPreference {
                 bindTo(readerPreferences.novelShowProgressSlider)
                 titleRes = MR.strings.novel_show_progress_slider
+            }
+
+            listPreference(activity) {
+                bindTo(readerPreferences.novelProgressSliderPosition)
+                titleRes = MR.strings.novel_progress_slider_position
+                entries = listOf(
+                    context.getString(MR.strings.novel_progress_slider_position_top),
+                    context.getString(MR.strings.novel_progress_slider_position_center),
+                    context.getString(MR.strings.novel_progress_slider_position_bottom),
+                )
+                entryValues = listOf("top", "center", "bottom")
             }
 
         }

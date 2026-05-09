@@ -175,14 +175,8 @@ fun NovelReaderSettingsSheet(
 @Composable
 private fun ReadingTab(prefs: ReaderPreferences) {
     Column {
-        ChipRow(
-            label = stringResource(MR.strings.novel_rendering_mode),
-            options = listOf(
-                "default" to stringResource(MR.strings.novel_rendering_mode_default),
-                "webview" to stringResource(MR.strings.novel_rendering_mode_webview),
-            ),
-            preference = prefs.novelRenderingMode,
-        )
+        // Rendering mode chip removed: novel reading is WebView-only after the
+        // viewer consolidation. The native NovelViewer was deleted; no fallback exists.
         ChipRow(
             label = stringResource(MR.strings.novel_font_family),
             options = listOf(
@@ -282,6 +276,15 @@ private fun ControlsTab(prefs: ReaderPreferences) {
         BoolPref(prefs.novelSwipeNavigation, stringResource(MR.strings.novel_swipe_navigation))
         BoolPref(prefs.novelTextSelectable, stringResource(MR.strings.novel_text_selectable))
         BoolPref(prefs.novelShowProgressSlider, stringResource(MR.strings.novel_show_progress_slider))
+        ChipRow(
+            label = stringResource(MR.strings.novel_progress_slider_position),
+            options = listOf(
+                "top" to stringResource(MR.strings.novel_progress_slider_position_top),
+                "center" to stringResource(MR.strings.novel_progress_slider_position_center),
+                "bottom" to stringResource(MR.strings.novel_progress_slider_position_bottom),
+            ),
+            preference = prefs.novelProgressSliderPosition,
+        )
         BoolPref(prefs.novelVerticalScrollbar, stringResource(MR.strings.novel_vertical_scrollbar))
         ChipRow(
             label = stringResource(MR.strings.novel_scrollbar_position),

@@ -116,8 +116,10 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     // toggling back off restores the saved values.
     val novelMarginsCropped: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_margins_cropped", false)
 
-    // Rendering mode: "default" = TextView, "webview" = WebView rendering
-    val novelRenderingMode: Preference<String> = preferenceStore.getString("pref_novel_rendering_mode", "default")
+    // novelRenderingMode preference removed in viewer consolidation: novels render via WebView
+    // only. The legacy `pref_novel_rendering_mode` key may still exist in users' prefs storage
+    // but is no longer read anywhere; leaving it orphaned is preferable to a destructive
+    // migration on first launch.
 
     // EPUB specific toggles
     val enableEpubStyles: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_enable_epub_css", true)
@@ -153,6 +155,14 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     val novelShowProgressSlider: Preference<Boolean> = preferenceStore.getBoolean(
         "pref_novel_show_progress_slider",
         true,
+    )
+
+    // Where the horizontal progress slider is anchored: "top", "center", or "bottom" (default).
+    // Bottom matches the manga reader. Center positions it vertically centered on screen for
+    // tap-friendly scrubbing during one-handed use; top tucks it under the toolbar.
+    val novelProgressSliderPosition: Preference<String> = preferenceStore.getString(
+        "pref_novel_progress_slider_position",
+        "bottom",
     )
 
     // Show the platform vertical scrollbar in novel readers.

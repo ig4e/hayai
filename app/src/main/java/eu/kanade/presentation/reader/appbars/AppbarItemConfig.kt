@@ -10,7 +10,10 @@ enum class BottomBarItem(val id: String) {
     TRANSLATE("translate"),
     AUTO_SCROLL("auto_scroll"),
     TTS("tts"),
-    TTS_VIEWPORT("tts_viewport"),
+    // TTS_VIEWPORT was a second "start TTS from current viewport" icon; consolidated
+    // into the main TTS button (single tap = start from top, becomes pause/resume,
+    // long-press resets). The id is left out of the enum intentionally so old saved
+    // bottom-bar configs that referenced it parse to null and get dropped on rehydrate.
     ORIENTATION("orientation"),
     SETTINGS("settings"),
     EDIT("edit"),
@@ -31,7 +34,6 @@ val DefaultBottomBarItems = listOf(
     BottomBarItemState(BottomBarItem.TRANSLATE, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.AUTO_SCROLL, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.TTS, defaultEnabled = true),
-    BottomBarItemState(BottomBarItem.TTS_VIEWPORT, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.QUOTES, defaultEnabled = true),
     BottomBarItemState(BottomBarItem.ORIENTATION, defaultEnabled = false),
     BottomBarItemState(BottomBarItem.SETTINGS, defaultEnabled = true),

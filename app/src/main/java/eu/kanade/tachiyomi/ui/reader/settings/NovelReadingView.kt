@@ -19,17 +19,8 @@ class NovelReadingView @JvmOverloads constructor(context: Context, attrs: Attrib
 
     override fun initGeneralPreferences() {
         with(binding) {
-            // Rendering mode (default | webview)
-            renderingMode.setEntries(
-                listOf(
-                    context.getString(MR.strings.novel_rendering_mode_default),
-                    context.getString(MR.strings.novel_rendering_mode_webview),
-                ),
-            )
-            renderingMode.setSelection(if (readerPreferences.novelRenderingMode.get() == "webview") 1 else 0)
-            renderingMode.onItemSelectedListener = { idx ->
-                readerPreferences.novelRenderingMode.set(if (idx == 1) "webview" else "default")
-            }
+            // Rendering-mode spinner removed: novel reading is WebView-only after the
+            // viewer consolidation. The widget is gone from the layout XML too.
 
             // Font family
             val fontEntries = listOf(
