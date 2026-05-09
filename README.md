@@ -42,7 +42,7 @@ Hayai is a fork of [Yōkai](https://github.com/null2264/yokai), which itself is 
   * Novel plugin manager with install, update, sort, and uninstall.
   * Novel repo validation and per-repo plugin cache.
   * QuickJS-based on-device runtime for novel source plugins.
-  * NovelUpdates and NovelList sources with dedicated parsers.
+  * **NovelUpdates and NovelList** sources for novel discovery and recommendations.
   * Browse infinite scroll: pages keep loading until a plugin returns an empty list (matching the LNReader convention).
   * `parsePage` support for plugins that paginate chapter listings (rewayatclub, lnmtl, sunovels, etc.) — full chapter list is now fetched, not just page 1.
   * Genre normalization: dedupes case-insensitively and tolerates plugins that emit `","` vs `", "`-separated lists (no more single-chip lumps containing every genre).
@@ -53,20 +53,16 @@ Hayai is a fork of [Yōkai](https://github.com/null2264/yokai), which itself is 
   * **Overlay scrollbar** for WebView with visual feedback; native scrollbar disabled.
   * **Sentence-tap-to-TTS** handler for quick selection-free audio playback.
   * **Previous-chapter infinite-scroll** that prepends content without duplicates and pins a static card at the top.
-  * Text-selection quote menu with persistent action and stable re-add across scroll/layout updates.
 * **Reader / browse**
-  * Page preview cards now open the reader at the clicked page instead of page 1.
   * Page preview improvements: bigger thumbnails, skeleton loading, infinite scroll.
   * Preload distance SeekBar in the reader.
   * E-Hentai / ExHentai category badges in browse (Doujinshi / Manga / Image Set / Artist CG / Cosplay / Game CG / Western / Non-H / Asian Porn / Misc), color-coded.
-  * NHentai tag assets for local filtering and search without external API calls (artist, character, group, parody, language, categories).
+  * **NHentai tag assets** for local filtering and search without external API calls (artist, character, group, parody, language, categories).
   * Source navigation from recommendation card headers.
-  * Chapter transition cards in novel reader showing download state (check-circle for downloaded, cloud for available).
 * **Recommendations**
-  * Clicking an external recommendation (AniList / MyAnimeList / NovelUpdates / NovelList / etc.) now triggers global search by title across installed sources, instead of silently dropping the click.
-  * Content type badges (Manga/Novel) on recommendation cards to disambiguate mixed-type recommendation lists.
-  * Smart filtering: AniList and MyAnimeList recommendations filter by viewer's seriesType to avoid mixing manga and novel results.
-  * NovelList and NovelUpdates sources with dedicated parsers for novel-specific recommendations.
+  * Clicking an external recommendation (AniList / MyAnimeList / NovelUpdates / NovelList / etc.) triggers global search by title across installed sources.
+  * **Content type badges** (Manga/Novel) on recommendation cards to disambiguate mixed-type recommendation lists.
+  * **NovelList and NovelUpdates** sources for novel-specific recommendations.
 * **Library & updates**
   * Library update report screen showing detailed per-title errors, skipped entries, and skip reasons. Accessible from Library settings, Recents tab, and update notifications.
   * Onboarding step to choose library display mode (continuous or tabbed) during initial setup.
@@ -74,7 +70,6 @@ Hayai is a fork of [Yōkai](https://github.com/null2264/yokai), which itself is 
   * Manga details metadata, continue/start reading UI, genre tags.
   * Grid and color filters.
   * E-Hentai filter UI and settings.
-  * Library update report screen with error details and log access.
 * **Stability / infrastructure**
   * Beta release channel alongside stable & nightly.
   * Firebase Crashlytics wired up for all build variants.
