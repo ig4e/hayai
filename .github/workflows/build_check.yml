@@ -17,7 +17,7 @@ on:
 jobs:
   build:
     name: Build app
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-8vcpu-ubuntu-2404
 
     steps:
       - name: Clone repo
@@ -35,13 +35,21 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Mount Gradle home (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: ${{ github.repository }}-gradle-home-pr
+          path: ~/.gradle
 
       - name: Copy CI gradle.properties
         run: |
           mkdir -p ~/.gradle
           cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
 
       - name: Build and test
         run: ./gradlew assembleStandardRelease testReleaseUnitTest testStandardReleaseUnitTest

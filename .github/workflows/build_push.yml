@@ -31,7 +31,7 @@ concurrency:
 jobs:
   build:
     name: Build app
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     environment: build
 
     steps:
@@ -50,16 +50,24 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Setup CHANGELOG parser
-        uses: taiki-e/install-action@parse-changelog
+      - name: Mount Gradle home (sticky disk)
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: ${{ github.repository }}-gradle-home
+          path: ~/.gradle
 
       - name: Copy CI gradle.properties
         run: |
           mkdir -p ~/.gradle
           cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
+
+      - name: Setup CHANGELOG parser
+        uses: taiki-e/install-action@parse-changelog
 
       - name: Extract branch name
         id: branch_name
