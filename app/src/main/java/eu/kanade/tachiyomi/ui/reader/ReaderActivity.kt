@@ -1753,6 +1753,20 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         viewer?.setChapters(viewerChapters)
         intentPageNumber?.let { moveToPageIndex(it) }
         intentPageNumber = null
+
+        // Repopulate the chapters bottom sheet on (re)bind. The sheet's `setup(this)` runs
+        // in onCreate before viewModel.init has resolved the manga, so its initial
+        // refreshList() call returns an empty list. For paged viewers a subsequent
+        // PagerViewer.firstLayout → onPageChange → activity.onPageSelected fires another
+        // refreshList via the selectedChapterId-mismatch check downstream, which
+        // backfills the sheet. NovelViewer.setChapters never goes through onPageSelected
+        // on the initial load (it just renders the text into the scroll container), so
+        // without a refresh here the sheet stays empty for the entire session. Force a
+        // refresh whenever the selected chapter actually changes — cheap, idempotent,
+        // and works for every viewer type.
+        if (binding.chaptersSheet.chaptersBottomSheet.selectedChapterId != viewerChapters.currChapter.chapter.id) {
+            binding.chaptersSheet.chaptersBottomSheet.refreshList()
+        }
         val chapter = viewerChapters.currChapter.chapter
         binding.toolbar.subtitle =
             chapter.preferredChapterName(this, viewModel.manga!!, preferences)

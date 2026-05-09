@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.more
 import android.app.Dialog
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.view.View
 import android.view.ViewGroup
 import androidx.core.graphics.ColorUtils
 import androidx.core.text.buildSpannedString
@@ -27,7 +28,11 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import uy.kohesive.injekt.injectLazy
 import android.R as AR
 
-class OverflowDialog(activity: MainActivity) : Dialog(activity, R.style.OverflowDialogTheme) {
+class OverflowDialog(
+    activity: MainActivity,
+    showUpdateLibrary: Boolean = false,
+    onUpdateLibrary: () -> Unit = {},
+) : Dialog(activity, R.style.OverflowDialogTheme) {
 
     val binding = TachiOverflowLayoutBinding.inflate(activity.layoutInflater, null, false)
     val preferences: PreferencesHelper by injectLazy()
@@ -44,6 +49,14 @@ class OverflowDialog(activity: MainActivity) : Dialog(activity, R.style.Overflow
         )
         binding.touchOutside.setOnClickListener {
             cancel()
+        }
+        if (showUpdateLibrary) {
+            binding.updateLibraryItem.visibility = View.VISIBLE
+            binding.updateLibraryDivider.visibility = View.VISIBLE
+            binding.updateLibraryItem.setOnClickListener {
+                onUpdateLibrary()
+                dismiss()
+            }
         }
         val incogText = context.getString(MR.strings.incognito_mode)
         with(binding.incognitoModeItem) {

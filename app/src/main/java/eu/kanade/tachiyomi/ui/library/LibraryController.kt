@@ -2346,44 +2346,20 @@ open class LibraryController(
                 }
             }
             R.id.action_more -> {
-                if (!showLibraryOverflow(item)) return super.onOptionsItemSelected(item)
+                val activity = activity as? MainActivity
+                    ?: return super.onOptionsItemSelected(item)
+                activity.showOverflowDialog(
+                    showUpdateLibrary = true,
+                    onUpdateLibrary = {
+                        if (!LibraryUpdateJob.isRunning(activity)) {
+                            updateLibrary()
+                            destroyActionModeIfNeeded()
+                        }
+                    },
+                )
             }
             else -> return super.onOptionsItemSelected(item)
         }
-        return true
-    }
-
-    /**
-     * Library-specific overflow popup. Adds an "Update library" entry on top, and falls through to
-     * the activity's global overflow dialog (Settings/Help/About/...) under "More options". Returns
-     * false if the popup couldn't be shown so the caller falls back to the activity overflow.
-     */
-    private fun showLibraryOverflow(originalItem: MenuItem): Boolean {
-        val activity = activity ?: return false
-        val anchor = activityBinding?.searchToolbar?.findViewById<View>(R.id.action_more)
-            ?: activityBinding?.searchToolbar
-            ?: return false
-        val popup = androidx.appcompat.widget.PopupMenu(activity, anchor)
-        popup.menuInflater.inflate(R.menu.library_overflow, popup.menu)
-        popup.setOnMenuItemClickListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.action_update_library -> {
-                    if (!LibraryUpdateJob.isRunning(activity)) {
-                        updateLibrary()
-                        destroyActionModeIfNeeded()
-                    }
-                    true
-                }
-                R.id.action_more_options -> {
-                    // Defer back to MainActivity.onOptionsItemSelected, which is what owns the
-                    // global overflow dialog (settings/help/about/stats).
-                    activity.onOptionsItemSelected(originalItem)
-                    true
-                }
-                else -> false
-            }
-        }
-        popup.show()
         return true
     }
     //endregion

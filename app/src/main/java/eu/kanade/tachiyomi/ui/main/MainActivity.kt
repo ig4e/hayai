@@ -120,7 +120,6 @@ import eu.kanade.tachiyomi.util.system.tryTakePersistableUriPermission
 import eu.kanade.tachiyomi.util.system.withUIContext
 import eu.kanade.tachiyomi.util.view.BackHandlerControllerInterface
 import eu.kanade.tachiyomi.util.view.backgroundColor
-import eu.kanade.tachiyomi.util.view.blurBehindWindow
 import eu.kanade.tachiyomi.util.view.canStillGoBack
 import eu.kanade.tachiyomi.util.view.doOnApplyWindowInsetsCompat
 import eu.kanade.tachiyomi.util.view.findChild
@@ -1370,21 +1369,26 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             // Initialize option to open catalogue settings.
-            R.id.action_more -> {
-                if (overflowDialog != null) return false
-                val overflowDialog = OverflowDialog(this)
-                this.overflowDialog = overflowDialog
-                overflowDialog.blurBehindWindow(
-                    window,
-                    onDismiss = {
-                        this.overflowDialog = null
-                    },
-                )
-                overflowDialog.show()
-            }
+            R.id.action_more -> showOverflowDialog()
             else -> return super.onOptionsItemSelected(item)
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    /**
+     * Shows the global overflow dialog. Optionally prepends an "Update library" entry — used by
+     * [eu.kanade.tachiyomi.ui.library.LibraryController] so the library 3-dot menu can surface
+     * library refresh without stacking a second popup on top. Blur is intentionally omitted.
+     */
+    fun showOverflowDialog(
+        showUpdateLibrary: Boolean = false,
+        onUpdateLibrary: () -> Unit = {},
+    ) {
+        if (overflowDialog != null) return
+        val dialog = OverflowDialog(this, showUpdateLibrary, onUpdateLibrary)
+        this.overflowDialog = dialog
+        dialog.setOnDismissListener { this.overflowDialog = null }
+        dialog.show()
     }
 
     fun showSettings() {

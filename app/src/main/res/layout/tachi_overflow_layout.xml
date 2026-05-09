@@ -53,11 +53,37 @@
                 android:paddingBottom="6dp">
 
                 <eu.kanade.tachiyomi.widget.MenuSheetItemView
+                    android:id="@+id/update_library_item"
+                    android:layout_width="0dp"
+                    app:layout_constraintWidth_min="wrap"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toTopOf="@id/update_library_divider"
+                    android:text="@string/update_library"
+                    app:icon="@drawable/ic_refresh_24dp"
+                    tools:visibility="visible" />
+
+                <View
+                    android:id="@+id/update_library_divider"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/update_library_item"
+                    app:layout_constraintBottom_toTopOf="@id/incognito_mode_item"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    android:background="@color/divider"
+                    tools:visibility="visible" />
+
+                <eu.kanade.tachiyomi.widget.MenuSheetItemView
                     android:id="@+id/incognito_mode_item"
                     android:layout_width="0dp"
                     app:layout_constraintWidth_min="wrap"
                     android:layout_height="wrap_content"
-                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/update_library_divider"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintBottom_toTopOf="@id/divider"
