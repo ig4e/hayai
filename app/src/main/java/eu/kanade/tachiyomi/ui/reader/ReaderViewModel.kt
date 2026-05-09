@@ -516,8 +516,18 @@ class ReaderViewModel(
     }
 
     fun adjacentChapter(next: Boolean): ReaderChapter? {
-        val chapters = state.value.viewerChapters
-        return if (next) chapters?.nextChapter else chapters?.prevChapter
+        if (!::chapterList.isInitialized) {
+            val chapters = state.value.viewerChapters
+            return if (next) chapters?.nextChapter else chapters?.prevChapter
+        }
+        val currentId = getCurrentChapter()?.chapter?.id ?: chapterId
+        val index = chapterList.indexOfFirst { it.chapter.id == currentId }
+        if (index == -1) {
+            val chapters = state.value.viewerChapters
+            return if (next) chapters?.nextChapter else chapters?.prevChapter
+        }
+        val targetIndex = if (next) index + 1 else index - 1
+        return chapterList.getOrNull(targetIndex)
     }
 
     /**
@@ -560,14 +570,13 @@ class ReaderViewModel(
      */
     fun setNovelVisibleChapter(chapter: eu.kanade.tachiyomi.data.database.models.Chapter?) {
         chapter ?: return
-        val readerChapter = state.value.viewerChapters?.let {
-            when (chapter.id) {
-                it.currChapter.chapter.id -> it.currChapter
-                it.prevChapter?.chapter?.id -> it.prevChapter
-                it.nextChapter?.chapter?.id -> it.nextChapter
-                else -> null
-            }
-        } ?: return
+        if (!::chapterList.isInitialized) return
+        val readerChapter = chapterList.firstOrNull { it.chapter.id == chapter.id } ?: return
+        val newChapterId = readerChapter.chapter.id ?: return
+        if (chapterId != newChapterId) {
+            chapterId = newChapterId
+            eventChannel.trySend(Event.NovelVisibleChapterChanged(readerChapter))
+        }
         viewModelScope.launchIO { preload(readerChapter) }
     }
 
@@ -834,7 +843,11 @@ class ReaderViewModel(
      * Returns the currently active chapter.
      */
     fun getCurrentChapter(): ReaderChapter? {
-        return state.value.viewerChapters?.currChapter
+        val current = state.value.viewerChapters?.currChapter
+        val currentId = chapterId.takeIf { it != -1L } ?: return current
+        if (current?.chapter?.id == currentId) return current
+        if (!::chapterList.isInitialized) return current
+        return chapterList.firstOrNull { it.chapter.id == currentId } ?: current
     }
 
     fun getChapterUrl(mainChapter: Chapter? = null): String? {
@@ -1202,6 +1215,7 @@ class ReaderViewModel(
         object ReloadMangaAndChapters : Event()
         data class SetOrientation(val orientation: Int) : Event()
         data class SetCoverResult(val result: SetAsCoverResult) : Event()
+        data class NovelVisibleChapterChanged(val chapter: ReaderChapter) : Event()
 
         data class SavedImage(val result: SaveImageResult) : Event()
         data class ShareImage(val file: UniFile, val page: ReaderPage, val extraPage: ReaderPage? = null) : Event()
