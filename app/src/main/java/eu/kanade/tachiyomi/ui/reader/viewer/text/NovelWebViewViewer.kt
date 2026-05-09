@@ -76,6 +76,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     // TranslationPreferences class has no Hayai counterpart. realTimeTranslation calls
     // are stubbed to false at the call site (see displayContent).
     private val libraryPreferences: LibraryPreferences by injectLazy()
+    // Used by buildTransitionCardHtml to swap the cloud icon for a check-circle when a
+    // chapter is locally downloaded (mirrors the manga ChapterTransition widget).
+    private val downloadManager: eu.kanade.tachiyomi.data.download.DownloadManager by injectLazy()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var loadJob: Job? = null
@@ -1801,13 +1804,24 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             ""
         }
 
+        // Look up download state once per row. The manga ChapterTransition only renders an
+        // inline icon when AT LEAST ONE of the two chapters is downloaded — when both are
+        // online it leaves the title clean (see ChapterTransition.kt:233-244, where the
+        // `if (downloaded || otherDownloaded)` guard wraps the appendInlineContent block).
+        // We mirror that: each row gets a per-row "downloaded" bool plus the "otherDownloaded"
+        // bool of its sibling, and renderChapterRow uses both to decide whether to draw a
+        // CheckCircle, a Cloud, or no icon at all.
+        val manga = activity.viewModel.manga
+        val topDownloaded = topChapter?.let { isChapterDownloadedSafe(it, manga) } ?: false
+        val bottomDownloaded = bottomChapter?.let { isChapterDownloadedSafe(it, manga) } ?: false
+
         val topHtml = if (topChapter != null) {
-            renderChapterRow(topLabelStr, topChapter)
+            renderChapterRow(topLabelStr, topChapter, downloaded = topDownloaded, otherDownloaded = bottomDownloaded)
         } else {
             renderFallbackNotice(fallbackLabelStr)
         }
         val bottomHtml = if (bottomChapter != null) {
-            renderChapterRow(bottomLabelStr, bottomChapter)
+            renderChapterRow(bottomLabelStr, bottomChapter, downloaded = bottomDownloaded, otherDownloaded = topDownloaded)
         } else {
             renderFallbackNotice(fallbackLabelStr)
         }
@@ -1819,16 +1833,46 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
     }
 
-    private fun renderChapterRow(label: String, chapter: ReaderChapter): String {
+    /**
+     * Safe wrapper around [DownloadManager.isChapterDownloaded] that swallows any
+     * exception (e.g. transient cache miss, missing storage permission) and returns false.
+     * The transition card is purely cosmetic — a wrong icon is preferable to a crash.
+     */
+    private fun isChapterDownloadedSafe(
+        chapter: ReaderChapter,
+        manga: eu.kanade.tachiyomi.domain.manga.models.Manga?,
+    ): Boolean {
+        if (manga == null) return false
+        return try {
+            downloadManager.isChapterDownloaded(chapter.chapter, manga, skipCache = true)
+        } catch (e: Throwable) {
+            Logger.d { "NovelWebViewViewer: download check failed: ${e.message}" }
+            false
+        }
+    }
+
+    private fun renderChapterRow(
+        label: String,
+        chapter: ReaderChapter,
+        downloaded: Boolean,
+        otherDownloaded: Boolean,
+    ): String {
         val name = chapter.chapter.name
         val scanlator = chapter.chapter.scanlator?.takeIf { it.isNotBlank() }
         val scanlatorHtml = scanlator?.let {
             """<div class="ch-trans-scanlator">${escapeHtml(it)}</div>"""
         }.orEmpty()
+        // Mirror the manga widget: only show an icon if either row is downloaded; the
+        // downloaded row gets CheckCircle, the not-downloaded sibling gets Cloud.
+        val iconHtml = when {
+            !downloaded && !otherDownloaded -> ""
+            downloaded -> CHECK_CIRCLE_ICON_SVG
+            else -> CLOUD_ICON_SVG
+        }
         return """
             <div class="ch-trans-row">
                 <div class="ch-trans-label">${escapeHtml(label)}</div>
-                <div class="ch-trans-title">$CLOUD_ICON_SVG<span>${escapeHtml(name)}</span></div>
+                <div class="ch-trans-title">$iconHtml<span>${escapeHtml(name)}</span></div>
                 $scanlatorHtml
             </div>
         """.trimIndent()
@@ -3357,6 +3401,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         // the embedded HTML small.
         private const val CLOUD_ICON_SVG =
             """<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4a7.5 7.5 0 0 0-6.98 4.78A5.5 5.5 0 0 0 6 19.5h13a4.5 4.5 0 0 0 .35-9.46zM19 17.5H6a3.5 3.5 0 0 1-.45-6.97l1.16-.15.43-1.09A5.5 5.5 0 0 1 17.5 11.5l.27 1.5h1.23a2.5 2.5 0 0 1 0 5z"/></svg>"""
+        // Filled CheckCircle (Material Symbols), used for the row whose chapter is locally
+        // downloaded — same role as Icons.Filled.CheckCircle in the manga ChapterTransition.
+        private const val CHECK_CIRCLE_ICON_SVG =
+            """<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.41 14.59L5 11l1.41-1.41 4.18 4.17 7-7L19 8.18l-8.41 8.41z"/></svg>"""
         private const val INFO_ICON_SVG =
             """<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-1-13h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg>"""
         private const val WARNING_ICON_SVG =

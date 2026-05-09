@@ -1224,6 +1224,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 leftMargin = 12.dpToPx + max(systemInsets.left, cutOutInsets?.safeInsetLeft ?: 0)
                 rightMargin = 12.dpToPx + max(systemInsets.right, cutOutInsets?.safeInsetRight ?: 0)
             }
+            // Re-resolve the slider's vertical position whenever insets change. The "top"
+            // mode pins the slider to `actionBarSize + status-bar-inset`; immersive toggles
+            // and cutout transitions can change that inset mid-session, so we recompute on
+            // every inset event. Idempotent for "center"/"bottom" — those branches don't
+            // read the inset.
+            applyNovelNavLayoutPosition()
             binding.chaptersSheet.root.sheetBehavior?.peekHeight =
                 peek + if (fullscreen) {
                 insets.getBottomGestureInsets()
