@@ -75,6 +75,7 @@ import yokai.domain.ui.settings.ReaderPreferences
 import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.SliderPreferenceWidget
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
+import yokai.presentation.theme.ReducedMotion
 import yokai.presentation.theme.YokaiTheme
 
 /**
@@ -136,7 +137,10 @@ fun NovelReaderSettingsSheet(
                 SettingsTab.entries.forEachIndexed { index, tab ->
                     Tab(
                         selected = pagerState.currentPage == index,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                        onClick = { scope.launch {
+                            if (ReducedMotion.isEnabled()) pagerState.scrollToPage(index)
+                            else pagerState.animateScrollToPage(index)
+                        } },
                         icon = {
                             Icon(
                                 imageVector = tab.icon,

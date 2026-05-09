@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
 import yokai.domain.DialogHostState
 import yokai.domain.extension.repo.model.ExtensionRepo
 import yokai.i18n.MR
+import yokai.presentation.theme.ReducedMotion
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
 import yokai.presentation.component.EmptyScreen
@@ -95,12 +96,18 @@ class ExtensionRepoScreen(
                 TabRow(selectedTabIndex = pagerState.currentPage) {
                     Tab(
                         selected = pagerState.currentPage == 0,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                        onClick = { scope.launch {
+                            if (ReducedMotion.isEnabled()) pagerState.scrollToPage(0)
+                            else pagerState.animateScrollToPage(0)
+                        } },
                         text = { Text(stringResource(MR.strings.extensions)) },
                     )
                     Tab(
                         selected = pagerState.currentPage == 1,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                        onClick = { scope.launch {
+                            if (ReducedMotion.isEnabled()) pagerState.scrollToPage(1)
+                            else pagerState.animateScrollToPage(1)
+                        } },
                         text = { Text(stringResource(MR.strings.novels)) },
                     )
                 }

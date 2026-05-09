@@ -2,6 +2,8 @@ package yokai.presentation.library.update
 
 import android.content.Intent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +58,8 @@ import java.util.Date
 import kotlinx.coroutines.launch
 import yokai.domain.manga.models.MangaCover
 import yokai.i18n.MR
+import yokai.presentation.theme.ReducedMotion
+import yokai.presentation.theme.isReducedMotion
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
 import yokai.presentation.component.EmptyScreen
@@ -125,7 +129,10 @@ class LibraryUpdateReportScreen(
                 TabRow(selectedTabIndex = pagerState.currentPage) {
                     Tab(
                         selected = pagerState.currentPage == 0,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                        onClick = { scope.launch {
+                            if (ReducedMotion.isEnabled()) pagerState.scrollToPage(0)
+                            else pagerState.animateScrollToPage(0)
+                        } },
                         text = {
                             Text(
                                 text = stringResource(MR.strings.library_update_report_errors) +
@@ -135,7 +142,10 @@ class LibraryUpdateReportScreen(
                     )
                     Tab(
                         selected = pagerState.currentPage == 1,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                        onClick = { scope.launch {
+                            if (ReducedMotion.isEnabled()) pagerState.scrollToPage(1)
+                            else pagerState.animateScrollToPage(1)
+                        } },
                         text = {
                             Text(
                                 text = stringResource(MR.strings.library_update_report_skipped) +
@@ -268,7 +278,7 @@ private fun ReasonHeader(
             .clickable(onClick = onToggle)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 16.dp, vertical = 12.dp)
-            .animateContentSize(),
+            .animateContentSize(animationSpec = if (isReducedMotion) snap() else spring()),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
