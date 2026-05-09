@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://github.com/ig4e/hayai">
+<a href="https://github.com/HayaiApp/hayai">
     <img src="./.github/readme-images/app-icon.webp" alt="Hayai logo" height="200px" width="200px" />
 </a>
 
@@ -12,14 +12,14 @@
 
 A free and open source manga & novel reader
 
-[![CI](https://github.com/ig4e/hayai/actions/workflows/build_push.yml/badge.svg?labelColor=27303D)](https://github.com/ig4e/hayai/actions/workflows/build_push.yml)
-[![License: Apache-2.0](https://img.shields.io/github/license/ig4e/hayai?labelColor=27303D&color=0877d2)](/LICENSE)
+[![CI](https://github.com/HayaiApp/hayai/actions/workflows/build_push.yml/badge.svg?labelColor=27303D)](https://github.com/HayaiApp/hayai/actions/workflows/build_push.yml)
+[![License: Apache-2.0](https://img.shields.io/github/license/HayaiApp/hayai?labelColor=27303D&color=0877d2)](/LICENSE)
 
 ## Download
 
-[![Hayai Stable](https://img.shields.io/github/v/release/ig4e/hayai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69&filter=v*)](https://github.com/ig4e/hayai/releases)
-[![Hayai Beta](https://img.shields.io/github/v/release/ig4e/hayai?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39&filter=v*-b*)](https://github.com/ig4e/hayai/releases)
-[![Hayai Nightly](https://img.shields.io/github/v/release/ig4e/hayai-nightly?maxAge=3600&label=Nightly&labelColor=B11A3B&color=1c1c39)](https://github.com/ig4e/hayai-nightly/releases)
+[![Hayai Stable](https://img.shields.io/github/v/release/HayaiApp/hayai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69&filter=v*)](https://github.com/HayaiApp/hayai/releases)
+[![Hayai Beta](https://img.shields.io/github/v/release/HayaiApp/hayai?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39&filter=v*-b*)](https://github.com/HayaiApp/hayai/releases)
+[![Hayai Nightly](https://img.shields.io/github/v/release/HayaiApp/hayai-nightly?maxAge=3600&label=Nightly&labelColor=B11A3B&color=1c1c39)](https://github.com/HayaiApp/hayai-nightly/releases)
 
 *Requires Android 6.0 or higher.*
 
@@ -147,7 +147,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 <details><summary>Issues</summary>
 
-**Before reporting a new issue, take a look at the [changelog](https://github.com/ig4e/hayai/releases) and the already opened [issues](https://github.com/ig4e/hayai/issues).**
+**Before reporting a new issue, take a look at the [changelog](https://github.com/HayaiApp/hayai/releases) and the already opened [issues](https://github.com/HayaiApp/hayai/issues).**
 
 </details>
 

@@ -225,7 +225,7 @@ class AboutScreen : Screen() {
                             LinkIcon(
                                 label = "GitHub",
                                 icon = CustomIcons.GitHub,
-                                url = "https://github.com/ig4e/hayai",
+                                url = "https://github.com/HayaiApp/hayai",
                             )
                         }
                     }
@@ -297,4 +297,4 @@ fun getFormattedBuildTime(dateFormat: DateFormat): String {
     }
 }
 
-private const val SOURCE_URL = "https://github.com/ig4e/hayai/commits/master"
+private const val SOURCE_URL = "https://github.com/HayaiApp/hayai/commits/master"

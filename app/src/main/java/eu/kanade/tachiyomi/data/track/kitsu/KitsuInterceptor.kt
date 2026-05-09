@@ -36,7 +36,7 @@ class KitsuInterceptor(val kitsu: Kitsu) : Interceptor {
         // Add the authorization header to the original request.
         val authRequest = originalRequest.newBuilder()
             .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
-            .header("User-Agent", "ig4e/hayai/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            .header("User-Agent", "HayaiApp/hayai/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
             .header("Accept", "application/vnd.api+json")
             .header("Content-Type", "application/vnd.api+json")
             .build()

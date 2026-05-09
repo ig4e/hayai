@@ -41,7 +41,7 @@ class AnilistInterceptor(private val anilist: Anilist, private var token: String
         // Add the authorization header to the original request.
         val authRequest = originalRequest.newBuilder()
             .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
-            .header("User-Agent", "ig4e/hayai/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            .header("User-Agent", "HayaiApp/hayai/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
             .build()
 
         return chain.proceed(authRequest)

@@ -104,9 +104,9 @@ val RELEASE_TAG: String by lazy {
 
 val GITHUB_REPO: String by lazy {
     if (BuildConfig.NIGHTLY) {
-        "ig4e/hayai-nightly"
+        "HayaiApp/hayai-nightly"
     } else {
-        "ig4e/hayai"
+        "HayaiApp/hayai"
     }
 }
 

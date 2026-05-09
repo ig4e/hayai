@@ -233,16 +233,16 @@ jobs:
         if: startsWith(env.VERSION_TAG, 'r')
         uses: softprops/action-gh-release@v2
         with:
-          repository: ig4e/hayai-nightly
+          repository: HayaiApp/hayai-nightly
           tag_name: ${{ env.VERSION_TAG }}
           name: Hayai Nightly (${{ env.VERSION_TAG }})
           body: |
             > [!CAUTION]
             > _**This alpha version is for testing only!**_
             >
-            > This build is triggered by commit [`${{ env.COMMIT_SHORT_HASH }}`](https://github.com/ig4e/hayai/commit/${{ env.COMMIT_HASH }})
+            > This build is triggered by commit [`${{ env.COMMIT_SHORT_HASH }}`](https://github.com/HayaiApp/hayai/commit/${{ env.COMMIT_HASH }})
 
-            It is not ready for daily use and we do not guarantee its usability. Please download the latest stable releases instead (https://github.com/ig4e/hayai/releases/latest). If you insist, please be sure to ALWAYS backup before updating.
+            It is not ready for daily use and we do not guarantee its usability. Please download the latest stable releases instead (https://github.com/HayaiApp/hayai/releases/latest). If you insist, please be sure to ALWAYS backup before updating.
 
             ${{ steps.changelog.outputs.CHANGELOG }}
             ---
