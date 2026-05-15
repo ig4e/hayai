@@ -15,7 +15,8 @@ import eu.kanade.tachiyomi.ui.setting.controllers.SettingsBrowseController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsDownloadController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsGeneralController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsLibraryController
-import eu.kanade.tachiyomi.ui.setting.controllers.SettingsReaderHubController
+import eu.kanade.tachiyomi.ui.setting.controllers.SettingsMangaReaderController
+import eu.kanade.tachiyomi.ui.setting.controllers.SettingsNovelReaderController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsSecurityController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsTrackingController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsAdvancedLegacyController
@@ -24,7 +25,6 @@ import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.system.launchNow
 import kotlin.reflect.KClass
 import kotlin.reflect.full.createInstance
-import yokai.util.search.FuzzyMatcher
 
 object SettingsSearchHelper {
     private var prefSearchResultList: MutableList<SettingsSearchResult> = mutableListOf()
@@ -42,7 +42,8 @@ object SettingsSearchHelper {
         SettingsAppearanceController::class,
         SettingsSecurityController::class,
         SettingsLibraryController::class,
-        SettingsReaderHubController::class,
+        SettingsMangaReaderController::class,
+        SettingsNovelReaderController::class,
         SettingsTrackingController::class,
     )
 
@@ -77,18 +78,13 @@ object SettingsSearchHelper {
     }
 
     fun getFilteredResults(query: String): List<SettingsSearchResult> {
-        if (query.isBlank()) return prefSearchResultList.toList()
-        val threshold = 65
-        return prefSearchResultList
-            .map { result ->
-                val titleScore = FuzzyMatcher.score(query, result.title)
-                val summaryScore = FuzzyMatcher.score(query, result.summary)
-                val breadcrumbScore = FuzzyMatcher.score(query, result.breadcrumb.replace(">", ""))
-                result to maxOf(titleScore, summaryScore, breadcrumbScore)
-            }
-            .filter { it.second >= threshold }
-            .sortedByDescending { it.second }
-            .map { it.first }
+        return prefSearchResultList.filter {
+            val inTitle = it.title.contains(query, true)
+            val inSummary = it.summary.contains(query, true)
+            val inBreadcrumb = it.breadcrumb.replace(">", "").contains(query, true)
+
+            return@filter inTitle || inSummary || inBreadcrumb
+        }
     }
 
     /**
