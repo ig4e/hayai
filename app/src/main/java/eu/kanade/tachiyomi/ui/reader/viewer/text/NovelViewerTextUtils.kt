@@ -64,6 +64,59 @@ object NovelViewerTextUtils {
         }
     }
 
+    /**
+     * Output of [normalizeAndTagContentForHtml]: the chapter HTML with every text-bearing
+     * block (`p, li, blockquote, h1-h6, pre`) decorated with `data-paragraph-index`, and the
+     * ordered list of paragraph plain-text in the SAME order/indexing as those attributes.
+     * Gives JS-side click handling and Kotlin-side TTS chunking a single shared coordinate
+     * system so a tap on paragraph N drives chunk N — fixing Phase C #17 where DOM indexing
+     * (via `Array.from(querySelectorAll(...))`) drifted from `\n`-split indexing.
+     */
+    data class TaggedChapter(val html: String, val paragraphs: List<String>)
+
+    private const val PARAGRAPH_SELECTOR = "p, li, blockquote, h1, h2, h3, h4, h5, h6, pre"
+
+    /**
+     * Same normalisation as [normalizeContentForHtml] but additionally Jsoup-parses the
+     * output, walks `p, li, blockquote, h1-h6, pre` in document order, and sets
+     * `data-paragraph-index="<n>"` on each (chapter-local — numbering restarts per chapter).
+     * Returns the tagged HTML alongside the ordered paragraph text list so Kotlin can build
+     * `ttsChunks` directly from the same elements the DOM exposes, without falling back to
+     * `body.innerText.split("\n")` which drifts from the DOM count on chapters with nested
+     * wrappers / blank-line variations / headings inside divs.
+     *
+     * Plain-text chapters bypass tagging because their rendering is a single `<pre>` and
+     * we treat the whole blob as one paragraph (the existing chunk-by-maxLength path inside
+     * `speak()` handles further splitting if needed).
+     */
+    fun normalizeAndTagContentForHtml(content: String, chapterUrl: String?): TaggedChapter {
+        val html = normalizeContentForHtml(content, chapterUrl)
+        if (isPlainTextChapter(chapterUrl)) {
+            val text = normalizePlainTextContent(content)
+            val paragraphs = if (text.isBlank()) emptyList() else listOf(text)
+            return TaggedChapter(html, paragraphs)
+        }
+
+        return try {
+            // parseBodyFragment so a chapter HTML snippet isn't wrapped in a synthetic
+            // <html><body>; we only need to iterate the elements the user actually sees.
+            val doc = org.jsoup.Jsoup.parseBodyFragment(html)
+            val elements = doc.body().select(PARAGRAPH_SELECTOR)
+            val paragraphs = mutableListOf<String>()
+            for (el in elements) {
+                val text = el.text()
+                if (text.isBlank()) continue
+                val idx = paragraphs.size
+                el.attr("data-paragraph-index", idx.toString())
+                paragraphs += text
+            }
+            TaggedChapter(doc.body().html(), paragraphs)
+        } catch (e: Exception) {
+            Logger.w { "Tagging chapter paragraphs failed, falling back untagged: ${e.message}" }
+            TaggedChapter(html, emptyList())
+        }
+    }
+
     private fun detectTextKind(chapterUrl: String?, content: String): ChapterTextKind {
         val ext = chapterUrl
             ?.substringBefore('#')

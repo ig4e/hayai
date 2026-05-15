@@ -134,6 +134,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     private var ttsChunkParagraphIndexes: List<Int> = emptyList()
     private var ttsCurrentParagraphs: List<NovelViewerTextUtils.ParagraphInfo> = emptyList()
 
+    // Phase C #17/#18: TTS chunking is now keyed by DB chapter id rather than the visible
+    // chapter, so two loaded chapters (infinite scroll) can no longer collide on the same
+    // map slot, and scrolling between them never rebuilds the active TTS chunk array. The
+    // per-chapter paragraph list is populated in lockstep with every HTML load path
+    // (loadHtmlContent / appendHtmlContent / prependHtmlContent) using
+    // NovelViewerTextUtils.normalizeAndTagContentForHtml so the DOM's data-paragraph-index
+    // and Kotlin's chunk index share a single coordinate system.
+    private var currentTtsChapterId: Long? = null
+    private val chapterParagraphsById = LinkedHashMap<Long, List<String>>()
+
     private enum class TtsStartRequest {
         NORMAL,
         VIEWPORT,
@@ -1145,7 +1155,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 // active. The Kotlin side flips this true via setSentenceTapToTtsEnabled
                 // once both the master pref is on AND TTS is speaking/paused.
                 window.__novelTtsClickEnabled = false;
-                var SELECTORS = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
                 document.addEventListener('click', function(e) {
                     if (!window.__novelTtsClickEnabled) return;
                     // Skip when there's an active text selection — the user is selecting, not starting TTS.
@@ -1159,19 +1168,33 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                     if (e.clientX / w < 0.15 || e.clientX / w > 0.85) return;
                     if (e.clientY / h < 0.20 || e.clientY / h > 0.80) return;
 
-                    var node = e.target;
-                    while (node && node !== document.body) {
-                        if (node.matches && node.matches(SELECTORS)) break;
-                        node = node.parentNode;
+                    // Phase C #17: walk up to the nearest [data-paragraph-index], then to the
+                    // nearest [data-chapter-id] ancestor (chapter-content wrapper emitted by
+                    // load/append/prepend). Both pieces are required — the click handler can
+                    // only target a paragraph that was actually tagged by the Kotlin tagger,
+                    // and the chapter scoping prevents Phase C #18 cross-chapter collisions.
+                    var paraEl = e.target;
+                    while (paraEl && paraEl !== document.body && !(paraEl.hasAttribute && paraEl.hasAttribute('data-paragraph-index'))) {
+                        paraEl = paraEl.parentElement;
                     }
-                    if (!node || node === document.body) return;
-                    var all = Array.from(document.querySelectorAll(SELECTORS)).filter(function(el) {
-                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                    });
-                    var idx = all.indexOf(node);
-                    if (idx < 0) return;
+                    if (!paraEl || paraEl === document.body) return;
+                    var paraAttr = paraEl.getAttribute('data-paragraph-index');
+                    var paraIdx = paraAttr ? parseInt(paraAttr, 10) : -1;
+                    if (isNaN(paraIdx) || paraIdx < 0) return;
+
+                    var chapEl = paraEl.parentElement;
+                    while (chapEl && chapEl !== document.body && !(chapEl.hasAttribute && chapEl.hasAttribute('data-chapter-id'))) {
+                        chapEl = chapEl.parentElement;
+                    }
+                    if (!chapEl || chapEl === document.body) return;
+                    var chapId = chapEl.getAttribute('data-chapter-id');
+                    if (!chapId) return;
+
                     if (window.Android && typeof Android.startTtsAtParagraph === 'function') {
-                        Android.startTtsAtParagraph(idx);
+                        // chapId is passed as a String because JS numbers can't represent the
+                        // full Long range Hayai's DB uses for chapter ids — Kotlin parses
+                        // toLongOrNull and rejects malformed payloads.
+                        Android.startTtsAtParagraph(chapId, paraIdx);
                     }
                 }, true);
             })();
@@ -2031,6 +2054,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         if (preferences.novelBlockMedia.get()) {
             cleanContent = stripMediaTags(cleanContent)
         }
+        // Phase C #17: tag every text block with data-paragraph-index so the JS click
+        // handler reports an index that lines up exactly with chapterParagraphsById.
+        cleanContent = tagAndStashParagraphs(chapterId, cleanContent, plainTextMode)
         val escapedContent = JSONObject.quote(cleanContent)
 
         // Visible Prev/Current card. `from` is the previously-top chapter (the one the user
@@ -2119,6 +2145,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         if (preferences.novelBlockMedia.get()) {
             cleanContent = stripMediaTags(cleanContent)
         }
+        // Phase C #17: tag every text block with data-paragraph-index so the JS click
+        // handler reports an index that lines up exactly with chapterParagraphsById.
+        cleanContent = tagAndStashParagraphs(chapterId, cleanContent, plainTextMode)
         val escapedContent = JSONObject.quote(cleanContent)
         val transitionHtml = buildTransitionCardHtml(from = fromChapter, to = chapter, isNext = true)
         val escapedTransition = JSONObject.quote(transitionHtml)
@@ -2331,6 +2360,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         loadedChapterIds.clear()
         loadedChapters.clear()
         currentChapterIndex = 0
+        // Phase C #17/#18: the WebView is about to be replaced, so the previous paragraph
+        // caches and the active-TTS chapter no longer have valid DOM targets.
+        chapterParagraphsById.clear()
+        currentTtsChapterId = null
 
         // Initial invisible chapter divider marker for boundary tracking. The first chapter
         // shouldn't show a visible inline card — that's reserved for the transitions added
@@ -2376,6 +2409,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         var embeddedHead = ""
 
         if (plainTextMode) {
+            // Phase C #17: plain-text chapter rendered as a single <pre> — stash the whole
+            // body as one paragraph so chapterParagraphsById[chapterId] is never null when
+            // a sentence-tap fires.
+            if (chapterId != null) {
+                chapterParagraphsById[chapterId] =
+                    if (cleanContent.isBlank()) emptyList() else listOf(cleanContent)
+            }
             finalContent = """
                 <pre class="chapter-content" data-tsundoku-plain-text="1" style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; margin: 0;"></pre>
                 <script>
@@ -2391,13 +2431,31 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
                 doc.select("script, noscript").remove()
 
+                // Phase C #17: tag every text-bearing block with chapter-local
+                // data-paragraph-index and capture the same elements' text into a list, so
+                // the JS click handler and the Kotlin chunker share one coordinate system.
                 val bodyNode = doc.body()
+                if (chapterId != null && bodyNode != null) {
+                    val paragraphs = mutableListOf<String>()
+                    for (el in bodyNode.select("p, li, blockquote, h1, h2, h3, h4, h5, h6, pre")) {
+                        val text = el.text()
+                        if (text.isBlank()) continue
+                        val idx = paragraphs.size
+                        el.attr("data-paragraph-index", idx.toString())
+                        paragraphs += text
+                    }
+                    chapterParagraphsById[chapterId] = paragraphs
+                }
                 if (bodyNode != null && bodyNode.hasText()) {
                     finalContent = bodyNode.html()
                 } else if (bodyNode != null && bodyNode.children().isNotEmpty()) {
                     finalContent = bodyNode.html()
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Logger.w {
+                    "NovelWebViewViewer: loadHtmlContent Jsoup pass failed: ${e.message}"
+                }
+            }
         }
 
         val escapedInitialStyle = stylePayload.css
@@ -2655,6 +2713,51 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
     private fun normalizeContentForHtml(content: String, chapterUrl: String?): String =
         NovelViewerTextUtils.normalizeContentForHtml(content, chapterUrl)
+
+    /**
+     * Phase C #17: Jsoup-tag every text-bearing block in [cleanContent] with
+     * `data-paragraph-index`, capture the chapter-local paragraph list into
+     * [chapterParagraphsById], and return the tagged HTML. Called as the LAST processing
+     * step in every chapter-render path (loadHtmlContent / appendHtmlContent /
+     * prependHtmlContent) so the cached paragraph text matches what the user sees on the
+     * page exactly, even after script/style stripping, media blocking, and regex
+     * replacements have run.
+     *
+     * Plain-text chapters are special-cased: their rendering is a single `<pre>` (no inner
+     * `<p>` tags), so we stash the whole blob as one paragraph and skip tagging since the
+     * Tsundoku pre-script already injects textContent at runtime.
+     */
+    private fun tagAndStashParagraphs(
+        chapterId: Long,
+        cleanContent: String,
+        plainTextMode: Boolean,
+    ): String {
+        if (plainTextMode) {
+            chapterParagraphsById[chapterId] =
+                if (cleanContent.isBlank()) emptyList() else listOf(cleanContent)
+            return cleanContent
+        }
+        return try {
+            val doc = org.jsoup.Jsoup.parseBodyFragment(cleanContent)
+            val elements = doc.body().select("p, li, blockquote, h1, h2, h3, h4, h5, h6, pre")
+            val paragraphs = mutableListOf<String>()
+            for (el in elements) {
+                val text = el.text()
+                if (text.isBlank()) continue
+                val idx = paragraphs.size
+                el.attr("data-paragraph-index", idx.toString())
+                paragraphs += text
+            }
+            chapterParagraphsById[chapterId] = paragraphs
+            doc.body().html()
+        } catch (e: Exception) {
+            Logger.w {
+                "NovelWebViewViewer: tagAndStashParagraphs failed for chapter=$chapterId: ${e.message}"
+            }
+            chapterParagraphsById[chapterId] = emptyList()
+            cleanContent
+        }
+    }
 
     /**
      * Strips the chapter title from the beginning of the content.
@@ -3039,10 +3142,17 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
 
         @JavascriptInterface
-        fun startTtsAtParagraph(paragraphIndex: Int) {
+        fun startTtsAtParagraph(chapterIdJs: String, paragraphIndex: Int) {
             activity.runOnUiThread {
-                Logger.d { "NovelWebViewViewer: startTtsAtParagraph($paragraphIndex)" }
-                startTtsFromParagraph(paragraphIndex.coerceAtLeast(0))
+                val chapterId = chapterIdJs.toLongOrNull()
+                if (chapterId == null) {
+                    Logger.w { "NovelWebViewViewer: startTtsAtParagraph rejected — bad chapterId '$chapterIdJs'" }
+                    return@runOnUiThread
+                }
+                Logger.d {
+                    "NovelWebViewViewer: startTtsAtParagraph(chapterId=$chapterId, paragraph=$paragraphIndex)"
+                }
+                startTtsFromChapterParagraph(chapterId, paragraphIndex.coerceAtLeast(0))
             }
         }
 
@@ -3515,6 +3625,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         ttsChunkParagraphIndexes = emptyList()
         ttsCurrentChunkIndex = 0
         hasViewportStartOverride = false
+        // Phase C #18: release the active-TTS chapter so the next start picks the visible
+        // chapter rather than resurrecting a stale id from the previous session.
+        currentTtsChapterId = null
         if (ttsInitialized) {
             tts?.stop()
         }
@@ -3634,58 +3747,70 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
 
     /**
-     * Starts TTS at the given paragraph index. Reuses the viewport-start machinery so the
-     * existing chunking / highlight / progress code paths work unchanged — we just override
-     * the starting paragraph.
+     * Phase C #17 / #18: starts TTS at exactly `paragraphIndex` within `chapterId`, using the
+     * per-chapter paragraph list captured at load time by
+     * [NovelViewerTextUtils.normalizeAndTagContentForHtml]. The DOM's `data-paragraph-index`
+     * and the indices of `chapterParagraphsById[chapterId]` are populated together so a tap
+     * on paragraph N drives chunk N — no \n-split heuristics, no DOM/Kotlin counter drift.
+     *
+     * `currentTtsChapterId` is the canonical anchor: `saveTtsProgress` / `restoreTtsProgress`
+     * key by it, and `onChapterScrollUpdate` leaves the chunk array untouched on infinite-
+     * scroll pivots so background scrolling never silently retargets the engine.
      */
-    fun startTtsFromParagraph(paragraphIndex: Int) {
+    fun startTtsFromChapterParagraph(chapterId: Long, paragraphIndex: Int) {
         ensureTtsInitialized()
 
         if (!ttsInitialized) {
-            Logger.w { "TTS (WebView): Not initialized yet (paragraph $paragraphIndex)" }
-            // No queueing here: a sentence-tap is a one-shot user action; if TTS isn't ready
-            // yet, requesting again is the right UX rather than firing a stale start later.
+            Logger.w {
+                "TTS (WebView): Not initialized yet (chapter=$chapterId, paragraph=$paragraphIndex)"
+            }
+            // No queueing — a sentence-tap is a one-shot user action; re-tap if not ready.
+            return
+        }
+
+        val paragraphs = chapterParagraphsById[chapterId]
+        if (paragraphs.isNullOrEmpty()) {
+            Logger.w {
+                "TTS (WebView): no tagged paragraphs cached for chapter=$chapterId; ignoring tap"
+            }
             return
         }
 
         isTtsAutoPlay = true
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                var body = document.body;
-                return body ? body.innerText || body.textContent : '';
-            })();
-            """.trimIndent(),
-        ) { result ->
-            val text = result?.let {
-                if (it.startsWith("\"") && it.endsWith("\"")) {
-                    it.substring(1, it.length - 1)
-                        .replace("\\n", "\n")
-                        .replace("\\t", "\t")
-                        .replace("\\\"", "\"")
-                        .replace("\\\\", "\\")
-                } else {
-                    it
-                }
-            }
-            if (!text.isNullOrBlank() && text != "null") {
-                ttsViewportParagraphIndex = paragraphIndex
-                hasViewportStartOverride = true
-                speak(text)
-            } else {
-                Logger.w { "TTS (WebView): No text available for paragraph start" }
-            }
-        }
+        currentTtsChapterId = chapterId
+        ttsViewportParagraphIndex = paragraphIndex.coerceIn(0, (paragraphs.size - 1).coerceAtLeast(0))
+        hasViewportStartOverride = true
+
+        // Pre-join so existing `speak(text)` callers that don't pass a chunk list still get
+        // a non-empty text payload (used only for ttsCurrentParagraphs / highlight support).
+        val joined = paragraphs.joinToString("\n\n")
+        speak(joined, preBuiltChunks = paragraphs)
     }
 
     /**
-     * Saves the current TTS playback progress to preferences.
+     * Legacy single-arg entry retained for callers that don't carry a chapter id (e.g. the
+     * bottom-bar "Start TTS" button, viewport-start hooks). Infers the chapter from the
+     * currently visible page; bails if there is none.
+     */
+    fun startTtsFromParagraph(paragraphIndex: Int) {
+        val chapterId = currentPage?.chapter?.chapter?.id
+        if (chapterId == null) {
+            Logger.w { "TTS (WebView): startTtsFromParagraph with no current chapter" }
+            return
+        }
+        startTtsFromChapterParagraph(chapterId, paragraphIndex)
+    }
+
+    /**
+     * Saves the current TTS playback progress to preferences. Phase C #18: keyed by DB
+     * chapter id (the active TTS chapter, or the visible chapter as a fallback) instead of
+     * `currentPage.index`, which for single-page novel chapters was always 0 and silently
+     * collided across every loaded chapter so the wrong one was restored later.
      */
     private fun saveTtsProgress() {
-        val currentChapter = currentPage
-        if (currentChapter == null || ttsCurrentChunkIndex < 0) return
+        if (ttsCurrentChunkIndex < 0) return
 
-        val chapterId = currentChapter.index.toLong()
+        val chapterId = currentTtsChapterId ?: currentPage?.chapter?.chapter?.id ?: return
         val paragraphIndex = ttsCurrentChunkIndex.coerceAtLeast(0)
 
         // Load existing progress map
@@ -3710,19 +3835,18 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
 
     /**
-     * Restores the last-read paragraph position for the current chapter.
+     * Restores the last-read paragraph position for the current chapter. Phase C #18: keyed
+     * by DB chapter id (mirrors [saveTtsProgress]) so two loaded chapters can no longer
+     * collide on the previous `currentPage.index` slot.
      * @return The chunk index to resume from, or 0 if no progress found.
      */
     private fun restoreTtsProgress(): Int {
-        val currentChapter = currentPage
-        if (currentChapter == null) return 0
-
-        val chapterId = currentChapter.index.toString()
+        val chapterId = currentTtsChapterId ?: currentPage?.chapter?.chapter?.id ?: return 0
         val progressJson = preferences.novelTtsLastReadParagraph.get()
 
         return try {
             val progressMap = kotlinx.serialization.json.Json.decodeFromString<Map<String, Int>>(progressJson)
-            progressMap[chapterId]?.coerceAtLeast(0) ?: 0
+            progressMap[chapterId.toString()]?.coerceAtLeast(0) ?: 0
         } catch (e: Exception) {
             0
         }
@@ -3740,7 +3864,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
     }
 
-    private fun speak(text: String) {
+    private fun speak(text: String, preBuiltChunks: List<String>? = null) {
         if (!ttsInitialized || tts == null) {
             // Store for later when TTS is initialized
             pendingTtsText = text
@@ -3755,9 +3879,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         // Android TTS has a max length limit (~4000 chars), chunk long text
         val maxLength = TextToSpeech.getMaxSpeechInputLength()
 
-        val paragraphs = text.split("\n").filter { it.isNotBlank() }
+        val paragraphs = preBuiltChunks ?: text.split("\n").filter { it.isNotBlank() }
         val chunkParagraphIndexes = mutableListOf<Int>()
         ttsChunks = if (paragraphs.size > 1) {
+            // Phase C #17: when `preBuiltChunks` is supplied, the paragraph list matches the
+            // DOM's data-paragraph-index 1:1, so chunkParagraphIndexes points back into that
+            // shared coordinate system — a tap on paragraph N reliably starts at chunk N.
             paragraphs.flatMapIndexed { paragraphIndex, para ->
                 val chunks = if (para.length <= maxLength) {
                     listOf(para)
