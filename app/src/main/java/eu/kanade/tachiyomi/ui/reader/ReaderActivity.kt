@@ -1769,6 +1769,11 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     override fun onPause() {
+        // Phase A #1: persist the visible chapter id + within-chapter progress to saved
+        // state so process-restore lands on the right chapter. Must happen BEFORE
+        // flushReadTimer (which writes history) so history records the visible chapter,
+        // not the original-entry one.
+        (viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer)?.flushPersistentState()
         viewModel.flushReadTimer()
         super.onPause()
     }
@@ -1876,8 +1881,11 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             binding.chaptersSheet.chaptersBottomSheet.refreshList()
         }
         val chapter = viewerChapters.currChapter.chapter
-        binding.toolbar.subtitle =
+        binding.toolbar.subtitle = if (isNovelViewer) {
+            formatNovelChapterTitle(chapter, viewModel.manga!!)
+        } else {
             chapter.preferredChapterName(this, viewModel.manga!!, preferences)
+        }
 
         updateToolbarMarquee()
 
@@ -1922,7 +1930,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         if (viewer !is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) return
         val manga = viewModel.manga ?: return
         val readerChapterId = readerChapter.chapter.id ?: return
-        binding.toolbar.subtitle = readerChapter.chapter.preferredChapterName(this, manga, preferences)
+        binding.toolbar.subtitle = formatNovelChapterTitle(readerChapter.chapter, manga)
         updateToolbarMarquee()
         if (didTransitionFromChapter) {
             MainActivity.chapterIdToExitTo = readerChapterId
@@ -1932,6 +1940,38 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         if (binding.chaptersSheet.chaptersBottomSheet.selectedChapterId != readerChapterId) {
             binding.chaptersSheet.chaptersBottomSheet.refreshList()
         }
+    }
+
+    /**
+     * Phase A #14: port of Tsundoku's `novelChapterTitleDisplay` when-block
+     * (ReaderActivity.kt:684-719 in donor). Mode 0 = name only (default),
+     * 1 = number only, 2 = both (`Ch. N: name`). Falls back to chapter name when
+     * the number is missing.
+     */
+    private fun formatNovelChapterTitle(chapter: Chapter, manga: eu.kanade.tachiyomi.domain.manga.models.Manga): String {
+        val mode = readerPreferences.novelChapterTitleDisplay.get()
+        val number = chapter.chapter_number
+        val numStr: String? = if (number >= 0f) {
+            if (number == number.toLong().toFloat()) number.toLong().toString() else number.toString()
+        } else null
+        return when (mode) {
+            1 -> numStr?.let { "Chapter $it" } ?: chapter.preferredChapterName(this, manga, preferences)
+            2 -> numStr?.let { "Ch. $it: ${chapter.name}" } ?: chapter.preferredChapterName(this, manga, preferences)
+            else -> chapter.preferredChapterName(this, manga, preferences)
+        }
+    }
+
+    /**
+     * Phase A #14: re-applies the toolbar subtitle using the current
+     * `novelChapterTitleDisplay` setting. Called by the viewer's preference observer
+     * so toggling the mode applies live without leaving the reader.
+     */
+    fun refreshNovelToolbarSubtitle() {
+        if (viewer !is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) return
+        val manga = viewModel.manga ?: return
+        val chapter = viewModel.state.value.viewerChapters?.currChapter?.chapter ?: return
+        binding.toolbar.subtitle = formatNovelChapterTitle(chapter, manga)
+        updateToolbarMarquee()
     }
 
     private fun getTitleTextView(): TextView? = getTextViewsWithText(binding.toolbar.title)
@@ -2083,9 +2123,14 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
      * Called from the novel viewer to save reading progress with a percentage.
      * Progress is stored as percentage (0-100) in last_page_read.
      */
-    fun saveNovelProgress(page: ReaderPage, progressPercentage: Int) {
+    fun saveNovelProgress(page: ReaderPage, progressPercentage: Int, isTeardown: Boolean = false) {
         page.chapter.chapter.last_page_read = progressPercentage.coerceIn(0, 100)
-        viewModel.onNovelScrollProgress(page)
+        if (isTeardown) {
+            // Teardown path: flush the percent but never flip the read flag.
+            viewModel.onNovelTeardownProgress(page)
+        } else {
+            viewModel.onNovelScrollProgress(page)
+        }
     }
 
     /**

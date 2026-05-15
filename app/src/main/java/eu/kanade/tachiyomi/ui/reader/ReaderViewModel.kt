@@ -147,6 +147,33 @@ class ReaderViewModel(
         }
 
     /**
+     * Persisted active chapter id for infinite-scroll restore (Phase A #1). When the viewer
+     * pivots to a different on-screen chapter via `onChapterScrollUpdate` we record the
+     * visible chapter id + within-chapter scroll percent so a process restore can land on
+     * the right chapter, not the original-entry chapter.
+     */
+    var novelActiveChapterId: Long
+        get() = savedState.get<Long>("novel_active_chapter_id") ?: -1L
+        private set(value) { savedState["novel_active_chapter_id"] = value }
+
+    var novelActiveChapterProgress: Float
+        get() = savedState.get<Float>("novel_active_chapter_progress") ?: 0f
+        private set(value) { savedState["novel_active_chapter_progress"] = value }
+
+    fun setNovelActiveChapterState(chapterId: Long, progressPercent: Float) {
+        novelActiveChapterId = chapterId
+        novelActiveChapterProgress = progressPercent.coerceIn(0f, 1f)
+    }
+
+    /**
+     * In-session per-chapter flag: set true when JS reports the chapter has reached the
+     * read threshold (≥95%) while actively scrolling. Gates `onChapterReadComplete` so
+     * teardown paths (pause/destroy) cannot flip `chapter.read = true` for a chapter the
+     * user never scrolled to completion this session.
+     */
+    private val sessionReachedThreshold: MutableMap<Long, Boolean> = mutableMapOf()
+
+    /**
      * The chapter loader for the loaded manga. It'll be null until [manga] is set.
      */
     private var loader: ChapterLoader? = null
@@ -560,7 +587,19 @@ class ReaderViewModel(
     fun onNovelScrollProgress(page: ReaderPage) {
         if (source !is TextSource) return
         viewModelScope.launchNonCancellableIO {
-            saveChapterProgress(page.chapter, page, hasExtraPage = false)
+            saveChapterProgress(page.chapter, page, hasExtraPage = false, sessionScrollAdvance = true)
+        }
+    }
+
+    /**
+     * Called from teardown paths (pause/stop/destroy) to flush the last known scroll
+     * percent without ever flipping `chapter.read = true`. The `sessionScrollAdvance=false`
+     * flag short-circuits the mark-read gate inside `saveChapterProgress`.
+     */
+    fun onNovelTeardownProgress(page: ReaderPage) {
+        if (source !is TextSource) return
+        viewModelScope.launchNonCancellableIO {
+            saveChapterProgress(page.chapter, page, hasExtraPage = false, sessionScrollAdvance = false)
         }
     }
 
@@ -574,6 +613,10 @@ class ReaderViewModel(
         val newChapterId = chapter.id ?: return
         val readerChapter = chapterList.firstOrNull { it.chapter.id == newChapterId } ?: return
         if (chapterId != newChapterId) {
+            // The chapter that just left visibility cannot accumulate further session
+            // scroll advance — clear its threshold flag so a later teardown flush of a
+            // stale percentage can't trip the mark-read gate.
+            sessionReachedThreshold.remove(chapterId)
             chapterId = newChapterId
             eventChannel.trySend(Event.NovelVisibleChapterChanged(readerChapter))
         }
@@ -731,9 +774,28 @@ class ReaderViewModel(
     /**
      * Saves this [readerChapter]'s progress (last read page and whether it's read).
      * If incognito mode isn't on or has at least 1 tracker
+     *
+     * [sessionScrollAdvance] — true for live scroll callbacks (the only path that may
+     * mark a chapter read); false for teardown flushes (pause/stop/destroy) so the
+     * read flag never flips during exit.
      */
-    private suspend fun saveChapterProgress(readerChapter: ReaderChapter, page: ReaderPage, hasExtraPage: Boolean) {
+    private suspend fun saveChapterProgress(
+        readerChapter: ReaderChapter,
+        page: ReaderPage,
+        hasExtraPage: Boolean,
+        sessionScrollAdvance: Boolean = true,
+    ) {
         val isTextSource = source is TextSource
+        val chapterIdLog = readerChapter.chapter.id
+        val incognito = preferences.incognitoMode().get()
+        val shouldTrack = !incognito || hasTrackers
+        val progressPercentLog = readerChapter.chapter.last_page_read.coerceIn(0, 100)
+        val readBefore = readerChapter.chapter.read
+        Logger.d {
+            "saveChapterProgress chapter=$chapterIdLog progress=$progressPercentLog read=$readBefore " +
+                "incognito=$incognito hasTrackers=$hasTrackers shouldTrack=$shouldTrack " +
+                "sessionAdvance=$sessionScrollAdvance isText=$isTextSource"
+        }
         // Use the page index we're saving, not the chapter's *previous* last_page_read.
         // PagerViewer.setChaptersDoubleShift calls moveToPage twice — once via
         // setChaptersInternal (first layout) and once in its own !hasMoved block — and
@@ -746,14 +808,28 @@ class ReaderViewModel(
             readerChapter.chapter.bookmark = dbChapter.bookmark
         }
 
-        val shouldTrack = !preferences.incognitoMode().get() || hasTrackers
         if (shouldTrack && page.status !is Page.State.Error) {
             if (isTextSource) {
                 val progressPercent = readerChapter.chapter.last_page_read.coerceIn(0, 100)
                 readerChapter.chapter.last_page_read = progressPercent
                 readerChapter.chapter.pages_left = (100 - progressPercent).coerceIn(0, 100)
 
-                if (!readerChapter.chapter.read && progressPercent >= NOVEL_CHAPTER_READ_THRESHOLD_PERCENT) {
+                val chapterId = readerChapter.chapter.id ?: -1L
+                if (sessionScrollAdvance && progressPercent >= NOVEL_CHAPTER_READ_THRESHOLD_PERCENT) {
+                    sessionReachedThreshold[chapterId] = true
+                }
+                val reachedThisSession = sessionReachedThreshold[chapterId] == true
+                Logger.d {
+                    "saveChapterProgress text gate chapter=$chapterId reachedThisSession=$reachedThisSession " +
+                        "sessionAdvance=$sessionScrollAdvance progress=$progressPercent"
+                }
+                if (
+                    !readerChapter.chapter.read &&
+                    sessionScrollAdvance &&
+                    reachedThisSession &&
+                    progressPercent >= NOVEL_CHAPTER_READ_THRESHOLD_PERCENT
+                ) {
+                    Logger.d { "saveChapterProgress onChapterReadComplete fired chapter=$chapterId" }
                     onChapterReadComplete(readerChapter)
                 }
             } else {

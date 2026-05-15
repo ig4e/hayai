@@ -758,6 +758,35 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 }
         }
 
+        // Phase A #14: hide-chapter-title only updated CSS before, so the actual stripping
+        // (which happens at displayContent time) was bypassed on live toggle. Mirror
+        // novelForceTextLowercase's setChapters call so the strip is re-applied.
+        scope.launch {
+            preferences.novelHideChapterTitle.changes()
+                .drop(1)
+                .collect {
+                    currentChapters?.let {
+                        // Clear loaded chapters so setChapters re-renders from scratch with
+                        // the new strip state (otherwise the in-DOM content is stale).
+                        loadedChapterIds.clear()
+                        loadedChapters.clear()
+                        currentChapterIndex = 0
+                        setChapters(it)
+                    }
+                }
+        }
+
+        // Phase A #14: novelChapterTitleDisplay only affects the toolbar subtitle (per
+        // Tsundoku — it does NOT synthesize a title into chapter content). The activity
+        // owns the subtitle, so route the change through there.
+        scope.launch {
+            preferences.novelChapterTitleDisplay.changes()
+                .drop(1)
+                .collect {
+                    activity.runOnUiThread { activity.refreshNovelToolbarSubtitle() }
+                }
+        }
+
         // Observe block media preference
         scope.launch {
             preferences.novelBlockMedia.changes()
@@ -1276,8 +1305,71 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
 
     private fun restoreScrollPosition() {
+        // Phase A #1: honour the persisted active chapter (set by onChapterScrollUpdate).
+        // For infinite-scroll multi-chapter sessions this lets us scroll to the correct
+        // chapter boundary + within-chapter percent. For single-chapter loads (the saved
+        // active id matches `currentPage`'s chapter, or there's no saved state yet) we
+        // fall through to the legacy single-chapter restore.
+        val savedActiveId = activity.viewModel.novelActiveChapterId
+        val savedActiveProgress = activity.viewModel.novelActiveChapterProgress
+        val pageChapterId = currentPage?.chapter?.chapter?.id
+        val activeMatchesLoaded = savedActiveId > 0L && loadedChapterIds.contains(savedActiveId)
+        val activeIsDifferentChapter = activeMatchesLoaded && savedActiveId != pageChapterId
+
+        if (activeIsDifferentChapter && savedActiveProgress > 0f) {
+            // Scroll to the saved active chapter's boundary plus its within-chapter percent.
+            // The JS waits for layout (scrollHeight > 0), then locates the chapter-divider
+            // for `savedActiveId` and uses the next divider (or document end) to compute the
+            // chapter's pixel range, then scrolls to start + range * withinProgress.
+            val progressClamped = savedActiveProgress.coerceIn(0f, 1f)
+            lastSavedProgress = progressClamped
+            Logger.d {
+                "NovelWebViewViewer: Restoring active chapter $savedActiveId at ${(progressClamped * 100).toInt()}% (loaded=${loadedChapterIds.size})"
+            }
+            val js = """
+                (function() {
+                    var attempts = 0;
+                    function tryScroll() {
+                        var docH = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                        if (docH > 0 && document.readyState !== 'loading') {
+                            var dividers = document.querySelectorAll('.chapter-divider[data-chapter-id="$savedActiveId"]');
+                            if (dividers.length > 0) {
+                                var start = dividers[0].getBoundingClientRect().top + window.scrollY;
+                                // Determine end: next chapter-divider whose data-chapter-id differs,
+                                // or document end.
+                                var all = document.querySelectorAll('.chapter-divider');
+                                var end = document.body.scrollHeight;
+                                for (var i = 0; i < all.length; i++) {
+                                    if (all[i] === dividers[0]) continue;
+                                    var did = all[i].getAttribute('data-chapter-id');
+                                    if (did && did !== '$savedActiveId') {
+                                        var topRel = all[i].getBoundingClientRect().top + window.scrollY;
+                                        if (topRel > start) { end = topRel; break; }
+                                    }
+                                }
+                                var target = start + (end - start) * $progressClamped;
+                                window.scrollTo(0, Math.max(0, Math.min(target, document.body.scrollHeight)));
+                                console.log('Restored active chapter $savedActiveId to ' + Math.round($progressClamped * 100) + '% (' + Math.round(target) + 'px)');
+                                return;
+                            }
+                        }
+                        attempts++;
+                        if (attempts < 60) requestAnimationFrame(tryScroll);
+                    }
+                    requestAnimationFrame(tryScroll);
+                })();
+            """
+            evaluateJavascriptSafe(js, null)
+            return
+        }
+
         currentPage?.let { page ->
-            val savedProgress = page.chapter.chapter.last_page_read
+            // Prefer the saved within-chapter progress (Phase A #1) for the entry chapter
+            // if it matches; otherwise use the chapter's `last_page_read` percent.
+            val savedFromActive = if (savedActiveId == pageChapterId && savedActiveProgress > 0f) {
+                (savedActiveProgress * 100).toInt().coerceIn(0, 100)
+            } else null
+            val savedProgress = savedFromActive ?: page.chapter.chapter.last_page_read
             val isRead = page.chapter.chapter.read
 
             Logger.d {
@@ -1330,8 +1422,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         NovelViewerTextUtils.getThemeColors(activity, preferences, theme)
 
     override fun destroy() {
-        // Save progress before destroying
-        saveProgress()
+        // Save progress before destroying — but mark as teardown so the VM's read-gate
+        // never flips chapter.read = true on the way out (Phase A #19).
+        saveProgress(isTeardown = true)
 
         // Cleanup TTS - only if initialized
         if (ttsInitialized) {
@@ -1365,12 +1458,52 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
     }
 
-    private fun saveProgress() {
-        currentPage?.let { page ->
-            val progressValue = (lastSavedProgress * 100).toInt().coerceIn(0, 100)
-            activity.saveNovelProgress(page, progressValue)
-            Logger.d { "NovelWebViewViewer: Saving progress $progressValue%" }
+    /**
+     * Pick the chapter the user is *currently* looking at — for infinite scroll restore,
+     * this is the chapter at `currentChapterIndex` within `loadedChapters`, not the
+     * original-entry `currentPage.chapter`. Falls back to the entry chapter if the
+     * loaded-chapters list isn't populated yet.
+     */
+    private fun currentActiveChapter(): ReaderChapter? {
+        return loadedChapters.getOrNull(currentChapterIndex) ?: currentChapters?.currChapter
+    }
+
+    /**
+     * First active page of the currently-visible chapter, suitable as the saveProgress
+     * "page" argument. Returns the entry `currentPage` only as a last resort so single-
+     * chapter loads continue to work unchanged.
+     */
+    private fun currentActivePage(): ReaderPage? {
+        val active = currentActiveChapter()
+        val activePage = active?.pages?.firstOrNull() as? ReaderPage
+        return activePage ?: currentPage
+    }
+
+    private fun saveProgress(isTeardown: Boolean = false) {
+        val page = currentActivePage() ?: return
+        val progressValue = (lastSavedProgress * 100).toInt().coerceIn(0, 100)
+        activity.saveNovelProgress(page, progressValue, isTeardown = isTeardown)
+        val activeId = currentActiveChapter()?.chapter?.id
+        Logger.d {
+            "NovelWebViewViewer: Saving progress $progressValue% chapter=$activeId teardown=$isTeardown"
         }
+    }
+
+    /**
+     * Activity-pause/stop hook (Phase A #1). Persist the visible chapter id + within-
+     * chapter progress to saved state BEFORE the activity flushes its read-timer so
+     * process-restore lands inside the chapter the user was actually reading.
+     */
+    fun flushPersistentState() {
+        val active = currentActiveChapter() ?: return
+        val activeId = active.chapter.id ?: return
+        activity.viewModel.setNovelActiveChapterState(activeId, lastSavedProgress)
+        Logger.d {
+            "NovelWebViewViewer: flushPersistentState chapter=$activeId progress=${(lastSavedProgress * 100).toInt()}%"
+        }
+        // Also flush a teardown-safe save so last_page_read records the visible chapter's
+        // position — without flipping the read flag (gated inside the VM).
+        saveProgress(isTeardown = true)
     }
 
     override fun getView(): View = container
@@ -2712,6 +2845,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
                     // Update global JS variables for the new chapter
                     updateChapterMetaJs()
+                }
+                // Phase A #1: every scroll-driven active-chapter update persists the
+                // (chapterId, withinChapterProgress) pair to saved state so process
+                // restore lands on the correct chapter at the correct percent.
+                loadedChapters.getOrNull(currentChapterIndex)?.chapter?.id?.let { activeId ->
+                    activity.viewModel.setNovelActiveChapterState(activeId, progress.coerceIn(0f, 1f))
                 }
             }
         }
