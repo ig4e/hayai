@@ -86,15 +86,27 @@
                     app:layout_constraintTop_toBottomOf="@id/update_library_divider"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintBottom_toTopOf="@id/divider"
+                    app:layout_constraintBottom_toTopOf="@id/update_report_item"
                     android:text="@string/incognito_mode"
                     app:icon="@drawable/ic_glasses_24dp"
                     tools:text="Turn on Incognito mode" />
 
+                <eu.kanade.tachiyomi.widget.MenuSheetItemView
+                    android:id="@+id/update_report_item"
+                    android:layout_width="0dp"
+                    app:layout_constraintWidth_min="wrap"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintTop_toBottomOf="@id/incognito_mode_item"
+                    app:layout_constraintBottom_toTopOf="@id/divider"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    android:text="@string/last_update_report"
+                    app:icon="@drawable/ic_file_open_24dp" />
+
                 <View
                     android:id="@+id/divider"
                     android:layout_width="0dp"
-                    app:layout_constraintTop_toBottomOf="@id/incognito_mode_item"
+                    app:layout_constraintTop_toBottomOf="@id/update_report_item"
                     app:layout_constraintBottom_toTopOf="@id/settings_item"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"

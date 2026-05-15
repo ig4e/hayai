@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.more
 
 import android.app.Dialog
+import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.view.View
@@ -101,6 +102,19 @@ class OverflowDialog(
                 (getIcon() as? AnimatedVectorDrawableCompat)?.start()
             }
         }
+        binding.updateReportItem.setOnClickListener {
+            // Reuse the existing in-app handler that the file-open icon on
+            // TabbedRecentsOptionsSheet and the post-update notification both go
+            // through, so all three entry points land on the same screen without
+            // duplicating router/controller wiring here.
+            val intent = Intent(activity, MainActivity::class.java).apply {
+                action = MainActivity.SHORTCUT_LIBRARY_UPDATE_REPORT
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            activity.startActivity(intent)
+            dismiss()
+        }
+
         binding.settingsItem.setOnClickListener {
             activity.showSettings()
             dismiss()

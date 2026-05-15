@@ -2056,7 +2056,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
         // Phase C #17: tag every text block with data-paragraph-index so the JS click
         // handler reports an index that lines up exactly with chapterParagraphsById.
-        cleanContent = tagAndStashParagraphs(chapterId, cleanContent, plainTextMode)
+        cleanContent = tagAndStashViaHelper(chapterId, cleanContent, plainTextMode, chapterUrl)
         val escapedContent = JSONObject.quote(cleanContent)
 
         // Visible Prev/Current card. `from` is the previously-top chapter (the one the user
@@ -2147,7 +2147,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
         // Phase C #17: tag every text block with data-paragraph-index so the JS click
         // handler reports an index that lines up exactly with chapterParagraphsById.
-        cleanContent = tagAndStashParagraphs(chapterId, cleanContent, plainTextMode)
+        cleanContent = tagAndStashViaHelper(chapterId, cleanContent, plainTextMode, chapterUrl)
         val escapedContent = JSONObject.quote(cleanContent)
         val transitionHtml = buildTransitionCardHtml(from = fromChapter, to = chapter, isNext = true)
         val escapedTransition = JSONObject.quote(transitionHtml)
@@ -2424,32 +2424,27 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             """.trimIndent()
         } else {
             try {
+                // Extra DOM-level sanitisation that the regex pre-strip can miss
+                // (e.g. <link rel="stylesheet"> tags). Done BEFORE tagging so the
+                // helper sees the same sanitised tree the WebView will render.
                 val doc = org.jsoup.Jsoup.parse(finalContent)
-
-
                 doc.select("style, link[rel=stylesheet]").remove()
-
                 doc.select("script, noscript").remove()
-
-                // Phase C #17: tag every text-bearing block with chapter-local
-                // data-paragraph-index and capture the same elements' text into a list, so
-                // the JS click handler and the Kotlin chunker share one coordinate system.
                 val bodyNode = doc.body()
-                if (chapterId != null && bodyNode != null) {
-                    val paragraphs = mutableListOf<String>()
-                    for (el in bodyNode.select("p, li, blockquote, h1, h2, h3, h4, h5, h6, pre")) {
-                        val text = el.text()
-                        if (text.isBlank()) continue
-                        val idx = paragraphs.size
-                        el.attr("data-paragraph-index", idx.toString())
-                        paragraphs += text
-                    }
-                    chapterParagraphsById[chapterId] = paragraphs
+                val sanitized = if (bodyNode != null && (bodyNode.hasText() || bodyNode.children().isNotEmpty())) {
+                    bodyNode.html()
+                } else {
+                    finalContent
                 }
-                if (bodyNode != null && bodyNode.hasText()) {
-                    finalContent = bodyNode.html()
-                } else if (bodyNode != null && bodyNode.children().isNotEmpty()) {
-                    finalContent = bodyNode.html()
+
+                // Phase C #17: single source of truth for chapter paragraph tagging.
+                // Helper assigns chapter-local data-paragraph-index to every text-bearing
+                // block and returns the matching paragraph list so the JS click handler
+                // and the Kotlin chunker share one coordinate system.
+                val tagged = NovelViewerTextUtils.normalizeAndTagContentForHtml(sanitized, normalizedChapterUrl)
+                finalContent = tagged.html
+                if (chapterId != null) {
+                    chapterParagraphsById[chapterId] = tagged.paragraphs
                 }
             } catch (e: Exception) {
                 Logger.w {
@@ -2715,48 +2710,30 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         NovelViewerTextUtils.normalizeContentForHtml(content, chapterUrl)
 
     /**
-     * Phase C #17: Jsoup-tag every text-bearing block in [cleanContent] with
-     * `data-paragraph-index`, capture the chapter-local paragraph list into
-     * [chapterParagraphsById], and return the tagged HTML. Called as the LAST processing
-     * step in every chapter-render path (loadHtmlContent / appendHtmlContent /
-     * prependHtmlContent) so the cached paragraph text matches what the user sees on the
-     * page exactly, even after script/style stripping, media blocking, and regex
-     * replacements have run.
+     * Phase C #17: thin wrapper that defers tagging + paragraph capture to the shared
+     * [NovelViewerTextUtils.normalizeAndTagContentForHtml] helper so both the WebView
+     * viewer and the native [NovelViewer] go through one tagger. Stores the captured
+     * paragraph list into [chapterParagraphsById] keyed by chapter id and returns the
+     * tagged HTML for the JS payload.
      *
      * Plain-text chapters are special-cased: their rendering is a single `<pre>` (no inner
      * `<p>` tags), so we stash the whole blob as one paragraph and skip tagging since the
      * Tsundoku pre-script already injects textContent at runtime.
      */
-    private fun tagAndStashParagraphs(
+    private fun tagAndStashViaHelper(
         chapterId: Long,
         cleanContent: String,
         plainTextMode: Boolean,
+        chapterUrl: String?,
     ): String {
         if (plainTextMode) {
             chapterParagraphsById[chapterId] =
                 if (cleanContent.isBlank()) emptyList() else listOf(cleanContent)
             return cleanContent
         }
-        return try {
-            val doc = org.jsoup.Jsoup.parseBodyFragment(cleanContent)
-            val elements = doc.body().select("p, li, blockquote, h1, h2, h3, h4, h5, h6, pre")
-            val paragraphs = mutableListOf<String>()
-            for (el in elements) {
-                val text = el.text()
-                if (text.isBlank()) continue
-                val idx = paragraphs.size
-                el.attr("data-paragraph-index", idx.toString())
-                paragraphs += text
-            }
-            chapterParagraphsById[chapterId] = paragraphs
-            doc.body().html()
-        } catch (e: Exception) {
-            Logger.w {
-                "NovelWebViewViewer: tagAndStashParagraphs failed for chapter=$chapterId: ${e.message}"
-            }
-            chapterParagraphsById[chapterId] = emptyList()
-            cleanContent
-        }
+        val tagged = NovelViewerTextUtils.normalizeAndTagContentForHtml(cleanContent, chapterUrl)
+        chapterParagraphsById[chapterId] = tagged.paragraphs
+        return tagged.html
     }
 
     /**
