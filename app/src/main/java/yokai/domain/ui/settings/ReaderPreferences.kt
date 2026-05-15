@@ -1,8 +1,6 @@
 package yokai.domain.ui.settings
 
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.presentation.reader.appbars.DefaultBottomBarItems
-import eu.kanade.presentation.reader.appbars.serialize
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.core.preference.PreferenceStore
@@ -148,12 +146,6 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     val novelCustomCssSnippets: Preference<String> = preferenceStore.getString("pref_novel_css_snippets", "[]")
     val novelCustomJsSnippets: Preference<String> = preferenceStore.getString("pref_novel_js_snippets", "[]")
 
-    // Global CSS/JS presets stored as JSON array of {name, css, js} objects
-    val novelGlobalPresets: Preference<String> = preferenceStore.getString("pref_novel_global_presets", "[]")
-
-    // Currently active global preset name (empty = none)
-    val novelActivePreset: Preference<String> = preferenceStore.getString("pref_novel_active_preset", "")
-
     // Regex find/replace rules stored as JSON array of {title, pattern, replacement, enabled, isRegex}
     // Applied to chapter HTML content before rendering in both WebView and TextView modes
     val novelRegexReplacements: Preference<String> = preferenceStore.getString("pref_novel_regex_replacements", DEFAULT_NOVEL_REGEX_RULES)
@@ -164,9 +156,6 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
 
     // Strip ALL non-ASCII after normalisation. Off by default — destroys CJK content.
     val novelTextAggressiveCleanup: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_text_aggressive_cleanup", false)
-
-    // Keep chapters loaded in memory (0 = only current, 1 = current + prev, 2 = current + next, 3 = both)
-    val novelKeepChaptersLoaded: Preference<Int> = preferenceStore.getInt("pref_novel_keep_chapters_loaded", 0)
 
     // Show progress slider in novel reader (allows scrolling to position in current chapter)
     val novelShowProgressSlider: Preference<Boolean> = preferenceStore.getBoolean(
@@ -251,11 +240,6 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     // Tap a paragraph to start TTS from there. On by default per user request; can be
     // disabled if the user finds it noisy with the existing tap-to-scroll / nav zones.
     val novelTtsTapToStart: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tts_tap_to_start", true)
-
-    val novelBottomBarItems: Preference<String> = preferenceStore.getString(
-        "novel_bottom_bar_items",
-        DefaultBottomBarItems.serialize(),
-    )
 
     // App-level default screen orientation when reading novels. Stored as a packed
     // OrientationType.flagValue (matches the manga `defaultOrientationType` storage shape) so the
