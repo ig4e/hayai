@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import yokai.i18n.MR
+import yokai.presentation.theme.Size
 import yokai.presentation.theme.YokaiTheme
 
 /**
@@ -112,7 +113,7 @@ fun QuotesSheet(
                 }) { Text(stringResource(MR.strings.edit)) }
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Size.small)) {
                     TextButton(onClick = {
                         val text = "\"${q.content}\"\n\n- ${q.novelName}, ${q.chapterName}"
                         clipboardManager.setText(AnnotatedString(text))
@@ -198,7 +199,7 @@ fun QuotesSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                    .padding(horizontal = Size.large, vertical = Size.small),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -206,7 +207,7 @@ fun QuotesSheet(
                     Icon(
                         imageVector = Icons.Outlined.FormatQuote,
                         contentDescription = null,
-                        modifier = Modifier.padding(end = 8.dp),
+                        modifier = Modifier.padding(end = Size.small),
                     )
                     Text(
                         text = stringResource(MR.strings.novel_quotes),
@@ -222,13 +223,13 @@ fun QuotesSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 32.dp),
+                        .padding(vertical = Size.extraLarge),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = stringResource(MR.strings.novel_quotes_empty),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             } else {
@@ -236,7 +237,7 @@ fun QuotesSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 520.dp)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = Size.medium),
                 ) {
                     itemsIndexed(quotes) { _, quote ->
                         QuoteCard(
@@ -270,9 +271,9 @@ private fun QuoteCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = Size.tiny),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(Size.smedium)) {
             Text(
                 text = quote.content,
                 style = MaterialTheme.typography.bodyLarge,
@@ -283,8 +284,8 @@ private fun QuoteCard(
             Text(
                 text = quote.chapterName,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(top = 4.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Size.tiny),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -306,7 +307,7 @@ private fun QuoteCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    .padding(top = 4.dp)
+                    .padding(top = Size.tiny)
                     .clickable(onClick = onClick),
             )
         }

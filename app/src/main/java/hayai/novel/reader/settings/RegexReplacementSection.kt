@@ -33,13 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.presentation.reader.settings.RegexReplacement
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.i18n.MR
+import yokai.presentation.theme.Size
 
 /**
  * Regex find-and-replace editor for the novel reader Advanced tab.
@@ -70,7 +70,7 @@ internal fun RegexReplacementSection(prefs: ReaderPreferences) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = Size.medium, vertical = Size.small),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -81,7 +81,7 @@ internal fun RegexReplacementSection(prefs: ReaderPreferences) {
                 Icon(
                     imageVector = Icons.Outlined.FindReplace,
                     contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp),
+                    modifier = Modifier.padding(end = Size.small),
                 )
                 Text(
                     text = stringResource(MR.strings.novel_find_replace),
@@ -105,13 +105,13 @@ internal fun RegexReplacementSection(prefs: ReaderPreferences) {
             checked = aggressive,
             onChange = { prefs.novelTextAggressiveCleanup.set(it) },
         )
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = Size.small))
 
         rules.forEachIndexed { index, rule ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp)
+                    .padding(vertical = Size.tiny)
                     .clickable {
                         val updated = rules.toMutableList().apply {
                             this[index] = this[index].copy(enabled = !this[index].enabled)
@@ -122,7 +122,7 @@ internal fun RegexReplacementSection(prefs: ReaderPreferences) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(Size.smedium),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -133,7 +133,7 @@ internal fun RegexReplacementSection(prefs: ReaderPreferences) {
                             color = if (rule.enabled) {
                                 MaterialTheme.colorScheme.onSurface
                             } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             },
                         )
                         val kindLabel = stringResource(
@@ -148,7 +148,7 @@ internal fun RegexReplacementSection(prefs: ReaderPreferences) {
                             color = if (rule.enabled) {
                                 MaterialTheme.colorScheme.primary
                             } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             },
                         )
                         val replacementDisplay =
@@ -158,7 +158,7 @@ internal fun RegexReplacementSection(prefs: ReaderPreferences) {
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Row {
@@ -180,8 +180,8 @@ internal fun RegexReplacementSection(prefs: ReaderPreferences) {
             Text(
                 text = stringResource(MR.strings.novel_no_rules),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = Size.small),
             )
         }
     }
@@ -219,7 +219,7 @@ private fun PreprocessSwitchRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onChange(!checked) }
-            .padding(vertical = 8.dp),
+            .padding(vertical = Size.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -227,7 +227,7 @@ private fun PreprocessSwitchRow(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Switch(checked = checked, onCheckedChange = onChange)
@@ -285,7 +285,7 @@ private fun RegexEditDialog(
                     },
                     singleLine = false,
                     maxLines = 3,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = Size.small),
                 )
                 OutlinedTextField(
                     value = replacement,
@@ -296,10 +296,10 @@ private fun RegexEditDialog(
                     label = { Text(stringResource(MR.strings.novel_rule_replace_with)) },
                     singleLine = false,
                     maxLines = 3,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = Size.small),
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = Size.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(
@@ -312,11 +312,11 @@ private fun RegexEditDialog(
                     )
                     Text(
                         text = stringResource(MR.strings.novel_rule_use_regex),
-                        modifier = Modifier.padding(start = 4.dp),
+                        modifier = Modifier.padding(start = Size.tiny),
                     )
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = Size.small))
                 Text(
                     text = stringResource(MR.strings.novel_rule_test),
                     style = MaterialTheme.typography.titleSmall,
@@ -331,7 +331,7 @@ private fun RegexEditDialog(
                     label = { Text(stringResource(MR.strings.novel_rule_sample_input)) },
                     minLines = 2,
                     maxLines = 4,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = Size.tiny),
                 )
                 TextButton(
                     onClick = {
@@ -352,7 +352,7 @@ private fun RegexEditDialog(
                             testOutput = null
                         }
                     },
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = Size.tiny),
                 ) {
                     Text(stringResource(MR.strings.novel_rule_run_test))
                 }
@@ -361,7 +361,7 @@ private fun RegexEditDialog(
                         text = outputFormatTemplate.replace("%s", it),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = Size.tiny),
                     )
                 }
                 testError?.let {
@@ -369,7 +369,7 @@ private fun RegexEditDialog(
                         text = errorFormatTemplate.replace("%s", it),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = Size.tiny),
                     )
                 }
             }
