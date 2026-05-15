@@ -12,7 +12,6 @@ import yokai.util.lang.getString
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import kotlin.math.roundToInt
-import yokai.util.widget.scaleFlingVelocity
 
 class LinearLayoutManagerAccurateOffset(context: Context?) : LinearLayoutManager(context) {
 
@@ -23,7 +22,6 @@ class LinearLayoutManagerAccurateOffset(context: Context?) : LinearLayoutManager
     private val childTypeEstimateMap = HashMap<Int, Int>()
     var rView: RecyclerView? = null
     var computedRange: Int? = null
-    private var previousFlingListener: RecyclerView.OnFlingListener? = null
 
     private val toolbarHeight by lazy {
         val attrsArray = intArrayOf(R.attr.mainActionBarSize)
@@ -49,23 +47,9 @@ class LinearLayoutManagerAccurateOffset(context: Context?) : LinearLayoutManager
     override fun onAttachedToWindow(view: RecyclerView?) {
         super.onAttachedToWindow(view)
         rView = view
-        view?.let { recycler ->
-            previousFlingListener = recycler.onFlingListener
-            recycler.onFlingListener = object : RecyclerView.OnFlingListener() {
-                override fun onFling(velocityX: Int, velocityY: Int): Boolean {
-                    val count = recycler.adapter?.itemCount ?: 0
-                    return recycler.fling(
-                        scaleFlingVelocity(velocityX, count),
-                        scaleFlingVelocity(velocityY, count),
-                    )
-                }
-            }
-        }
     }
 
     override fun onDetachedFromWindow(view: RecyclerView?, recycler: RecyclerView.Recycler?) {
-        view?.onFlingListener = previousFlingListener
-        previousFlingListener = null
         super.onDetachedFromWindow(view, recycler)
         rView = null
     }

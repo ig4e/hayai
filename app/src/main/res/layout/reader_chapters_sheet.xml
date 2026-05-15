@@ -172,7 +172,7 @@
             app:tint="?actionBarTintColor" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
+    <yokai.util.widget.VelocityScaledRecyclerView
         android:id="@+id/chapter_recycler"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
