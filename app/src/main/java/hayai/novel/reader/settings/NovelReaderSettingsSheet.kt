@@ -274,9 +274,24 @@ private fun AppearanceTab(prefs: ReaderPreferences) {
 @Composable
 private fun ControlsTab(prefs: ReaderPreferences) {
     Column {
-        IntSliderPref(prefs.novelAutoScrollSpeed, stringResource(MR.strings.novel_auto_scroll_speed), 1, 10)
+        // Auto-scroll cap raised 5× per Phase B #4. The previous clamp inside the viewer
+        // collapsed anything > 10 anyway; now the JS loop honours the full 1..50 range
+        // and the slider exposes it linearly. The minimum stays at 1 so users who want
+        // the super-slow scroll get it unchanged.
+        IntSliderPref(prefs.novelAutoScrollSpeed, stringResource(MR.strings.novel_auto_scroll_speed), 1, 50)
         BoolPref(prefs.novelVolumeKeysScroll, stringResource(MR.strings.novel_volume_keys_scroll))
         BoolPref(prefs.novelTapToScroll, stringResource(MR.strings.novel_tap_to_scroll))
+        // Double-tap + long-press chip rows. Both use the same NovelTapAction enum
+        // (Phase B #16). The integer ChipRow stores ordinal values, parsed via
+        // NovelTapAction.fromOrdinal at the dispatch site.
+        NovelTapActionChipRow(
+            label = stringResource(MR.strings.novel_double_tap_action),
+            preference = prefs.novelDoubleTapAction,
+        )
+        NovelTapActionChipRow(
+            label = stringResource(MR.strings.novel_long_tap_action),
+            preference = prefs.novelLongTapAction,
+        )
         BoolPref(prefs.novelSwipeNavigation, stringResource(MR.strings.novel_swipe_navigation))
         BoolPref(prefs.novelTextSelectable, stringResource(MR.strings.novel_text_selectable))
         BoolPref(prefs.novelShowProgressSlider, stringResource(MR.strings.novel_show_progress_slider))
@@ -626,6 +641,41 @@ private fun IconToggleRow(
                 ) {
                     Icon(imageVector = icon, contentDescription = value)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Chip row for [hayai.novel.reader.NovelTapAction] ordinal-backed preferences.
+ * Builds the option list from the enum's entries so adding a new action is a single
+ * change in [hayai.novel.reader.NovelTapAction] (the enum + the string resource).
+ */
+@Composable
+private fun NovelTapActionChipRow(
+    label: String,
+    preference: Preference<Int>,
+) {
+    val current = remember(preference) { preference }.collectAsState()
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            hayai.novel.reader.NovelTapAction.entries.forEach { action ->
+                FilterChip(
+                    selected = current.value == action.ordinal,
+                    onClick = { preference.set(action.ordinal) },
+                    label = { Text(stringResource(action.labelRes)) },
+                )
             }
         }
     }

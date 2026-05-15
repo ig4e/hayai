@@ -2,10 +2,10 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.ActionMode
-import android.view.Choreographer
 import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.Menu
@@ -107,50 +107,22 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     // Cleared once retry is initiated or content loads successfully.
     private var lastErrorRetryContext: Pair<ReaderChapter, ReaderPage>? = null
 
-    // Auto-scroll state. Driven by Choreographer (vsync-aligned) and applied via the WebView's
-    // native scrollBy so the compositor handles the actual scroll on the render thread, instead
-    // of routing every frame through the JS event loop where it competes with reflows/listeners.
+    // Auto-scroll state. Phase B #6: previously a Kotlin-side Choreographer callback drove
+    // webView.scrollBy(0, dy) on every vsync, which stuttered because the IPC + WebView
+    // layout pipeline both fought the user's gesture loop. The actual scroll now runs as
+    // a `requestAnimationFrame` loop *inside* the WebView (see autoScrollRafScript in
+    // injectCustomScript) — Kotlin only sets `window.__hayaiSetAutoScroll(on, speed)`
+    // globals via evaluateJavascript. These flags stay in Kotlin for UI state queries
+    // (button highlight, double-tap toggle, pause-on-touch).
     private var isAutoScrolling = false
     private var isAutoScrollPaused = false
-    private var autoScrollAccumPx = 0f
-    private var autoScrollLastFrameNanos = 0L
-    private val autoScrollFrameCallback = object : Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            if (!isAutoScrolling || isDestroyed) {
-                autoScrollLastFrameNanos = 0L
-                return
-            }
-            if (isAutoScrollPaused) {
-                // Drop dt accumulation while paused so we don't lurch on resume.
-                autoScrollLastFrameNanos = 0L
-                Choreographer.getInstance().postFrameCallback(this)
-                return
-            }
-            if (autoScrollLastFrameNanos == 0L) {
-                autoScrollLastFrameNanos = frameTimeNanos
-                Choreographer.getInstance().postFrameCallback(this)
-                return
-            }
-            // Cap dt at 50ms so a janky frame can't snap-scroll a chunk on the next tick.
-            val dtSec = ((frameTimeNanos - autoScrollLastFrameNanos) / 1_000_000_000f)
-                .coerceIn(0f, 0.05f)
-            autoScrollLastFrameNanos = frameTimeNanos
-            val pxPerSec = preferences.novelAutoScrollSpeed.get().coerceIn(1, 10) * 30f
-            autoScrollAccumPx += pxPerSec * dtSec
-            val whole = autoScrollAccumPx.toInt()
-            if (whole > 0) {
-                autoScrollAccumPx -= whole.toFloat()
-                try {
-                    webView.scrollBy(0, whole)
-                } catch (t: Throwable) {
-                    Logger.w { "NovelWebViewViewer: autoScroll scrollBy ignored (${t.message})" }
-                }
-            }
-            Choreographer.getInstance().postFrameCallback(this)
-        }
-    }
 
-    private var navigator: eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation = eu.kanade.tachiyomi.ui.reader.viewer.navigation.DisabledNavigation()
+    // Phase B #2: was DisabledNavigation() — its regions list is empty, so navigator.getAction
+    // always resolved to MENU and the NEXT/PREV/LEFT/RIGHT branches in onSingleTapConfirmed
+    // never fired (tap-to-scroll silently dead even with the pref ON). VerticalNavigation
+    // splits the screen into top→PREV / middle→MENU / bottom→NEXT stripes so tap-to-scroll
+    // actually reaches the scrollBy branches below.
+    private var navigator: eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation = eu.kanade.tachiyomi.ui.reader.viewer.navigation.VerticalNavigation()
 
     // TTS support
     private var tts: TextToSpeech? = null
@@ -259,10 +231,46 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
                 return true
             }
+
+            // Phase B #16: double-tap dispatches through the same NovelTapAction enum used
+            // for long-press. Default = TOGGLE_MENU, but the user can rebind to any action
+            // (chapter nav, scroll, auto-scroll, TTS, define) from the in-reader settings.
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (isEditingMode) return false
+                val action = hayai.novel.reader.NovelTapAction.fromOrdinal(
+                    preferences.novelDoubleTapAction.get(),
+                )
+                if (action == hayai.novel.reader.NovelTapAction.NONE) return false
+                dispatchTapAction(action)
+                return true
+            }
+
+            // Phase B #16: long-press path. Only intercepts when the user has bound an
+            // action AND there is no live text selection — otherwise we forward to the
+            // WebView so its native text-selection behaviour continues to work as before.
+            override fun onLongPress(e: MotionEvent) {
+                if (isEditingMode) return
+                val action = hayai.novel.reader.NovelTapAction.fromOrdinal(
+                    preferences.novelLongTapAction.get(),
+                )
+                if (action == hayai.novel.reader.NovelTapAction.NONE) return
+                // If text selection is active, let the WebView keep its existing selection
+                // toolbar — checked asynchronously via evaluateJavascript. The action only
+                // fires when there's no selection.
+                webView.evaluateJavascript(
+                    "(function(){var s=window.getSelection();return s?s.toString():'';})();",
+                ) { result ->
+                    val selection = result?.trim('"')?.replace("\\\"", "\"") ?: ""
+                    if (selection.isNotEmpty()) return@evaluateJavascript
+                    activity.runOnUiThread { dispatchTapAction(action) }
+                }
+            }
         },
     ).apply {
-        // Disable long press handling so WebView can handle text selection
-        setIsLongpressEnabled(false)
+        // Long-press is now intercepted by the listener above (gated on pref + no selection),
+        // so re-enable detection. The listener forwards to WebView text-selection when the
+        // pref is NONE / a selection is already active.
+        setIsLongpressEnabled(true)
     }
 
     init {
@@ -486,6 +494,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 // so it's not hidden behind the overflow menu on the floating action mode
                 // toolbar that often only has room for 2-3 visible items.
                 val quoteLabel = activity.getString(MR.strings.novel_quote_add)
+                // Phase B #15: the floating-toolbar Google Define shortcut wasn't reliably
+                // present (depends on the WebView/Google Search build), so add an explicit
+                // entry that fires ACTION_PROCESS_TEXT with the current selection.
+                val defineLabel = activity.getString(MR.strings.novel_define)
                 val wrapped = if (callback is ActionMode.Callback2) {
                     object : ActionMode.Callback2() {
                         override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
@@ -498,6 +510,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                             )
                                 .setIcon(android.R.drawable.ic_menu_save)
                                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                            menu.add(
+                                Menu.NONE,
+                                DEFINE_MENU_ITEM_ID,
+                                1,
+                                defineLabel,
+                            )
+                                .setIcon(android.R.drawable.ic_menu_search)
+                                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                             return result
                         }
                         override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
@@ -507,11 +527,21 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                                     .setIcon(android.R.drawable.ic_menu_save)
                                     .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                             }
+                            if (menu.findItem(DEFINE_MENU_ITEM_ID) == null) {
+                                menu.add(Menu.NONE, DEFINE_MENU_ITEM_ID, 1, defineLabel)
+                                    .setIcon(android.R.drawable.ic_menu_search)
+                                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                            }
                             return callback.onPrepareActionMode(mode, menu)
                         }
                         override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
                             if (item.itemId == REMEMBER_MENU_ITEM_ID) {
                                 onRememberSelectedText(mode) // pass mode in
+                                return true
+                            }
+                            if (item.itemId == DEFINE_MENU_ITEM_ID) {
+                                triggerDefineFromSelection()
+                                mode.finish()
                                 return true
                             }
                             return callback.onActionItemClicked(mode, item)
@@ -535,6 +565,14 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                             )
                                 .setIcon(android.R.drawable.ic_menu_save)
                                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                            menu.add(
+                                Menu.NONE,
+                                DEFINE_MENU_ITEM_ID,
+                                1,
+                                defineLabel,
+                            )
+                                .setIcon(android.R.drawable.ic_menu_search)
+                                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                             return result
                         }
                         override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
@@ -543,11 +581,21 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                                     .setIcon(android.R.drawable.ic_menu_save)
                                     .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                             }
+                            if (menu.findItem(DEFINE_MENU_ITEM_ID) == null) {
+                                menu.add(Menu.NONE, DEFINE_MENU_ITEM_ID, 1, defineLabel)
+                                    .setIcon(android.R.drawable.ic_menu_search)
+                                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                            }
                             return callback.onPrepareActionMode(mode, menu)
                         }
                         override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
                             if (item.itemId == REMEMBER_MENU_ITEM_ID) {
                                 onRememberSelectedText()
+                                mode.finish()
+                                return true
+                            }
+                            if (item.itemId == DEFINE_MENU_ITEM_ID) {
+                                triggerDefineFromSelection()
                                 mode.finish()
                                 return true
                             }
@@ -832,6 +880,22 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 ensureTtsInitialized()
             }
         }
+
+        // Phase B #6: when the user drags the auto-scroll speed slider mid-scroll, push
+        // the new value into the JS loop so they get live feedback. The setter no-ops if
+        // auto-scroll isn't running.
+        scope.launch {
+            preferences.novelAutoScrollSpeed.changes()
+                .drop(1)
+                .collect { newSpeed ->
+                    if (isAutoScrolling && !isAutoScrollPaused) {
+                        val clamped = newSpeed.coerceIn(1, 50)
+                        evaluateJavascriptSafe(
+                            "if(window.__hayaiSetAutoScroll){window.__hayaiSetAutoScroll(true, $clamped);}",
+                        )
+                    }
+                }
+        }
     }
 
     private fun applyWebViewScrollbarSettings(target: WebView = webView) {
@@ -1050,6 +1114,19 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
 
         installSentenceClickHandler()
+        // Phase B #6: ensure the in-WebView rAF auto-scroll loop is installed before any
+        // future startAutoScroll() flips its globals. Idempotent — re-injection on
+        // chapter change just leaves the existing state intact.
+        installAutoScrollScript()
+        // If auto-scroll was running before the page reloaded (chapter change), the new
+        // document's freshly-installed loop starts in the off state — re-arm it with the
+        // current speed so the user's session continues seamlessly.
+        if (isAutoScrolling && !isAutoScrollPaused) {
+            val speed = preferences.novelAutoScrollSpeed.get().coerceIn(1, 50)
+            evaluateJavascriptSafe(
+                "if(window.__hayaiSetAutoScroll){window.__hayaiSetAutoScroll(true, $speed);}",
+            )
+        }
     }
 
     /**
@@ -1433,8 +1510,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         }
         tts = null
 
-        // Stop the auto-scroll vsync callback before tearing the WebView down so the next
-        // doFrame doesn't reach into a destroyed view.
+        // Stop the auto-scroll JS loop before tearing the WebView down (Phase B #6 — the
+        // loop now lives in the WebView itself; the setter no-ops on a destroyed view via
+        // evaluateJavascriptSafe's isDestroyed guard, but flipping isAutoScrolling=false
+        // keeps the Kotlin side consistent).
         stopAutoScroll()
 
         // Mark destroyed first so coroutine finally-blocks won't touch WebView.
@@ -1443,6 +1522,91 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         scope.cancel()
         loadJob?.cancel()
         webView.destroy()
+    }
+
+    /**
+     * Phase B #16 — central dispatch for [NovelTapAction] entries. Used by both the
+     * double-tap and long-press paths in the gesture detector so both preferences share
+     * the exact same action surface.
+     */
+    private fun dispatchTapAction(action: hayai.novel.reader.NovelTapAction) {
+        when (action) {
+            hayai.novel.reader.NovelTapAction.NONE -> Unit
+            hayai.novel.reader.NovelTapAction.TOGGLE_MENU -> activity.toggleMenu()
+            hayai.novel.reader.NovelTapAction.NEXT_CHAPTER -> activity.loadNextChapter()
+            hayai.novel.reader.NovelTapAction.PREVIOUS_CHAPTER -> activity.loadPreviousChapter()
+            hayai.novel.reader.NovelTapAction.SCROLL_DOWN -> {
+                webView.evaluateJavascript("window.scrollBy(0, ${(container.height * 0.8).toInt()});", null)
+            }
+            hayai.novel.reader.NovelTapAction.SCROLL_UP -> {
+                webView.evaluateJavascript("window.scrollBy(0, -${(container.height * 0.8).toInt()});", null)
+            }
+            hayai.novel.reader.NovelTapAction.TOGGLE_AUTO_SCROLL -> toggleAutoScroll()
+            hayai.novel.reader.NovelTapAction.START_TTS -> startTts()
+            hayai.novel.reader.NovelTapAction.STOP_TTS -> stopTts()
+            hayai.novel.reader.NovelTapAction.DEFINE_SELECTED -> triggerDefineFromSelection()
+        }
+    }
+
+    /**
+     * Phase B #15 — fire `Intent.ACTION_PROCESS_TEXT` with the WebView's current text
+     * selection. Prefers Google's quick-search box when installed (deterministic Define
+     * dictionary handler), otherwise routes through a chooser. Toast if nothing handles
+     * the intent. The selection is pulled out of the WebView asynchronously via
+     * `window.getSelection().toString()`.
+     */
+    private fun triggerDefineFromSelection() {
+        webView.evaluateJavascript(
+            "(function(){var s=window.getSelection();return s?s.toString():'';})();",
+        ) { result ->
+            val raw = result ?: ""
+            // The bridge returns JSON-encoded values — strip the surrounding quotes and
+            // unescape the few sequences that matter for plain text selection.
+            val selected = raw.trim('"')
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+                .replace("\\n", "\n")
+                .replace("\\r", "")
+                .replace("\\t", "\t")
+                .trim()
+            if (selected.isEmpty()) {
+                activity.runOnUiThread {
+                    activity.toast(activity.getString(MR.strings.novel_quote_no_selection))
+                }
+                return@evaluateJavascript
+            }
+            activity.runOnUiThread { launchDefineIntent(selected) }
+        }
+    }
+
+    private fun launchDefineIntent(selected: String) {
+        val intent = Intent(Intent.ACTION_PROCESS_TEXT).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_PROCESS_TEXT, selected)
+            putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
+        }
+        val pm = activity.packageManager
+        val resolved = pm.queryIntentActivities(intent, 0)
+        if (resolved.isEmpty()) {
+            activity.toast(activity.getString(MR.strings.novel_define_no_handler))
+            return
+        }
+        val googleSearchPkg = "com.google.android.googlequicksearchbox"
+        val googleHandler = resolved.firstOrNull { it.activityInfo?.packageName == googleSearchPkg }
+        try {
+            if (googleHandler != null) {
+                val info = googleHandler.activityInfo
+                intent.setClassName(info.packageName, info.name)
+                activity.startActivity(intent)
+            } else {
+                activity.startActivity(
+                    Intent.createChooser(intent, activity.getString(MR.strings.novel_define)),
+                )
+            }
+        } catch (t: Throwable) {
+            Logger.w { "NovelWebViewViewer: Define intent failed: ${t.message}" }
+            activity.toast(activity.getString(MR.strings.novel_define_no_handler))
+        }
     }
 
     private fun evaluateJavascriptSafe(js: String, callback: ((String) -> Unit)? = null) {
@@ -1548,6 +1712,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         // Stop TTS when loading a new chapter (unless it's auto-play transition which handles restart)
         // But even for auto-play, we want to stop the old chapter audio before loading new one.
         tts?.stop()
+        // Phase B #6: tear the auto-scroll loop down whenever a fresh chapter renders.
+        // The next document's installAutoScrollScript() call will set up a fresh loop;
+        // not stopping here would leave isAutoScrolling=true while the JS state object on
+        // the new page is fresh (running=false), producing a confused "scrolling but not
+        // scrolling" state on the next user toggle.
+        if (isAutoScrolling) stopAutoScroll()
 
         currentPage = page
         currentChapters = chapters
@@ -3142,9 +3312,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
 
     /**
-     * Toggle auto-scroll for the WebView. Backed by a vsync-aligned Choreographer loop that
-     * drives the WebView's native scroll, so motion is paced by the same render thread that
-     * handles user-initiated scrolls instead of a JS rAF loop fighting reflows.
+     * Toggle auto-scroll for the WebView. Phase B #6: backed by a JS requestAnimationFrame
+     * loop running inside the WebView (see [installAutoScrollScript]). Kotlin only flips
+     * the on/off + speed globals via evaluateJavascript so the actual scrolling never
+     * crosses the JS bridge mid-frame.
      */
     fun toggleAutoScroll() {
         if (isAutoScrolling) stopAutoScroll() else startAutoScroll()
@@ -3154,28 +3325,75 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         if (isAutoScrolling) return
         isAutoScrolling = true
         isAutoScrollPaused = false
-        autoScrollAccumPx = 0f
-        autoScrollLastFrameNanos = 0L
-        Choreographer.getInstance().postFrameCallback(autoScrollFrameCallback)
+        // The rAF script is injected at page load (see installAutoScrollScript). The
+        // setter is idempotent and will (re-)kick the loop with the current speed.
+        val speed = preferences.novelAutoScrollSpeed.get().coerceIn(1, 50)
+        evaluateJavascriptSafe(
+            "if(window.__hayaiSetAutoScroll){window.__hayaiSetAutoScroll(true, $speed);}",
+        )
     }
 
     private fun stopAutoScroll() {
         if (!isAutoScrolling) return
         isAutoScrolling = false
         isAutoScrollPaused = false
-        autoScrollAccumPx = 0f
-        autoScrollLastFrameNanos = 0L
-        Choreographer.getInstance().removeFrameCallback(autoScrollFrameCallback)
+        evaluateJavascriptSafe(
+            "if(window.__hayaiSetAutoScroll){window.__hayaiSetAutoScroll(false, 0);}",
+        )
     }
 
     private fun pauseAutoScroll() {
         if (!isAutoScrolling) return
         isAutoScrollPaused = true
+        evaluateJavascriptSafe(
+            "if(window.__hayaiSetAutoScroll){window.__hayaiSetAutoScroll(false, 0);}",
+        )
     }
 
     private fun resumeAutoScroll() {
         if (!isAutoScrolling) return
+        if (!isAutoScrollPaused) return
         isAutoScrollPaused = false
+        val speed = preferences.novelAutoScrollSpeed.get().coerceIn(1, 50)
+        evaluateJavascriptSafe(
+            "if(window.__hayaiSetAutoScroll){window.__hayaiSetAutoScroll(true, $speed);}",
+        )
+    }
+
+    /**
+     * Inject the auto-scroll rAF loop into the WebView. Idempotent — re-running just
+     * leaves the existing state object in place. Called at page load via
+     * [injectCustomScript] so the loop is always available before [startAutoScroll]
+     * flips its on-flag.
+     */
+    private fun installAutoScrollScript() {
+        evaluateJavascriptSafe(
+            """
+            (function(){
+                window.__hayaiAutoScroll = window.__hayaiAutoScroll || { running:false, speed:15 };
+                if (window.__hayaiAutoStep) return;
+                window.__hayaiAutoStep = function(ts){
+                    var s = window.__hayaiAutoScroll;
+                    if (!s || !s.running) return;
+                    if (!s.last) s.last = ts;
+                    var dt = Math.min(0.05, (ts - s.last) / 1000);
+                    s.last = ts;
+                    window.scrollBy(0, s.speed * 30 * dt);
+                    requestAnimationFrame(window.__hayaiAutoStep);
+                };
+                window.__hayaiSetAutoScroll = function(on, speed){
+                    var s = window.__hayaiAutoScroll;
+                    s.speed = Math.max(1, Math.min(50, speed|0));
+                    if (on && !s.running) {
+                        s.running = true;
+                        s.last = 0;
+                        requestAnimationFrame(window.__hayaiAutoStep);
+                    }
+                    if (!on) { s.running = false; }
+                };
+            })();
+            """.trimIndent(),
+        )
     }
 
     /**
@@ -3707,6 +3925,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     }
     companion object {
         private const val REMEMBER_MENU_ITEM_ID = 0xBEEF // arbitrary unique ID
+        // Phase B #15 — second action-mode menu item we own (Define). Must not collide
+        // with REMEMBER_MENU_ITEM_ID or any default Android selection IDs.
+        private const val DEFINE_MENU_ITEM_ID = 0xBEF0
         // Auto-load the next chapter once the user has scrolled past this fraction of the current one.
         private const val AUTO_LOAD_NEXT_THRESHOLD = 0.95
         // Force-dismiss the loading overlay after this long; protects against onPageFinished

@@ -89,9 +89,25 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
     val novelTheme: Preference<String> = preferenceStore.getString("pref_novel_theme", "app")
     val novelLineHeight: Preference<Float> = preferenceStore.getFloat("pref_novel_line_height", 1.6f)
     val novelTextAlign: Preference<String> = preferenceStore.getString("pref_novel_text_align", "left")
-    val novelAutoScrollSpeed: Preference<Int> = preferenceStore.getInt("pref_novel_auto_scroll_speed", 30)
+    // Auto-scroll speed: 1..50 (Phase B #4). Stored as a small int that's multiplied by
+    // a per-frame px/sec factor inside the WebView's rAF loop. Default 15 keeps the prior
+    // "comfortable but a bit fast" feel after the cap was raised 5×; the previous clamp
+    // forced anything above 10 down anyway.
+    val novelAutoScrollSpeed: Preference<Int> = preferenceStore.getInt("pref_novel_auto_scroll_speed", 15)
     val novelVolumeKeysScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_volume_keys_scroll", false)
     val novelTapToScroll: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_tap_to_scroll", false)
+    // Double-tap and long-press actions, both routed through NovelTapAction.dispatch.
+    // Defaults: double-tap toggles the menu (matches single-tap MENU region) so users get
+    // a discoverable affordance; long-press defaults to NONE so the WebView's native
+    // text-selection behaviour is preserved out of the box.
+    val novelDoubleTapAction: Preference<Int> = preferenceStore.getInt(
+        "pref_novel_double_tap_action",
+        hayai.novel.reader.NovelTapAction.TOGGLE_MENU.ordinal,
+    )
+    val novelLongTapAction: Preference<Int> = preferenceStore.getInt(
+        "pref_novel_long_tap_action",
+        hayai.novel.reader.NovelTapAction.NONE.ordinal,
+    )
     val novelTextSelectable: Preference<Boolean> = preferenceStore.getBoolean("pref_novel_text_selectable", true)
 
     // Block media elements (images, videos) in WebView and TextView readers

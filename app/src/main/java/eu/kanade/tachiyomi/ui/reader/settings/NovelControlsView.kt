@@ -15,7 +15,7 @@ class NovelControlsView @JvmOverloads constructor(context: Context, attrs: Attri
 
     override fun initGeneralPreferences() {
         with(binding) {
-            bindIntSlider(autoScrollSpeed, MR.strings.novel_auto_scroll_speed, 1, 10, readerPreferences.novelAutoScrollSpeed.get()) {
+            bindIntSlider(autoScrollSpeed, MR.strings.novel_auto_scroll_speed, 1, 50, readerPreferences.novelAutoScrollSpeed.get()) {
                 readerPreferences.novelAutoScrollSpeed.set(it)
             }
 
