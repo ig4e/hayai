@@ -34,6 +34,7 @@ import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.isCollapsed
 import eu.kanade.tachiyomi.util.view.isExpanded
 import kotlinx.coroutines.launch
+import yokai.util.widget.VelocityScaledLinearLayoutManager
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -275,7 +276,7 @@ class ReaderChapterSheet @JvmOverloads constructor(context: Context, attrs: Attr
             },
         )
 
-        binding.chapterRecycler.layoutManager = LinearLayoutManager(context)
+        binding.chapterRecycler.layoutManager = VelocityScaledLinearLayoutManager(context)
         refreshList()
     }
 

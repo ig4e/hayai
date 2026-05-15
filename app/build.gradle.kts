@@ -203,6 +203,9 @@ dependencies {
     // HTML parser
     implementation(libs.jsoup)
 
+    // Fuzzy string matching (app-wide search)
+    implementation(libs.fuzzywuzzy)
+
     // Markdown parser (used by novel reader for .md chapter content)
     implementation(libs.markdown)
 

@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.util.search.FuzzyMatcher
 import uy.kohesive.injekt.injectLazy
 import yokai.data.DatabaseHandler
 import yokai.domain.chapter.interactor.GetChapter
@@ -324,6 +325,9 @@ class RecentsPresenter(
             } else {
                 true
             }
+        }.filter { mch ->
+            // Layer fuzzy matching on top of the SQL pre-filter so typos resolve here too.
+            if (query.isBlank()) true else FuzzyMatcher.matches(query, mch.manga.title, 70)
         }
         val pairs: List<Pair<MangaChapterHistory, Chapter>> = mangaList.mapNotNull {
             val chapter: Chapter? = when {

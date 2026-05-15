@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.databinding.MangaGridItemBinding
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.widget.AutofitRecyclerView
+import yokai.util.search.FuzzyMatcher
 
 class LibraryMangaItem(
     val manga: LibraryManga,
@@ -138,10 +139,10 @@ class LibraryMangaItem(
             return constraint.isEmpty()
         }
         val sourceName by lazy { sourceManager.getOrStub(manga.manga.source).name }
-        return manga.manga.title.contains(constraint, true) ||
-            (manga.manga.author?.contains(constraint, true) ?: false) ||
-            (manga.manga.artist?.contains(constraint, true) ?: false) ||
-            sourceName.contains(constraint, true) ||
+        return FuzzyMatcher.matches(constraint, manga.manga.title, 70) ||
+            FuzzyMatcher.matches(constraint, manga.manga.author, 70) ||
+            FuzzyMatcher.matches(constraint, manga.manga.artist, 70) ||
+            FuzzyMatcher.matches(constraint, sourceName, 70) ||
             if (constraint.contains(",")) {
                 val genres = manga.manga.genre?.split(", ")
                 constraint.split(",").all { containsGenre(it.trim(), genres) }

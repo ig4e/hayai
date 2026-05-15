@@ -3,6 +3,7 @@ aboutlibraries = "13.1.0"
 chucker = "3.5.2"
 flexible-adapter = "c8013533"
 fast_adapter = "5.7.0"
+fuzzywuzzy = "1.4.0"
 moko = "0.25.1"
 okhttp = "5.0.0-alpha.16"
 shizuku = "13.1.5"
@@ -38,6 +39,7 @@ directionalviewpager = { module = "com.github.tachiyomiorg:DirectionalViewPager"
 disklrucache = { module = "com.jakewharton:disklrucache", version = "2.0.2" }
 fastadapter-extensions-binding = { module = "com.mikepenz:fastadapter-extensions-binding", version.ref = "fast_adapter" }
 fastadapter = { module = "com.mikepenz:fastadapter", version.ref = "fast_adapter" }
+fuzzywuzzy = { module = "me.xdrop:fuzzywuzzy", version.ref = "fuzzywuzzy" }
 firebase = { module = "com.google.firebase:firebase-bom", version = "33.14.0" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics-ktx" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics-ktx" }

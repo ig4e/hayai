@@ -24,6 +24,7 @@ import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.system.launchNow
 import kotlin.reflect.KClass
 import kotlin.reflect.full.createInstance
+import yokai.util.search.FuzzyMatcher
 
 object SettingsSearchHelper {
     private var prefSearchResultList: MutableList<SettingsSearchResult> = mutableListOf()
@@ -76,13 +77,18 @@ object SettingsSearchHelper {
     }
 
     fun getFilteredResults(query: String): List<SettingsSearchResult> {
-        return prefSearchResultList.filter {
-            val inTitle = it.title.contains(query, true)
-            val inSummary = it.summary.contains(query, true)
-            val inBreadcrumb = it.breadcrumb.replace(">", "").contains(query, true)
-
-            return@filter inTitle || inSummary || inBreadcrumb
-        }
+        if (query.isBlank()) return prefSearchResultList.toList()
+        val threshold = 65
+        return prefSearchResultList
+            .map { result ->
+                val titleScore = FuzzyMatcher.score(query, result.title)
+                val summaryScore = FuzzyMatcher.score(query, result.summary)
+                val breadcrumbScore = FuzzyMatcher.score(query, result.breadcrumb.replace(">", ""))
+                result to maxOf(titleScore, summaryScore, breadcrumbScore)
+            }
+            .filter { it.second >= threshold }
+            .sortedByDescending { it.second }
+            .map { it.first }
     }
 
     /**

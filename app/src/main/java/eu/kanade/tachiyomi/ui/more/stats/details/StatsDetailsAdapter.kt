@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.ui.more.stats.details.StatsDetailsPresenter.StatsData
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.roundToTwoDecimal
+import yokai.util.search.FuzzyMatcher
 
 class StatsDetailsAdapter(
     internal val context: Context,
@@ -221,7 +222,7 @@ class StatsDetailsAdapter(
         list = if (text.isEmpty()) {
             mainList
         } else {
-            mainList.filter { it.label?.contains(text, true) == true }.toMutableList()
+            mainList.filter { FuzzyMatcher.matches(text, it.label, 70) }.toMutableList()
         }
         val newCount = list.size
         if (oldCount > newCount) {
