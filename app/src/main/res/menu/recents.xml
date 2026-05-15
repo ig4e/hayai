@@ -16,4 +16,9 @@
         android:title="@string/display_options"
         app:showAsAction="ifRoom" />
 
+    <item
+        android:id="@+id/action_more"
+        android:icon="@drawable/ic_more_vert_24dp"
+        android:title="@string/more"
+        app:showAsAction="ifRoom" />
 </menu>

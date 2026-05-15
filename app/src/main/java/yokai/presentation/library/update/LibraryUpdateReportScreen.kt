@@ -9,15 +9,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -42,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import dev.icerock.moko.resources.compose.stringResource
@@ -59,6 +64,8 @@ import kotlinx.coroutines.launch
 import yokai.domain.manga.models.MangaCover
 import yokai.i18n.MR
 import yokai.presentation.theme.ReducedMotion
+import yokai.presentation.theme.Size
+import yokai.presentation.theme.header
 import yokai.presentation.theme.isReducedMotion
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
@@ -68,6 +75,7 @@ import yokai.presentation.component.ToolTipButton
 import yokai.presentation.manga.components.MangaCover as MangaCoverImage
 import yokai.presentation.manga.components.MangaCoverRatio
 import yokai.util.Screen
+import yokai.util.secondaryItemAlpha
 
 class LibraryUpdateReportScreen(
     private val initialTab: LibraryUpdateReportScreenModel.ReportTab =
@@ -136,9 +144,9 @@ class LibraryUpdateReportScreen(
                             else pagerState.animateScrollToPage(0)
                         } },
                         text = {
-                            Text(
-                                text = stringResource(MR.strings.library_update_report_errors) +
-                                    if (errorCount > 0) " ($errorCount)" else "",
+                            TabLabel(
+                                label = stringResource(MR.strings.library_update_report_errors),
+                                count = errorCount,
                             )
                         },
                     )
@@ -149,9 +157,9 @@ class LibraryUpdateReportScreen(
                             else pagerState.animateScrollToPage(1)
                         } },
                         text = {
-                            Text(
-                                text = stringResource(MR.strings.library_update_report_skipped) +
-                                    if (skippedCount > 0) " ($skippedCount)" else "",
+                            TabLabel(
+                                label = stringResource(MR.strings.library_update_report_skipped),
+                                count = skippedCount,
                             )
                         },
                     )
@@ -163,11 +171,10 @@ class LibraryUpdateReportScreen(
                     }
                     Text(
                         text = stringResource(MR.strings.library_update_report_last_run, formatted),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.header,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = Size.medium, vertical = Size.small),
                     )
                 }
 
@@ -191,6 +198,41 @@ class LibraryUpdateReportScreen(
         LaunchedEffect(initialTab) {
             // Re-load on entry; the underlying file may have been replaced by a more recent run.
             screenModel.load()
+        }
+    }
+}
+
+@Composable
+private fun TabLabel(label: String, count: Int) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Size.small),
+    ) {
+        Text(text = label)
+        if (count > 0) {
+            CountBadge(count = count)
+        }
+    }
+}
+
+@Composable
+private fun CountBadge(count: Int) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Box(
+            modifier = Modifier
+                .sizeIn(minWidth = 20.dp, minHeight = 20.dp)
+                .padding(horizontal = Size.small, vertical = Size.extraExtraTiny),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }
@@ -235,8 +277,9 @@ private fun ReportTabContent(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
+                contentPadding = PaddingValues(bottom = Size.medium),
             ) {
-                groups.forEach { group ->
+                groups.forEachIndexed { index, group ->
                     val isExpanded = expanded[group.message] ?: true
                     item(key = "header-${group.message}") {
                         ReasonHeader(
@@ -255,11 +298,13 @@ private fun ReportTabContent(
                             MangaRow(entry = entry, onClick = { onMangaClick(entry.mangaId) })
                         }
                     }
-                    item(key = "div-${group.message}") {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
+                    if (index < groups.lastIndex) {
+                        item(key = "div-${group.message}") {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = Size.medium),
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -279,10 +324,10 @@ private fun ReasonHeader(
             .fillMaxWidth()
             .clickable(onClick = onToggle)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = Size.medium, vertical = Size.smedium)
             .animateContentSize(animationSpec = if (isReducedMotion) snap() else spring()),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Size.smedium),
     ) {
         val icon: ImageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore
         Icon(
@@ -296,12 +341,10 @@ private fun ReasonHeader(
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
+            overflow = TextOverflow.Ellipsis,
+            maxLines = 3,
         )
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        CountBadge(count = count)
     }
 }
 
@@ -322,21 +365,22 @@ private fun MangaRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .sizeIn(minHeight = 72.dp)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = Size.medium, vertical = Size.small),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Size.smedium),
     ) {
         MangaCoverImage(
             data = cover,
             ratio = MangaCoverRatio.BOOK,
             modifier = Modifier
-                .height(64.dp)
+                .height(56.dp)
                 .clip(MaterialTheme.shapes.small),
         )
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(Size.extraTiny),
         ) {
             Text(
                 text = entry.mangaTitle,
@@ -344,12 +388,15 @@ private fun MangaRow(
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = entry.sourceName,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.secondaryItemAlpha(),
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
