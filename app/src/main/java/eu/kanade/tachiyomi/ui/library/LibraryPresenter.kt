@@ -827,7 +827,13 @@ class LibraryPresenter(
 
         preferences.libraryDisplayMode().changes(),
     ) {
-        val tabbed = (it[13] as Int) == LibraryItem.DISPLAY_MODE_TABBED
+        // Note: showAllCategories flows through unmodified. Tabbed mode is
+        // expressed by the pager adapter / display mode pref, not by forcing
+        // this boolean. Downstream consumers that need "tabbed OR showAll"
+        // already wrap their checks explicitly (e.g. the `showAllCategories`
+        // getter above, LibraryController.kt:1914). If you add a new
+        // per-item display pref, audit it against tabbed mode — see
+        // plans/partitioned-foraging-karp.md Phase F.2 (issue #8).
         ItemPreferences(
             filterDownloaded = it[0] as Int,
             filterUnread = it[1] as Int,
@@ -837,7 +843,7 @@ class LibraryPresenter(
             filterContentType = it[5] as Int,
             filterBookmarked = it[6] as Int,
             groupType = it[7] as Int,
-            showAllCategories = (it[8] as Boolean) || tabbed,
+            showAllCategories = it[8] as Boolean,
             sortingMode = it[9] as Int,
             sortAscending = it[10] as Boolean,
             collapsedCategories = it[11] as Set<String>,

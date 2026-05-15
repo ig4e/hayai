@@ -1812,6 +1812,19 @@ open class LibraryController(
         if (removeObserver) {
             removeStaggeredObserver()
         }
+        // In tabbed mode the continuous-mode adapter is emptied (see line 558),
+        // so mAdapter?.indexOf(pos) silently fails. Route to the tab strip
+        // instead. pos is a category.order so map it to the visible-tab index
+        // first (issue #3).
+        if (isTabbedMode) {
+            val visibleCats = visibleTabCategories()
+            val tabIndex = visibleCats.indexOfFirst { it.order == pos }
+            if (tabIndex >= 0) {
+                activityBinding?.mainTabs?.getTabAt(tabIndex)?.select()
+                activeCategory = pos
+            }
+            return
+        }
         if (!presenter.showAllCategories) {
             shouldScrollToTop = true
             presenter.switchSection(pos)
@@ -2266,7 +2279,10 @@ open class LibraryController(
      * null = is in single category mode
      */
     fun canCollapseOrExpandCategory(): Boolean? {
-        if (singleCategory || !presenter.showAllCategories || isSubClass) {
+        // Tabbed mode shows each category as its own tab and cannot collapse
+        // them (collapsedCategories is irrelevant). Hide the Collapse-all /
+        // Expand-all affordance entirely (issue #8).
+        if (singleCategory || isTabbedMode || !presenter.showAllCategories || isSubClass) {
             return null
         }
         return presenter.allCategoriesExpanded()
@@ -2403,8 +2419,11 @@ open class LibraryController(
     }
 
     override fun onActionViewExpand(item: MenuItem?) {
+        // In tabbed mode, the tab strip already exposes categories; opening the
+        // category overlay on top of it causes layout overlap and sliding it
+        // away after a tap collapses the UI. Gate on !isTabbedMode (issue #3).
         if (!binding.recyclerCover.isClickable && query.isBlank() &&
-            !singleCategory && presenter.showAllCategories
+            !singleCategory && presenter.showAllCategories && !isTabbedMode
         ) {
             showCategories(true)
         }

@@ -13,6 +13,8 @@ import eu.kanade.tachiyomi.ui.setting.defaultValue
 import eu.kanade.tachiyomi.ui.setting.infoPreference
 import eu.kanade.tachiyomi.ui.setting.intListPreference
 import eu.kanade.tachiyomi.ui.setting.multiSelectListPreferenceMat
+import eu.kanade.tachiyomi.ui.setting.onClick
+import eu.kanade.tachiyomi.ui.setting.preference
 import eu.kanade.tachiyomi.ui.setting.preferenceCategory
 import eu.kanade.tachiyomi.ui.setting.summaryMRes as summaryRes
 import eu.kanade.tachiyomi.ui.setting.switchPreference
@@ -146,6 +148,20 @@ class SettingsDownloadController : SettingsLegacyController() {
                     MR.strings.always_delete,
                 )
                 entryRange = 0..2
+            }
+        }
+
+        // Data saver lives in its own Compose screen — link to it from inside
+        // the Storage & Downloads hub so users find every storage-related
+        // option in one place (plans/partitioned-foraging-karp.md Phase F.5).
+        preferenceCategory {
+            titleRes = MR.strings.data_saver
+
+            preference {
+                key = "data_saver_subscreen"
+                isPersistent = false
+                titleRes = MR.strings.data_saver
+                onClick { navigateTo(SettingsDataSaverController()) }
             }
         }
     }

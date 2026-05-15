@@ -18,7 +18,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.security.SecureActivityDelegate
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
-import eu.kanade.tachiyomi.ui.setting.controllers.SettingsReaderController
+import eu.kanade.tachiyomi.ui.setting.controllers.SettingsReaderHubController
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController
 import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
@@ -196,7 +196,7 @@ class SearchActivity : MainActivity() {
             }
             SHORTCUT_READER_SETTINGS -> {
                 router.replaceTopController(
-                    RouterTransaction.with(SettingsReaderController())
+                    RouterTransaction.with(SettingsReaderHubController())
                         .pushChangeHandler(SimpleSwapChangeHandler())
                         .popChangeHandler(FadeChangeHandler()),
                 )

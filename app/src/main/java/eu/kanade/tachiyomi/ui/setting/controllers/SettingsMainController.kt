@@ -13,7 +13,6 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.more.AboutController
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
-import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsAdvancedLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDataLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.search.SettingsSearchController
 import exh.source.ExhPreferences
@@ -42,6 +41,16 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
         setHasOptionsMenu(true)
     }
 
+    // Settings hierarchy follows plans/partitioned-foraging-karp.md Phase F.5
+    // (issue #13): General, Appearance, Library, Reader (manga+novel merged),
+    // Browse & Sources, Storage & Downloads (downloads+data-saver merged),
+    // Tracking, Security, Advanced (Compose-only), About.
+    //
+    // TODO(F.5/issue #13): Merge Browse & Sources entry-points — currently
+    // Browse is its own screen and source-specific prefs scatter through
+    // ExtensionManager/individual sources. Consolidate into one Settings
+    // hub when a per-source prefs registry exists. See SettingsBrowseController
+    // and the source prefs read by `SourceFilter*` for the existing surface area.
     override fun setupPreferenceScreen(screen: PreferenceScreen) = with(screen) {
         titleRes = MR.strings.settings
 
@@ -72,12 +81,6 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
             onClick { navigateTo(SettingsReaderHubController()) }
         }
         preference {
-            iconRes = R.drawable.ic_file_download_24dp
-            iconTint = tintColor
-            titleRes = MR.strings.downloads
-            onClick { navigateTo(SettingsDownloadController()) }
-        }
-        preference {
             iconRes = R.drawable.ic_browse_outline_24dp
             iconTint = tintColor
             titleRes = MR.strings.browse
@@ -91,11 +94,13 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
                 onClick { navigateTo(SettingsEhController()) }
             }
         }
+        // Storage & Downloads — single entry; SettingsDownloadController hosts
+        // download settings and links to the Data Saver Compose screen.
         preference {
-            iconRes = R.drawable.ic_save_24dp
+            iconRes = R.drawable.ic_file_download_24dp
             iconTint = tintColor
-            titleRes = MR.strings.data_saver
-            onClick { navigateTo(SettingsDataSaverController()) }
+            titleRes = MR.strings.downloads
+            onClick { navigateTo(SettingsDownloadController()) }
         }
         preference {
             iconRes = R.drawable.ic_sync_24dp
@@ -103,6 +108,8 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
             titleRes = MR.strings.tracking
             onClick { navigateTo(SettingsTrackingController()) }
         }
+        // Data & Storage (backup/restore/cache) — kept as its own top-level
+        // entry because it covers app-data ops, not download-cache cleanup.
         preferenceLongClickable {
             iconRes = R.drawable.ic_storage_24dp
             iconTint = tintColor
@@ -119,15 +126,15 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
             titleRes = MR.strings.security
             onClick { navigateTo(SettingsSecurityController()) }
         }
-        preferenceLongClickable {
+        // Advanced — Compose-only. Legacy fallback removed per Phase F.5; the
+        // SettingsAdvancedLegacyController source file is retained for now to
+        // avoid breaking deep links / external references, but it is no longer
+        // reachable from the main settings tree.
+        preference {
             iconRes = R.drawable.ic_code_24dp
             iconTint = tintColor
             titleRes = MR.strings.advanced
-            onClick { navigateTo(SettingsAdvancedLegacyController()) }
-            onLongClick {
-                navigateTo(SettingsAdvancedController())
-                context.toast("You're entering experimental version of 'Advanced'")
-            }
+            onClick { navigateTo(SettingsAdvancedController()) }
         }
         preference {
             iconRes = R.drawable.ic_info_outline_24dp
