@@ -292,6 +292,15 @@ private fun ControlsTab(prefs: ReaderPreferences) {
             label = stringResource(MR.strings.novel_long_tap_action),
             preference = prefs.novelLongTapAction,
         )
+        // Clarifies the relationship between the three independent tap-handling prefs above
+        // — tap-to-scroll, double-tap action, and long-press action — since the action enums
+        // include SCROLL_UP/SCROLL_DOWN that semantically overlap with the toggle.
+        Text(
+            text = stringResource(MR.strings.novel_tap_actions_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
         BoolPref(prefs.novelSwipeNavigation, stringResource(MR.strings.novel_swipe_navigation))
         BoolPref(prefs.novelTextSelectable, stringResource(MR.strings.novel_text_selectable))
         BoolPref(prefs.novelShowProgressSlider, stringResource(MR.strings.novel_show_progress_slider))

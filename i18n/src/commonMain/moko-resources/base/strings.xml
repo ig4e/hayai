@@ -596,6 +596,7 @@
     <string name="must_be_in_library_to_edit">Series must be in your library to edit</string>
     <string name="remember_this_choice">Remember this choice</string>
     <string name="source_not_installed">Source not installed</string>
+    <string name="novel_source_not_ready">Source %1$d is still loading. Retry once installed plugins finish registering.</string>
     <string name="cover_saved">Cover saved</string>
     <string name="share_cover">Share cover</string>
     <string name="error_saving_cover">Error saving cover</string>
@@ -1770,6 +1771,7 @@
     <string name="novel_auto_scroll_speed">Auto-scroll speed</string>
     <string name="novel_double_tap_action">Double-tap action</string>
     <string name="novel_long_tap_action">Long-press action</string>
+    <string name="novel_tap_actions_help">Tap-to-scroll uses the navigator zones (top/bottom of the screen); double-tap and long-press fire anywhere and route to the action you pick above.</string>
     <string name="novel_tap_action_none">None</string>
     <string name="novel_tap_action_toggle_menu">Toggle menu</string>
     <string name="novel_tap_action_next_chapter">Next chapter</string>

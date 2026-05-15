@@ -2060,7 +2060,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             gravity = Gravity.CENTER
         }
         val subtitle = TextView(this).apply {
-            text = "Source $sourceId not ready"
+            text = getString(MR.strings.novel_source_not_ready, sourceId)
             textSize = 14f
             gravity = Gravity.CENTER
             setPadding(0, 16.dpToPx, 0, 24.dpToPx)
