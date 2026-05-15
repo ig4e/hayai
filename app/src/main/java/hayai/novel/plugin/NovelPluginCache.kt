@@ -45,6 +45,7 @@ internal class NovelPluginCache(
         pluginDir: File,
         pluginIndex: NovelPluginIndex?,
         metadata: JsPluginLoader.PluginMetadata,
+        iconFile: String? = readInstalledSource(pluginDir)?.iconFile,
     ) {
         val payload = InstalledNovelSourceCache(
             id = metadata.id,
@@ -53,8 +54,21 @@ internal class NovelPluginCache(
             version = metadata.version,
             siteUrl = metadata.site,
             iconUrl = pluginIndex?.iconUrl,
+            iconFile = iconFile,
             filters = metadata.filters,
         )
+        File(pluginDir, INSTALLED_SOURCE_FILE)
+            .writeAtomically(json.encodeToString(InstalledNovelSourceCache.serializer(), payload))
+    }
+
+    /**
+     * Update only the [iconFile] field on an existing cache entry, preserving every other
+     * field. Used after a successful icon download so we don't have to re-run JS metadata
+     * extraction just to record a new icon path.
+     */
+    fun updateIconFile(pluginDir: File, iconFile: String?) {
+        val existing = readInstalledSource(pluginDir) ?: return
+        val payload = existing.copy(iconFile = iconFile)
         File(pluginDir, INSTALLED_SOURCE_FILE)
             .writeAtomically(json.encodeToString(InstalledNovelSourceCache.serializer(), payload))
     }
@@ -114,5 +128,11 @@ internal data class InstalledNovelSourceCache(
     val version: String,
     val siteUrl: String,
     val iconUrl: String? = null,
+    /**
+     * Filename (relative to the plugin directory) of the on-disk icon, if it has been
+     * downloaded. Older caches don't have this field; kotlinx.serialization will leave the
+     * default null so the loader falls back to [iconUrl] until a download succeeds.
+     */
+    val iconFile: String? = null,
     val filters: JsonObject? = null,
 )

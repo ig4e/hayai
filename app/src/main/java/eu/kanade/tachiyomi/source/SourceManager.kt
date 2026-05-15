@@ -44,8 +44,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import uy.kohesive.injekt.injectLazy
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -142,6 +144,36 @@ class SourceManager(
         novelPluginManager.ensureInstalledPluginsLoaded()
 
         return (sourcesMapFlow.value[sourceKey] as? CatalogueSource)
+            ?: novelPluginManager.installedSourcesFlow.value.firstOrNull { it.id == sourceKey }
+    }
+
+    /**
+     * Suspends until the novel plugin manager has finished its initial installed-plugin
+     * load (or [timeoutMs] elapses) before returning the resolved Source. Used by reader
+     * code paths that previously called [getOrStub] on cold start / memory-restore and got
+     * a StubSource because the fire-and-forget plugin loader hadn't run yet (issue #9).
+     *
+     * Returns:
+     *  - the resolved (non-stub) Source if it is registered before the timeout, OR
+     *  - the resolved Source if the registration already happened, OR
+     *  - null if the timeout elapses with no resolution AND the plugin manager hasn't
+     *    finished its initial load (caller should treat this as "source not ready" and
+     *    surface a retry affordance).
+     *
+     * Manga sources (extensions) are typically already present in [sourcesMapFlow] by the
+     * time this is called — the combine() in init writes the map synchronously after
+     * extensionManager emits — so for those this returns immediately.
+     */
+    suspend fun awaitSource(sourceKey: Long, timeoutMs: Long = 5_000L): Source? {
+        val existing = sourcesMapFlow.value[sourceKey]
+        if (existing != null && existing !is StubSource) return existing
+
+        val ready = withTimeoutOrNull(timeoutMs) {
+            novelPluginManager.loadedFlow.first { it }
+        }
+        if (ready == null) return null
+
+        return sourcesMapFlow.value[sourceKey]
             ?: novelPluginManager.installedSourcesFlow.value.firstOrNull { it.id == sourceKey }
     }
 

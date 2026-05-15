@@ -134,8 +134,15 @@ class ReaderViewModel(
     val manga: Manga?
         get() = state.value.manga
 
+    /**
+     * The currently loaded source. Returns null (not a StubSource) when the source isn't
+     * registered — typically before [init] has resolved it on cold start / memory restore.
+     * Callers downstream of the reader (NovelPageLoader, etc.) prefer null over a stub so
+     * a missing plugin surfaces as a clean error instead of failing silently through the
+     * stub's "source not installed" path (issue #9).
+     */
     val source: Source?
-        get() = manga?.source?.let { sourceManager.getOrStub(it) }
+        get() = manga?.source?.let { sourceManager.get(it) }
 
     /**
      * The chapter id of the currently loaded chapter. Used to restore from process kill.
@@ -267,9 +274,25 @@ class ReaderViewModel(
                         Notifications.ID_NEW_CHAPTERS,
                     )
 
-                    val source = sourceManager.getOrStub(manga.source)
+                    // Wait for the (novel) plugin manager to finish its initial load before
+                    // resolving the source. On cold boot / memory-restore the previous
+                    // getOrStub() returned a StubSource if the manager hadn't run yet,
+                    // and the reader silently failed downstream (issue #9). Manga sources
+                    // are populated synchronously by extensionManager so awaitSource
+                    // returns immediately for them.
+                    val resolvedSource = sourceManager.awaitSource(manga.source, SOURCE_AWAIT_TIMEOUT_MS)
+                    if (resolvedSource == null) {
+                        Logger.w { "ReaderViewModel.init: source ${manga.source} not ready after ${SOURCE_AWAIT_TIMEOUT_MS}ms" }
+                        // Reset state so a retry can call init again. Without this the
+                        // needsInit() short-circuit at the top of init would return true
+                        // forever (chapterList stays uninitialized) yet manga is set, so
+                        // we'd be wedged between "needs init" and "has state".
+                        mutableState.update { it.copy(manga = null) }
+                        eventChannel.send(Event.SourceNotReady(manga.source))
+                        return@withIOContext Result.failure(SourceNotReadyException(manga.source))
+                    }
                     val context = Injekt.get<Application>()
-                    loader = ChapterLoader(context, downloadManager, downloadProvider, manga, source)
+                    loader = ChapterLoader(context, downloadManager, downloadProvider, manga, resolvedSource)
 
                     chapterList = getChapterList()
                     loadChapter(loader!!, chapterList!!.first { chapterId == it.chapter.id }, page)
@@ -1292,11 +1315,37 @@ class ReaderViewModel(
         data class SetOrientation(val orientation: Int) : Event()
         data class SetCoverResult(val result: SetAsCoverResult) : Event()
         data class NovelVisibleChapterChanged(val chapter: ReaderChapter) : Event()
+        /**
+         * Emitted from [init] when [SourceManager.awaitSource] times out without resolving the
+         * manga's source. The activity surfaces this as an inline retry overlay so the user
+         * can re-trigger init once the plugin manager has finished its background load
+         * (issue #9). [sourceId] is included for diagnostics / future error-text hooks.
+         */
+        data class SourceNotReady(val sourceId: Long) : Event()
 
         data class SavedImage(val result: SaveImageResult) : Event()
         data class ShareImage(val file: UniFile, val page: ReaderPage, val extraPage: ReaderPage? = null) : Event()
         data class ShareTrackingError(val errors: List<Pair<TrackService, String?>>) : Event()
     }
+
+    companion object {
+        /**
+         * How long the reader will wait for the (novel) plugin manager to finish its initial
+         * load before giving up and surfacing [Event.SourceNotReady]. Manga sources resolve
+         * synchronously so this only kicks in on novel cold start / process restore. Tuned
+         * to 5s based on user reports that ~700ms per plugin is the QuickJS cost on cold
+         * boot; 5s covers ~7 installed plugins comfortably.
+         */
+        private const val SOURCE_AWAIT_TIMEOUT_MS = 5_000L
+    }
 }
+
+/**
+ * Marker exception thrown out of [ReaderViewModel.init] when the source couldn't be
+ * resolved before the await timeout. The activity uses [Event.SourceNotReady] for the UI
+ * (overlay + retry); this exception just keeps the Result.failure branch typed so the
+ * activity-side init error handler can skip the generic "Unknown error" toast / finish().
+ */
+class SourceNotReadyException(val sourceId: Long) : Exception("Source $sourceId not ready")
 
 private const val NOVEL_CHAPTER_READ_THRESHOLD_PERCENT = 95

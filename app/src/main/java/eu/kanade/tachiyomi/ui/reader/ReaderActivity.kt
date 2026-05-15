@@ -432,9 +432,16 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 lifecycleScope.launchNonCancellableIO {
                     val initResult = viewModel.init(manga, chapter, startingPage)
                     if (!initResult.getOrDefault(false)) {
-                        val exception = initResult.exceptionOrNull() ?: IllegalStateException("Unknown err")
-                        withUIContext {
-                            setInitialChapterError(exception)
+                        val exception = initResult.exceptionOrNull()
+                        // Source-not-ready is handled by the SourceNotReady event collector,
+                        // which renders an inline retry overlay instead of finish()ing the
+                        // activity. Skip the generic error path here so we don't close the
+                        // reader before the user has a chance to retry (issue #9).
+                        if (exception !is SourceNotReadyException) {
+                            val toShow = exception ?: IllegalStateException("Unknown err")
+                            withUIContext {
+                                setInitialChapterError(toShow)
+                            }
                         }
                     }
                 }
@@ -521,6 +528,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     }
                     is ReaderViewModel.Event.NovelVisibleChapterChanged -> {
                         updateNovelChapterUi(event.chapter)
+                    }
+                    is ReaderViewModel.Event.SourceNotReady -> {
+                        showSourceNotReadyOverlay(event.sourceId)
                     }
                 }
             }
@@ -2008,6 +2018,104 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         Logger.e(error)
         finish()
         toast(error.message)
+    }
+
+    /**
+     * View handle for the inline overlay shown when the source isn't ready (issue #9).
+     * Kept as a field so subsequent emissions can re-use / dismiss the same view rather
+     * than stacking duplicates.
+     */
+    private var sourceNotReadyOverlay: View? = null
+
+    /**
+     * Inline overlay shown when [ReaderViewModel.init] gives up waiting for the source.
+     * The user is offered a Retry button that re-runs init with the original intent
+     * extras. We mount this on viewer_container (rather than finish()ing the activity)
+     * so the user keeps their place in the navigation stack — they came here via History,
+     * Continue Reading, or a recents tap and shouldn't be unceremoniously kicked back.
+     */
+    private fun showSourceNotReadyOverlay(sourceId: Long) {
+        Logger.w { "ReaderActivity: showing SourceNotReady overlay for source $sourceId" }
+        binding.pleaseWait.clearAnimation()
+        binding.pleaseWait.isVisible = false
+        // Idempotent: clobber any prior overlay so we don't stack views on rapid retries.
+        sourceNotReadyOverlay?.let { binding.viewerContainer.removeView(it) }
+
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(48.dpToPx, 48.dpToPx, 48.dpToPx, 48.dpToPx)
+            // Block taps from falling through to the (absent) viewer behind us.
+            isClickable = true
+            isFocusable = true
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+        }
+        val title = TextView(this).apply {
+            text = getString(MR.strings.source_not_installed)
+            textSize = 18f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+        }
+        val subtitle = TextView(this).apply {
+            text = "Source $sourceId not ready"
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(0, 16.dpToPx, 0, 24.dpToPx)
+            alpha = 0.7f
+        }
+        val retry = com.google.android.material.button.MaterialButton(this).apply {
+            text = getString(MR.strings.retry)
+            setOnClickListener {
+                // Tear down the overlay before kicking off another init pass; if the
+                // retry succeeds the viewer renders into the now-clean container.
+                hideSourceNotReadyOverlay()
+                retryInitAfterSourceNotReady()
+            }
+        }
+        container.addView(title)
+        container.addView(subtitle)
+        container.addView(retry)
+        binding.viewerContainer.addView(container)
+        sourceNotReadyOverlay = container
+    }
+
+    private fun hideSourceNotReadyOverlay() {
+        sourceNotReadyOverlay?.let { binding.viewerContainer.removeView(it) }
+        sourceNotReadyOverlay = null
+    }
+
+    /**
+     * Re-runs [ReaderViewModel.init] using the same intent extras the activity started
+     * with. By this point the user has tapped Retry, so either (a) the plugin manager
+     * has finished loading and awaitSource resolves immediately, or (b) it still hasn't
+     * and we show the overlay again. Either path is fine — the user is in control.
+     */
+    private fun retryInitAfterSourceNotReady() {
+        val manga = intent.extras?.getLong("manga", -1L) ?: -1L
+        val chapter = intent.extras?.getLong("chapter", -1L) ?: -1L
+        val page = intent.extras?.getInt("page", -1) ?: -1
+        if (manga == -1L || chapter == -1L) {
+            finish()
+            return
+        }
+        val startingPage = page.takeIf { it >= 0 }
+        binding.pleaseWait.isVisible = true
+        lifecycleScope.launchNonCancellableIO {
+            val initResult = viewModel.init(manga, chapter, startingPage)
+            if (!initResult.getOrDefault(false)) {
+                val exception = initResult.exceptionOrNull()
+                if (exception !is SourceNotReadyException) {
+                    val toShow = exception ?: IllegalStateException("Unknown err")
+                    withUIContext {
+                        setInitialChapterError(toShow)
+                    }
+                }
+                // For SourceNotReady the Event collector will re-mount the overlay.
+            }
+        }
     }
 
     /**

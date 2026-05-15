@@ -55,6 +55,15 @@ class NovelPluginManager(
     private val _installedPluginsFlow = MutableStateFlow<List<NovelPlugin.Installed>>(emptyList())
     val installedPluginsFlow = _installedPluginsFlow.asStateFlow()
 
+    /**
+     * Becomes true once [ensureInstalledPluginsLoaded] has completed for the first time.
+     * Consumers that need to resolve a source by id on cold start (e.g. ReaderViewModel,
+     * SourceManager.awaitSource) can suspend on `loadedFlow.first { it }` instead of racing
+     * against the fire-and-forget init coroutine and falling back to a StubSource. See #9.
+     */
+    private val _loadedFlow = MutableStateFlow(false)
+    val loadedFlow = _loadedFlow.asStateFlow()
+
     // ConcurrentHashMap so concurrent reads (isInstalled, getOrStub) are safe even between
     // mutex-guarded mutations — and so iteration during put/remove can't ConcurrentModificationException.
     private val installedSources = ConcurrentHashMap<String, NovelSource>()
@@ -76,9 +85,12 @@ class NovelPluginManager(
         get() = networkHelper.defaultUserAgent
 
     init {
-        // Load installed plugins on startup
+        // Load installed plugins on startup. Opportunistically prefetch any missing icons
+        // after the initial load completes (issue #10) so the next cold start renders
+        // source rows entirely from disk.
         scope.launch {
             ensureInstalledPluginsLoaded()
+            prefetchMissingIcons()
         }
         // Watch repos for changes
         scope.launch {
@@ -139,6 +151,12 @@ class NovelPluginManager(
                 ?: getLangCode(sourceId)
             val iconUrl = savedMeta?.iconUrl ?: cachedSource?.iconUrl
 
+            // Prefer the on-disk icon (issue #10): when present, UI binders skip the network
+            // entirely. iconFile in the cache stores a relative filename so we don't have to
+            // re-hash plugin directory paths if the app's filesDir changes between installs.
+            val iconFileName = cachedSource?.iconFile ?: DEFAULT_ICON_FILE_NAME
+            val iconFile = File(dir, iconFileName).takeIf { it.exists() }
+
             val source = NovelSource(
                 pluginId = sourceId,
                 pluginName = sourceName,
@@ -149,13 +167,14 @@ class NovelPluginManager(
                 pluginCodeProvider = { jsFile.readText() },
                 pluginFilters = sourceFilters,
                 iconUrl = iconUrl,
+                iconFile = iconFile,
                 context = context,
                 bridge = bridge,
                 userAgent = cachedUserAgent,
             )
 
             if (metadata != null) {
-                cache.writeInstalledSource(dir, savedMeta, metadata)
+                cache.writeInstalledSource(dir, savedMeta, metadata, cachedSource?.iconFile)
             }
 
             Logger.d { "NovelPluginManager: Loaded plugin '$sourceName' ($sourceId)" }
@@ -167,6 +186,7 @@ class NovelPluginManager(
                 siteUrl = sourceSiteUrl,
                 iconUrl = iconUrl,
                 source = source,
+                iconFile = iconFile,
             )
         } catch (e: Exception) {
             Logger.e(e) { "NovelPluginManager: Failed to load plugin from ${dir.name}" }
@@ -175,12 +195,21 @@ class NovelPluginManager(
     }
 
     suspend fun ensureInstalledPluginsLoaded() {
-        if (installedPluginsLoaded) return
+        if (installedPluginsLoaded) {
+            // Make sure late subscribers (e.g. awaitSource invoked after the very first load
+            // completed but before this branch was reached) still see the flag flip.
+            if (!_loadedFlow.value) _loadedFlow.value = true
+            return
+        }
 
         installMutex.withLock {
-            if (installedPluginsLoaded) return
+            if (installedPluginsLoaded) {
+                if (!_loadedFlow.value) _loadedFlow.value = true
+                return
+            }
             loadInstalledPlugins()
             installedPluginsLoaded = true
+            _loadedFlow.value = true
         }
     }
 
@@ -248,16 +277,17 @@ class NovelPluginManager(
             // Validate plugin loads correctly
             val metadata = pluginLoader.extractMetadata(code) ?: return false
 
+            val pluginDir: File
             installMutex.withLock {
                 // Save to disk
-                val pluginDir = File(pluginsDir, metadata.id).also { it.mkdirs() }
+                pluginDir = File(pluginsDir, metadata.id).also { it.mkdirs() }
                 val jsFile = File(pluginDir, "index.js").also { it.writeText(code) }
 
                 // Save metadata for lang resolution
                 File(pluginDir, "meta.json").writeText(
                     json.encodeToString(NovelPluginIndex.serializer(), plugin),
                 )
-                cache.writeInstalledSource(pluginDir, plugin, metadata)
+                cache.writeInstalledSource(pluginDir, plugin, metadata, iconFile = null)
 
                 // Replace any prior in-memory source for this plugin id and dispose its runtime
                 // before swapping it out, so the previous QuickJS context isn't leaked.
@@ -273,6 +303,7 @@ class NovelPluginManager(
                     pluginCodeProvider = { jsFile.readText() },
                     pluginFilters = metadata.filters,
                     iconUrl = plugin.iconUrl,
+                    iconFile = null,
                     context = context,
                     bridge = bridge,
                     userAgent = cachedUserAgent,
@@ -294,9 +325,16 @@ class NovelPluginManager(
                         siteUrl = metadata.site,
                         iconUrl = plugin.iconUrl,
                         source = source,
+                        iconFile = null,
                     )
 
                 Logger.d { "NovelPluginManager: Installed plugin '${metadata.name}'" }
+            }
+
+            // Fire-and-forget icon download. Failures are silent — the UI falls back to the
+            // network-loaded iconUrl until the next install/prefetch attempt succeeds (#10).
+            if (!plugin.iconUrl.isNullOrBlank()) {
+                scope.launch { downloadPluginIcon(pluginDir, plugin.iconUrl) }
             }
             true
         } catch (e: Exception) {
@@ -358,6 +396,90 @@ class NovelPluginManager(
         }.getOrNull()
     }
 
+    /**
+     * Walks installed plugins after the initial load and downloads any missing icons.
+     * Runs once per process from [init] (fire-and-forget). Old installs predating the
+     * icon-on-disk feature, or installs whose download failed transiently, will pick up
+     * an icon here without forcing the user to reinstall.
+     */
+    private suspend fun prefetchMissingIcons() {
+        val plugins = _installedPluginsFlow.value
+        for (plugin in plugins) {
+            if (plugin.iconFile != null && plugin.iconFile.exists()) continue
+            val iconUrl = plugin.iconUrl
+            if (iconUrl.isNullOrBlank()) continue
+            val pluginDir = File(pluginsDir, plugin.id)
+            if (!pluginDir.exists()) continue
+            downloadPluginIcon(pluginDir, iconUrl)
+        }
+    }
+
+    /**
+     * Download an icon from [iconUrl] into `<pluginDir>/icon.png`. On success: write the
+     * cache, refresh the in-memory NovelSource and NovelPlugin.Installed so the new file
+     * is observed by collectors, and update both flows. On failure, leaves any existing
+     * file untouched and the cache un-updated.
+     */
+    private suspend fun downloadPluginIcon(pluginDir: File, iconUrl: String) {
+        try {
+            val request = Request.Builder().url(iconUrl).build()
+            val bytes = networkHelper.client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return
+                response.body.bytes()
+            }
+            if (bytes.isEmpty()) return
+
+            val target = File(pluginDir, DEFAULT_ICON_FILE_NAME)
+            val tmp = File(pluginDir, "$DEFAULT_ICON_FILE_NAME.tmp")
+            try {
+                tmp.writeBytes(bytes)
+                if (!tmp.renameTo(target)) {
+                    target.delete()
+                    if (!tmp.renameTo(target)) {
+                        target.writeBytes(bytes)
+                        tmp.delete()
+                    }
+                }
+            } catch (e: Throwable) {
+                tmp.delete()
+                throw e
+            }
+
+            installMutex.withLock {
+                cache.updateIconFile(pluginDir, DEFAULT_ICON_FILE_NAME)
+                val pluginId = pluginDir.name
+                val existingInstalled = _installedPluginsFlow.value.firstOrNull { it.id == pluginId }
+                    ?: return@withLock
+                // Surface the new icon file to UI binders without rebuilding the QuickJS
+                // runtime. We update the cached `iconFile` reference on the Installed plugin
+                // (which UI binders read via `plugin.iconFile`) and leave the NovelSource
+                // instance — which owns the live runtime — completely untouched. NovelSource
+                // is referenced by id from sourceMapFlow, so emitting a new Installed with
+                // the same .source is safe and avoids tearing down any in-flight browse/search.
+                _installedPluginsFlow.value = _installedPluginsFlow.value.map { installed ->
+                    if (installed.id == pluginId) installed.copy(iconFile = target) else installed
+                }
+                // For SourceHolder which goes through `source as NovelSource` we DO need a
+                // replacement NovelSource since `iconFile` is a constructor val. Re-derive
+                // it from the cache via the same loadSinglePlugin path so we don't have to
+                // duplicate filter parsing logic here. The cache write above means the
+                // re-read will pick up the new iconFile.
+                val reloaded = loadSinglePlugin(pluginDir)?.first
+                if (reloaded != null) {
+                    installedSources.remove(pluginId)?.destroy()
+                    installedSources[pluginId] = reloaded
+                    _installedSourcesFlow.value = _installedSourcesFlow.value
+                        .map { if (it.pluginId == pluginId) reloaded else it }
+                    _installedPluginsFlow.value = _installedPluginsFlow.value.map { installed ->
+                        if (installed.id == pluginId) installed.copy(source = reloaded) else installed
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Logger.w(e) { "NovelPluginManager: Failed to download icon for ${pluginDir.name}" }
+        }
+    }
+
     private fun dedupePlugins(plugins: List<NovelPluginIndex>): List<NovelPluginIndex> {
         return plugins
             .groupBy { it.id }
@@ -376,6 +498,13 @@ class NovelPluginManager(
     }
 
     companion object {
+        /**
+         * Default filename for on-disk plugin icons. Stored under each plugin's directory.
+         * Kept as a raw .png even if the source URL has a different extension — Coil
+         * decodes by content, not file extension.
+         */
+        const val DEFAULT_ICON_FILE_NAME = "icon.png"
+
         /**
          * Convert LNReader language names to ISO 639-1 codes.
          */

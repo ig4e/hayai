@@ -3,6 +3,8 @@ package eu.kanade.tachiyomi.ui.source
 import android.content.res.ColorStateList
 import android.view.View
 import androidx.core.view.isVisible
+import androidx.core.content.ContextCompat
+import coil3.asImage
 import coil3.load
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
@@ -72,8 +74,28 @@ class SourceHolder(view: View, val adapter: SourceAdapter) :
                 icon != null -> binding.sourceImage.setImageDrawable(icon)
                 item.source.id == LocalSource.ID -> binding.sourceImage.setImageResource(R.mipmap.ic_local_source)
                 // NOVEL -->
+                // Prefer the on-disk icon over the remote URL: Coil supports File directly,
+                // so cold starts paint the source row without going through the network.
+                // Falls back to iconUrl only when the file is missing (older installs or a
+                // failed prefetch); the book placeholder keeps the first paint non-blank
+                // while either loader resolves (issue #10).
+                source is NovelSource && source.iconFile != null && source.iconFile.exists() -> {
+                    val placeholder = ContextCompat.getDrawable(itemView.context, R.drawable.ic_book_24dp)
+                    binding.sourceImage.load(source.iconFile) {
+                        placeholder?.asImage()?.let {
+                            placeholder(it)
+                            error(it)
+                        }
+                    }
+                }
                 source is NovelSource && !source.iconUrl.isNullOrBlank() -> {
-                    binding.sourceImage.load(source.iconUrl)
+                    val placeholder = ContextCompat.getDrawable(itemView.context, R.drawable.ic_book_24dp)
+                    binding.sourceImage.load(source.iconUrl) {
+                        placeholder?.asImage()?.let {
+                            placeholder(it)
+                            error(it)
+                        }
+                    }
                 }
                 source is NovelSource -> binding.sourceImage.setImageResource(R.drawable.ic_book_24dp)
                 // NOVEL <--

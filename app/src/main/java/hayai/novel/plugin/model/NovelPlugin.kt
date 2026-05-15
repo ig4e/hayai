@@ -2,6 +2,7 @@ package hayai.novel.plugin.model
 
 import hayai.novel.source.NovelSource
 import kotlinx.serialization.Serializable
+import java.io.File
 
 sealed class NovelPlugin {
     abstract val id: String
@@ -19,6 +20,11 @@ sealed class NovelPlugin {
         override val siteUrl: String,
         override val iconUrl: String?,
         val source: NovelSource,
+        /**
+         * Locally-cached icon (typically `<pluginDir>/icon.png`). Prefer over [iconUrl] in UI
+         * binders so cold starts render plugin rows without network.
+         */
+        val iconFile: File? = null,
         val hasUpdate: Boolean = false,
     ) : NovelPlugin()
 

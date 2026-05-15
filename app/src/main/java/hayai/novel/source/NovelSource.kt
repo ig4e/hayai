@@ -28,6 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import java.io.File
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -52,6 +53,12 @@ class NovelSource(
     private val pluginCodeProvider: () -> String,
     private val pluginFilters: JsonObject? = null,
     val iconUrl: String?,
+    /**
+     * On-disk icon file under the plugin directory (typically `<pluginDir>/icon.png`).
+     * When non-null and the file exists, UI binders prefer this over [iconUrl] so source
+     * rows render without going through the network on cold starts (issue #10).
+     */
+    val iconFile: File? = null,
     private val context: Context,
     private val bridge: NovelJsBridge,
     private val userAgent: String = "",
