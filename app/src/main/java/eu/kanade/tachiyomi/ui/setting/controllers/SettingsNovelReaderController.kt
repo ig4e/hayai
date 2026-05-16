@@ -3,8 +3,10 @@ package eu.kanade.tachiyomi.ui.setting.controllers
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.bindTo
+import eu.kanade.tachiyomi.ui.setting.defaultValue
 import eu.kanade.tachiyomi.ui.setting.infoPreference
 import eu.kanade.tachiyomi.ui.setting.listPreference
+import eu.kanade.tachiyomi.ui.setting.onChange
 import eu.kanade.tachiyomi.ui.setting.preferenceCategory
 import eu.kanade.tachiyomi.ui.setting.seekBarPreference
 import eu.kanade.tachiyomi.ui.setting.switchPreference
@@ -211,21 +213,42 @@ fun SettingsLegacyController.populateNovelReaderPreferences(screen: PreferenceSc
         preferenceCategory {
             titleRes = MR.strings.text_to_speech
 
+            // Speed/pitch are Float-typed prefs. SeekBarPreference is Int-only and
+            // would crash calling getPersistedInt on the Float key, so we run the
+            // bar non-persistent in 0.1 steps (5..20 ↔ 0.5x..2.0x) and forward
+            // changes to the Float pref ourselves.
             seekBarPreference {
-                key = readerPreferences.novelTtsSpeed.key()
+                isPersistent = false
                 titleRes = MR.strings.novel_tts_speed
-                // Float pref isn't directly supported by seekBar; expose 5..20 (0.5x..2.0x)
                 min = 5
                 max = 20
-                showSeekBarValue = true
+                showSeekBarValue = false
+                val initial = (readerPreferences.novelTtsSpeed.get() * 10).toInt().coerceIn(5, 20)
+                defaultValue = initial
+                summary = "%.1fx".format(initial / 10f)
+                onChange { newValue ->
+                    val v = (newValue as Int).coerceIn(5, 20)
+                    readerPreferences.novelTtsSpeed.set(v / 10f)
+                    summary = "%.1fx".format(v / 10f)
+                    true
+                }
             }
 
             seekBarPreference {
-                key = readerPreferences.novelTtsPitch.key()
+                isPersistent = false
                 titleRes = MR.strings.novel_tts_pitch
                 min = 5
                 max = 20
-                showSeekBarValue = true
+                showSeekBarValue = false
+                val initial = (readerPreferences.novelTtsPitch.get() * 10).toInt().coerceIn(5, 20)
+                defaultValue = initial
+                summary = "%.1fx".format(initial / 10f)
+                onChange { newValue ->
+                    val v = (newValue as Int).coerceIn(5, 20)
+                    readerPreferences.novelTtsPitch.set(v / 10f)
+                    summary = "%.1fx".format(v / 10f)
+                    true
+                }
             }
 
             switchPreference {
