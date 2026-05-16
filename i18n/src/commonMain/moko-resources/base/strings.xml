@@ -140,6 +140,9 @@
     <string name="your_library">Your library</string>
     <string name="updating_library">Updating library</string>
     <string name="update_library">Update library</string>
+    <string name="library_double_tap_default">No action</string>
+    <string name="library_double_tap_update">Update library</string>
+    <string name="library_double_tap">Double tap Library behavior</string>
     <string name="not_selected">Not selected</string>
     <string name="selected">Selected</string>
     <string name="selected_">Selected: %1$d</string>
@@ -321,6 +324,9 @@
     <string name="recents_long_tap_default">Show download queue</string>
     <string name="recents_long_tap_last_read">Open last read chapter</string>
     <string name="recents_long_tap">Long tap Recents behavior</string>
+    <string name="recents_double_tap_default">No action</string>
+    <string name="recents_double_tap_last_read">Open last read chapter</string>
+    <string name="recents_double_tap">Double tap Recents behavior</string>
 
     <!-- Browse -->
     <string name="search_filters">Search filters</string>
@@ -344,6 +350,9 @@
     <string name="browse_long_tap_default">Open extensions / migration menu</string>
     <string name="browse_long_tap_search">Open global search</string>
     <string name="browse_long_tap">Long tap Browse behavior</string>
+    <string name="browse_double_tap_default">No action</string>
+    <string name="browse_double_tap_search">Open global search</string>
+    <string name="browse_double_tap">Double tap Browse behavior</string>
 
     <!-- Other Screens -->
 

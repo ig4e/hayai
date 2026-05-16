@@ -241,6 +241,33 @@ class SettingsGeneralController : SettingsLegacyController() {
                 entriesRes = values.map { it.titleResId }.toTypedArray()
                 entryValues = values.map { it.name }.toTypedArray().toList()
             }
+
+            listPreference(activity) {
+                bindTo(basePreferences.doubleTapLibraryNavBehaviour())
+                titleRes = MR.strings.library_double_tap
+
+                val values = BasePreferences.DoubleTapLibrary.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
+
+            listPreference(activity) {
+                bindTo(basePreferences.doubleTapRecentsNavBehaviour())
+                titleRes = MR.strings.recents_double_tap
+
+                val values = BasePreferences.DoubleTapRecents.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
+
+            listPreference(activity) {
+                bindTo(basePreferences.doubleTapBrowseNavBehaviour())
+                titleRes = MR.strings.browse_double_tap
+
+                val values = BasePreferences.DoubleTapBrowse.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
         }
     }
 

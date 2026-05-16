@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.ui.setting.defaultValue
 import eu.kanade.tachiyomi.ui.setting.dropDownPreference
 import eu.kanade.tachiyomi.ui.setting.infoPreference
 import eu.kanade.tachiyomi.ui.setting.intListPreference
+import eu.kanade.tachiyomi.ui.setting.listPreference
 import eu.kanade.tachiyomi.ui.setting.onChange
 import eu.kanade.tachiyomi.ui.setting.preferenceCategory
 import eu.kanade.tachiyomi.ui.setting.switchPreference
@@ -213,6 +214,51 @@ class SettingsAppearanceController : SettingsLegacyController() {
             }
 
             infoPreference(MR.strings.by_default_side_nav_info)
+
+            listPreference(activity) {
+                bindTo(basePreferences.longTapRecentsNavBehaviour())
+                titleRes = MR.strings.recents_long_tap
+
+                val values = BasePreferences.LongTapRecents.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
+
+            listPreference(activity) {
+                bindTo(basePreferences.longTapBrowseNavBehaviour())
+                titleRes = MR.strings.browse_long_tap
+
+                val values = BasePreferences.LongTapBrowse.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
+
+            listPreference(activity) {
+                bindTo(basePreferences.doubleTapLibraryNavBehaviour())
+                titleRes = MR.strings.library_double_tap
+
+                val values = BasePreferences.DoubleTapLibrary.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
+
+            listPreference(activity) {
+                bindTo(basePreferences.doubleTapRecentsNavBehaviour())
+                titleRes = MR.strings.recents_double_tap
+
+                val values = BasePreferences.DoubleTapRecents.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
+
+            listPreference(activity) {
+                bindTo(basePreferences.doubleTapBrowseNavBehaviour())
+                titleRes = MR.strings.browse_double_tap
+
+                val values = BasePreferences.DoubleTapBrowse.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
         }
     }
 

@@ -448,6 +448,14 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             true
         }
 
+        setupNavDoubleTapListeners()
+        basePreferences.doubleTapLibraryNavBehaviour()
+            .changesIn(lifecycleScope) { setupNavDoubleTapListeners() }
+        basePreferences.doubleTapRecentsNavBehaviour()
+            .changesIn(lifecycleScope) { setupNavDoubleTapListeners() }
+        basePreferences.doubleTapBrowseNavBehaviour()
+            .changesIn(lifecycleScope) { setupNavDoubleTapListeners() }
+
         val container: ViewGroup = binding.controllerContainer
 
         val content: ViewGroup = binding.mainContent
@@ -948,6 +956,98 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         } else {
             val color = getResourceColor(AR.attr.statusBarColor)
             ColorUtils.setAlphaComponent(window?.statusBarColor ?: color, Color.alpha(color))
+        }
+    }
+
+    private fun setupNavDoubleTapListeners() {
+        val libEnabled = basePreferences.doubleTapLibraryNavBehaviour().get() !=
+            BasePreferences.DoubleTapLibrary.DEFAULT
+        setupNavItemDoubleTap(R.id.nav_library, libEnabled) { handleLibraryDoubleTap() }
+
+        val recentsEnabled = basePreferences.doubleTapRecentsNavBehaviour().get() !=
+            BasePreferences.DoubleTapRecents.DEFAULT
+        setupNavItemDoubleTap(R.id.nav_recents, recentsEnabled) { handleRecentsDoubleTap() }
+
+        val browseEnabled = basePreferences.doubleTapBrowseNavBehaviour().get() !=
+            BasePreferences.DoubleTapBrowse.DEFAULT
+        setupNavItemDoubleTap(R.id.nav_browse, browseEnabled) { handleBrowseDoubleTap() }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupNavItemDoubleTap(itemId: Int, isEnabled: Boolean, onDoubleTap: () -> Unit) {
+        val view = nav.getItemView(itemId) ?: return
+        if (!isEnabled) {
+            view.setOnTouchListener(null)
+            return
+        }
+        val detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                view.performClick()
+                return true
+            }
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                onDoubleTap()
+                return true
+            }
+            override fun onLongPress(e: MotionEvent) {
+                view.performLongClick()
+            }
+        })
+        view.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
+    }
+
+    private fun handleLibraryDoubleTap() {
+        when (basePreferences.doubleTapLibraryNavBehaviour().get()) {
+            BasePreferences.DoubleTapLibrary.DEFAULT -> Unit
+            BasePreferences.DoubleTapLibrary.UPDATE_LIBRARY -> {
+                if (!LibraryUpdateJob.isRunning(this)) {
+                    LibraryUpdateJob.startNow(this)
+                    binding.mainContent.snack(MR.strings.updating_library) {
+                        anchorView = binding.bottomNav
+                        setAction(MR.strings.cancel) {
+                            LibraryUpdateJob.stop(context)
+                            lifecycleScope.launchUI {
+                                NotificationReceiver.dismissNotification(
+                                    context,
+                                    Notifications.ID_LIBRARY_PROGRESS,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleRecentsDoubleTap() {
+        if (nav.selectedItemId != R.id.nav_recents) {
+            nav.selectedItemId = R.id.nav_recents
+        }
+        when (basePreferences.doubleTapRecentsNavBehaviour().get()) {
+            BasePreferences.DoubleTapRecents.DEFAULT -> Unit
+            BasePreferences.DoubleTapRecents.LAST_READ -> {
+                lifecycleScope.launchUI {
+                    val lastReadChapter = getRecents.awaitUngrouped(true, true, "", 0)
+                        .maxByOrNull { it.history.last_read }
+                    lastReadChapter ?: return@launchUI
+
+                    val manga = lastReadChapter.manga
+                    val chapter = lastReadChapter.chapter
+                    startActivity(ReaderActivity.newIntent(this@MainActivity, manga, chapter))
+                }
+            }
+        }
+    }
+
+    private fun handleBrowseDoubleTap() {
+        if (nav.selectedItemId != R.id.nav_browse) {
+            nav.selectedItemId = R.id.nav_browse
+        }
+        when (basePreferences.doubleTapBrowseNavBehaviour().get()) {
+            BasePreferences.DoubleTapBrowse.DEFAULT -> Unit
+            BasePreferences.DoubleTapBrowse.SEARCH ->
+                router.pushController(GlobalSearchController().withFadeTransaction())
         }
     }
 

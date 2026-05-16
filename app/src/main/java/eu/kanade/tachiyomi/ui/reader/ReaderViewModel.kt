@@ -173,10 +173,12 @@ class ReaderViewModel(
     }
 
     /**
-     * In-session per-chapter flag: set true when JS reports the chapter has reached the
-     * read threshold (≥95%) while actively scrolling. Gates `onChapterReadComplete` so
-     * teardown paths (pause/destroy) cannot flip `chapter.read = true` for a chapter the
-     * user never scrolled to completion this session.
+     * In-session per-chapter flag: set true when the *last* chapter in the list reaches
+     * `NOVEL_LAST_CHAPTER_READ_THRESHOLD_PERCENT` while the user is actively scrolling.
+     * Only the final chapter relies on this fallback — earlier chapters mark-read via
+     * forward transition in [setNovelVisibleChapter]. Gates the threshold-based path so
+     * teardown paths (pause/destroy) and "restore at saved %" can't trip mark-read for
+     * a chapter the user never scrolled to completion this session.
      */
     private val sessionReachedThreshold: MutableMap<Long, Boolean> = mutableMapOf()
 
@@ -636,14 +638,47 @@ class ReaderViewModel(
         val newChapterId = chapter.id ?: return
         val readerChapter = chapterList.firstOrNull { it.chapter.id == newChapterId } ?: return
         if (chapterId != newChapterId) {
-            // The chapter that just left visibility cannot accumulate further session
-            // scroll advance — clear its threshold flag so a later teardown flush of a
-            // stale percentage can't trip the mark-read gate.
-            sessionReachedThreshold.remove(chapterId)
+            val previousChapterId = chapterId
+            val oldIndex = chapterList.indexOfFirst { it.chapter.id == previousChapterId }
+            val newIndex = chapterList.indexOfFirst { it.chapter.id == newChapterId }
+            if (oldIndex in 0 until newIndex) {
+                val leftBehind = chapterList[oldIndex]
+                // Forward transition is the primary mark-read signal for novels: moving past
+                // a chapter means the user is done with it. The percent guard prevents a
+                // mid-chapter "tap next to peek" from auto-marking — the transition is the
+                // strong signal, but it must be backed by substantial scroll progress.
+                if (
+                    !leftBehind.chapter.read &&
+                    leftBehind.chapter.last_page_read >= NOVEL_TRANSITION_READ_GUARD_PERCENT
+                ) {
+                    viewModelScope.launchNonCancellableIO {
+                        markChapterReadOnTransition(leftBehind)
+                    }
+                }
+            }
+            sessionReachedThreshold.remove(previousChapterId)
             chapterId = newChapterId
             eventChannel.trySend(Event.NovelVisibleChapterChanged(readerChapter))
         }
         viewModelScope.launchIO { preload(readerChapter) }
+    }
+
+    private suspend fun markChapterReadOnTransition(readerChapter: ReaderChapter) {
+        val incognito = preferences.incognitoMode().get()
+        val shouldTrack = !incognito || hasTrackers
+        if (!shouldTrack) return
+        val id = readerChapter.chapter.id ?: return
+        Logger.d { "markChapterReadOnTransition chapter=$id (forward transition)" }
+        onChapterReadComplete(readerChapter)
+        updateChapter.await(
+            ChapterUpdate(
+                id = id,
+                read = true,
+                bookmark = readerChapter.chapter.bookmark,
+                lastPageRead = readerChapter.chapter.last_page_read.toLong(),
+                pagesLeft = 0L,
+            )
+        )
     }
 
     /**
@@ -838,21 +873,31 @@ class ReaderViewModel(
                 readerChapter.chapter.pages_left = (100 - progressPercent).coerceIn(0, 100)
 
                 val chapterId = readerChapter.chapter.id ?: -1L
-                if (sessionScrollAdvance && progressPercent >= NOVEL_CHAPTER_READ_THRESHOLD_PERCENT) {
+                // Threshold-based mark-read is now a fallback for the final chapter only —
+                // earlier chapters flip to read on forward transition (see
+                // [setNovelVisibleChapter]). Without this fallback the very last chapter
+                // could never auto-mark, because there is nothing to transition into.
+                val isLastChapter = chapterList.lastOrNull()?.chapter?.id == chapterId
+                if (
+                    isLastChapter &&
+                    sessionScrollAdvance &&
+                    progressPercent >= NOVEL_LAST_CHAPTER_READ_THRESHOLD_PERCENT
+                ) {
                     sessionReachedThreshold[chapterId] = true
                 }
                 val reachedThisSession = sessionReachedThreshold[chapterId] == true
                 Logger.d {
                     "saveChapterProgress text gate chapter=$chapterId reachedThisSession=$reachedThisSession " +
-                        "sessionAdvance=$sessionScrollAdvance progress=$progressPercent"
+                        "sessionAdvance=$sessionScrollAdvance progress=$progressPercent isLast=$isLastChapter"
                 }
                 if (
                     !readerChapter.chapter.read &&
+                    isLastChapter &&
                     sessionScrollAdvance &&
                     reachedThisSession &&
-                    progressPercent >= NOVEL_CHAPTER_READ_THRESHOLD_PERCENT
+                    progressPercent >= NOVEL_LAST_CHAPTER_READ_THRESHOLD_PERCENT
                 ) {
-                    Logger.d { "saveChapterProgress onChapterReadComplete fired chapter=$chapterId" }
+                    Logger.d { "saveChapterProgress onChapterReadComplete fired chapter=$chapterId (last-chapter fallback)" }
                     onChapterReadComplete(readerChapter)
                 }
             } else {
@@ -1348,4 +1393,14 @@ class ReaderViewModel(
  */
 class SourceNotReadyException(val sourceId: Long) : Exception("Source $sourceId not ready")
 
-private const val NOVEL_CHAPTER_READ_THRESHOLD_PERCENT = 95
+// Forward-transition guard: minimum scroll % the user must have reached on a chapter
+// before the act of moving past it counts as "read it". Lower than the last-chapter
+// fallback because the transition itself is the strong "I'm done" signal — the
+// percent is just a sanity check against tap-to-peek navigation from low %.
+private const val NOVEL_TRANSITION_READ_GUARD_PERCENT = 70
+
+// Last-chapter fallback: when there's no chapter after this one, transition-based
+// mark-read can't fire, so fall back to a high % threshold. Kept conservative
+// because this is the only auto signal available for the very last chapter — users
+// who want it sooner can mark manually from the chapter list.
+private const val NOVEL_LAST_CHAPTER_READ_THRESHOLD_PERCENT = 100

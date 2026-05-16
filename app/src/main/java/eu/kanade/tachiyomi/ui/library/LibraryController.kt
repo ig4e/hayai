@@ -2403,7 +2403,7 @@ open class LibraryController(
     }
 
     override fun onActionViewExpand(item: MenuItem?) {
-        if (!binding.recyclerCover.isClickable && query.isBlank() &&
+        if (!isTabbedMode && !binding.recyclerCover.isClickable && query.isBlank() &&
             !singleCategory && presenter.showAllCategories
         ) {
             showCategories(true)

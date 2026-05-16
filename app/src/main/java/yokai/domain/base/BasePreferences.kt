@@ -49,6 +49,27 @@ class BasePreferences(private val preferenceStore: PreferenceStore) {
         LAST_READ(MR.strings.recents_long_tap_last_read),
     }
 
+    fun doubleTapLibraryNavBehaviour() = preferenceStore.getEnum("pref_library_double_tap", DoubleTapLibrary.DEFAULT)
+
+    enum class DoubleTapLibrary(val titleResId: StringResource) {
+        DEFAULT(MR.strings.library_double_tap_default),
+        UPDATE_LIBRARY(MR.strings.library_double_tap_update),
+    }
+
+    fun doubleTapRecentsNavBehaviour() = preferenceStore.getEnum("pref_recents_double_tap", DoubleTapRecents.DEFAULT)
+
+    enum class DoubleTapRecents(val titleResId: StringResource) {
+        DEFAULT(MR.strings.recents_double_tap_default),
+        LAST_READ(MR.strings.recents_double_tap_last_read),
+    }
+
+    fun doubleTapBrowseNavBehaviour() = preferenceStore.getEnum("pref_browser_double_tap", DoubleTapBrowse.DEFAULT)
+
+    enum class DoubleTapBrowse(val titleResId: StringResource) {
+        DEFAULT(MR.strings.browse_double_tap_default),
+        SEARCH(MR.strings.browse_double_tap_search),
+    }
+
     fun hardwareBitmapThreshold() = preferenceStore.getInt("pref_hardware_bitmap_threshold", GLUtil.SAFE_TEXTURE_LIMIT)
 
     fun composeLibrary() = preferenceStore.getBoolean("pref_use_compose_library", false)
