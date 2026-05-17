@@ -592,12 +592,17 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             true
         }
 
-        if (!router.hasRootController()) {
+        val needsStartingTab = rootTabsController?.let { it.currentTabId == -1 }
+            ?: !topRouter.hasRootController()
+        if (needsStartingTab) {
             // Set start screen
             if (!handleIntentAction(intent)) {
                 goToStartingTab()
                 if (!basePreferences.hasShownOnboarding().get()) {
-                    router.pushController(OnboardingController().withFadeInTransaction())
+                    // Push onto topRouter (not router which forwards to active child
+                    // router) so onboarding occludes all tabs — otherwise the user could
+                    // tap another tab to bypass it.
+                    topRouter.pushController(OnboardingController().withFadeInTransaction())
                 }
             }
         }
@@ -674,75 +679,11 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         updateControllersWithSideNavChanges()
         binding.bottomView?.visibility = if (hideBottomNav) View.GONE else binding.bottomView?.visibility ?: View.GONE
         nav.alpha = if (hideBottomNav) 0f else 1f
-        router.addChangeListener(
-            object : ControllerChangeHandler.ControllerChangeListener {
-                override fun onChangeStarted(
-                    to: Controller?,
-                    from: Controller?,
-                    isPush: Boolean,
-                    container: ViewGroup,
-                    handler: ControllerChangeHandler,
-                ) {
-                    Trace.beginSection("Hayai/MainActivity.onChangeStarted")
-                    to?.view?.alpha = 1f
-                    Trace.beginSection("Hayai/syncActivityViewWithController")
-                    syncActivityViewWithController(to, from, isPush)
-                    Trace.endSection()
-                    binding.appBar.isVisible = !hideAppBar
-                    binding.appBar.alpha = 1f
-                    if (binding.backShadow.isVisible && !isPush) {
-                        val bA = ObjectAnimator.ofFloat(binding.backShadow, View.ALPHA, 0f)
-                        from?.view?.let { view ->
-                            bA.addUpdateListener {
-                                binding.backShadow.x = view.x - binding.backShadow.width
-                                if (router.backstackSize == 1) {
-                                    to?.view?.let { toView ->
-                                        nav.x = toView.x
-                                    }
-                                }
-                            }
-                        }
-                        bA.doOnEnd {
-                            binding.backShadow.alpha = 0.25f
-                            binding.backShadow.isVisible = false
-                            nav.x = 0f
-                        }
-                        bA.duration = 150
-                        bA.interpolator = DecelerateInterpolator(backVelocity.takeIf { it != 0f } ?: 1f)
-                        bA.start()
-                    }
-                    if (!isPush || router.backstackSize == 1) {
-                        nav.translationY = 0f
-                    }
-                    snackBar?.dismiss()
-                    Trace.endSection()
-                }
-
-                override fun onChangeCompleted(
-                    to: Controller?,
-                    from: Controller?,
-                    isPush: Boolean,
-                    container: ViewGroup,
-                    handler: ControllerChangeHandler,
-                ) {
-                    to?.view?.x = 0f
-                    nav.translationY = 0f
-                    backVelocity = 0f
-                    showDLQueueTutorial()
-                    if (!(from is DialogController || to is DialogController) && from != null) {
-                        from.view?.alpha = 0f
-                    }
-                    if (router.backstackSize == 1) {
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && !isPush) {
-                            window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
-                        }
-                    } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                        @Suppress("DEPRECATION")
-                        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-                    }
-                }
-            },
-        )
+        // Register the change listener on every router that can host visible controllers.
+        // Without this, pushes inside Recents / Browse child routers wouldn't fire
+        // syncActivityViewWithController, leaving the toolbar / nav icon stale.
+        registerControllerChangeListener(topRouter)
+        rootTabsController?.allChildRouters()?.forEach { registerControllerChangeListener(it) }
 
         syncActivityViewWithController(router.backstack.lastOrNull()?.controller)
 
@@ -805,7 +746,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     override fun onTitleChanged(title: CharSequence?, color: Int) {
         super.onTitleChanged(title, color)
         binding.searchToolbar.title = searchTitle
-        val onExpandedController = if (this::router.isInitialized) router.backstack.lastOrNull()?.controller !is SmallToolbarInterface else false
+        val onExpandedController = if (this::topRouter.isInitialized) router.backstack.lastOrNull()?.controller !is SmallToolbarInterface else false
         binding.appBar.setTitle(title, onExpandedController)
     }
 
@@ -832,7 +773,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     }
 
     private fun setFloatingToolbarInner(show: Boolean, solidBG: Boolean, changeBG: Boolean, showSearchAnyway: Boolean) {
-        val controller = if (this::router.isInitialized) router.backstack.lastOrNull()?.controller else null
+        val controller = if (this::topRouter.isInitialized) router.backstack.lastOrNull()?.controller else null
         val useLargeTB = binding.appBar.useLargeToolbar
         val onSearchController = canShowFloatingToolbar(controller)
         val onSmallerController = controller is SmallToolbarInterface || !useLargeTB
@@ -855,7 +796,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         } else {
             binding.cardFrame.isVisible || binding.cardFrame.alpha > 0f
         }
-        if (this::router.isInitialized && needsAnim && binding.appBar.useLargeToolbar && !onSmallerController &&
+        if (this::topRouter.isInitialized && needsAnim && binding.appBar.useLargeToolbar && !onSmallerController &&
             (showSearchAnyway || isAppBarVisible)
         ) {
             binding.appBar.background = null
@@ -871,7 +812,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             tA.duration = (abs(binding.cardFrame.alpha - endValue) * 150).roundToLong()
             searchBarAnimation = tA
             tA.start()
-        } else if (this::router.isInitialized &&
+        } else if (this::topRouter.isInitialized &&
             (!binding.appBar.useLargeToolbar || onSmallerController || !isAppBarVisible)
         ) {
             binding.cardFrame.alpha = 1f
@@ -901,7 +842,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 it.isVisible = false
             }
         }
-        val onRoot = !this::router.isInitialized || router.backstackSize == 1
+        val onRoot = !this::topRouter.isInitialized || router.backstackSize == 1
         if (!useLargeTB) {
             binding.searchToolbar.navigationIcon = if (onRoot) searchDrawable else backDrawable
         } else if (showSearchAnyway) {
@@ -1377,6 +1318,87 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         router.setRoot(controller.withFadeInTransaction().tag(id.toString()))
     }
 
+    private val registeredRouters = mutableSetOf<Router>()
+
+    /**
+     * Attach the toolbar / nav / app-bar resync listener to [targetRouter]. Safe to call
+     * multiple times — repeats are a no-op via [registeredRouters].
+     *
+     * Called from MainActivity.onCreate for the top router + every initial child router,
+     * and from [RootTabsController.ensureChildRoot] for any tab whose child router is
+     * materialised lazily later (e.g. user finally taps the third tab).
+     */
+    fun registerControllerChangeListener(targetRouter: Router) {
+        if (!registeredRouters.add(targetRouter)) return
+        targetRouter.addChangeListener(mainChangeListener)
+    }
+
+    private val mainChangeListener = object : ControllerChangeHandler.ControllerChangeListener {
+        override fun onChangeStarted(
+            to: Controller?,
+            from: Controller?,
+            isPush: Boolean,
+            container: ViewGroup,
+            handler: ControllerChangeHandler,
+        ) {
+            Trace.beginSection("Hayai/MainActivity.onChangeStarted")
+            to?.view?.alpha = 1f
+            Trace.beginSection("Hayai/syncActivityViewWithController")
+            syncActivityViewWithController(to, from, isPush)
+            Trace.endSection()
+            binding.appBar.isVisible = !hideAppBar
+            binding.appBar.alpha = 1f
+            if (binding.backShadow.isVisible && !isPush) {
+                val bA = ObjectAnimator.ofFloat(binding.backShadow, View.ALPHA, 0f)
+                from?.view?.let { view ->
+                    bA.addUpdateListener {
+                        binding.backShadow.x = view.x - binding.backShadow.width
+                        if (router.backstackSize == 1) {
+                            to?.view?.let { toView -> nav.x = toView.x }
+                        }
+                    }
+                }
+                bA.doOnEnd {
+                    binding.backShadow.alpha = 0.25f
+                    binding.backShadow.isVisible = false
+                    nav.x = 0f
+                }
+                bA.duration = 150
+                bA.interpolator = DecelerateInterpolator(backVelocity.takeIf { it != 0f } ?: 1f)
+                bA.start()
+            }
+            if (!isPush || router.backstackSize == 1) {
+                nav.translationY = 0f
+            }
+            snackBar?.dismiss()
+            Trace.endSection()
+        }
+
+        override fun onChangeCompleted(
+            to: Controller?,
+            from: Controller?,
+            isPush: Boolean,
+            container: ViewGroup,
+            handler: ControllerChangeHandler,
+        ) {
+            to?.view?.x = 0f
+            nav.translationY = 0f
+            backVelocity = 0f
+            showDLQueueTutorial()
+            if (!(from is DialogController || to is DialogController) && from != null) {
+                from.view?.alpha = 0f
+            }
+            if (router.backstackSize == 1) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && !isPush) {
+                    window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
+                }
+            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                @Suppress("DEPRECATION")
+                window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            }
+        }
+    }
+
     /**
      * True when this Activity should install [RootTabsController] as the persistent root.
      * SearchActivity overrides to false: it pushes single controllers directly.
@@ -1421,53 +1443,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         binding.searchToolbar.title = searchTitle
         (active as? BaseLegacyController<*>)?.setTitle()
         (active as? SettingsLegacyController)?.setTitle()
-    }
-
-    /**
-     * True when this Activity should install [RootTabsController] as the persistent root.
-     * SearchActivity overrides to false: it pushes single controllers directly (no bottom-nav,
-     * no per-tab back-stacks).
-     */
-    protected open fun usesRootTabsController(): Boolean = true
-
-    /**
-     * Bottom-nav double-tap behaviour preserved from the legacy `setRoot`-based listener.
-     */
-    private fun runDoubleTapAction(@IdRes id: Int) {
-        when (id) {
-            R.id.nav_library -> runLibraryNavAction(
-                basePreferences.doubleTapLibraryNavBehaviour().get(),
-                showSheet = false,
-            )
-            R.id.nav_recents -> runRecentsNavAction(
-                basePreferences.doubleTapRecentsNavBehaviour().get(),
-                showSheet = false,
-            )
-            R.id.nav_browse -> runBrowseNavAction(
-                basePreferences.doubleTapBrowseNavBehaviour().get(),
-                showSheet = false,
-            )
-        }
-    }
-
-    /**
-     * Called by [RootTabsController] when the user switches tabs without recreating any
-     * controller. Mirrors what Conductor's change handler would have done on a setRoot:
-     * resync the activity toolbar / floating bar / bottom nav to the now-visible
-     * controller, and refresh title + menu.
-     */
-    fun onActiveTabChanged(@Suppress("UNUSED_PARAMETER") fromTabId: Int, toTabId: Int) {
-        val activeController = router.backstack.lastOrNull()?.controller
-        syncActivityViewWithController(activeController)
-        setFloatingToolbar(canShowFloatingToolbar(activeController), changeBG = false)
-        binding.toolbar.menu?.let { setupSearchTBMenu(it) }
-        binding.searchToolbar.title = searchTitle
-        (activeController as? BaseLegacyController<*>)?.setTitle()
-        (activeController as? SettingsLegacyController)?.setTitle()
-        // The tab bar (Library categories / Recents type tabs) is owned by the
-        // entering controller; let it reapply on its existing view.
-        (activeController as? RecentsController)?.onTabSwitchedIntoVisible()
-        (activeController as? LibraryController)?.onTabSwitchedIntoVisible()
     }
 
     override fun onPreparePanel(featureId: Int, view: View?, menu: Menu): Boolean {
@@ -1516,7 +1491,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             actionMenuView.requestLayout()
         }
 
-        val controller = if (this::router.isInitialized) router.backstack.lastOrNull()?.controller else null
+        val controller = if (this::topRouter.isInitialized) router.backstack.lastOrNull()?.controller else null
         if (canShowFloatingToolbar(controller)) {
             binding.toolbar.menu.removeItem(R.id.action_search)
         }
@@ -1595,7 +1570,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 // shown here. The floating searchToolbar's setOnMenuItemClickListener already
                 // does this same first-crack-then-fallback dance, this just brings the regular
                 // appbar toolbar path in line with it.
-                val controller = if (this::router.isInitialized) {
+                val controller = if (this::topRouter.isInitialized) {
                     router.backstack.lastOrNull()?.controller
                 } else {
                     null
@@ -1728,7 +1703,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     }
 
     private fun updateControllersWithSideNavChanges(extraController: Controller? = null) {
-        if (!isBindingInitialized || !this::router.isInitialized || this is SearchActivity) return
+        if (!isBindingInitialized || !this::topRouter.isInitialized || this is SearchActivity) return
         binding.sideNav?.let { sideNav ->
             val controllers = (router.backstack.map { it?.controller } + extraController)
                 .filterNotNull()

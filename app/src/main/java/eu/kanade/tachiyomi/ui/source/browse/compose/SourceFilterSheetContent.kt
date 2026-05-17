@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -478,12 +479,15 @@ private fun SavedSearchRow(
 
 // endregion
 
-// region Action bar — three filled buttons, colour encodes intent.
-//   Reset → error/onErrorContainer pair: soft-danger "clear" action without alarming the user.
-//   Save  → secondaryContainer/onSecondaryContainer: neutral constructive action.
-//   Filter (apply) → primary/onPrimary filled Button: the prominent CTA.
-// Visual weight: tonal pair on the left reads quieter than the primary CTA on the right, so the
-// hierarchy stays obvious even though all three are filled.
+// region Action bar — M3 Expressive button group on the left, primary CTA on the right.
+//
+// Reset and Save are visually grouped via shape-joining (outer corners fully rounded, inner
+// corners near-square) with only a 2-dp gap so they read as one piece. Each segment keeps its
+// own intent colour:
+//   Reset → errorContainer  — soft-danger "clear" action, no shouting red
+//   Save  → secondaryContainer — neutral constructive action with bookmark icon
+//   Filter (apply) → standalone primary Button — the prominent CTA, separated by weight(1f).
+// All filled; colour does the hierarchy work (tonal pair reads quieter than the primary CTA).
 
 @Composable
 private fun FilterSheetActionBar(
@@ -497,17 +501,19 @@ private fun FilterSheetActionBar(
             .navigationBarsPadding()
             .imePadding()
             .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ActionBarTonalButton(
+        GroupedTonalButton(
             onClick = onReset,
+            shape = ButtonGroupStartShape,
             containerColor = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer,
             label = stringResource(MR.strings.reset),
         )
-        ActionBarTonalButton(
+        GroupedTonalButton(
             onClick = onSave,
+            shape = ButtonGroupEndShape,
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             icon = Icons.Outlined.TurnedIn,
@@ -532,8 +538,9 @@ private fun FilterSheetActionBar(
 }
 
 @Composable
-private fun ActionBarTonalButton(
+private fun GroupedTonalButton(
     onClick: () -> Unit,
+    shape: androidx.compose.ui.graphics.Shape,
     containerColor: androidx.compose.ui.graphics.Color,
     contentColor: androidx.compose.ui.graphics.Color,
     label: String,
@@ -541,6 +548,7 @@ private fun ActionBarTonalButton(
 ) {
     FilledTonalButton(
         onClick = onClick,
+        shape = shape,
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = containerColor,
             contentColor = contentColor,
@@ -561,5 +569,21 @@ private fun ActionBarTonalButton(
         )
     }
 }
+
+/** First segment of the connected button group — outer (start) corners fully rounded. */
+private val ButtonGroupStartShape = RoundedCornerShape(
+    topStartPercent = 50,
+    bottomStartPercent = 50,
+    topEndPercent = 12,
+    bottomEndPercent = 12,
+)
+
+/** Last segment of the connected button group — outer (end) corners fully rounded. */
+private val ButtonGroupEndShape = RoundedCornerShape(
+    topStartPercent = 12,
+    bottomStartPercent = 12,
+    topEndPercent = 50,
+    bottomEndPercent = 50,
+)
 
 // endregion

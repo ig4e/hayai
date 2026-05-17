@@ -13,7 +13,7 @@ import com.bluelinelabs.conductor.RouterTransaction
 import com.bluelinelabs.conductor.changehandler.SimpleSwapChangeHandler
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.library.LibraryController
-import eu.kanade.tachiyomi.ui.library.LibraryComposeController
+import eu.kanade.tachiyomi.ui.library.compose.LibraryComposeController
 import eu.kanade.tachiyomi.ui.recents.RecentsController
 import eu.kanade.tachiyomi.ui.source.BrowseController
 import uy.kohesive.injekt.injectLazy
@@ -146,6 +146,10 @@ class RootTabsController : Controller() {
     private fun ensureChildRoot(tabId: Int) {
         val container = containers[tabId] ?: return
         val childRouter = getChildRouter(container, childRouterTag(tabId))
+        // Wire the host activity's main change listener onto this child router so that
+        // pushes/pops within this tab fire syncActivityViewWithController, toolbar nav
+        // icon updates, nav alpha animation, etc. Idempotent in the host.
+        (activity as? MainActivity)?.registerControllerChangeListener(childRouter)
         if (!childRouter.hasRootController()) {
             val controller = controllerForTab(tabId)
             childRouter.setRoot(
@@ -156,6 +160,13 @@ class RootTabsController : Controller() {
             )
         }
     }
+
+    /**
+     * All currently-materialised child routers (one per tab the user has visited).
+     * Used by [MainActivity] to attach its change listener on startup for tabs already
+     * restored from saved state.
+     */
+    fun allChildRouters(): List<Router> = TAB_IDS.mapNotNull { childRouterFor(it) }
 
     private fun controllerForTab(id: Int): Controller = when (id) {
         R.id.nav_library ->
