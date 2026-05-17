@@ -125,6 +125,10 @@ class RecentsPresenter(
 
     override fun onCreate() {
         super.onCreate()
+        // History-by-Source headers fetch extension app icons via PackageManager.loadIcon
+        // (Binder, main-thread). Warm the icon cache from IO before the user can navigate
+        // into the source-grouped view.
+        Injekt.get<eu.kanade.tachiyomi.extension.ExtensionManager>().preloadInstalledIcons()
         presenterScope.launchUI {
             downloadManager.statusFlow().collect(::onStatusChange)
         }

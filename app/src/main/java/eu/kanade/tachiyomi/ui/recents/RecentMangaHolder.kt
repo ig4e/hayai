@@ -55,6 +55,13 @@ class RecentMangaHolder(
     private val isUpdates get() = adapter.viewType.isUpdates
     private val isSmallUpdates get() = isUpdates && !adapter.showUpdatedTime
 
+    // Layout-param cascade in bind() touches ~12 constraint/dimension properties via
+    // updateLayoutParams { ... }, each firing requestLayout() unconditionally. The values
+    // only depend on (isSmallUpdates, freeformCovers), which are constant for all rows of
+    // a given tab. Cache the last-applied pair; skip the cascade when unchanged.
+    private var lastSmallUpdates: Boolean? = null
+    private var lastFreeformCovers: Boolean? = null
+
     /** Tinted overlay for selected rows; mirrors LibraryHolder's secondary-alpha treatment. */
     private val selectedBackground by lazy {
         val base = itemView.context.getResourceColor(materialR.attr.colorSecondary)
@@ -131,49 +138,54 @@ class RecentMangaHolder(
             RecentMangaAdapter.ShowRecentsDLs.All -> true
         } && !item.mch.manga.isLocal()
 
-        binding.cardLayout.updateLayoutParams<ConstraintLayout.LayoutParams> {
-            height = (if (isSmallUpdates) 40 else 80).dpToPx
-            width = (if (isSmallUpdates) 40 else 60).dpToPx
-        }
-        listOf(binding.title, binding.subtitle).forEach {
-            it.updateLayoutParams<ConstraintLayout.LayoutParams> {
-                if (isSmallUpdates) {
-                    if (it == binding.title) topMargin = 5.dpToPx
-                    endToStart = R.id.button_layout
-                    endToEnd = -1
-                } else {
-                    if (it == binding.title) topMargin = 2.dpToPx
-                    endToStart = -1
-                    endToEnd = R.id.main_view
+        val small = isSmallUpdates
+        val freeformCovers = !small && !adapter.uniformCovers
+        if (small != lastSmallUpdates || freeformCovers != lastFreeformCovers) {
+            binding.cardLayout.updateLayoutParams<ConstraintLayout.LayoutParams> {
+                height = (if (small) 40 else 80).dpToPx
+                width = (if (small) 40 else 60).dpToPx
+            }
+            listOf(binding.title, binding.subtitle).forEach {
+                it.updateLayoutParams<ConstraintLayout.LayoutParams> {
+                    if (small) {
+                        if (it == binding.title) topMargin = 5.dpToPx
+                        endToStart = R.id.button_layout
+                        endToEnd = -1
+                    } else {
+                        if (it == binding.title) topMargin = 2.dpToPx
+                        endToStart = -1
+                        endToEnd = R.id.main_view
+                    }
                 }
             }
-        }
-        binding.buttonLayout.updateLayoutParams<ConstraintLayout.LayoutParams> {
-            if (isSmallUpdates) {
-                topToBottom = -1
-                topToTop = R.id.card_layout
-                bottomToBottom = R.id.card_layout
-                topMargin = 4.dpToPx
-            } else {
-                topToTop = -1
-                topToBottom = R.id.subtitle
-                bottomToBottom = R.id.main_view
-                topMargin = 0
-            }
-        }
-        val freeformCovers = !isSmallUpdates && !adapter.uniformCovers
-        with(binding.coverThumbnail) {
-            adjustViewBounds = freeformCovers
-            scaleType = if (!freeformCovers) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
-        }
-        listOf(binding.coverThumbnail, binding.card).forEach {
-            it.updateLayoutParams<ViewGroup.LayoutParams> {
-                width = if (!freeformCovers) {
-                    ViewGroup.LayoutParams.MATCH_PARENT
+            binding.buttonLayout.updateLayoutParams<ConstraintLayout.LayoutParams> {
+                if (small) {
+                    topToBottom = -1
+                    topToTop = R.id.card_layout
+                    bottomToBottom = R.id.card_layout
+                    topMargin = 4.dpToPx
                 } else {
-                    ViewGroup.LayoutParams.WRAP_CONTENT
+                    topToTop = -1
+                    topToBottom = R.id.subtitle
+                    bottomToBottom = R.id.main_view
+                    topMargin = 0
                 }
             }
+            with(binding.coverThumbnail) {
+                adjustViewBounds = freeformCovers
+                scaleType = if (!freeformCovers) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
+            }
+            listOf(binding.coverThumbnail, binding.card).forEach {
+                it.updateLayoutParams<ViewGroup.LayoutParams> {
+                    width = if (!freeformCovers) {
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    } else {
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    }
+                }
+            }
+            lastSmallUpdates = small
+            lastFreeformCovers = freeformCovers
         }
 
         binding.removeHistory.isVisible = item.mch.history.id != null && showRemoveHistory

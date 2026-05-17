@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.util.system.launchNow
 import eu.kanade.tachiyomi.util.system.withIOContext
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
 import uy.kohesive.injekt.Injekt
@@ -61,7 +63,9 @@ class ExtensionManager(
      */
     private val installer by lazy { ExtensionInstaller(context) }
 
-    private val iconMap = mutableMapOf<String, Drawable>()
+    // ConcurrentHashMap (not mutableMapOf) so [preloadInstalledIcons] can populate from a
+    // background thread while UI-thread bindSource() reads via getOrPut.
+    private val iconMap = ConcurrentHashMap<String, Drawable>()
 
     val downloadSharedFlow = installer.downloadSharedFlow
 
@@ -101,6 +105,23 @@ class ExtensionManager(
             }
         } else {
             null
+        }
+    }
+
+    // PackageManager.loadIcon() inside getAppIconForSource is a Binder call. Recents'
+    // History-by-Source view binds N source headers in one frame; the first time per
+    // package per process, each blocks the UI thread. Warm the iconMap from IO on first
+    // call so the bind path is a getOrPut hit. Waits for installed extensions to load.
+    private var iconsPreloaded = false
+    fun preloadInstalledIcons() {
+        if (iconsPreloaded) return
+        iconsPreloaded = true
+        initScope.launch {
+            _installedExtensionsFlow.first { it.isNotEmpty() }
+                .flatMap { it.sources }
+                .map { it.id }
+                .distinct()
+                .forEach { getAppIconForSource(it) }
         }
     }
 

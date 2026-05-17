@@ -198,7 +198,8 @@ class RecentsController(bundle: Bundle? = null) :
         binding.recycler.adapter = adapter
         binding.recycler.layoutManager = LinearLayoutManagerAccurateOffset(view.context)
         binding.recycler.setHasFixedSize(true)
-        binding.recycler.recycledViewPool.setMaxRecycledViews(0, 0)
+        binding.recycler.setItemViewCacheSize(8)
+        binding.recycler.itemAnimator = null
         binding.recycler.addItemDecoration(RecentMangaDivider(view.context))
         binding.recycler.onAnimationsFinished {
             (activity as? MainActivity)?.releaseSplash()

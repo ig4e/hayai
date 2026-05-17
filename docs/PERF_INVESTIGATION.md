@@ -166,15 +166,101 @@ the ~2–5 ms View-based range that the Library already runs at. The three badge
 ~1 hour. Lower architectural improvement than a full Compose port but matches "0
 regressions" easier and proven fast.
 
-### Remaining problem flows (untouched)
+## Recents tab switching — chain of fixes
+
+Baseline 3.21 % jank, p99 48 ms, 41 slow-UI frames, 15 frames ≥ 150 ms.
+
+### 1. Recycler hygiene on `RecentsController`
+
+`onViewCreated` had:
+
+- `recycledViewPool.setMaxRecycledViews(0, 0)` — dead code (FlexibleAdapter keys
+  `viewType` to layout-res id, so type `0` is never used).
+- Default `itemViewCacheSize` (2) — tab swap thrashed the pool.
+- `DefaultItemAnimator` left attached — stacked with `TransitionManager.beginDelayedTransition`
+  used in `markAsRead`.
+
+**Fix:** `app/src/main/java/eu/kanade/tachiyomi/ui/recents/RecentsController.kt:200-203`
+— drop the dead `setMaxRecycledViews`, set `itemAnimator = null`,
+`setItemViewCacheSize(8)`. Mark-read still animates via the explicit
+`beginDelayedTransition` (view-level Fade independent of the item animator).
+
+### 2. Cache layout-param cascade in `RecentMangaHolder`
+
+`bind()` ran ~6 `updateLayoutParams { … }` calls unconditionally per row (card
+dims, title/subtitle constraints, button-layout constraints, coverThumbnail/card
+widths). Each fires `requestLayout()`; ConstraintLayout solver re-runs. The
+values only depend on `(isSmallUpdates, freeformCovers)`, which are constant for
+all rows of a given tab.
+
+**Fix:** `app/src/main/java/eu/kanade/tachiyomi/ui/recents/RecentMangaHolder.kt`
+— cache the last-applied pair per holder; skip the cascade when unchanged. First
+bind to each holder (and after tab swap) pays once; subsequent same-tab binds
+take the fast path.
+
+### 3. Pre-warm extension icon cache for source headers
+
+In History-by-Source view, `RecentMangaHeaderItem.bindSource` calls
+`Source.icon()` → `ExtensionManager.getAppIconForSource()` →
+`iconMap.getOrPut(pkgName) { PackageManager.loadIcon(...) }`. **First call per
+package per process is a synchronous Binder/IPC on the UI thread**, ~5–50 ms
+each. Cluster of N source headers materialising in one frame = N stacked Binder
+calls. Matched the user-reported "slowest swap is Grouped → History-by-Source"
+exactly.
+
+**Fix:**
+
+- `app/src/main/java/eu/kanade/tachiyomi/extension/ExtensionManager.kt` —
+  `iconMap` → `ConcurrentHashMap` for safe concurrent population; new
+  `preloadInstalledIcons()` that waits for `installedExtensionsFlow` to populate,
+  then iterates each source's id from the IO scope and forces the `getOrPut`
+  path so PackageManager calls happen off the UI thread.
+- `app/src/main/java/eu/kanade/tachiyomi/ui/recents/RecentsPresenter.kt` —
+  call `preloadInstalledIcons()` in `onCreate()` so the warm starts when Recents
+  first mounts; the warm completes well before any user navigation to
+  History-by-Source.
+
+### Recents final state
+
+| Trace | Jank % | p90/p95/p99 | Missed vsync | Slow UI | Frames ≥ 150 ms |
+|-------|-------:|------------:|-------------:|--------:|----------------:|
+| Baseline | 3.21 % | 11 / 14 / 48 ms | 1 | 41 | 15 |
+| After 1 (recycler) | 2.43 % | 10 / 12 / 150 ms (capped) | 6 | 13 | 21 |
+| After 1–2 (+ holder cache) | 2.04 % | 10 / 13 / 65 ms | 3 | 26 | 23 |
+| After 1–3 (+ icon preload) | **2.34 %** | **9 / 13 / 65 ms** | **1** | **9** | **10** |
+
+`a0e48451cc` had source browse; these three Recents fixes ship in the follow-up
+commit. Slow-UI-thread frames down 78 % from baseline; missed-vsync flat at
+baseline level (was peaking at 6 after fix #1, smoothed back by fix #3); long
+tail (≥150 ms) down 33 %.
+
+### Residual stutter (left as known issue)
+
+There are still ~10 frames ≥ 150 ms in a 6-swap run — roughly **one per swap**,
+each being the single layout pass that materialises the new tab's rows from
+`adapter.updateDataSet(list)` → `notifyDataSetChanged`. To eliminate, two paths:
+
+- **DiffUtil + payloads + `ConcatAdapter`** per tab: dataset swap becomes
+  "hide adapter A, show adapter B" — no rebind of unchanged rows. ~2–3 hr.
+- **Visual masking**: fade `recentsFrameLayout` to alpha 0 during the swap,
+  fade back to 1 in `showLists`. Cheap; perceived smoothness only — actual
+  frame cost unchanged.
+
+Neither shipped — current state is acceptable (97.66 % non-jank, 99.22 %
+non-stutter). Flagged for follow-up if user revisits.
+
+## Remaining problem flows (untouched)
 
 | Flow | Baseline jank | Likely culprits |
 |------|--------------:|------------------|
 | Library ↔ Recents (tabbed) "text splatter" | 5.03 % | Cross-controller race: `LibraryController.onChangeStarted` calls `showTabBar(false, animate=true)` while `RecentsController.onChangeStarted` calls `mainTabs.bindStringTabs(...)` then `showTabBar(true)`. Library category labels get **overwritten in-place** by Recents labels mid-fade; TabLayout re-measures during the alpha animation. Surgical fix to `MainActivity.showTabBar` + the two controllers' `onChangeStarted`. |
 | Library → Manga ×5 | 12.79 % | Likely `MaterialContainerTransform` shared element + heavy `MangaDetailsController.onCreateView` + Library teardown (`saveStaggeredState`, `closeTip`, filter-sheet hide, tab teardown) all synchronous. |
-| Recents tab switching | 3.21 % | `setViewType` triggers a presenter rebuild. |
 | Animator pile-up on root nav switch | n/a | `MainActivity.onChangeStarted` + `syncActivityViewWithController` fire 4–6 concurrent ValueAnimators (Conductor fade, tab fade, cardFrame fade, nav fade) plus full menu rebuilds via `setupSearchTBMenu`. All synchronous on the main thread. |
-| Manga view — chapters list initial render | n/a (not yet traced) | Chapters list initial animation is janky and items jump from their position. Probably `DefaultItemAnimator` running on the first batch + post-layout measure shifting items. Same family of fix as source-browse #6 (drop the item animator, possibly fix initial layout). |
+| Library view — internal splatter | n/a | Category chip strip / filter sheet / grid items shift/redraw on entry. Trace required. |
+| Sources sheet — novel ↔ manga swap | n/a | Source-list re-bind per toggle; possibly per-source ComposeViews. Trace required. |
+| Browse hub — first entry | n/a | Sources hub entry cost (extension repo/lang reads, bottom sheet pre-warm). Trace required. |
+| Recents item open (history → reader/manga) | n/a | Shares MaterialContainerTransform with #5? Confirm. |
+| Manga view — chapters list initial render | n/a | Chapters list initial animation janky, items jump. Probably `DefaultItemAnimator` first batch + post-layout shift. Same family of fix as source-browse #6 (drop item animator, possibly fix initial layout). |
 
 ### Profiling workflow
 
