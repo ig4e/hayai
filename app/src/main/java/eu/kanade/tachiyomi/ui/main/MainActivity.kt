@@ -47,6 +47,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.children
 import androidx.core.view.forEach
+import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
@@ -161,34 +162,47 @@ import android.R as AR
 open class MainActivity : BaseActivity<MainActivityBinding>() {
 
     /**
-     * The top-level Conductor router attached to MainActivity. Holds the persistent
-     * [RootTabsController] on the standard launch path. Code that needs to operate on
-     * the real top-level backstack (e.g. checking whether RootTabsController has been
-     * created, attaching the splash) should use this. Most code should use [router].
+     * The top-level Conductor router. On the standard launch path it holds a single
+     * persistent [RootTabsController] which in turn owns one child router per bottom-nav
+     * tab. SearchActivity opts out and pushes controllers onto [topRouter] directly.
+     *
+     * Use [topRouter] only when you specifically need the activity-level backstack —
+     * for example to push a controller (onboarding, dialogs) that must occlude all tabs.
+     * Most code should use [router], which transparently targets the active tab.
      */
     protected lateinit var topRouter: Router
 
     /**
-     * The "effective" router visible to UI code. When [RootTabsController] is at the top
-     * of [topRouter], this forwards to the active tab's child router so existing
-     * `router.backstack.lastOrNull()?.controller`, `router.backstackSize`,
-     * `router.pushController(...)`, etc. transparently target the active tab. Falls back
-     * to [topRouter] when RootTabsController isn't installed (e.g. in SearchActivity).
+     * The router callers should target. When [RootTabsController] is installed this is the
+     * active tab's child router; pushes, backstack lookups, and pops all operate on the
+     * visible tab. Falls back to [topRouter] when there is no [RootTabsController]
+     * (SearchActivity).
      */
     val router: Router
         get() {
-            if (!this::topRouter.isInitialized) {
-                throw IllegalStateException("router accessed before Conductor.attachRouter")
-            }
-            return (topRouter.backstack.firstOrNull()?.controller as? RootTabsController)
-                ?.activeChildRouter() ?: topRouter
+            check(this::topRouter.isInitialized) { "router accessed before Conductor.attachRouter" }
+            return rootTabsController?.activeChildRouter() ?: topRouter
         }
 
-    /** Convenience for callers that need to act on the RootTabsController itself. */
+    /** The [RootTabsController] hosting the bottom-nav tabs, if installed. */
     protected val rootTabsController: RootTabsController?
         get() = if (this::topRouter.isInitialized) {
             topRouter.backstack.firstOrNull()?.controller as? RootTabsController
-        } else null
+        } else {
+            null
+        }
+
+    /**
+     * The controller that currently owns the shared activity chrome (toolbar, app bar,
+     * tabs, search bar). This is the SINGLE SOURCE OF TRUTH for "what is visible to the
+     * user" — referenced by [eu.kanade.tachiyomi.util.view.isControllerVisible] so that
+     * dormant root tabs (alive but not currently selected) correctly report `false`.
+     *
+     * For [RootTabsController]: the top of the active child router's backstack.
+     * For SearchActivity / no RootTabsController: the top of [topRouter]'s backstack.
+     */
+    val activeRootController: Controller?
+        get() = if (this::topRouter.isInitialized) router.backstack.lastOrNull()?.controller else null
 
     protected val searchDrawable by lazy { contextCompatDrawable(R.drawable.ic_search_24dp) }
     protected val backDrawable by lazy { contextCompatDrawable(R.drawable.ic_arrow_back_24dp) }
@@ -1423,23 +1437,30 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     }
 
     /**
-     * Called by [RootTabsController] when the user switches tabs without recreating any
-     * controller. Conductor's onChangeStarted does not fire on tab swap (the controller
-     * view stays attached, just hidden), so we synthesise the equivalent activity-bar
-     * resync: dispatch a fake PUSH_ENTER on the entering controller so it can reapply
-     * tab bar / app bar wiring, then re-sync toolbar + floating bar + title.
+     * Called by [RootTabsController] after a tab swap. By the time we get here the outgoing
+     * tab's controller has been notified via [RootTabContent.onTabDeactivated] and the
+     * incoming via [RootTabContent.onTabActivated] — both have already wired/unwired their
+     * app-bar contributions and toggled their [Controller.setOptionsMenuHidden] participation.
+     *
+     * Our job here is to (a) reset the shared chrome to a clean baseline so any decorative
+     * state the previous tab left behind (appBar alpha, isInvisible) doesn't bleed across,
+     * and (b) trigger a fresh menu walk via [invalidateOptionsMenu] so the toolbar shows
+     * only the new active controller's items — without this, Conductor would otherwise
+     * leave the previous tab's items stuck in place.
      */
-    fun onActiveTabChanged(
-        @Suppress("UNUSED_PARAMETER") fromTabId: Int,
-        @Suppress("UNUSED_PARAMETER") toTabId: Int,
-    ) {
-        // RootTabsController has already dispatched PUSH_EXIT/PUSH_ENTER to the relevant
-        // controllers; we only need to mirror what MainActivity's own change-listener
-        // would have done after a setRoot.
-        val active = router.backstack.lastOrNull()?.controller
+    fun onActiveTabChanged(@Suppress("UNUSED_PARAMETER") fromTabId: Int, @Suppress("UNUSED_PARAMETER") toTabId: Int) {
+        val active = activeRootController
+        // Reset decorative AppBar state the previous tab may have mutated (Browse hides the
+        // app bar when its extension sheet is expanded; without this the next tab would
+        // inherit the invisible/dimmed bar).
+        binding.appBar.alpha = 1f
+        binding.appBar.isInvisible = false
         syncActivityViewWithController(active)
         setFloatingToolbar(canShowFloatingToolbar(active), changeBG = false)
-        binding.toolbar.menu?.let { setupSearchTBMenu(it) }
+        // Rebuild the toolbar menu from scratch against the new active controller only —
+        // dormant tabs have setOptionsMenuHidden(true) so Conductor's menu dispatch skips
+        // them. Without invalidateOptionsMenu the prior tab's items would persist.
+        invalidateOptionsMenu()
         binding.searchToolbar.title = searchTitle
         (active as? BaseLegacyController<*>)?.setTitle()
         (active as? SettingsLegacyController)?.setTitle()

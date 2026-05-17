@@ -121,6 +121,7 @@ class RecentsController(bundle: Bundle? = null) :
     FloatingSearchInterface,
     BottomSheetController,
     MainActivityTabsOwner,
+    eu.kanade.tachiyomi.ui.main.RootTabContent,
     ActionMode.Callback {
 
     override val ownsActivityTabs: Boolean = true
@@ -992,6 +993,11 @@ class RecentsController(bundle: Bundle? = null) :
                         val selectedTab = presenter.viewType
                         val labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() }
                         android.os.Trace.beginSection("Hayai/Recents.bindStringTabs")
+                        // History/Updates is a fixed 2-3 tab set — fill the width evenly.
+                        // Required after Library sets MODE_SCROLLABLE for its category tabs;
+                        // bindStringTabs inherits whatever mode/gravity is on the view.
+                        tabs.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
+                        tabs.tabGravity = com.google.android.material.tabs.TabLayout.GRAVITY_FILL
                         tabs.bindStringTabs(
                             labels = labels,
                             selectedIndex = selectedTab.mainValue,
@@ -1024,6 +1030,57 @@ class RecentsController(bundle: Bundle? = null) :
         if (type.isEnter && isControllerVisible) {
             updateTitleAndMenu()
         }
+    }
+
+    /**
+     * Called when the user swaps to the Recents tab via the bottom nav. The view tree is
+     * already attached; we just need to (re)take ownership of the shared activity chrome:
+     * rewire the app bar to our recycler, rebind the History/Updates tabs, and bring the
+     * tab strip back in.
+     */
+    override fun onTabActivated() {
+        if (!isBindingInitialized) return
+        setOptionsMenuHidden(false)
+        binding.downloadBottomSheet.dlBottomSheet.dismiss()
+        val recycler = binding.recycler
+        activityBinding?.appBar?.apply {
+            lockYPos = false
+            hideBigView(this@RecentsController is eu.kanade.tachiyomi.ui.base.SmallToolbarInterface)
+            setToolbarModeBy(this@RecentsController)
+            useTabsInPreLayout = ownsActivityTabs
+            y = 0f
+            updateAppBarAfterY(recycler)
+        }
+        activityBinding?.mainTabs?.let { tabs ->
+            val selectedTab = presenter.viewType
+            val labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() }
+            // History/Updates is a fixed 2-3 tab set — fill the width evenly. Required
+            // after Library sets MODE_SCROLLABLE for its category tabs; bindStringTabs
+            // inherits whatever mode/gravity is left on the shared view.
+            tabs.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
+            tabs.tabGravity = com.google.android.material.tabs.TabLayout.GRAVITY_FILL
+            tabs.bindStringTabs(
+                labels = labels,
+                selectedIndex = selectedTab.mainValue,
+                onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
+                onReselected = { binding.recycler.smoothScrollToTop() },
+            )
+            (activity as? MainActivity)?.showTabBar(true)
+        }
+        setBottomPadding()
+        updateTitleAndMenu()
+    }
+
+    /**
+     * Called when the user swaps away from the Recents tab. Drop the activity tab strip
+     * — the incoming tab will rebuild it (or leave it hidden) on its own activation.
+     */
+    override fun onTabDeactivated() {
+        if (!isBindingInitialized) return
+        setOptionsMenuHidden(true)
+        snack?.dismiss()
+        (activity as? MainActivity)?.showTabBar(show = false, animate = true)
+        setBottomPadding()
     }
 
     fun hasQueue() = presenter.downloadManager.hasQueue()

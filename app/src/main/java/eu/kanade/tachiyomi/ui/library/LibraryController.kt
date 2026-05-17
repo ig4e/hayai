@@ -167,6 +167,7 @@ open class LibraryController(
     RootSearchInterface,
     FloatingSearchInterface,
     MainActivityTabsOwner,
+    eu.kanade.tachiyomi.ui.main.RootTabContent,
     eu.kanade.tachiyomi.ui.main.TabbedInterface {
 
     override val ownsActivityTabs: Boolean
@@ -1519,6 +1520,72 @@ open class LibraryController(
             isPoppingIn = false
             tempItems?.let { onNextLibraryUpdate(it) }
             tempItems = null
+        }
+    }
+
+    /**
+     * Called when the user swaps to the Library tab via the bottom nav. Re-acquire
+     * ownership of the shared activity chrome: filter sheet, display mode, app-bar mode,
+     * scroll Y, and the activity tab strip if Library is in tabbed mode.
+     *
+     * This mirrors what `onChangeStarted(PUSH_ENTER)` does on a real Conductor push, but
+     * runs without a Conductor lifecycle event because the controller view stays attached
+     * across tab swaps.
+     */
+    override fun onTabActivated() {
+        if (!isBindingInitialized) return
+        // Re-enter Conductor's menu dispatch so this controller's onCreateOptionsMenu runs
+        // on the next invalidateOptionsMenu (fired by MainActivity.onActiveTabChanged).
+        setOptionsMenuHidden(false)
+        binding.filterBottomSheet.filterBottomSheet.isVisible = true
+        binding.recyclerCover.isClickable = false
+        binding.recyclerCover.isFocusable = false
+        singleCategory = presenter.categories.size <= 1
+        if (binding.libraryGridRecycler.recycler.manager is StaggeredGridLayoutManager && staggeredBundle != null) {
+            binding.libraryGridRecycler.recycler.manager.onRestoreInstanceState(staggeredBundle)
+            staggeredBundle = null
+        }
+        // Rewire the activity AppBar to this controller. scrollViewWith's onChangeStart
+        // lifecycle listener does the same on a Conductor PUSH_ENTER; tab swap doesn't
+        // fire one, so we replay the wiring directly.
+        val recycler = binding.libraryGridRecycler.recycler
+        activityBinding?.appBar?.apply {
+            lockYPos = false
+            hideBigView(this@LibraryController is eu.kanade.tachiyomi.ui.base.SmallToolbarInterface)
+            setToolbarModeBy(this@LibraryController)
+            useTabsInPreLayout = showActivityTabs
+            y = 0f
+            updateAppBarAfterY(recycler)
+        }
+        applyDisplayMode()
+    }
+
+    /**
+     * Called when the user swaps away from the Library tab. Release ownership of the
+     * activity chrome we may have grabbed: save staggered scroll state, hide the filter
+     * sheet, tear down the tabbed pager view if it was running, and drop the activity
+     * tab strip. The incoming tab's `onTabActivated` will rebuild whatever it needs.
+     *
+     * Unlike `onChangeStarted(PUSH_EXIT)` (which handles in-tab pushes like MangaDetails
+     * and has to consider the next controller's `ownsActivityTabs`), this is a tab swap:
+     * the next root is in a different child router and always sets its own chrome state,
+     * so we tear down unconditionally.
+     */
+    override fun onTabDeactivated() {
+        if (!isBindingInitialized) return
+        // Drop out of Conductor's menu dispatch so a dormant tab's items don't get added on
+        // top of the active tab's menu on the next invalidate.
+        setOptionsMenuHidden(true)
+        saveStaggeredState()
+        updateFilterSheetY()
+        closeTip()
+        if (binding.filterBottomSheet.filterBottomSheet.sheetBehavior.isHidden()) {
+            binding.filterBottomSheet.filterBottomSheet.isInvisible = true
+        }
+        activityBinding?.searchToolbar?.setOnLongClickListener(null)
+        if (isTabbedMode) teardownTabbedView(restoreAppBar = false)
+        if (activityBinding?.tabsFrameLayout?.isVisible == true) {
+            (activity as? MainActivity)?.showTabBar(show = false, animate = true)
         }
     }
 

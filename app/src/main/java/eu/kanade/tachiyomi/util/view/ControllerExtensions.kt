@@ -868,8 +868,23 @@ val Controller.fullAppBarHeight: Int?
         this !is SmallToolbarInterface,
     )
 
+/**
+ * True iff this controller currently owns the shared activity chrome (toolbar, app bar,
+ * tab strip, search bar). The activity is the single source of truth — when [MainActivity]
+ * hosts [RootTabsController], all three root tab controllers live concurrently in sibling
+ * child routers, so the naive `router.backstack.lastOrNull() == this` check would report
+ * every root tab as visible at once. For non-MainActivity hosts (e.g. tests) we fall back
+ * to the router-local definition.
+ */
 val Controller.isControllerVisible: Boolean
-    get() = router.backstack.lastOrNull()?.controller == this
+    get() {
+        val activity = activity as? eu.kanade.tachiyomi.ui.main.MainActivity
+        return if (activity != null) {
+            activity.activeRootController == this
+        } else {
+            router.backstack.lastOrNull()?.controller == this
+        }
+    }
 
 val Controller.previousController: Controller?
     get() = router.backstack.getOrNull(router.backstackSize - 2)?.controller

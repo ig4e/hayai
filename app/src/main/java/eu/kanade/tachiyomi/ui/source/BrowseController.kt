@@ -33,6 +33,7 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.controller.BaseLegacyController
+import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.ui.extension.ExtensionFilterController
 import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
@@ -49,6 +50,7 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.system.spToPx
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.bindStringTabs
 import eu.kanade.tachiyomi.util.view.checkHeightThen
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.expand
@@ -59,6 +61,7 @@ import eu.kanade.tachiyomi.util.view.onAnimationsFinished
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.util.view.setAction
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
+import eu.kanade.tachiyomi.util.view.smoothScrollToTop
 import eu.kanade.tachiyomi.util.view.snack
 import eu.kanade.tachiyomi.util.view.toolbarHeight
 import eu.kanade.tachiyomi.util.view.updateGradiantBGRadius
@@ -88,7 +91,13 @@ class BrowseController :
     SourceAdapter.SourceListener,
     RootSearchInterface,
     FloatingSearchInterface,
+    eu.kanade.tachiyomi.ui.main.RootTabContent,
+    eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner,
+    eu.kanade.tachiyomi.ui.main.TabbedInterface,
     BottomSheetController {
+
+    override val ownsActivityTabs: Boolean = true
+    override val showActivityTabs: Boolean = true
 
     private val basePreferences: BasePreferences by injectLazy()
 
@@ -566,11 +575,22 @@ class BrowseController :
                     val searchView = searchItem.actionView as SearchView
                     searchView.clearFocus()
                 }
+                // Push (something opened on top of Browse, e.g. BrowseSourceController) — release
+                // our claim on the activity tab strip unless the next controller owns it.
+                val nextController = router.backstack.lastOrNull()?.controller
+                val nextOwnsTabs = (nextController as? eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner)?.ownsActivityTabs == true
+                if (nextController !is DialogController &&
+                    !nextOwnsTabs &&
+                    activityBinding?.tabsFrameLayout?.isVisible == true
+                ) {
+                    (activity as? MainActivity)?.showTabBar(show = false, animate = true)
+                }
             } else if (isControllerVisible) {
                 activityBinding?.appBar?.doOnNextLayout {
                     activityBinding?.appBar?.y = 0f
                     activityBinding?.appBar?.updateAppBarAfterY(binding.sourceRecycler)
                 }
+                bindBrowseTypeTabs()
             }
             setBottomPadding()
         } finally {
@@ -578,6 +598,75 @@ class BrowseController :
         }
     }
 
+    /**
+     * (Re)binds the Novel/Manga activity tab strip. Called both on real Conductor enter
+     * and on tab swap into Browse — bindStringTabs is idempotent (it clears the previous
+     * tabs first), so it's safe to call repeatedly.
+     */
+    private fun bindBrowseTypeTabs() {
+        val tabs = activityBinding?.mainTabs ?: return
+        val labels = BrowseSourceType.entries.map { activity?.getString(it.stringRes).orEmpty() }
+        // Two fixed tabs — fill the bar width evenly. Required because Library may have
+        // left MODE_SCROLLABLE on the shared strip for its category tabs.
+        tabs.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
+        tabs.tabGravity = com.google.android.material.tabs.TabLayout.GRAVITY_FILL
+        tabs.bindStringTabs(
+            labels = labels,
+            selectedIndex = presenter.currentType.ordinal,
+            onSelected = { idx -> presenter.setCurrentType(BrowseSourceType.fromOrdinal(idx)) },
+            onReselected = { binding.sourceRecycler.smoothScrollToTop() },
+        )
+        (activity as? MainActivity)?.showTabBar(true)
+    }
+
+    /**
+     * Called when the user swaps to the Browse tab via the bottom nav. Persistent tabs
+     * mean the source list / extension sheet content is already in memory — we deliberately
+     * do NOT trigger presenter refreshes here. The expensive `updateSources` /
+     * `refreshExtensions` / `refreshNovelPlugins` / `refreshMigrations` work only runs on
+     * real Conductor PUSH_ENTER (see [onChangeEnded]) and on activity resume.
+     */
+    override fun onTabActivated() {
+        if (!isBindingInitialized) return
+        setOptionsMenuHidden(false)
+        val recycler = binding.sourceRecycler
+        activityBinding?.appBar?.apply {
+            lockYPos = false
+            hideBigView(this@BrowseController is eu.kanade.tachiyomi.ui.base.SmallToolbarInterface)
+            setToolbarModeBy(this@BrowseController)
+            useTabsInPreLayout = showActivityTabs
+            y = 0f
+            updateAppBarAfterY(recycler)
+        }
+        binding.bottomSheet.root.canExpand = true
+        setBottomPadding()
+        bindBrowseTypeTabs()
+        updateTitleAndMenu()
+    }
+
+    /**
+     * Called when the user swaps away from the Browse tab. Collapse the sheet machinery,
+     * dismiss any in-progress search, and release the activity tab strip — the incoming
+     * tab rebuilds whatever it needs on its own activation. Also restore the shared
+     * app bar's visual state: [updateTitleAndMenu] hides the bar when the extensions
+     * sheet is expanded, so without this the next tab would inherit an invisible bar.
+     */
+    override fun onTabDeactivated() {
+        if (!isBindingInitialized) return
+        setOptionsMenuHidden(true)
+        activityBinding?.appBar?.apply {
+            alpha = 1f
+            isInvisible = false
+        }
+        (activity as? MainActivity)?.showTabBar(show = false, animate = true)
+        binding.bottomSheet.root.canExpand = false
+        binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
+            (searchItem.actionView as? SearchView)?.clearFocus()
+        }
+        if (activityBinding?.tabsFrameLayout?.isVisible == true) {
+            (activity as? MainActivity)?.showTabBar(show = false, animate = true)
+        }
+    }
 
     override fun onChangeEnded(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeEnded(handler, type)
@@ -653,11 +742,18 @@ class BrowseController :
     }
 
     private fun pinCatalogue(source: Source, isPinned: Boolean) {
-        val current = preferences.pinnedCatalogues().get()
+        // Pin against the source's own type bucket, regardless of which Browse tab is
+        // currently visible. (A novel source's pin should land in pinnedNovelCatalogues
+        // even if the user is somehow looking at it via legacy state.)
+        val pref = when ((source as? CatalogueSource)?.browseType ?: BrowseSourceType.Manga) {
+            BrowseSourceType.Manga -> preferences.pinnedMangaCatalogues()
+            BrowseSourceType.Novel -> preferences.pinnedNovelCatalogues()
+        }
+        val current = pref.get()
         if (isPinned) {
-            preferences.pinnedCatalogues().set(current - source.id.toString())
+            pref.set(current - source.id.toString())
         } else {
-            preferences.pinnedCatalogues().set(current + source.id.toString())
+            pref.set(current + source.id.toString())
         }
 
         presenter.updateSources()
@@ -686,7 +782,14 @@ class BrowseController :
      */
     private fun openCatalogue(source: CatalogueSource, controller: BrowseSourceController) {
         if (!preferences.incognitoMode().get()) {
+            // Write both the legacy cross-type pref (read by GlobalSearch / cold MangaDetails
+            // re-opens / migration tools) AND the per-type pref so each Browse tab remembers
+            // its own last-opened source.
             preferences.lastUsedCatalogueSource().set(source.id)
+            when (source.browseType) {
+                BrowseSourceType.Manga -> preferences.lastUsedMangaSource().set(source.id)
+                BrowseSourceType.Novel -> preferences.lastUsedNovelSource().set(source.id)
+            }
             if (source !is LocalSource) {
                 val list = preferences.lastUsedSources().get().toMutableSet()
                 list.removeAll { it.startsWith("${source.id}:") }

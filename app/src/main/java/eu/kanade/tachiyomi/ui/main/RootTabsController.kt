@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.view.isVisible
 import com.bluelinelabs.conductor.Controller
-import com.bluelinelabs.conductor.ControllerChangeType
 import com.bluelinelabs.conductor.Router
 import com.bluelinelabs.conductor.RouterTransaction
 import com.bluelinelabs.conductor.changehandler.SimpleSwapChangeHandler
@@ -20,17 +19,37 @@ import uy.kohesive.injekt.injectLazy
 import yokai.domain.base.BasePreferences
 
 /**
+ * Contract implemented by controllers that can sit at the root of a [RootTabsController]
+ * tab. The hooks fire on tab swap — when the user taps a different bottom-nav item — and
+ * give the outgoing/incoming controllers a chance to release/acquire ownership of the
+ * shared activity chrome (toolbar mode, app-bar Y, tab strip binding, scroll wiring).
+ *
+ * These hooks are NOT Conductor lifecycle events: nothing is pushed or popped. The view
+ * stays attached and the controller is never destroyed by a tab swap. For real Conductor
+ * pushes within a tab (e.g. MangaDetails on top of Library), the controller's own
+ * `onChangeStarted(PUSH_ENTER/EXIT)` continues to handle them — those are independent of
+ * tab activation.
+ */
+interface RootTabContent {
+    /** This controller has just become the visible tab. */
+    fun onTabActivated() {}
+
+    /** This controller is no longer the visible tab (another tab took over). */
+    fun onTabDeactivated() {}
+}
+
+/**
  * Single persistent root controller that hosts Library / Recents / Browse simultaneously
  * in sibling FrameLayouts. Tab swaps just toggle container visibility — the child
  * controllers are never destroyed by switching tabs, so subsequent visits skip the
  * inflate + layout work entirely. Inflation is deferred per tab: the child router for a
- * given tab is only initialized the first time the user actually selects it.
+ * given tab is only initialised the first time the user actually selects it.
  *
  * Per-tab back-stack: pushing MangaDetails (or any controller) from inside a tab pushes
  * onto that tab's child router. Switching tabs and returning preserves the pushed stack.
  *
- * This replaces the legacy `router.setRoot(LibraryController/RecentsController/...)` pattern
- * where every nav swap destroyed and reinflated the entire root controller view tree.
+ * Tab activation is communicated to the root controllers via [RootTabContent] — no
+ * synthetic Conductor events are dispatched.
  */
 class RootTabsController : Controller() {
 
@@ -54,8 +73,6 @@ class RootTabsController : Controller() {
         for (tabId in TAB_IDS) {
             val tabContainer = FrameLayout(ctx).apply {
                 id = tabContainerId(tabId)
-                // All hidden until selectTab() picks one. Avoids initial flash of empty
-                // Library container before the host activity selects the user's startingTab.
                 isVisible = false
             }
             root.addView(
@@ -67,10 +84,6 @@ class RootTabsController : Controller() {
             )
             containers[tabId] = tabContainer
         }
-        // Don't ensureChildRoot here — wait for selectTab. The host activity calls
-        // nav.selectedItemId = startingTab() right after the controller is attached, which
-        // triggers selectTab() and materialises the correct tab on demand. This skips
-        // inflating Library when the user's startingTab is Recents or Browse.
         return root
     }
 
@@ -85,32 +98,35 @@ class RootTabsController : Controller() {
     }
 
     /**
-     * Make [tabId] the visible tab. Lazy-creates the tab's child router and root controller
-     * on first selection. Idempotent — no-op when already on [tabId].
+     * Make [tabId] the visible tab. Lazy-creates the tab's child router and root
+     * controller on first selection. Idempotent — no-op when already on [tabId].
+     *
+     * Sequence on a real tab swap:
+     *  1. Notify the outgoing tab's top controller via [RootTabContent.onTabDeactivated].
+     *  2. Hide the outgoing container, show the incoming.
+     *  3. Materialise the incoming child router (first selection only).
+     *  4. Notify the incoming tab's top controller via [RootTabContent.onTabActivated].
+     *  5. Ask [MainActivity] to resync the shared chrome (toolbar, menu, title).
      */
     fun selectTab(tabId: Int) {
         if (!containers.containsKey(tabId)) return
         val prev = currentTabId
         if (tabId == prev && containers[tabId]?.isVisible == true) {
-            // Already visible — ensure the child router has a root in case the activity
+            // Already visible — make sure the child router has a root in case the activity
             // recreated us empty (defensive).
             ensureChildRoot(tabId)
             return
         }
-        // A "tab swap" is when the user actually moved from one realized tab to another.
+        // A "tab swap" is when the user actually moved from one realised tab to another.
         // First-time tab selection (prev == -1) and restore-into-saved-tab (prev == tabId
-        // but isVisible == false) shouldn't synthesise EXIT/ENTER — Conductor's natural
-        // ENTER (fired by ensureChildRoot's setRoot on the child router) handles first
-        // creation, and restore preserves the controller's already-entered state.
+        // but isVisible == false) shouldn't fire activation: Conductor's natural ENTER
+        // (from ensureChildRoot's setRoot on the child router) wires things on first
+        // creation, and restore preserves the already-wired state.
         val isTabSwap = (prev != -1 && prev != tabId)
-        val handler = SimpleSwapChangeHandler(false)
 
         if (isTabSwap) {
             val outgoing = childRouterFor(prev)?.backstack?.lastOrNull()?.controller
-            outgoing?.runCatching {
-                onChangeStarted(handler, ControllerChangeType.PUSH_EXIT)
-                onChangeEnded(handler, ControllerChangeType.PUSH_EXIT)
-            }
+            (outgoing as? RootTabContent)?.onTabDeactivated()
         }
 
         if (prev != -1) containers[prev]?.isVisible = false
@@ -121,11 +137,9 @@ class RootTabsController : Controller() {
 
         if (isTabSwap) {
             val incoming = childRouterFor(tabId)?.backstack?.lastOrNull()?.controller
-            incoming?.runCatching {
-                onChangeStarted(handler, ControllerChangeType.PUSH_ENTER)
-                onChangeEnded(handler, ControllerChangeType.PUSH_ENTER)
-            }
+            (incoming as? RootTabContent)?.onTabActivated()
         }
+
         (activity as? MainActivity)?.onActiveTabChanged(prev, tabId)
     }
 
@@ -146,9 +160,9 @@ class RootTabsController : Controller() {
     private fun ensureChildRoot(tabId: Int) {
         val container = containers[tabId] ?: return
         val childRouter = getChildRouter(container, childRouterTag(tabId))
-        // Wire the host activity's main change listener onto this child router so that
-        // pushes/pops within this tab fire syncActivityViewWithController, toolbar nav
-        // icon updates, nav alpha animation, etc. Idempotent in the host.
+        // Wire the host activity's change listener onto this child router so that pushes
+        // and pops within this tab fire syncActivityViewWithController, nav-icon updates,
+        // bottom-nav alpha, etc. Idempotent in the host.
         (activity as? MainActivity)?.registerControllerChangeListener(childRouter)
         if (!childRouter.hasRootController()) {
             val controller = controllerForTab(tabId)

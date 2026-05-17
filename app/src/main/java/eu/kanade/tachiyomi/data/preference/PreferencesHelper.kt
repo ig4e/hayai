@@ -271,6 +271,29 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     // TODO: SourcePref
     fun pinnedCatalogues() = preferenceStore.getStringSet("pinned_catalogues", mutableSetOf())
 
+    /**
+     * Pinned catalogues for the Manga tab in [eu.kanade.tachiyomi.ui.source.BrowseController].
+     * Distinct from [pinnedNovelCatalogues] so each tab keeps its own pinned set; legacy
+     * [pinnedCatalogues] is still read by GlobalSearch and Migration (cross-type features)
+     * and is split into these on the first Browse load via SourcePresenter migration.
+     */
+    fun pinnedMangaCatalogues() = preferenceStore.getStringSet("pinned_manga_catalogues", mutableSetOf())
+
+    /** Pinned catalogues for the Novel tab in [eu.kanade.tachiyomi.ui.source.BrowseController]. */
+    fun pinnedNovelCatalogues() = preferenceStore.getStringSet("pinned_novel_catalogues", mutableSetOf())
+
+    /** Last opened catalogue source id on the Manga tab. -1 if none. */
+    fun lastUsedMangaSource() = preferenceStore.getLong("last_used_manga_source", -1)
+
+    /** Last opened catalogue source id on the Novel tab. -1 if none. */
+    fun lastUsedNovelSource() = preferenceStore.getLong("last_used_novel_source", -1)
+
+    /**
+     * Persisted [eu.kanade.tachiyomi.ui.source.BrowseSourceType] selection across
+     * Browse sessions. Stored as the enum ordinal (0 = Manga, 1 = Novel).
+     */
+    fun lastBrowseSourceType() = preferenceStore.getInt("last_browse_source_type", 0)
+
     fun saveChaptersAsCBZ() = preferenceStore.getBoolean("save_chapter_as_cbz", true)
 
     fun splitTallImages() = preferenceStore.getBoolean("split_tall_images", true)

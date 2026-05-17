@@ -22,11 +22,11 @@ import uy.kohesive.injekt.api.get
 import java.util.TreeMap
 
 /**
- * Presenter of [BrowseController]
- * Function calls should be done from here. UI calls should be done from the controller.
+ * Presenter of [BrowseController].
  *
- * @param sourceManager manages the different sources.
- * @param preferences application preferences.
+ * Source listing is partitioned by [BrowseSourceType]: only sources whose
+ * [browseType] matches [currentType] are shown, and the pinned / last-used
+ * state is read from the per-type preferences.
  */
 class SourcePresenter(
     val controller: BrowseController,
@@ -36,6 +36,12 @@ class SourcePresenter(
 ) {
 
     private var scope = CoroutineScope(Job() + Dispatchers.Default)
+
+    /** Active tab's source family. Persisted via [PreferencesHelper.lastBrowseSourceType]. */
+    var currentType: BrowseSourceType = BrowseSourceType.fromOrdinal(preferences.lastBrowseSourceType().get())
+        private set
+
+    /** All enabled catalogue sources across both types (filter applied at [loadSources]). */
     var sources = getEnabledSources()
     private var sourcesJob: Job? = null
 
@@ -54,17 +60,66 @@ class SourcePresenter(
             lastUsedItemRem = null
         }
 
+        maybeMigrateLegacyPinned()
         observeSources()
         loadSources()
     }
 
+    /** Switch the visible source family and reload. Persists the choice across app restarts. */
+    fun setCurrentType(type: BrowseSourceType) {
+        if (type == currentType) return
+        currentType = type
+        preferences.lastBrowseSourceType().set(type.ordinal)
+        loadSources()
+    }
+
+    private fun pinnedPrefFor(type: BrowseSourceType) = when (type) {
+        BrowseSourceType.Manga -> preferences.pinnedMangaCatalogues()
+        BrowseSourceType.Novel -> preferences.pinnedNovelCatalogues()
+    }
+
+    private fun lastUsedPrefFor(type: BrowseSourceType) = when (type) {
+        BrowseSourceType.Manga -> preferences.lastUsedMangaSource()
+        BrowseSourceType.Novel -> preferences.lastUsedNovelSource()
+    }
+
     /**
-     * Unsubscribe and create a new subscription to fetch enabled sources.
+     * One-shot split of the legacy [PreferencesHelper.pinnedCatalogues] set into the
+     * per-type sets on first Browse load. The legacy set is left in place so cross-type
+     * features (GlobalSearch, Migration) continue to read from it. We only run the split
+     * when BOTH per-type sets are empty — once the user has touched either, we treat the
+     * per-type sets as authoritative and never re-apply the legacy values on top.
+     */
+    private fun maybeMigrateLegacyPinned() {
+        val mangaSet = preferences.pinnedMangaCatalogues().get()
+        val novelSet = preferences.pinnedNovelCatalogues().get()
+        if (mangaSet.isNotEmpty() || novelSet.isNotEmpty()) return
+        val legacy = preferences.pinnedCatalogues().get()
+        if (legacy.isEmpty()) return
+
+        val newManga = mutableSetOf<String>()
+        val newNovel = mutableSetOf<String>()
+        legacy.forEach { idStr ->
+            val id = idStr.toLongOrNull() ?: return@forEach
+            val src = sourceManager.get(id) as? CatalogueSource ?: return@forEach
+            when (src.browseType) {
+                BrowseSourceType.Manga -> newManga.add(idStr)
+                BrowseSourceType.Novel -> newNovel.add(idStr)
+            }
+        }
+        if (newManga.isNotEmpty()) preferences.pinnedMangaCatalogues().set(newManga)
+        if (newNovel.isNotEmpty()) preferences.pinnedNovelCatalogues().set(newNovel)
+    }
+
+    /**
+     * Build the visible source list for [currentType]: pinned-of-type rows first (under a
+     * PINNED langheader), then the remaining sources grouped by language.
      */
     private fun loadSources() {
         scope.launch {
             val pinnedSources = mutableListOf<SourceItem>()
-            val pinnedCatalogues = preferences.pinnedCatalogues().get()
+            val pinnedCatalogues = pinnedPrefFor(currentType).get()
+            val typeSources = sources.filter { it.browseType == currentType }
 
             val map = TreeMap<String, MutableList<CatalogueSource>> { d1, d2 ->
                 // Catalogues without a lang defined will be placed at the end
@@ -74,12 +129,12 @@ class SourcePresenter(
                     else -> d1.compareTo(d2)
                 }
             }
-            val byLang = sources.groupByTo(map) { it.lang }
+            val byLang = typeSources.groupByTo(map) { it.lang }
             sourceItems = byLang.flatMap {
                 val langItem = LangItem(it.key)
                 it.value.map { source ->
                     val isPinned = source.id.toString() in pinnedCatalogues
-                    if (source.id.toString() in pinnedCatalogues) {
+                    if (isPinned) {
                         pinnedSources.add(SourceItem(source, LangItem(PINNED_KEY)))
                     }
 
@@ -91,7 +146,7 @@ class SourcePresenter(
                 sourceItems = pinnedSources + sourceItems
             }
 
-            lastUsedItem = getLastUsedSource(preferences.lastUsedCatalogueSource().get())
+            lastUsedItem = getLastUsedSource(lastUsedPrefFor(currentType).get())
             withUIContext {
                 controller.setSources(sourceItems, lastUsedItem)
                 loadLastUsedSource()
@@ -101,7 +156,7 @@ class SourcePresenter(
 
     private fun loadLastUsedSource() {
         lastUsedJob?.cancel()
-        lastUsedJob = preferences.lastUsedCatalogueSource().changes()
+        lastUsedJob = lastUsedPrefFor(currentType).changes()
             .drop(1)
             .onEach {
                 lastUsedItem = getLastUsedSource(it)
@@ -113,7 +168,10 @@ class SourcePresenter(
 
     private fun getLastUsedSource(value: Long): SourceItem? {
         return (sourceManager.get(value) as? CatalogueSource)?.let { source ->
-            val pinnedCatalogues = preferences.pinnedCatalogues().get()
+            // Only surface the last-used row if its type matches the active tab AND it's
+            // not already in the pinned section (which would duplicate the entry).
+            if (source.browseType != currentType) return@let null
+            val pinnedCatalogues = pinnedPrefFor(currentType).get()
             val isPinned = source.id.toString() in pinnedCatalogues
             if (isPinned) {
                 null
@@ -166,8 +224,9 @@ class SourcePresenter(
             sourceManager.catalogueSources,
             preferences.enabledLanguages().changes().onStart { emit(preferences.enabledLanguages().get()) },
             preferences.hiddenSources().changes().onStart { emit(preferences.hiddenSources().get()) },
-            preferences.pinnedCatalogues().changes().onStart { emit(preferences.pinnedCatalogues().get()) },
-        ) { catalogueSources, _, _, _ ->
+            preferences.pinnedMangaCatalogues().changes().onStart { emit(preferences.pinnedMangaCatalogues().get()) },
+            preferences.pinnedNovelCatalogues().changes().onStart { emit(preferences.pinnedNovelCatalogues().get()) },
+        ) { catalogueSources, _, _, _, _ ->
             // The flow doesn't pre-filter HIDDEN_SOURCES so we keep that filter inside
             // getEnabledSources rather than calling the visible-sources helper here.
             getEnabledSources(catalogueSources)
