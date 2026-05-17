@@ -77,7 +77,7 @@ WHERE lower(M.title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
-AND RH.hidden_chapter_id IS NULL
+AND (:show_hidden = 1 OR RH.hidden_chapter_id IS NULL)
 ORDER BY H.history_last_read DESC
 LIMIT :limit OFFSET :offset;
 
@@ -113,7 +113,7 @@ WHERE lower(M.title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
-AND RH.hidden_chapter_id IS NULL
+AND (:show_hidden = 1 OR RH.hidden_chapter_id IS NULL)
 ORDER BY max_last_read.history_last_read DESC
 LIMIT :limit OFFSET :offset;
 
@@ -167,7 +167,7 @@ WHERE lower(title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
-AND RH_HISTORY.hidden_chapter_id IS NULL
+AND (:show_hidden_history = 1 OR RH_HISTORY.hidden_chapter_id IS NULL)
 
 UNION  -- Newly fetched chapter
 
@@ -205,7 +205,7 @@ AND lower(title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
-AND RH_UPDATES.hidden_chapter_id IS NULL
+AND (:show_hidden_updates = 1 OR RH_UPDATES.hidden_chapter_id IS NULL)
 
 UNION  -- Newly added manga
 

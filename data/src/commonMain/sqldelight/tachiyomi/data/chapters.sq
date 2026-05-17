@@ -88,7 +88,7 @@ AND lower(M.title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
-AND RH.hidden_chapter_id IS NULL
+AND (:show_hidden = 1 OR RH.hidden_chapter_id IS NULL)
 ORDER BY C.date_fetch DESC
 LIMIT :limit OFFSET :offset;
 

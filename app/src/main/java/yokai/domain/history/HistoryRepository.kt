@@ -9,7 +9,7 @@ interface HistoryRepository {
     suspend fun getByMangaId(mangaId: Long): History?
     suspend fun getAllByMangaId(mangaId: Long): List<History>
 
-    suspend fun getRecentsUngrouped(tab: Long, filterScanlators: Boolean, search: String = "", limit: Long = 25L, offset: Long = 0L): List<MangaChapterHistory>
-    suspend fun getRecentsBySeries(tab: Long, filterScanlators: Boolean, search: String = "", limit: Long = 25L, offset: Long = 0L): List<MangaChapterHistory>
-    suspend fun getRecentsAll(includeRead: Boolean, filterScanlators: Boolean, search: String = "", limit: Long = 25L, offset: Long = 0L): List<MangaChapterHistory>
+    suspend fun getRecentsUngrouped(tab: Long, filterScanlators: Boolean, showHidden: Boolean = false, search: String = "", limit: Long = 25L, offset: Long = 0L): List<MangaChapterHistory>
+    suspend fun getRecentsBySeries(tab: Long, filterScanlators: Boolean, showHidden: Boolean = false, search: String = "", limit: Long = 25L, offset: Long = 0L): List<MangaChapterHistory>
+    suspend fun getRecentsAll(includeRead: Boolean, filterScanlators: Boolean, showHiddenHistory: Boolean = false, showHiddenUpdates: Boolean = false, search: String = "", limit: Long = 25L, offset: Long = 0L): List<MangaChapterHistory>
 }

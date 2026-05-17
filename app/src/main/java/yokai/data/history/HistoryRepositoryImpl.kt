@@ -33,27 +33,62 @@ class HistoryRepositoryImpl(private val handler: DatabaseHandler) : HistoryRepos
     override suspend fun getRecentsUngrouped(
         tab: Long,
         filterScanlators: Boolean,
+        showHidden: Boolean,
         search: String,
         limit: Long,
         offset: Long,
     ): List<MangaChapterHistory> =
-        handler.awaitList { historyQueries.getRecentsUngrouped(tab, search, filterScanlators.toInt().toLong(), limit, offset, MangaChapterHistory::mapper) }
+        handler.awaitList {
+            historyQueries.getRecentsUngrouped(
+                tab,
+                search,
+                filterScanlators.toInt().toLong(),
+                showHidden.toInt().toLong(),
+                limit,
+                offset,
+                MangaChapterHistory::mapper,
+            )
+        }
 
     override suspend fun getRecentsBySeries(
         tab: Long,
         filterScanlators: Boolean,
+        showHidden: Boolean,
         search: String,
         limit: Long,
         offset: Long,
     ): List<MangaChapterHistory> =
-        handler.awaitList { historyQueries.getRecentsBySeries(tab, search, filterScanlators.toInt().toLong(), limit, offset, MangaChapterHistory::mapper) }
+        handler.awaitList {
+            historyQueries.getRecentsBySeries(
+                tab,
+                search,
+                filterScanlators.toInt().toLong(),
+                showHidden.toInt().toLong(),
+                limit,
+                offset,
+                MangaChapterHistory::mapper,
+            )
+        }
 
     override suspend fun getRecentsAll(
         includeRead: Boolean,
         filterScanlators: Boolean,
+        showHiddenHistory: Boolean,
+        showHiddenUpdates: Boolean,
         search: String,
         limit: Long,
         offset: Long
     ): List<MangaChapterHistory> =
-        handler.awaitList { historyQueries.getRecentsAll(includeRead.toInt().toLong(), search, filterScanlators.toInt().toLong(), limit, offset, MangaChapterHistory::mapper) }
+        handler.awaitList {
+            historyQueries.getRecentsAll(
+                includeRead.toInt().toLong(),
+                search,
+                filterScanlators.toInt().toLong(),
+                showHiddenHistory.toInt().toLong(),
+                showHiddenUpdates.toInt().toLong(),
+                limit,
+                offset,
+                MangaChapterHistory::mapper,
+            )
+        }
 }

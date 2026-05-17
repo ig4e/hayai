@@ -14,34 +14,37 @@ class GetRecents(
     suspend fun awaitUpdates(
         filterScanlators: Boolean,
         isResuming: Boolean,
+        showHidden: Boolean = false,
         search: String = "",
         offset: Long = 0L,
     ): List<MangaChapter> {
         val (limit, actualOffset) = limitAndOffset(true, isResuming, offset)
 
-        return chapterRepository.getRecents(RecentsHidden.TAB_UPDATES.toLong(), filterScanlators, search, limit, actualOffset)
+        return chapterRepository.getRecents(RecentsHidden.TAB_UPDATES.toLong(), filterScanlators, showHidden, search, limit, actualOffset)
     }
 
     suspend fun awaitUngrouped(
         filterScanlators: Boolean,
         isResuming: Boolean,
+        showHidden: Boolean = false,
         search: String = "",
         offset: Long = 0L,
     ): List<MangaChapterHistory> {
         val (limit, actualOffset) = limitAndOffset(true, isResuming, offset)
 
-        return historyRepository.getRecentsUngrouped(RecentsHidden.TAB_HISTORY.toLong(), filterScanlators, search, limit, actualOffset)
+        return historyRepository.getRecentsUngrouped(RecentsHidden.TAB_HISTORY.toLong(), filterScanlators, showHidden, search, limit, actualOffset)
     }
 
     suspend fun awaitBySeries(
         filterScanlators: Boolean,
         isResuming: Boolean,
+        showHidden: Boolean = false,
         search: String = "",
         offset: Long = 0L,
     ): List<MangaChapterHistory> {
         val (limit, actualOffset) = limitAndOffset(true, isResuming, offset)
 
-        return historyRepository.getRecentsBySeries(RecentsHidden.TAB_HISTORY.toLong(), filterScanlators, search, limit, actualOffset)
+        return historyRepository.getRecentsBySeries(RecentsHidden.TAB_HISTORY.toLong(), filterScanlators, showHidden, search, limit, actualOffset)
     }
 
     suspend fun awaitAll(
@@ -49,12 +52,14 @@ class GetRecents(
         filterScanlators: Boolean,
         isEndless: Boolean,
         isResuming: Boolean,
+        showHiddenHistory: Boolean = false,
+        showHiddenUpdates: Boolean = false,
         search: String = "",
         offset: Long = 0L,
     ): List<MangaChapterHistory> {
         val (limit, actualOffset) = limitAndOffset(isEndless, isResuming, offset)
 
-        return historyRepository.getRecentsAll(includeRead, filterScanlators, search, limit, actualOffset)
+        return historyRepository.getRecentsAll(includeRead, filterScanlators, showHiddenHistory, showHiddenUpdates, search, limit, actualOffset)
     }
 
     suspend fun awaitUpdates(limit: Long = 0L): List<MangaChapterHistory> =
