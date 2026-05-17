@@ -48,6 +48,8 @@ class PagePreviewScreen(private val mangaId: Long) : Screen() {
             imageLoader = imageLoader,
             onOpenPage = { openPage(context, state, it) },
             onLoadMore = screenModel::loadMore,
+            onJumpToPage = screenModel::jumpToPage,
+            scrollEvents = screenModel.scrollEvents,
             navigateUp = onBackPress,
         )
     }

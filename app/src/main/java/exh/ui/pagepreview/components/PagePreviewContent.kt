@@ -14,10 +14,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Numbers
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -29,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
@@ -36,6 +45,7 @@ import coil3.compose.AsyncImagePainter
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import exh.ui.pagepreview.PagePreviewState
+import kotlinx.coroutines.flow.SharedFlow
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
@@ -47,12 +57,38 @@ fun PagePreviewContent(
     imageLoader: ImageLoader? = null,
     onOpenPage: (Int) -> Unit,
     onLoadMore: () -> Unit,
+    onJumpToPage: (Int) -> Unit = {},
+    scrollEvents: SharedFlow<Int>? = null,
     navigateUp: () -> Unit,
 ) {
+    var showJumpDialog by remember { mutableStateOf(false) }
+    val successState = state as? PagePreviewState.Success
+
+    if (showJumpDialog && successState != null) {
+        JumpToPageDialog(
+            maxPage = successState.estimatedTotalPages,
+            onDismiss = { showJumpDialog = false },
+            onConfirm = { page ->
+                showJumpDialog = false
+                onJumpToPage(page)
+            },
+        )
+    }
+
     YokaiScaffold(
         onNavigationIconClicked = navigateUp,
         title = stringResource(MR.strings.page_previews),
         appBarType = AppBarType.SMALL,
+        actions = {
+            if (successState != null) {
+                IconButton(onClick = { showJumpDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Numbers,
+                        contentDescription = stringResource(MR.strings.page_preview_go_to),
+                    )
+                }
+            }
+        },
     ) { paddingValues ->
         when (state) {
             is PagePreviewState.Error -> {
@@ -103,6 +139,16 @@ fun PagePreviewContent(
                     }
                     LaunchedEffect(shouldLoadMore) {
                         if (shouldLoadMore) onLoadMore()
+                    }
+
+                    // Scroll the list when the model emits a jump target. Keyed only on the flow
+                    // (and itemPerRowCount for rotation safety) so list replacement after a jump
+                    // doesn't cancel the collector mid-emit.
+                    LaunchedEffect(scrollEvents, itemPerRowCount) {
+                        scrollEvents?.collect { previewIndex ->
+                            val rowIndex = previewIndex / itemPerRowCount
+                            lazyListState.scrollToItem(rowIndex.coerceAtLeast(0))
+                        }
                     }
 
                     LazyColumn(
@@ -205,4 +251,39 @@ private fun PagePreviewItem(
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
+}
+
+@Composable
+private fun JumpToPageDialog(
+    maxPage: Int?,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    val pageNumber = text.toIntOrNull()
+    val isValid = pageNumber != null && pageNumber >= 1 && (maxPage == null || pageNumber <= maxPage)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(MR.strings.page_preview_go_to)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { v -> text = v.filter { it.isDigit() }.take(6) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                placeholder = {
+                    Text(if (maxPage != null) "1 – $maxPage" else "1")
+                },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { pageNumber?.let(onConfirm) },
+                enabled = isValid,
+            ) { Text(stringResource(MR.strings.action_ok)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) }
+        },
+    )
 }

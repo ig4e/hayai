@@ -10,6 +10,9 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import exh.source.getMainSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
@@ -32,6 +35,10 @@ class PagePreviewScreenModel(
     private var chapter: Chapter? = null
     private var source: Source? = null
     private var sortedChapters: List<Chapter> = emptyList()
+    private var batchSize: Int? = null
+
+    private val _scrollEvents = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    val scrollEvents: SharedFlow<Int> = _scrollEvents.asSharedFlow()
 
     init {
         screenModelScope.launch(Dispatchers.IO) {
@@ -61,21 +68,34 @@ class PagePreviewScreenModel(
         }
     }
 
-    private suspend fun loadPage(page: Int) {
+    private suspend fun loadPage(page: Int, replace: Boolean = false) {
         try {
             val previewPage = previewSource!!.getPagePreviewList(
                 manga!!,
                 sortedChapters,
                 page,
             )
+            if (batchSize == null && previewPage.pagePreviews.isNotEmpty()) {
+                batchSize = previewPage.pagePreviews.size
+            }
             hasNextPage = previewPage.hasNextPage
             currentPage = page
+            val estimatedTotal = batchSize?.let { size ->
+                previewPage.pagePreviewPages?.let { it * size }
+            }
             mutableState.update { currentState ->
-                when (currentState) {
-                    is PagePreviewState.Success -> currentState.copy(
+                when {
+                    currentState is PagePreviewState.Success && !replace -> currentState.copy(
                         pagePreviews = currentState.pagePreviews + previewPage.pagePreviews,
                         hasNextPage = previewPage.hasNextPage,
                         isLoadingMore = false,
+                        estimatedTotalPages = estimatedTotal ?: currentState.estimatedTotalPages,
+                    )
+                    currentState is PagePreviewState.Success -> currentState.copy(
+                        pagePreviews = previewPage.pagePreviews,
+                        hasNextPage = previewPage.hasNextPage,
+                        isLoadingMore = false,
+                        estimatedTotalPages = estimatedTotal ?: currentState.estimatedTotalPages,
                     )
                     else -> PagePreviewState.Success(
                         pagePreviews = previewPage.pagePreviews,
@@ -84,6 +104,7 @@ class PagePreviewScreenModel(
                         manga = manga!!,
                         chapter = chapter!!,
                         source = source!!,
+                        estimatedTotalPages = estimatedTotal,
                     )
                 }
             }
@@ -106,6 +127,28 @@ class PagePreviewScreenModel(
             loadPage(currentPage + 1)
         }
     }
+
+    fun jumpToPage(targetPage: Int) {
+        if (targetPage < 1) return
+        val current = state.value as? PagePreviewState.Success ?: return
+        // If the page is already loaded, just scroll to it — no network.
+        val existing = current.pagePreviews.indexOfFirst { it.index == targetPage }
+        if (existing >= 0) {
+            _scrollEvents.tryEmit(existing)
+            return
+        }
+        val size = batchSize ?: return
+        val targetBatch = ((targetPage - 1) / size) + 1
+        if (isLoadingMore) return
+        isLoadingMore = true
+        mutableState.update { (it as? PagePreviewState.Success)?.copy(isLoadingMore = true) ?: it }
+        screenModelScope.launch(Dispatchers.IO) {
+            loadPage(targetBatch, replace = true)
+            val updated = state.value as? PagePreviewState.Success ?: return@launch
+            val idx = updated.pagePreviews.indexOfFirst { it.index == targetPage }
+            _scrollEvents.tryEmit(if (idx >= 0) idx else 0)
+        }
+    }
 }
 
 sealed class PagePreviewState {
@@ -118,6 +161,7 @@ sealed class PagePreviewState {
         val manga: Manga,
         val chapter: Chapter,
         val source: Source,
+        val estimatedTotalPages: Int? = null,
     ) : PagePreviewState()
 
     data class Error(val error: Throwable) : PagePreviewState()
