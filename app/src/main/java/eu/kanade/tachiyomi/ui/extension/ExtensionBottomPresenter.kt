@@ -62,6 +62,10 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
             val migrationJob = async { firstTimeMigration() }
             listOf(migrationJob, extensionJob).awaitAll()
         }
+        // NOVEL: preload novel plugins on sheet create (mirroring extensionJob above) so the
+        // Novel tab shows cached data immediately on first tap instead of rendering empty
+        // then filling in once refreshNovelPlugins finishes.
+        refreshNovelPlugins()
         presenterScope.launch {
             extensionManager.downloadSharedFlow
                 .collect {

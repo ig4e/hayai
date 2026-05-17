@@ -125,6 +125,12 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
         binding = ExtensionsBottomSheetBinding.bind(this)
     }
 
+    companion object {
+        // Defer non-essential tab-swap work (menu rebuild, migration adapter swap) past the
+        // typical 300ms ViewPager settle so it lands after the swipe is visually complete.
+        private const val SWAP_DEFER_MS = 350L
+    }
+
     fun onCreate(controller: BrowseController) {
         // Initialize adapter, scroll listener and recycler views
         presenter.attachView(this)
@@ -162,21 +168,32 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                     if (canExpand) {
                         this@ExtensionBottomSheet.sheetBehavior?.expand()
                     }
-                    this@ExtensionBottomSheet.controller.updateTitleAndMenu()
-                    getFrameLayoutForTab(tab?.position)?.binding?.recycler?.isNestedScrollingEnabled = true
-                    getFrameLayoutForTab(tab?.position)?.binding?.recycler?.requestLayout()
+                    val frame = getFrameLayoutForTab(tab?.position)
+                    frame?.binding?.recycler?.isNestedScrollingEnabled = true
                     sheetBehavior?.isDraggable = true
-                    // NOVEL -->
-                    if (tab?.position == 1) {
-                        presenter.refreshNovelPlugins()
-                    }
-                    // NOVEL <--
+                    // Don't refresh novel plugins here — presenter.onCreate already preloads
+                    // them. Refresh-on-tap fired a redundant network call + UI update on every
+                    // swap; onTabReselected still triggers an explicit refresh.
+                    // Defer the menu rebuild past the ViewPager settle. updateSheetMenu does
+                    // toolbar.menu.clear() + inflateMenu(...) + SearchView wiring when crossing
+                    // between Migration (migration_main) and Extensions/Novel (extension_main) —
+                    // synchronous XML parsing on the swipe-critical frame.
+                    binding.pager.postDelayed(
+                        { this@ExtensionBottomSheet.controller.updateTitleAndMenu() },
+                        SWAP_DEFER_MS,
+                    )
                 }
 
                 override fun onTabUnselected(tab: TabLayout.Tab?) {
                     getFrameLayoutForTab(tab?.position)?.binding?.recycler?.isNestedScrollingEnabled = false
                     if (tab?.position == 2) {
-                        presenter.deselectSource()
+                        // setMigrationSources may swap the migration adapter
+                        // (MangaAdapter -> SourceAdapter) which triggers a full layout pass on
+                        // the still-attached migration recycler. View.post fires on the next
+                        // looper tick which is the swipe-settle frame — still visually
+                        // competing. postDelayed past the typical 300ms settle so the swap
+                        // lands off-screen.
+                        binding.pager.postDelayed({ presenter.deselectSource() }, SWAP_DEFER_MS)
                     }
                 }
 

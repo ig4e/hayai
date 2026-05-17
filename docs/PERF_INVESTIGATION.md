@@ -364,13 +364,86 @@ without a dedicated fix.
   (`tabAnimation`, `searchBarAnimation`, `toolbarColorAnim`) into a single
   `AnimatorSet` would also help, deferred.
 
+## Sources bottom-sheet tab swap — chain of fixes
+
+User report: swapping between the Extensions / Novel / Migration tabs inside
+`ExtensionBottomSheet` stutters. Worst on Migration → Extensions/Novel.
+
+### 1. Per-row item animator
+
+Each tab's `RecyclerWithScrollerView` recycler had no `itemAnimator = null` and a
+default cache size of 2. Same fix as Recents / Browse.
+
+**Fix:** `app/src/main/java/eu/kanade/tachiyomi/ui/extension/RecyclerWithScrollerView.kt`
+— `setItemViewCacheSize(8)` + `itemAnimator = null` in `setUp`.
+
+### 2. "Renders empty then fills in" on Novel tab
+
+`presenter.onCreate()` eagerly loaded extensions but **not** novel plugins. The
+novel adapter was bound to its recycler at pager init but the data wasn't
+fetched until the user actually tapped the Novel tab — so the first tap showed
+an empty list, then `refreshNovelPlugins()` ran, then the list populated.
+
+**Fix:** `app/src/main/java/eu/kanade/tachiyomi/ui/extension/ExtensionBottomPresenter.kt`
+— call `refreshNovelPlugins()` at the end of `onCreate()` so novel data is
+loaded in the background as soon as the sheet is created. By the time the user
+taps the tab, cached data shows immediately.
+
+### 3. Redundant per-tap work in `onTabSelected`
+
+Every tab tap called:
+- `controller.updateTitleAndMenu()` — which on Migration↔{Extensions, Novel}
+  crosses menu groups (`migration_main` vs `extension_main`) and does
+  synchronous `toolbar.menu.clear()` + `inflateMenu(...)` + SearchView wiring.
+- `recycler.requestLayout()` on the destination — re-measures heavy items
+  mid-swipe (redundant).
+- `presenter.refreshNovelPlugins()` for tab position 1 — duplicate of the
+  onCreate preload; fires a network call on every tap.
+
+**Fix:** `app/src/main/java/eu/kanade/tachiyomi/ui/extension/ExtensionBottomSheet.kt`
+— drop `requestLayout()`, drop the per-tap `refreshNovelPlugins` (still in
+`onTabReselected` for explicit user refresh), and defer `updateTitleAndMenu()`
+by `SWAP_DEFER_MS = 350L` past the typical ViewPager settle.
+
+### 4. Migration adapter swap on tab leave
+
+`onTabUnselected(2)` called `presenter.deselectSource()` which fires
+`setMigrationSources()` that swaps the migration adapter (MangaAdapter →
+SourceAdapter when the user had drilled into a source) — `RecyclerView.setAdapter`
+triggers a full layout pass on the still-attached migration recycler. With a
+plain `View.post`, the swap landed on the swipe-settle frame and was visible.
+
+**Fix:** same file — change `binding.pager.post { ... }` to
+`postDelayed({ ... }, SWAP_DEFER_MS)` so the adapter swap fires after the
+swipe has visually settled.
+
+### Residual
+
+User reports a remaining slight stutter on Migration → Extensions/Novel —
+accepted as-is. Open candidates for future work if revisited:
+
+- `SourceHolder.bind` at `app/src/main/java/eu/kanade/tachiyomi/ui/migration/SourceHolder.kt:56-69`
+  posts `itemView.post { source.icon() }` for every visible source row.
+  `source.icon()` → `ExtensionManager.getAppIconForSource()` → `PackageManager.loadIcon()`
+  is a synchronous Binder IPC. On the first entry to the Migration tab per
+  process, N posted Binder calls fire on the same frame. The `iconMap` warm
+  via `RecentsPresenter.onCreate.preloadInstalledIcons()` covers users who
+  opened Recents first; users who navigate straight to Browse → sources sheet →
+  Migration hit the cold path. Triggering `preloadInstalledIcons()` from
+  `BrowseController` initialization too would close this gap.
+- Pre-resolve source icons off-thread inside `BaseMigrationPresenter` and cache
+  on `SourceItem` (matching how `ExtensionHolder` pre-resolves), so
+  `SourceHolder.bind` reads a cached `Drawable?` instead of triggering an IPC.
+- Migration's MangaAdapter path still pays a full layout pass on the adapter
+  swap — even deferred 350ms it's visible if the user re-enters Migration
+  quickly. Could skip the swap entirely and lazy-reset on re-entry.
+
 ## Remaining problem flows (untouched)
 
 | Flow | Baseline jank | Likely culprits |
 |------|--------------:|------------------|
 | Library ↔ Recents (tabbed) "text splatter" | 5.03 % | Cross-controller race: `LibraryController.onChangeStarted` calls `showTabBar(false, animate=true)` while `RecentsController.onChangeStarted` calls `mainTabs.bindStringTabs(...)` then `showTabBar(true)`. Library category labels get **overwritten in-place** by Recents labels mid-fade; TabLayout re-measures during the alpha animation. Surgical fix to `MainActivity.showTabBar` + the two controllers' `onChangeStarted`. |
 | Animator pile-up on root nav switch | n/a | `MainActivity.onChangeStarted` + `syncActivityViewWithController` fire 4–6 concurrent ValueAnimators (Conductor fade, tab fade, cardFrame fade, nav fade) plus full menu rebuilds via `setupSearchTBMenu`. All synchronous on the main thread. |
-| Sources sheet — novel ↔ manga swap | n/a | Source-list re-bind per toggle; possibly per-source ComposeViews. Trace required. |
 | Browse hub — first entry | n/a | Sources hub entry cost (extension repo/lang reads, bottom sheet pre-warm). Trace required. |
 | Recents item open (history → reader/manga) | n/a | Confirm whether it shares the same push cost as Library → Manga (now mostly fixed). |
 
