@@ -972,32 +972,42 @@ class RecentsController(bundle: Bundle? = null) :
     }
 
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
-        super.onChangeStarted(handler, type)
-        if (type.isEnter) {
-            if (type == ControllerChangeType.POP_ENTER) presenter.onCreate()
-            binding.downloadBottomSheet.dlBottomSheet.dismiss()
-            if (isControllerVisible) {
-                activityBinding?.mainTabs?.let { tabs ->
-                    val selectedTab = presenter.viewType
-                    val labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() }
-                    tabs.bindStringTabs(
-                        labels = labels,
-                        selectedIndex = selectedTab.mainValue,
-                        onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
-                        onReselected = { binding.recycler.smoothScrollToTop() },
-                    )
-                    (activity as? MainActivity)?.showTabBar(true)
+        android.os.Trace.beginSection(
+            if (type.isEnter) "Hayai/RecentsController.onChangeStarted.enter"
+            else "Hayai/RecentsController.onChangeStarted.exit",
+        )
+        try {
+            super.onChangeStarted(handler, type)
+            if (type.isEnter) {
+                if (type == ControllerChangeType.POP_ENTER) presenter.onCreate()
+                binding.downloadBottomSheet.dlBottomSheet.dismiss()
+                if (isControllerVisible) {
+                    activityBinding?.mainTabs?.let { tabs ->
+                        val selectedTab = presenter.viewType
+                        val labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() }
+                        android.os.Trace.beginSection("Hayai/Recents.bindStringTabs")
+                        tabs.bindStringTabs(
+                            labels = labels,
+                            selectedIndex = selectedTab.mainValue,
+                            onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
+                            onReselected = { binding.recycler.smoothScrollToTop() },
+                        )
+                        android.os.Trace.endSection()
+                        (activity as? MainActivity)?.showTabBar(true)
+                    }
                 }
+            } else {
+                val lastController = router.backstack.lastOrNull()?.controller
+                val nextOwnsTabs = (lastController as? MainActivityTabsOwner)?.ownsActivityTabs == true
+                if (lastController !is DialogController && !nextOwnsTabs) {
+                    (activity as? MainActivity)?.showTabBar(show = false, animate = lastController !is SmallToolbarInterface)
+                }
+                snack?.dismiss()
             }
-        } else {
-            val lastController = router.backstack.lastOrNull()?.controller
-            val nextOwnsTabs = (lastController as? MainActivityTabsOwner)?.ownsActivityTabs == true
-            if (lastController !is DialogController && !nextOwnsTabs) {
-                (activity as? MainActivity)?.showTabBar(show = false, animate = lastController !is SmallToolbarInterface)
-            }
-            snack?.dismiss()
+            setBottomPadding()
+        } finally {
+            android.os.Trace.endSection()
         }
-        setBottomPadding()
     }
 
     override fun onChangeEnded(handler: ControllerChangeHandler, type: ControllerChangeType) {

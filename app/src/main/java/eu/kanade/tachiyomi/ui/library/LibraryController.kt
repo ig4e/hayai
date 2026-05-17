@@ -1450,6 +1450,18 @@ open class LibraryController(
     }
 
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        android.os.Trace.beginSection(
+            if (type.isEnter) "Hayai/LibraryController.onChangeStarted.enter"
+            else "Hayai/LibraryController.onChangeStarted.exit",
+        )
+        try {
+            onChangeStartedInner(handler, type)
+        } finally {
+            android.os.Trace.endSection()
+        }
+    }
+
+    private fun onChangeStartedInner(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
         if (type.isEnter) {
             binding.filterBottomSheet.filterBottomSheet.isVisible = true

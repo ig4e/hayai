@@ -538,43 +538,70 @@ class BrowseController :
     }
 
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
-        super.onChangeStarted(handler, type)
-        if (!type.isPush) {
-            binding.bottomSheet.root.updateExtTitle()
-            binding.bottomSheet.root.presenter.refreshExtensions()
-            // NOVEL -->
-            binding.bottomSheet.root.presenter.refreshNovelPlugins()
-            // NOVEL <--
-            presenter.updateSources()
-            if (type.isEnter && isControllerVisible) {
+        android.os.Trace.beginSection(
+            if (type.isEnter) "Hayai/BrowseController.onChangeStarted.enter"
+            else "Hayai/BrowseController.onChangeStarted.exit",
+        )
+        try {
+            super.onChangeStarted(handler, type)
+            // The four presenter refreshes below were the dominant source of root nav jank
+            // (~250–700ms RV OnLayouts driven by ~15 inflate-per-frame of extension_card_item /
+            // manga_grid_item, triggered by their updateDataSet calls). Defer to onChangeEnded
+            // so they run after the Conductor crossfade settles, on an idle frame.
+            if (!type.isEnter) {
+                binding.bottomSheet.root.canExpand = false
+                activityBinding?.appBar?.alpha = 1f
+                activityBinding?.appBar?.isInvisible = router.isCompose
+                binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
+                    val searchView = searchItem.actionView as SearchView
+                    searchView.clearFocus()
+                }
+            } else if (isControllerVisible) {
                 activityBinding?.appBar?.doOnNextLayout {
                     activityBinding?.appBar?.y = 0f
                     activityBinding?.appBar?.updateAppBarAfterY(binding.sourceRecycler)
                 }
-                updateSheetMenu()
             }
+            setBottomPadding()
+        } finally {
+            android.os.Trace.endSection()
         }
-        if (!type.isEnter) {
-            binding.bottomSheet.root.canExpand = false
-            activityBinding?.appBar?.alpha = 1f
-            activityBinding?.appBar?.isInvisible = router.isCompose
-            binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
-                val searchView = searchItem.actionView as SearchView
-                searchView.clearFocus()
-            }
-        } else {
-            binding.bottomSheet.root.presenter.refreshMigrations()
-            updateTitleAndMenu()
-        }
-        setBottomPadding()
     }
+
 
     override fun onChangeEnded(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeEnded(handler, type)
+        // Deferred from onChangeStarted: these refreshes trigger updateDataSet on the various
+        // bottom-sheet recyclers which fired ~15 onCreateViewHolder/inflate per long frame
+        // during root nav swaps (extension_card_item / extension_card_header / manga_grid_item
+        // were 15–40ms each to inflate). Running on the post-fade idle frame keeps the swap
+        // itself smooth.
+        if (!type.isPush) {
+            android.os.Trace.beginSection("Hayai/Browse.refreshExtensions")
+            binding.bottomSheet.root.updateExtTitle()
+            binding.bottomSheet.root.presenter.refreshExtensions()
+            android.os.Trace.endSection()
+            android.os.Trace.beginSection("Hayai/Browse.refreshNovelPlugins")
+            binding.bottomSheet.root.presenter.refreshNovelPlugins()
+            android.os.Trace.endSection()
+            android.os.Trace.beginSection("Hayai/Browse.updateSources")
+            presenter.updateSources()
+            android.os.Trace.endSection()
+            if (type.isEnter && isControllerVisible) {
+                android.os.Trace.beginSection("Hayai/Browse.updateSheetMenu")
+                updateSheetMenu()
+                android.os.Trace.endSection()
+            }
+        }
         if (type.isEnter) {
             binding.bottomSheet.root.canExpand = true
             setBottomPadding()
+            android.os.Trace.beginSection("Hayai/Browse.refreshMigrations")
+            binding.bottomSheet.root.presenter.refreshMigrations()
+            android.os.Trace.endSection()
+            android.os.Trace.beginSection("Hayai/Browse.updateTitleAndMenu")
             updateTitleAndMenu()
+            android.os.Trace.endSection()
         }
     }
 

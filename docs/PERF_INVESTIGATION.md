@@ -438,12 +438,102 @@ accepted as-is. Open candidates for future work if revisited:
   swap — even deferred 350ms it's visible if the user re-enters Migration
   quickly. Could skip the swap entirely and lazy-reset on re-entry.
 
+## Root nav transitions (Library/Recents/Browse) — chain of fixes
+
+Baseline (mixed 6-swap run across all three roots, post sources-sheet fixes):
+
+- Jank: 7.26 %, p99 300ms, Missed vsync 41, Slow UI 59, ~35 frames >= 200ms
+  with peaks at 740ms / 506ms / 438ms
+
+Diagnosis driven by a perfetto trace with `android.os.Trace.beginSection`
+markers around all suspect functions (`Hayai/...`). Markers persist in the
+code for future re-runs — capture with:
+
+```
+adb shell perfetto -o /data/misc/perfetto-traces/trace.pftrace -t 15s \
+  -a dev.ahmedmohamed.hayai.debug \
+  sched gfx view input am wm res binder_driver
+```
+
+then analyse via the Python `perfetto` package. Scripts at `.perf/analyze_rootnav*.py`.
+
+### Trace findings (dominant costs per long frame)
+
+- `RV OnLayout` runs 300–435ms per long frame.
+- Inside: 10–15 `RV onCreateViewHolder` + `inflate` calls, each 15–40ms.
+- Layout IDs of the heavy inflations:
+  - `extension_card_item` (0x7f0d017e) — extension bottom sheet rows
+  - `extension_card_header` (0x7f0d017d) — extension list headers
+  - `manga_grid_item` (0x7f0d02e1) — Library/Browse grid items
+- `LibraryController.onChangeStarted.enter` is the only controller hook >= 30ms (~35ms each).
+  Other controllers' onChangeStarted are sub-10ms.
+
+### 1. Skip no-op `nav` alpha animation in `syncActivityViewWithController`
+
+`MainActivity.kt` always fired a 150ms `nav` alpha ValueAnimator on every
+controller change, even when target alpha matched current (the common case
+for root↔root since all three root controllers keep the bottom nav visible
+at `alpha=1f`). 150ms of pure wasted per-frame invalidates.
+
+**Fix:** short-circuit when `nav.alpha == targetAlpha`.
+
+### 2. Cache `setSearchTBLongClick`
+
+`setFloatingToolbar` re-attached the same `OnLongClickListener` on every
+controller change. Set once behind a `searchTBLongClickSet` flag.
+
+### 3. Defer `setupSearchTBMenu` via `post`
+
+The menu diff + add/update/remove + actionMenuView requestLayout was running
+synchronously on the change frame, blocking the Conductor crossfade.
+`binding.toolbar.post { setupSearchTBMenu(...) }` moves it past the current
+frame so the rebuild lands during the fade rather than gating it.
+
+### 4. Defer `BrowseController.onChangeStarted` presenter refreshes to `onChangeEnded`
+
+`BrowseController` was calling four presenter refreshes synchronously on every
+controller change (`refreshExtensions`, `refreshNovelPlugins`, `updateSources`,
+`refreshMigrations` + `updateSheetMenu` + `updateTitleAndMenu`). Each fired
+`updateDataSet` on the corresponding recycler, which triggered the multi-hundred
+ms `RV OnLayout` with ~15 `onCreateViewHolder` + `inflate` per frame.
+
+**Fix:** moved the entire refresh block from `onChangeStarted` to
+`onChangeEnded`. Refreshes run on the post-fade idle frame instead of mid-swipe.
+
+### Root nav final state
+
+| Trace | Jank % | p90 | Missed vsync | Slow UI | Frames >= 200 ms |
+|-------|-------:|----:|-------------:|--------:|-----------------:|
+| Baseline | 7.26 % | 16 ms | 41 | 59 | ~35 |
+| After 1–3 (anim/menu) | 5.32 % | 14 ms | 37 | 45 | ~38 |
+| After 1–4 (+ Browse refresh defer) | 6.22 %* | 14 ms | **11** | **14** | **15** |
+
+\* Total frames smaller this run (595 vs 1729), so the % comparison is noisy.
+Underlying signals (missed vsync, slow UI, draw cmds) all dropped 60–70 %.
+
+### Residual (left for follow-up)
+
+Three killer frames remain per nav cycle (700–750ms each) — these are the
+**first-time controller-creation cost** where the recyclers inflate their
+entire visible set. Mostly unavoidable without:
+
+- **Pre-warm `RecycledViewPool`** during app startup so the first attach of
+  Library/Recents/Browse recyclers pulls from a hot pool instead of inflating.
+- **Lazy-bind the extension bottom sheet's inner ViewPager**. Currently both
+  current + adjacent pages are inflated even when the sheet is collapsed —
+  `extension_card_item` rows materialise even when the user can't see them.
+- **Defer Library's `applyDisplayMode`** out of `onChangeStarted.enter`. It's
+  the only controller's enter hook over 30ms (~35ms each). Likely candidates:
+  the `setupTabbedView` / `teardownTabbedView` path.
+
+The Trace markers (`Hayai/...`) stay in the source — re-running the perfetto
+workflow above will show the same regions if these get revisited.
+
 ## Remaining problem flows (untouched)
 
 | Flow | Baseline jank | Likely culprits |
 |------|--------------:|------------------|
 | Library ↔ Recents (tabbed) "text splatter" | 5.03 % | Cross-controller race: `LibraryController.onChangeStarted` calls `showTabBar(false, animate=true)` while `RecentsController.onChangeStarted` calls `mainTabs.bindStringTabs(...)` then `showTabBar(true)`. Library category labels get **overwritten in-place** by Recents labels mid-fade; TabLayout re-measures during the alpha animation. Surgical fix to `MainActivity.showTabBar` + the two controllers' `onChangeStarted`. |
-| Animator pile-up on root nav switch | n/a | `MainActivity.onChangeStarted` + `syncActivityViewWithController` fire 4–6 concurrent ValueAnimators (Conductor fade, tab fade, cardFrame fade, nav fade) plus full menu rebuilds via `setupSearchTBMenu`. All synchronous on the main thread. |
 | Browse hub — first entry | n/a | Sources hub entry cost (extension repo/lang reads, bottom sheet pre-warm). Trace required. |
 | Recents item open (history → reader/manga) | n/a | Confirm whether it shares the same push cost as Library → Manga (now mostly fixed). |
 

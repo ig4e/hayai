@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.os.Trace
 import android.provider.Settings
 import android.view.GestureDetector
 import android.view.Gravity
@@ -638,8 +639,11 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                     container: ViewGroup,
                     handler: ControllerChangeHandler,
                 ) {
+                    Trace.beginSection("Hayai/MainActivity.onChangeStarted")
                     to?.view?.alpha = 1f
+                    Trace.beginSection("Hayai/syncActivityViewWithController")
                     syncActivityViewWithController(to, from, isPush)
+                    Trace.endSection()
                     binding.appBar.isVisible = !hideAppBar
                     binding.appBar.alpha = 1f
                     if (binding.backShadow.isVisible && !isPush) {
@@ -667,6 +671,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                         nav.translationY = 0f
                     }
                     snackBar?.dismiss()
+                    Trace.endSection()
                 }
 
                 override fun onChangeCompleted(
@@ -774,6 +779,15 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         }
 
     open fun setFloatingToolbar(show: Boolean, solidBG: Boolean = false, changeBG: Boolean = true, showSearchAnyway: Boolean = false) {
+        Trace.beginSection("Hayai/setFloatingToolbar")
+        try {
+            setFloatingToolbarInner(show, solidBG, changeBG, showSearchAnyway)
+        } finally {
+            Trace.endSection()
+        }
+    }
+
+    private fun setFloatingToolbarInner(show: Boolean, solidBG: Boolean, changeBG: Boolean, showSearchAnyway: Boolean) {
         val controller = if (this::router.isInitialized) router.backstack.lastOrNull()?.controller else null
         val useLargeTB = binding.appBar.useLargeToolbar
         val onSearchController = canShowFloatingToolbar(controller)
@@ -830,7 +844,14 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         // menu, addOrUpdates/removes items, and may trigger requestLayout on actionMenuView.
         // Doing this synchronously during onChangeStarted blocks the Conductor crossfade
         // (200ms) and was a major source of the 250–700ms frames during root nav swaps.
-        binding.toolbar.post { setupSearchTBMenu(binding.toolbar.menu) }
+        binding.toolbar.post {
+            Trace.beginSection("Hayai/setupSearchTBMenu")
+            try {
+                setupSearchTBMenu(binding.toolbar.menu)
+            } finally {
+                Trace.endSection()
+            }
+        }
         if (currentToolbar != binding.searchToolbar) {
             binding.searchToolbar.menu?.children?.toList()?.forEach {
                 it.isVisible = false
