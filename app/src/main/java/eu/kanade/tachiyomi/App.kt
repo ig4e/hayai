@@ -390,9 +390,9 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
                     .build(),
             )
 
-            // Crossfade is gated by the user's reduced-motion preference. Since the ImageLoader
-            // is built once at app start, toggling the setting takes effect after the next launch.
-            crossfade(!ReducedMotion.isEnabled())
+            // Off globally: in scroll-heavy grids the default 100ms per-cover alpha animator
+            // saturates the main thread. The few surfaces that want it opt in per-request.
+            crossfade(false)
             allowRgb565(this@App.getSystemService<ActivityManager>()!!.isLowRamDevice)
             // allowHardware(true)
             if (networkPreferences.verboseLogging().get()) {

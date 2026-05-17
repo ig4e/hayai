@@ -1,10 +1,8 @@
 package eu.kanade.tachiyomi.ui.source.browse
 
 import android.view.View
-import android.view.ViewGroup
-import android.widget.FrameLayout
 import androidx.compose.ui.platform.ComposeView
-import androidx.core.view.setMargins
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.recyclerview.widget.RecyclerView
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.AbstractFlexibleItem
@@ -13,7 +11,6 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.widget.AutofitRecyclerView
 
 // FIXME: Migrate to compose
@@ -30,24 +27,15 @@ class BrowseSourceItem(
         private set
 
     override fun getLayoutRes(): Int {
-        return if (catalogueAsList.get()) {
-            R.layout.manga_list_item
-        } else {
-            R.layout.manga_grid_item
-        }
+        return if (catalogueAsList.get()) R.layout.manga_list_item else R.layout.browse_source_compose_grid_item
     }
 
     override fun createViewHolder(view: View, adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>): BrowseSourceHolder {
         val parent = adapter.recyclerView
         return if (parent is AutofitRecyclerView && !catalogueAsList.get()) {
             val listType = catalogueListType.get()
-            val composeView = ComposeView(parent.context).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                ).apply {
-                    setMargins(4.dpToPx)
-                }
+            val composeView = (view as ComposeView).apply {
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             }
             BrowseSourceGridHolder(composeView, adapter, listType == LibraryItem.LAYOUT_COMPACT_GRID, outlineOnCovers.get())
         } else {

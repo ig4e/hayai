@@ -294,6 +294,10 @@ class MangaCoverFetcher(
     }
 
     private fun setRatioAndColorsInScope(mangaId: Long?, mangaThumbnailUrl: String?, isInLibrary: Boolean, ogFile: UniFile? = null, force: Boolean = false) {
+        // Browse / search consume neither dominantCoverColors nor vibrantCoverColor; MangaDetails
+        // recomputes its own vibrant color. Speculatively decoding + Palette-extracting every
+        // browsed cover ships the Palette callback to the main looper and stalls cold-entry frames.
+        if (!isInLibrary && !force) return
         fileScope.launch {
             MangaCoverMetadata.setRatioAndColors(mangaId, mangaThumbnailUrl, isInLibrary, ogFile, force)
         }

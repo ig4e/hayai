@@ -21,15 +21,10 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -45,7 +40,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImagePainter
 import dev.icerock.moko.resources.compose.stringResource
 import dev.icerock.moko.resources.desc.Utils
 import yokai.i18n.MR
@@ -139,21 +133,12 @@ fun MangaComfortableGridItem(
         MangaGridCover(
             border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
             cover = {
-                Box {
-                    var isLoading by remember { mutableStateOf(false) }
-                    MangaCover(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .alpha(if (isSelected) 0.34f else 1.0f),
-                        data = coverData,
-                        onState = { state ->
-                            isLoading = state is AsyncImagePainter.State.Loading
-                        }
-                    )
-                    if (isLoading) {
-                        LoadingIndicator(modifier = Modifier.align(Alignment.Center))
-                    }
-                }
+                MangaCover(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .alpha(if (isSelected) 0.34f else 1.0f),
+                    data = coverData,
+                )
             },
             badgeSegments = BadgeSegments(
                 lang = lang,
@@ -196,21 +181,12 @@ fun MangaCompactGridItem(
     MangaGridCover(
         border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
         cover = {
-            Box {
-                var isLoading by remember { mutableStateOf(false) }
-                MangaCover(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .alpha(if (isSelected) 0.34f else 1.0f),
-                    data = coverData,
-                    onState = { state ->
-                        isLoading = state is AsyncImagePainter.State.Loading
-                    }
-                )
-                if (isLoading) {
-                    LoadingIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-            }
+            MangaCover(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(if (isSelected) 0.34f else 1.0f),
+                data = coverData,
+            )
         },
         badgeSegments = BadgeSegments(
             lang = lang,
@@ -318,7 +294,9 @@ fun MangaGridCover(
     badgeSegments: List<BadgeSegment> = listOf(),
     content: @Composable (BoxScope.() -> Unit)? = null,
 ) {
-    BoxWithConstraints(
+    // Box, not BoxWithConstraints: callers ignore the constraints and SubcomposeLayout adds a
+    // measure pass per cell.
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(MangaCoverRatio.BOOK)
