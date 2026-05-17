@@ -690,3 +690,245 @@ workflow above will show the same regions if these get revisited.
   Pull via PowerShell to avoid MSYS path mangling.
 - Analyse via Python `perfetto` package (`pip install perfetto`); scripts in `.perf/`
   (gitignored).
+
+## Browse cold-entry — background warmup + deferred sheet init (2026-05-17)
+
+User report: "the browse first entry/render jank is still very strong". Earlier
+defer of `refreshMigrations` + `updateTitleAndMenu` (POST_ENTRY_DEFER_MS = 280 ms)
+trimmed the post-fade frame but the cold frame itself was still dominated by:
+
+1. `BrowseControllerBinding.inflate` — `browse_controller.xml` `<include>`s the
+   full `extensions_bottom_sheet.xml` (ConstraintLayout + CenteredToolbar +
+   MaterialTextView + TabLayout + ViewPager).
+2. `binding.bottomSheet.root.onCreate(this)` — assigns
+   `pager.adapter = TabbedSheetAdapter()` which immediately inflates ViewPager
+   pages 0 + 1 (offscreen-page-limit defaults to 1). Each page is a
+   `recycler_with_scroller.xml` (RecyclerView + MaterialFastScroll + EmptyView)
+   plus the adapter instantiation work. ~50–80 ms.
+3. `setSheetToolbar()` — `inflateMenu(R.menu.extension_main)` synchronously
+   parses + constructs the Menu.
+
+All three stacked into the same frame the cross-fade was animating.
+
+### Fix 1 — `BrowseWarmup` background prefetch from MainActivity startup
+
+New `eu.kanade.tachiyomi.ui.source.BrowseWarmup` (single-shot, gated by
+`AtomicBoolean`, launched from `MainActivity.onCreate` after `super.onCreate` on
+`Dispatchers.IO`). It:
+
+- **Drains `Resources.getXml(id)` to end-of-document** for every Browse-cold-path
+  layout + menu (`browse_controller`, `extensions_bottom_sheet`,
+  `recycler_with_scroller`, `source_item`, `source_header_item`,
+  `extension_card_item`, `extension_card_header`, `extension_main`,
+  `migration_main`, `catalogue_main`). This forces the AssetManager to fully
+  decode + cache the binary XML block. Subsequent `LayoutInflater.inflate` /
+  `MenuInflater.inflate` on the UI thread reuse the cached `XmlBlock` and skip
+  the parse step (~5–15 ms saved per layout).
+- **`Class.forName`** for the cold-path classes (`ExtensionBottomSheet`,
+  `ExtensionAdapter`, `ExtensionBottomPresenter`, `RecyclerWithScrollerView`,
+  `SourceAdapter` ×2, `SourcePresenter`, `MangaAdapter`, `NovelPluginAdapter`).
+  Triggers dexopt + class verification + static-init on IO instead of on the
+  cold UI frame.
+
+Both swallow exceptions via `runCatching` — a removed/missing resource
+shouldn't take down the cold path.
+
+### Fix 2 — Deferred bottom-sheet wiring in `BrowseController`
+
+`onViewCreated` split into a cold-frame phase and a deferred phase:
+
+- **Cold frame:** source recycler setup, scroll insets listener, `presenter.onCreate()`
+  (which already dispatches the heavy load to `Dispatchers.Default`), and an
+  **eager** `binding.bottomSheet.root.sheetBehavior = BottomSheetBehavior.from(...)`
+  so `setBottomSheetTabs` can compute the initial pill alpha. `setBottomSheetTabs(0f)`
+  is correct because the BottomSheetBehavior's default state is `STATE_COLLAPSED`.
+- **Deferred at +280 ms:** new `initBottomSheet()` method runs the rest —
+  `binding.bottomSheet.root.onCreate(this)`, `addBottomSheetCallback(...)`,
+  the `extensionInstaller` pref flow registration, the `if (showingExtensions) expand()`
+  branch, `setSheetToolbar()`. Lands on the first idle frame after the
+  cross-fade settles.
+
+Guard surface for the defer window:
+
+- `showSheet() / hideSheet() / toggleSheet()` — `if (!bottomSheetReady) initBottomSheet()`
+  before the actual expand/collapse. Cold cross-fade is 250 ms so the user
+  effectively can't trigger these inside the 30 ms gap, but the guard is cheap.
+- `onChangeEnded(!type.isPush)` — POP_ENTER returning from a pushed controller
+  forces `initBottomSheet` immediately (user is back, not in cold-fade).
+- `onActivityResumed` — forces init if the user backgrounded the app during
+  the defer window.
+- `onChangeEnded(type.isEnter)` postDelayed branch — guarded by `bottomSheetReady`.
+  Both `initBottomSheet` and this `postDelayed` are scheduled from the same
+  view's handler at the same +280 ms target; FIFO ordering puts initBottomSheet
+  first (scheduled in onViewCreated, earlier).
+- `updateTitleAndMenu` — wrapped the `updateSheetMenu()` call in
+  `if (bottomSheetReady)` because pre-init `tabs.selectedTabPosition` returns
+  `-1` (no selection), which would fall through to `inflateMenu(R.menu.migration_main)`
+  — the wrong menu. `initBottomSheet → setSheetToolbar → updateSheetMenu` does
+  the first correct inflate.
+- `onDestroyView` — `if (bottomSheetReady) binding.bottomSheet.root.onDestroy()`
+  and reset `bottomSheetReady = false` so pop-back recreation re-runs init.
+
+**Files touched:**
+- `app/src/main/java/eu/kanade/tachiyomi/ui/source/BrowseWarmup.kt` (new)
+- `app/src/main/java/eu/kanade/tachiyomi/ui/main/MainActivity.kt` —
+  `BrowseWarmup.primeAsync(resources)` alongside the existing
+  `lifecycleScope.launchIO { extensionManager.getExtensionUpdates(true) }`.
+- `app/src/main/java/eu/kanade/tachiyomi/ui/source/BrowseController.kt` —
+  split init; `initBottomSheet` method; guards on showSheet/hideSheet/toggleSheet,
+  onChangeEnded, onActivityResumed, updateTitleAndMenu, onDestroyView.
+
+Trace markers: `Hayai/Browse.initBottomSheet`, plus the pre-existing
+`Hayai/BrowseController.onChangeStarted.*` and `Hayai/Browse.refresh*` regions.
+
+## Image-loading audit: site-specific loaders defeating the singleton
+
+The app's Coil singleton (`App.newImageLoader` in `app/src/main/java/eu/kanade/tachiyomi/App.kt:363`)
+is carefully tuned — `OkHttpNetworkFetcherFactory`, `TachiyomiImageDecoder` (JXL/AVIF),
+`BufferedSourceFetcher`, `MangaCoverFetcher.MangaFactory`, animated GIF/decoder,
+`MemoryCache.Builder().maxSizePercent(context)`, `allowRgb565(isLowRamDevice)`,
+`crossfade(false)` (explicit — per-cell alpha animators saturated the main thread in
+scroll grids), `fetcherCoroutineContext = Dispatchers.IO.limitedParallelism(8)`,
+`decoderCoroutineContext = Dispatchers.IO.limitedParallelism(3)`.
+
+### Sites that bypassed the singleton (fixed 2026-05-17)
+
+| File | Problem | Fix |
+|------|---------|-----|
+| `exh/ui/pagepreview/PagePreviewScreen.kt` | `ImageLoader.Builder(context)…build()` per source — zero memory cache size, zero disk cache, no JXL/AVIF decoder, no parallelism caps | Routed through new `yokai.util.coil.loaderForSource(context, sourceClient)` which calls `singleton.newBuilder().components { add(OkHttpNetworkFetcherFactory(sourceClient::value)) }.build()` — inherits cache + decoders + pools from singleton |
+| `exh/ui/pagepreview/components/PagePreviewInlineSection.kt` | Same | Same `loaderForSource` helper |
+| `exh/recs/RecommendsScreen.kt` | Used singleton implicitly but re-enabled `crossfade(!ReducedMotion.isEnabled())` per-request — re-introduces the per-cell alpha animators in a scrollable LazyRow | Dropped per-request `crossfade()`; inherits singleton's `crossfade(false)` |
+| `exh/recs/BrowseRecommendsScreen.kt` | Same | Same |
+
+### New `yokai.util.coil.AppImageLoader.kt` surface
+
+- `appImageLoader(context)` → just delegates to `context.imageLoader` (Coil's
+  singleton accessor). Exists as the One Obvious Import for screens that just
+  want the singleton — easier to grep + swap.
+- `loaderForSource(context, sourceClient)` → returns
+  `context.imageLoader.newBuilder().components { add(OkHttpNetworkFetcherFactory(sourceClient::value)) }.build()`.
+  Coil tries factories in reverse-registration order, so the source-specific
+  factory wins for requests the source can serve while everything else (JXL,
+  AVIF, animated GIF, BufferedSource, MangaCover) stays available.
+- `ImageRequest.Builder.hayaiPagePreviewDefaults()` → `precision(INEXACT)
+  .maxBitmapSize(Size(1024, 1024)).crossfade(false)`. Applied in
+  `PagePreviewItem` and `PreviewThumb`. The maxBitmapSize cap matters because
+  both use `ContentScale.FillWidth` on 108–120dp cells — without the cap they'd
+  decode full-resolution page images (often >2000px wide) into RAM only to
+  draw them at ~350px wide.
+
+### Pattern for future image-loading sites
+
+1. If the surface just renders a manga cover (Library, Recents, MangaDetails, etc.),
+   use `loadManga(...)` from `ImageViewExtensions.kt` for views or the
+   `MangaCover` composable for Compose. Both already route through the singleton
+   and apply the right defaults (`maxBitmapSize(2048)` + `precision(INEXACT)`).
+2. If the surface loads source-served images that need source-specific OkHttp
+   (preview pages, source-rendered thumbs), use
+   `loaderForSource(context, sourceClient)` — never `ImageLoader.Builder(context)`.
+3. If the request is a small thumbnail in a scroll grid, apply
+   `.hayaiPagePreviewDefaults()` to the request builder so the bitmap cap +
+   precision match.
+4. Never set `.crossfade(true)` per-request unless the surface is explicitly
+   a one-shot non-scrolling display.
+
+### Other sites that already follow the pattern
+
+- All `loadManga()` callers (LibraryGridHolder, LibraryListHolder, RecentMangaHolder,
+  GlobalSearchMangaHolder, the migration source/manga holders, MangaHeaderHolder,
+  EditMangaDialog, ExtensionHolder, SourceHolder, the Compose MangaCover surface).
+- The glance widgets (`UpdatesMangaCover`, `UpdatesGridGlanceWidget`) which use
+  `context.imageLoader` directly.
+
+### Residual / not-touched
+
+- `RecentMangaHeaderItem` (line 138) and `ExtensionHolder` (line 113) call
+  `coil3.load(...)` directly with a transformation. Functionally correct
+  (singleton-routed) but they could move behind a `loadSourceIcon` helper for
+  consistency. Low priority.
+- `PagePreviewItem`'s shimmer alpha drives a `Surface(color = surfaceVariant.copy(alpha = …))`
+  which recomposes every frame while loading. Cheap (empty Surface), but a
+  `drawBehind` would avoid it entirely. Not worth the surface area until
+  someone profiles it as a hotspot.
+
+## Open backlog (as of 2026-05-17)
+
+Carrying forward — pick any of these next session.
+
+### Verification — owed for today's work
+
+- **Cross-fade tab-swap feel at 250 ms** (was 150 ms; bumped 2026-05-16). User
+  reported the 150 ms version felt "very subtle, maybe increase it a bit i don't
+  feel it". Verify the 250 ms feels intentional but not sluggish on rapid
+  Library ↔ Recents ↔ Browse taps.
+- **Browse first-entry feel after defer + warmup**. The deferred init lands at
+  +280 ms; cross-fade is 250 ms. Verify the cold frame no longer looks like a
+  blank flash and the sheet doesn't pop in awkwardly when its wiring lands.
+- **"Fast tab swap = content never renders"** — was likely fixed by the
+  AsyncLayoutInflater revert (task #35) but never explicitly reconfirmed.
+  Reproduce by tapping bottom-nav items as fast as possible across 10-15 swaps;
+  every page should resolve to its real content.
+
+### Open flow profiling
+
+- **Recents item open path** (history → reader / history → MangaDetails).
+  Never profiled post-refactor; might share the Library → MangaDetails push
+  cost (now mostly fixed) but the Recents item path is distinct.
+- **Library ↔ Recents "text splatter"** in tabbed mode (5.03 % baseline jank).
+  Root cause already understood — cross-controller race where
+  `LibraryController.onChangeStarted` calls `showTabBar(false, animate=true)`
+  while `RecentsController.onChangeStarted` calls `mainTabs.bindStringTabs(...)`
+  + `showTabBar(true)` simultaneously, and TabLayout re-measures during the
+  alpha animation. Fix is surgical to `MainActivity.showTabBar` + the two
+  controllers' `onChangeStarted`.
+
+### Cold-path improvements (extends today's Browse work)
+
+- **Apply the BrowseWarmup pattern to Recents and Library cold paths**. Same
+  template: enumerate the layouts + menus + classes loaded by each tab's cold
+  entry, drain XML once on IO at MainActivity startup, `Class.forName` the
+  adapters. Library has multiple display-mode layouts; Recents has the recent_*
+  family.
+- **Defer Library's `applyDisplayMode`** out of `onChangeStarted.enter`. It's
+  the only root controller's enter hook over 30 ms (~35 ms each). Candidates
+  inside: `setupTabbedView` / `teardownTabbedView`.
+- **Pre-warm `RecycledViewPool`** during app startup so the first attach of
+  Library/Recents/Browse recyclers pulls from a hot pool instead of inflating
+  the visible row deficit on the first frame.
+- **Lazy-bind the extension bottom sheet's inner ViewPager**. Even after the
+  `initBottomSheet` defer, `pager.adapter = TabbedSheetAdapter()` immediately
+  inflates pages 0 + 1 of `recycler_with_scroller.xml`. Setting
+  `offscreenPageLimit = 0` (or rolling our own page-bound trigger) would mean
+  only page 0 inflates until the user swipes; pages 1 and 2 inflate on demand.
+
+### Image loading (extends today's audit)
+
+- **`loadSourceIcon(view, source)` helper** behind which the two raw
+  `coil3.load(...)` callsites (`RecentMangaHeaderItem`, `ExtensionHolder`,
+  plus a third `SourceHolder` pattern) consolidate. Wraps the singleton +
+  `PaddedSourceIconTransformation` + the standard placeholder/error fallback.
+- **Apply `hayaiPagePreviewDefaults()` to the Recommends thumbs** (100dp wide).
+  Today's change just dropped crossfade; the maxBitmapSize cap still isn't
+  applied so a 4k cover decodes to RAM for a 300px-wide card.
+- **`PagePreviewItem` / `PreviewThumb` shimmer**: replace the per-frame
+  recomposing `Surface(color = surfaceVariant.copy(alpha = animatedAlpha))`
+  with a `Modifier.drawBehind` shimmer that animates without invalidating the
+  composition. Only matters if profiling shows the loading state as a hotspot
+  on the previews grid (15-cell page × continuous Surface recomposition).
+
+### Architecture / cleanup (not perf-critical)
+
+- **View-based grid holder for source browse** (Option B from earlier doc).
+  Mirror `LibraryGridHolder`: pure XML/ViewBinding + ImageView + Coil. Per-cell
+  cost drops to the 2–5 ms View-based range. The three badges
+  (Novel / EH category / In Library) become overlay views. Lower architectural
+  improvement than a Compose port but easier to keep at zero regressions and
+  proven fast.
+
+### Profiling debt
+
+- Re-run the `perfetto -t 15s sched gfx view input am wm res hal binder_driver`
+  baseline against the current build to capture the post-defer + post-warmup
+  numbers. Today's work is wired with `android.os.Trace` markers
+  (`Hayai/Browse.initBottomSheet`, `Hayai/BrowseController.onChangeStarted.*`)
+  so the new spans show up under the same query.

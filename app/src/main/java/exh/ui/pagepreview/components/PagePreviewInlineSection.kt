@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
-import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.ImageRequest
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewSource
@@ -52,6 +52,9 @@ import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.i18n.MR
 import yokai.presentation.theme.rememberShimmerAlpha
+import yokai.util.coil.appImageLoader
+import yokai.util.coil.hayaiPagePreviewDefaults
+import yokai.util.coil.loaderForSource
 
 private sealed class PreviewState {
     data object Loading : PreviewState()
@@ -131,13 +134,13 @@ fun PagePreviewInlineSection(
         PreviewState.Unavailable -> { /* Don't show anything */ }
         is PreviewState.Success -> {
             val context = LocalContext.current
-            val imageLoader = remember(s.sourceClient) {
-                val clientLazy = lazy { s.sourceClient ?: okhttp3.OkHttpClient() }
-                ImageLoader.Builder(context)
-                    .components {
-                        add(OkHttpNetworkFetcherFactory(clientLazy::value))
-                    }
-                    .build()
+            // Route through the source's OkHttp client when we have one so per-source
+            // cookies / headers go through; otherwise use the app singleton directly.
+            // Either way the loader inherits the singleton's memory cache, disk cache,
+            // decoders, and dispatcher pools (see [yokai.util.coil.AppImageLoader]).
+            val imageLoader: ImageLoader = remember(context, s.sourceClient) {
+                val client = s.sourceClient
+                if (client != null) loaderForSource(context, client) else appImageLoader(context)
             }
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -166,6 +169,13 @@ private fun PreviewThumb(
     onClick: () -> Unit,
 ) {
     var isLoading by remember(preview.imageUrl) { mutableStateOf(true) }
+    val context = LocalContext.current
+    val request = remember(preview.imageUrl, context) {
+        ImageRequest.Builder(context)
+            .data(preview.imageUrl)
+            .hayaiPagePreviewDefaults()
+            .build()
+    }
     Box(
         modifier = Modifier
             .height(THUMB_HEIGHT)
@@ -174,7 +184,7 @@ private fun PreviewThumb(
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
-            model = preview.imageUrl,
+            model = request,
             contentDescription = "Page ${preview.index}",
             imageLoader = imageLoader,
             modifier = Modifier.fillMaxSize(),

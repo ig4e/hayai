@@ -27,13 +27,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.request.crossfade
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
@@ -203,10 +200,9 @@ private fun BrowseRecommendCard(
         Column {
             Box {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(manga.thumbnail_url)
-                        .crossfade(!yokai.presentation.theme.ReducedMotion.isEnabled())
-                        .build(),
+                    // Crossfade intentionally omitted — the app singleton sets crossfade(false)
+                    // because per-cell alpha animators saturate the main thread in scroll grids.
+                    model = manga.thumbnail_url,
                     contentDescription = manga.title,
                     modifier = Modifier
                         .fillMaxWidth()
