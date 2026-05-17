@@ -1,217 +1,304 @@
 package eu.kanade.tachiyomi.ui.source.browse.compose
 
-import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastForEach
 import eu.kanade.tachiyomi.source.model.Filter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Autocomplete tag input. Visually matches the redesigned filter sheet — rounded filled text
- * field, chip stack flowing below. Behaviour mirrored verbatim from the legacy
- * `AutoCompleteItem.kt` (length-3 trigger, 100-item cap, prefix-stripped matching,
- * `skipAutoFillTags` rejection, tap-chip-to-remove), so any source that depends on this
- * (most notably NHentai) keeps producing the same query.
+ * AutoComplete handling for the source filter sheet.
  *
- * State mutation routed through [FilterMutations] so unit tests can exercise the same path.
+ * The sheet renders an [Filter.AutoComplete] in two places:
+ *
+ *  - [FilterAutoCompleteRow] — a flat title-left/value-right row in the main filter list. Shows
+ *    the count of currently-selected tags and a chevron; tap drills into [AutoCompleteScreen].
+ *
+ *  - [AutoCompleteScreen] — a full sheet-body page (sibling of the Group drill-down screen) with
+ *    a search bar at the top and the entire `filter.values` list rendered as scrollable rows.
+ *    Each row cycles Off → Include → Exclude (when the source declares `-` in `validPrefixes`,
+ *    as on e-hentai / ex-hentai / n-hentai). Custom tags not in `values` are still addable via
+ *    IME Send so power-user flows are preserved.
+ *
+ * State mutation routed through [FilterMutations.cycleAutoCompleteTag] so the in-place contract
+ * `BrowseSourceController.showFilters()` snapshots and compares stays intact, and the cycle
+ * semantics are unit-tested.
  */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun AutoCompleteFilterRow(filter: Filter.AutoComplete) {
-    var chips by remember(filter) { mutableStateOf(filter.state) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        AutoCompleteTextField(
-            label = filter.name,
-            placeholder = filter.hint,
-            values = filter.values,
-            onValueFilter = { tag ->
-                val prefix = filter.validPrefixes.find { tag.startsWith(it) }
-                val tagNoPrefix = if (prefix != null) tag.removePrefix(prefix) else tag
-                Pair({ it: String -> it.contains(tagNoPrefix, ignoreCase = true) }, prefix)
-            },
-            onSubmit = { tag ->
-                val added = FilterMutations.addAutoCompleteTag(filter, tag)
-                if (added) chips = filter.state
-                added
-            },
-        )
-        if (chips.isNotEmpty()) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                chips.forEach { chip ->
-                    InputChip(
-                        selected = true,
-                        onClick = {
-                            FilterMutations.removeAutoCompleteTag(filter, chip)
-                            chips = filter.state
-                        },
-                        shape = RoundedCornerShape(50),
-                        label = {
-                            Text(
-                                text = chip,
-                                style = MaterialTheme.typography.labelLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = null,
-                                modifier = Modifier.size(InputChipDefaults.IconSize),
-                            )
-                        },
-                        colors = InputChipDefaults.inputChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            selectedTrailingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        ),
-                    )
-                }
-            }
-        }
-    }
+// region Main-list row — entry point that drills into the tag picker.
+
+@Composable
+internal fun FilterAutoCompleteRow(
+    filter: Filter.AutoComplete,
+    onDrill: (Filter.AutoComplete) -> Unit,
+) {
+    val count = filter.state.size
+    FilterPreferenceRow(
+        title = filter.name,
+        onClick = { onDrill(filter) },
+        trailing = {
+            ValueChip(
+                value = if (count > 0) count.toString() else null,
+                trailing = Icons.Outlined.ChevronRight,
+                active = count > 0,
+                constrainValueWidth = false,
+            )
+        },
+    )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+// endregion
+
+// region Drill page — search bar on top, scrollable tag list.
+
 @Composable
-private fun AutoCompleteTextField(
-    label: String,
-    placeholder: String,
-    values: List<String>,
-    onValueFilter: (String) -> Pair<(String) -> Boolean, String?>,
-    onSubmit: (String) -> Boolean,
+internal fun AutoCompleteScreen(
+    filter: Filter.AutoComplete,
+    onListScrollChange: ((canScrollUp: Boolean) -> Unit)?,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    var value by remember { mutableStateOf(TextFieldValue("")) }
+    var query by remember(filter) { mutableStateOf("") }
+    // selectionVersion bumps on every cycle so the LazyColumn keys regenerate and the +/−
+    // indicators repaint immediately — `filter.state` is an external mutable property we can't
+    // observe through Compose snapshots.
+    var selectionVersion by remember(filter) { mutableIntStateOf(0) }
     val focusManager = LocalFocusManager.current
 
-    fun submit() {
-        if (onSubmit(value.text)) {
+    val visibleTags by visibleTagsState(filter, query)
+
+    fun submitCustomTag() {
+        val text = query.trim()
+        if (text.isEmpty()) return
+        if (FilterMutations.addAutoCompleteTag(filter, text)) {
+            selectionVersion++
+            query = ""
             focusManager.clearFocus()
-            value = TextFieldValue("")
-            expanded = false
         }
     }
 
-    BackHandler(expanded) {
-        focusManager.clearFocus()
-        expanded = false
-    }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-    ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {
-                value = it
-                expanded = true
-            },
-            placeholder = {
-                Text(
-                    text = if (placeholder.isNotEmpty()) placeholder else label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
-                .fillMaxWidth(),
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            textStyle = MaterialTheme.typography.bodyMedium,
-            keyboardActions = KeyboardActions(onAny = { submit() }),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-            ),
+    Column(modifier = Modifier.fillMaxSize()) {
+        AutoCompleteSearchField(
+            query = query,
+            onQueryChange = { query = it },
+            placeholder = filter.hint.ifEmpty { filter.name },
+            onSubmit = ::submitCustomTag,
         )
 
-        val filteredValues by produceState(emptyList<String>(), value) {
-            withContext(Dispatchers.Default) {
-                val (predicate, prefix) = onValueFilter(value.text)
-                this@produceState.value = values.asSequence()
-                    .filter(predicate)
-                    .take(MAX_AUTOCOMPLETE_SUGGESTIONS)
-                    .let {
-                        if (prefix != null) it.map { tag -> prefix + tag } else it
-                    }
-                    .toList()
-            }
-        }
-        if (value.text.length > AUTOCOMPLETE_TRIGGER_LENGTH && filteredValues.isNotEmpty()) {
-            ExposedDropdownMenu(
-                modifier = Modifier.exposedDropdownSize(matchAnchorWidth = true),
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                filteredValues.fastForEach { suggestion ->
-                    DropdownMenuItem(
-                        text = { Text(suggestion) },
-                        onClick = {
-                            value = TextFieldValue(suggestion, TextRange(suggestion.length))
-                            submit()
-                        },
-                    )
-                }
-            }
+        AutoCompleteTagList(
+            tags = visibleTags,
+            state = filter.state,
+            supportsExclude = "-" in filter.validPrefixes,
+            selectionVersion = selectionVersion,
+            onCycle = { tag ->
+                FilterMutations.cycleAutoCompleteTag(filter, tag)
+                selectionVersion++
+            },
+            onListScrollChange = onListScrollChange,
+        )
+    }
+}
+
+/**
+ * Filters [Filter.AutoComplete.values] against [query] off the main thread. Empty `query` yields
+ * the full list minus skipped tags so the user sees the full catalogue immediately on opening
+ * the screen.
+ */
+@Composable
+private fun visibleTagsState(
+    filter: Filter.AutoComplete,
+    query: String,
+) = produceState(initialValue = filter.values, key1 = filter, key2 = query) {
+    withContext(Dispatchers.Default) {
+        val prefix = filter.validPrefixes.find { p -> query.startsWith(p) }
+        val stripped = (if (prefix != null) query.removePrefix(prefix) else query).trim()
+        value = if (stripped.isEmpty()) {
+            filter.values.filter { it !in filter.skipAutoFillTags }
+        } else {
+            filter.values.asSequence()
+                .filter { it.contains(stripped, ignoreCase = true) }
+                .filter { it !in filter.skipAutoFillTags }
+                .toList()
         }
     }
 }
 
-private const val MAX_AUTOCOMPLETE_SUGGESTIONS = 100
-private const val AUTOCOMPLETE_TRIGGER_LENGTH = 2
+@Composable
+private fun AutoCompleteSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    onSubmit: () -> Unit,
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = {
+            Text(
+                text = placeholder,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        textStyle = MaterialTheme.typography.bodyMedium,
+        keyboardActions = KeyboardActions(onAny = { onSubmit() }),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
+}
+
+@Composable
+private fun AutoCompleteTagList(
+    tags: List<String>,
+    state: List<String>,
+    supportsExclude: Boolean,
+    selectionVersion: Int,
+    onCycle: (String) -> Unit,
+    onListScrollChange: ((canScrollUp: Boolean) -> Unit)?,
+) {
+    if (tags.isEmpty()) return
+    val listState = rememberLazyListState()
+    BridgeScrollState(listState, onListScrollChange)
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+        items(
+            items = tags,
+            key = { "tag-$selectionVersion-$it" },
+        ) { tag ->
+            val tagState = tagStateFor(tag, state, supportsExclude)
+            AutoCompleteTagRow(
+                tag = tag,
+                state = tagState,
+                onClick = { onCycle(tag) },
+            )
+        }
+    }
+}
+
+private fun tagStateFor(
+    tag: String,
+    state: List<String>,
+    supportsExclude: Boolean,
+): AutoCompleteTagState = when {
+    tag in state -> AutoCompleteTagState.Included
+    supportsExclude && "-$tag" in state -> AutoCompleteTagState.Excluded
+    else -> AutoCompleteTagState.Off
+}
+
+@Composable
+private fun AutoCompleteTagRow(
+    tag: String,
+    state: AutoCompleteTagState,
+    onClick: () -> Unit,
+) {
+    val visual = tagRowVisual(state)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 36.dp)
+            .clickable(onClick = onClick)
+            .background(visual.background)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = tag,
+            style = MaterialTheme.typography.bodyMedium,
+            color = visual.contentColor,
+            fontWeight = if (state == AutoCompleteTagState.Off) FontWeight.Normal else FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        visual.icon?.let {
+            Icon(
+                imageVector = it,
+                contentDescription = null,
+                tint = visual.contentColor,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+private data class TagRowVisual(
+    val background: Color,
+    val contentColor: Color,
+    val icon: ImageVector?,
+)
+
+@Composable
+private fun tagRowVisual(state: AutoCompleteTagState): TagRowVisual = when (state) {
+    AutoCompleteTagState.Included -> TagRowVisual(
+        background = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+        contentColor = MaterialTheme.colorScheme.primary,
+        icon = Icons.Outlined.Add,
+    )
+    AutoCompleteTagState.Excluded -> TagRowVisual(
+        background = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
+        contentColor = MaterialTheme.colorScheme.error,
+        icon = Icons.Outlined.Block,
+    )
+    AutoCompleteTagState.Off -> TagRowVisual(
+        background = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        icon = null,
+    )
+}
+
+// endregion

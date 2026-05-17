@@ -105,4 +105,46 @@ internal object FilterMutations {
     fun removeAutoCompleteTag(filter: Filter.AutoComplete, tag: String) {
         filter.state = filter.state - tag
     }
+
+    /**
+     * Cycle one base tag through Off → Include → Exclude → Off. When the source declares `-` in
+     * `validPrefixes` (e-hentai / ex-hentai / n-hentai etc.) the full three-state cycle is
+     * available; otherwise the cycle collapses to Off → Include → Off because no exclude prefix
+     * exists for that source.
+     *
+     * Returns the new state of the tag after cycling so callers don't need to re-inspect
+     * `filter.state`.
+     */
+    fun cycleAutoCompleteTag(filter: Filter.AutoComplete, baseTag: String): AutoCompleteTagState {
+        val include = baseTag
+        val exclude = "-$baseTag"
+        val supportsExclude = "-" in filter.validPrefixes
+        return when {
+            include in filter.state -> {
+                removeAutoCompleteTag(filter, include)
+                if (supportsExclude) {
+                    addAutoCompleteTag(filter, exclude)
+                    AutoCompleteTagState.Excluded
+                } else {
+                    AutoCompleteTagState.Off
+                }
+            }
+            exclude in filter.state -> {
+                removeAutoCompleteTag(filter, exclude)
+                AutoCompleteTagState.Off
+            }
+            else -> {
+                addAutoCompleteTag(filter, include)
+                AutoCompleteTagState.Included
+            }
+        }
+    }
 }
+
+/**
+ * Per-tag tri-state for [Filter.AutoComplete] entries in the tag picker page. Stored implicitly
+ * in `filter.state` (as the tag or its `-tag` prefixed form); this enum is just the rendering
+ * lens. Returned by [FilterMutations.cycleAutoCompleteTag] so callers can update local UI state
+ * in one call without re-reading the filter.
+ */
+internal enum class AutoCompleteTagState { Off, Included, Excluded }

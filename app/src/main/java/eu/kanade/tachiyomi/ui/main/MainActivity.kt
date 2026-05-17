@@ -61,6 +61,8 @@ import com.bluelinelabs.conductor.Conductor
 import com.bluelinelabs.conductor.Controller
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.Router
+import com.bluelinelabs.conductor.RouterTransaction
+import com.bluelinelabs.conductor.changehandler.SimpleSwapChangeHandler
 import com.getkeepsafe.taptargetview.TapTarget
 import com.getkeepsafe.taptargetview.TapTargetView
 import com.google.android.material.badge.BadgeDrawable
@@ -158,7 +160,35 @@ import android.R as AR
 @SuppressLint("ResourceType")
 open class MainActivity : BaseActivity<MainActivityBinding>() {
 
-    protected lateinit var router: Router
+    /**
+     * The top-level Conductor router attached to MainActivity. Holds the persistent
+     * [RootTabsController] on the standard launch path. Code that needs to operate on
+     * the real top-level backstack (e.g. checking whether RootTabsController has been
+     * created, attaching the splash) should use this. Most code should use [router].
+     */
+    protected lateinit var topRouter: Router
+
+    /**
+     * The "effective" router visible to UI code. When [RootTabsController] is at the top
+     * of [topRouter], this forwards to the active tab's child router so existing
+     * `router.backstack.lastOrNull()?.controller`, `router.backstackSize`,
+     * `router.pushController(...)`, etc. transparently target the active tab. Falls back
+     * to [topRouter] when RootTabsController isn't installed (e.g. in SearchActivity).
+     */
+    val router: Router
+        get() {
+            if (!this::topRouter.isInitialized) {
+                throw IllegalStateException("router accessed before Conductor.attachRouter")
+            }
+            return (topRouter.backstack.firstOrNull()?.controller as? RootTabsController)
+                ?.activeChildRouter() ?: topRouter
+        }
+
+    /** Convenience for callers that need to act on the RootTabsController itself. */
+    protected val rootTabsController: RootTabsController?
+        get() = if (this::topRouter.isInitialized) {
+            topRouter.backstack.firstOrNull()?.controller as? RootTabsController
+        } else null
 
     protected val searchDrawable by lazy { contextCompatDrawable(R.drawable.ic_search_24dp) }
     protected val backDrawable by lazy { contextCompatDrawable(R.drawable.ic_arrow_back_24dp) }
@@ -489,19 +519,37 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         // Set this as nav view will try to set its own insets and they're hilariously bad
         ViewCompat.setOnApplyWindowInsetsListener(nav) { _, insets -> insets }
 
-        router = Conductor.attachRouter(this, container, savedInstanceState)
+        topRouter = Conductor.attachRouter(this, container, savedInstanceState)
+
+        // Install the persistent RootTabsController as the only top-level controller.
+        // SearchActivity bypasses this (see SearchActivity.usesRootTabsController) and
+        // keeps the legacy direct-pushed-controller pattern.
+        if (usesRootTabsController() && !topRouter.hasRootController()) {
+            topRouter.setRoot(
+                RouterTransaction.with(RootTabsController())
+                    .pushChangeHandler(SimpleSwapChangeHandler(false))
+                    .popChangeHandler(SimpleSwapChangeHandler(false)),
+            )
+        }
 
         arrayOf(binding.toolbar, binding.searchToolbar).forEach { toolbar ->
             toolbar.setNavigationIconTint(getResourceColor(R.attr.actionBarTintColor))
             toolbar.router = router
         }
-        if (router.hasRootController()) {
-            nav.selectedItemId =
-                when (router.backstack.firstOrNull()?.controller) {
+        rootTabsController?.let { rt ->
+            // On config restore, currentTabId carries the previously visible tab. On
+            // first launch it's -1 (sentinel) and we'll fall through to goToStartingTab.
+            if (rt.currentTabId != -1) {
+                nav.selectedItemId = rt.currentTabId
+            }
+        } ?: run {
+            if (topRouter.hasRootController()) {
+                nav.selectedItemId = when (topRouter.backstack.firstOrNull()?.controller) {
                     is RecentsController -> R.id.nav_recents
                     is BrowseController -> R.id.nav_browse
                     else -> R.id.nav_library
                 }
+            }
         }
 
         nav.setOnItemSelectedListener { item ->
@@ -517,32 +565,28 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 }
             }
             continueSwitchingTabs = false
-            val currentRoot = router.backstack.firstOrNull()
-            if (currentRoot?.tag()?.toIntOrNull() != id) {
-                setRoot(
-                    when (id) {
-                        R.id.nav_library -> if (basePreferences.composeLibrary().get()) LibraryComposeController() else LibraryController()
-                        R.id.nav_recents -> RecentsController()
-                        else -> BrowseController()
-                    },
-                    id,
-                )
-            } else if (currentRoot.tag()?.toIntOrNull() == id) {
-                if (router.backstackSize == 1) {
-                    when (id) {
-                        R.id.nav_library -> runLibraryNavAction(
-                            basePreferences.doubleTapLibraryNavBehaviour().get(),
-                            showSheet = false,
-                        )
-                        R.id.nav_recents -> runRecentsNavAction(
-                            basePreferences.doubleTapRecentsNavBehaviour().get(),
-                            showSheet = false,
-                        )
-                        R.id.nav_browse -> runBrowseNavAction(
-                            basePreferences.doubleTapBrowseNavBehaviour().get(),
-                            showSheet = false,
-                        )
-                    }
+            val rootTabs = rootTabsController
+            if (rootTabs != null) {
+                val sameTab = (rootTabs.currentTabId == id) &&
+                    (rootTabs.activeChildRouter()?.hasRootController() == true)
+                if (!sameTab) {
+                    rootTabs.selectTab(id)
+                } else if (router.backstackSize == 1) {
+                    runDoubleTapAction(id)
+                }
+            } else {
+                val currentRoot = topRouter.backstack.firstOrNull()
+                if (currentRoot?.tag()?.toIntOrNull() != id) {
+                    setRoot(
+                        when (id) {
+                            R.id.nav_library -> if (basePreferences.composeLibrary().get()) LibraryComposeController() else LibraryController()
+                            R.id.nav_recents -> RecentsController()
+                            else -> BrowseController()
+                        },
+                        id,
+                    )
+                } else if (currentRoot.tag()?.toIntOrNull() == id && topRouter.backstackSize == 1) {
+                    runDoubleTapAction(id)
                 }
             }
             true
@@ -1331,6 +1375,99 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
     private fun setRoot(controller: Controller, id: Int) {
         router.setRoot(controller.withFadeInTransaction().tag(id.toString()))
+    }
+
+    /**
+     * True when this Activity should install [RootTabsController] as the persistent root.
+     * SearchActivity overrides to false: it pushes single controllers directly.
+     */
+    protected open fun usesRootTabsController(): Boolean = true
+
+    private fun runDoubleTapAction(@IdRes id: Int) {
+        when (id) {
+            R.id.nav_library -> runLibraryNavAction(
+                basePreferences.doubleTapLibraryNavBehaviour().get(),
+                showSheet = false,
+            )
+            R.id.nav_recents -> runRecentsNavAction(
+                basePreferences.doubleTapRecentsNavBehaviour().get(),
+                showSheet = false,
+            )
+            R.id.nav_browse -> runBrowseNavAction(
+                basePreferences.doubleTapBrowseNavBehaviour().get(),
+                showSheet = false,
+            )
+        }
+    }
+
+    /**
+     * Called by [RootTabsController] when the user switches tabs without recreating any
+     * controller. Conductor's onChangeStarted does not fire on tab swap (the controller
+     * view stays attached, just hidden), so we synthesise the equivalent activity-bar
+     * resync: dispatch a fake PUSH_ENTER on the entering controller so it can reapply
+     * tab bar / app bar wiring, then re-sync toolbar + floating bar + title.
+     */
+    fun onActiveTabChanged(
+        @Suppress("UNUSED_PARAMETER") fromTabId: Int,
+        @Suppress("UNUSED_PARAMETER") toTabId: Int,
+    ) {
+        // RootTabsController has already dispatched PUSH_EXIT/PUSH_ENTER to the relevant
+        // controllers; we only need to mirror what MainActivity's own change-listener
+        // would have done after a setRoot.
+        val active = router.backstack.lastOrNull()?.controller
+        syncActivityViewWithController(active)
+        setFloatingToolbar(canShowFloatingToolbar(active), changeBG = false)
+        binding.toolbar.menu?.let { setupSearchTBMenu(it) }
+        binding.searchToolbar.title = searchTitle
+        (active as? BaseLegacyController<*>)?.setTitle()
+        (active as? SettingsLegacyController)?.setTitle()
+    }
+
+    /**
+     * True when this Activity should install [RootTabsController] as the persistent root.
+     * SearchActivity overrides to false: it pushes single controllers directly (no bottom-nav,
+     * no per-tab back-stacks).
+     */
+    protected open fun usesRootTabsController(): Boolean = true
+
+    /**
+     * Bottom-nav double-tap behaviour preserved from the legacy `setRoot`-based listener.
+     */
+    private fun runDoubleTapAction(@IdRes id: Int) {
+        when (id) {
+            R.id.nav_library -> runLibraryNavAction(
+                basePreferences.doubleTapLibraryNavBehaviour().get(),
+                showSheet = false,
+            )
+            R.id.nav_recents -> runRecentsNavAction(
+                basePreferences.doubleTapRecentsNavBehaviour().get(),
+                showSheet = false,
+            )
+            R.id.nav_browse -> runBrowseNavAction(
+                basePreferences.doubleTapBrowseNavBehaviour().get(),
+                showSheet = false,
+            )
+        }
+    }
+
+    /**
+     * Called by [RootTabsController] when the user switches tabs without recreating any
+     * controller. Mirrors what Conductor's change handler would have done on a setRoot:
+     * resync the activity toolbar / floating bar / bottom nav to the now-visible
+     * controller, and refresh title + menu.
+     */
+    fun onActiveTabChanged(@Suppress("UNUSED_PARAMETER") fromTabId: Int, toTabId: Int) {
+        val activeController = router.backstack.lastOrNull()?.controller
+        syncActivityViewWithController(activeController)
+        setFloatingToolbar(canShowFloatingToolbar(activeController), changeBG = false)
+        binding.toolbar.menu?.let { setupSearchTBMenu(it) }
+        binding.searchToolbar.title = searchTitle
+        (activeController as? BaseLegacyController<*>)?.setTitle()
+        (activeController as? SettingsLegacyController)?.setTitle()
+        // The tab bar (Library categories / Recents type tabs) is owned by the
+        // entering controller; let it reapply on its existing view.
+        (activeController as? RecentsController)?.onTabSwitchedIntoVisible()
+        (activeController as? LibraryController)?.onTabSwitchedIntoVisible()
     }
 
     override fun onPreparePanel(featureId: Int, view: View?, menu: Menu): Boolean {

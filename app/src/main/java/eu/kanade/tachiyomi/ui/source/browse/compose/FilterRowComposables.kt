@@ -1,15 +1,12 @@
 package eu.kanade.tachiyomi.ui.source.browse.compose
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -39,65 +36,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.model.Filter
 import yokai.i18n.MR
 
 /**
- * Per-type composables for the redesigned source filter sheet, modelled on the rest of the app's
- * `yokai.presentation.component.preference.widget.*` row pattern: title on the left, control on
- * the right, the whole row tappable, no card background. Section grouping is handled by
- * [SourceFilterSheetContent] with [FilterHeaderRow] acting as the same kind of subdued, secondary-
- * coloured group label `PreferenceGroupHeader` uses.
+ * Per-type filter row composables. Each row mutates the supplied [Filter] instance IN PLACE
+ * through [FilterMutations] — the legacy contract that
+ * `BrowseSourceController.showFilters()` snapshots and compares. Do not work on copies here.
  *
- * Every composable still mutates the supplied [Filter] instance IN PLACE through [FilterMutations]
- * — the legacy contract that
- * [eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController.showFilters] snapshots and compares.
- * Do not work on copies here.
+ * Shared scaffolding (row layout, value chip, header / separator / empty state) lives in
+ * [FilterSheetCommon] so this file stays focused on per-type rendering.
  */
 
-// region Style tokens — mirror PreferenceCommon so the sheet reads as part of the same family.
-
-internal val FilterRowHorizontalPadding = 16.dp
-internal val FilterRowMinHeight = 40.dp
-
-// endregion
-
-// region Row scaffold — title on the left, widget on the right.
-
-@Composable
-private fun FilterPreferenceRow(
-    title: String,
-    onClick: (() -> Unit)?,
-    trailing: @Composable (() -> Unit),
-) {
-    val baseMod = Modifier
-        .fillMaxWidth()
-        .heightIn(min = FilterRowMinHeight)
-    val rowMod = if (onClick != null) baseMod.clickable(onClick = onClick) else baseMod
-    Row(
-        modifier = rowMod.padding(horizontal = FilterRowHorizontalPadding, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Normal,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Box(modifier = Modifier.padding(start = 12.dp)) { trailing() }
-    }
-}
-
-// endregion
-
-// region CheckBox — Switch on the right, matches SwitchPreferenceWidget.
+// region CheckBox — Switch on the right, matches Hayai's SwitchPreferenceWidget.
 
 @Composable
 internal fun FilterCheckBoxRow(filter: Filter.CheckBox) {
@@ -145,21 +101,15 @@ internal fun FilterTriStateRow(filter: Filter.TriState) {
 
 @Composable
 private fun TriStateSegments(state: Int, onChange: (Int) -> Unit) {
-    // Connected button-group shape pattern: outer corners fully rounded, inner edges square
-    // so the three segments read as one piece. No outer border — the segment fill (or the
-    // selected primary/error tint) communicates state.
+    // Connected button-group shape pattern: outer corners fully rounded, inner edges square so
+    // the three segments read as one piece. Colour alone communicates state (no outer border).
     Row(verticalAlignment = Alignment.CenterVertically) {
         TriStateSegment(
             selected = state == Filter.TriState.STATE_IGNORE,
             label = "•",
             activeContainer = MaterialTheme.colorScheme.secondaryContainer,
             activeContent = MaterialTheme.colorScheme.onSecondaryContainer,
-            shape = RoundedCornerShape(
-                topStartPercent = 50,
-                bottomStartPercent = 50,
-                topEndPercent = 0,
-                bottomEndPercent = 0,
-            ),
+            shape = SegmentShapeStart,
             contentDescription = stringResource(MR.strings.ignore),
             onClick = { onChange(Filter.TriState.STATE_IGNORE) },
         )
@@ -168,7 +118,7 @@ private fun TriStateSegments(state: Int, onChange: (Int) -> Unit) {
             icon = Icons.Outlined.Add,
             activeContainer = MaterialTheme.colorScheme.primary,
             activeContent = MaterialTheme.colorScheme.onPrimary,
-            shape = RoundedCornerShape(0),
+            shape = SegmentShapeMiddle,
             contentDescription = stringResource(MR.strings.include),
             onClick = { onChange(Filter.TriState.STATE_INCLUDE) },
         )
@@ -177,12 +127,7 @@ private fun TriStateSegments(state: Int, onChange: (Int) -> Unit) {
             icon = Icons.Outlined.Block,
             activeContainer = MaterialTheme.colorScheme.error,
             activeContent = MaterialTheme.colorScheme.onError,
-            shape = RoundedCornerShape(
-                topStartPercent = 0,
-                bottomStartPercent = 0,
-                topEndPercent = 50,
-                bottomEndPercent = 50,
-            ),
+            shape = SegmentShapeEnd,
             contentDescription = stringResource(MR.strings.exclude),
             onClick = { onChange(Filter.TriState.STATE_EXCLUDE) },
         )
@@ -192,13 +137,13 @@ private fun TriStateSegments(state: Int, onChange: (Int) -> Unit) {
 @Composable
 private fun TriStateSegment(
     selected: Boolean,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    label: String? = null,
     activeContainer: Color,
     activeContent: Color,
-    shape: androidx.compose.ui.graphics.Shape,
+    shape: Shape,
     contentDescription: String,
     onClick: () -> Unit,
+    icon: ImageVector? = null,
+    label: String? = null,
 ) {
     val container by animateColorAsState(
         targetValue = if (selected) activeContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -232,6 +177,20 @@ private fun TriStateSegment(
     }
 }
 
+private val SegmentShapeStart = RoundedCornerShape(
+    topStartPercent = 50,
+    bottomStartPercent = 50,
+    topEndPercent = 0,
+    bottomEndPercent = 0,
+)
+private val SegmentShapeMiddle = RoundedCornerShape(0)
+private val SegmentShapeEnd = RoundedCornerShape(
+    topStartPercent = 0,
+    bottomStartPercent = 0,
+    topEndPercent = 50,
+    bottomEndPercent = 50,
+)
+
 // endregion
 
 // region Select — value chip + chevron on the right; anchored DropdownMenu.
@@ -254,21 +213,11 @@ internal fun FilterSelectRow(filter: Filter.Select<*>) {
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MenuShape,
                 ) {
                     filter.values.forEachIndexed { index, value ->
                         DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = value.toString(),
-                                    color = if (index == selectedIndex) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                    fontWeight = if (index == selectedIndex) FontWeight.SemiBold else null,
-                                )
-                            },
+                            text = { DropdownItemText(value.toString(), selected = index == selectedIndex) },
                             onClick = {
                                 FilterMutations.setSelect(filter, index)
                                 selectedIndex = filter.state
@@ -284,7 +233,7 @@ internal fun FilterSelectRow(filter: Filter.Select<*>) {
 
 // endregion
 
-// region Sort — same row as Select but trailing arrow shows direction; menu items toggle direction.
+// region Sort — same row as Select but the trailing arrow shows direction.
 
 @Composable
 internal fun FilterSortRow(filter: Filter.Sort) {
@@ -310,22 +259,12 @@ internal fun FilterSortRow(filter: Filter.Sort) {
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MenuShape,
                 ) {
                     filter.values.forEachIndexed { index, name ->
                         val isSelected = selectedIndex == index
                         DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = name,
-                                    color = if (isSelected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else null,
-                                )
-                            },
+                            text = { DropdownItemText(name, selected = isSelected) },
                             trailingIcon = if (isSelected) {
                                 {
                                     Icon(
@@ -354,6 +293,21 @@ internal fun FilterSortRow(filter: Filter.Sort) {
 
 // endregion
 
+// region Shared dropdown helpers — keep Select / Sort menus visually identical.
+
+private val MenuShape = RoundedCornerShape(16.dp)
+
+@Composable
+private fun DropdownItemText(text: String, selected: Boolean) {
+    Text(
+        text = text,
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        fontWeight = if (selected) FontWeight.SemiBold else null,
+    )
+}
+
+// endregion
+
 // region Group — drill-down row.
 
 @Composable
@@ -377,60 +331,22 @@ internal fun FilterGroupRow(
 
 // endregion
 
-// region Shared value chip — small surface used by Select/Sort/Group on the right.
-
-@Composable
-private fun ValueChip(
-    value: String?,
-    trailing: androidx.compose.ui.graphics.vector.ImageVector,
-    active: Boolean,
-) {
-    // Borderless chip — colour alone communicates active vs idle. Active uses the secondary
-    // accent which is what the legacy filter sheet's text buttons used (?attr/colorSecondary).
-    val contentColor = if (active) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Row(
-        modifier = Modifier.heightIn(min = 28.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        if (!value.isNullOrEmpty()) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = contentColor,
-                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 160.dp),
-            )
-        }
-        Icon(
-            imageVector = trailing,
-            contentDescription = null,
-            tint = contentColor,
-            modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-// endregion
-
-// region Section header + Text input + Separator (full-width).
+// region Section header + Separator + Text (full-width).
 
 @Composable
 internal fun FilterHeaderRow(filter: Filter.Header) {
-    // Mirrors yokai.presentation.component.preference.widget.PreferenceGroupHeader exactly so
-    // the section labels (and any source-supplied warning notes like e-hentai's "WILL IGNORE
-    // OTHER PARAMETERS!") read as the same kind of subdued, secondary-coloured group label
-    // users already see in Settings — telling them what follows belongs to one section.
+    // Mirrors yokai.presentation.component.preference.widget.PreferenceGroupHeader so source-
+    // provided notices (e-hentai's "WILL IGNORE OTHER PARAMETERS!") read as a subdued group
+    // label introducing the next item.
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp, bottom = 4.dp, start = FilterRowHorizontalPadding, end = FilterRowHorizontalPadding),
+            .padding(
+                top = 10.dp,
+                bottom = 4.dp,
+                start = FilterRowHorizontalPadding,
+                end = FilterRowHorizontalPadding,
+            ),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(
@@ -438,7 +354,6 @@ internal fun FilterHeaderRow(filter: Filter.Header) {
             color = MaterialTheme.colorScheme.secondary,
             style = MaterialTheme.typography.labelMedium,
             maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -454,6 +369,8 @@ internal fun FilterSeparatorRow(@Suppress("UNUSED_PARAMETER") filter: Filter.Sep
 @Composable
 internal fun FilterTextRow(filter: Filter.Text) {
     var value by remember(filter) { mutableStateOf(filter.state) }
+    // Every keystroke commits to the filter state — matches the legacy contract where the
+    // source consumes the latest text without an explicit "submit" gesture.
     LaunchedEffect(value) {
         if (filter.state != value) FilterMutations.setText(filter, value)
     }
@@ -483,13 +400,3 @@ internal fun FilterTextRow(filter: Filter.Text) {
 }
 
 // endregion
-
-internal fun groupActiveCount(group: Filter.Group<*>): Int = group.state.count { child ->
-    when (child) {
-        is Filter.CheckBox -> child.state
-        is Filter.TriState -> child.state != Filter.TriState.STATE_IGNORE
-        is Filter.Text -> child.state.isNotEmpty()
-        is Filter.Select<*> -> child.state != 0
-        else -> false
-    }
-}

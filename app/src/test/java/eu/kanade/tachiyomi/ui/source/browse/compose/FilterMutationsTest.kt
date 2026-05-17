@@ -225,6 +225,48 @@ class FilterMutationsTest {
         assertEquals(listOf("apple"), ac.state)
     }
 
+    @Test
+    fun `AutoComplete cycle without exclude prefix walks Off - Included - Off`() {
+        val ac = TestAutoComplete()
+        val toInclude = FilterMutations.cycleAutoCompleteTag(ac, "apple")
+        assertEquals(AutoCompleteTagState.Included, toInclude)
+        assertEquals(listOf("apple"), ac.state)
+
+        val toOff = FilterMutations.cycleAutoCompleteTag(ac, "apple")
+        assertEquals(AutoCompleteTagState.Off, toOff)
+        assertEquals(emptyList<String>(), ac.state)
+    }
+
+    @Test
+    fun `AutoComplete cycle with exclude prefix walks Off - Included - Excluded - Off`() {
+        val ac = TestAutoComplete(prefixes = listOf("-"))
+        val toInclude = FilterMutations.cycleAutoCompleteTag(ac, "apple")
+        assertEquals(AutoCompleteTagState.Included, toInclude)
+        assertEquals(listOf("apple"), ac.state)
+
+        val toExclude = FilterMutations.cycleAutoCompleteTag(ac, "apple")
+        assertEquals(AutoCompleteTagState.Excluded, toExclude)
+        assertEquals(listOf("-apple"), ac.state)
+
+        val toOff = FilterMutations.cycleAutoCompleteTag(ac, "apple")
+        assertEquals(AutoCompleteTagState.Off, toOff)
+        assertEquals(emptyList<String>(), ac.state)
+    }
+
+    @Test
+    fun `AutoComplete cycle preserves other tags`() {
+        val ac = TestAutoComplete(
+            prefixes = listOf("-"),
+            default = listOf("banana", "cherry"),
+        )
+        FilterMutations.cycleAutoCompleteTag(ac, "apple") // Off → Included
+        assertEquals(listOf("banana", "cherry", "apple"), ac.state)
+        FilterMutations.cycleAutoCompleteTag(ac, "apple") // Included → Excluded
+        assertEquals(listOf("banana", "cherry", "-apple"), ac.state)
+        FilterMutations.cycleAutoCompleteTag(ac, "apple") // Excluded → Off
+        assertEquals(listOf("banana", "cherry"), ac.state)
+    }
+
     // endregion
 
     @Nested

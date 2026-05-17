@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,6 +28,7 @@ import androidx.compose.material.icons.outlined.TurnedIn
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,15 +37,12 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -53,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
-import kotlinx.coroutines.flow.distinctUntilChanged
 import yokai.domain.source.browse.filter.models.SavedSearch
 import yokai.i18n.MR
 
@@ -62,22 +58,21 @@ import yokai.i18n.MR
  *
  * Design language mirrors the rest of the app:
  *  - Section headers ([FilterHeaderRow]) match `PreferenceGroupHeader` — `secondary` colour,
- *    `bodyMedium` text, 16-dp horizontal pad, top-12 / bottom-4 vertical.
- *  - Each filter is a flat full-width [Row] with title left / control right — same pattern as
- *    `SwitchPreferenceWidget`, no card backgrounds wrapping the rows.
- *  - Sections separate themselves with a hairline [HorizontalDivider] only when transitioning
- *    from one Header to the next, so visual grouping is implicit instead of boxed.
+ *    `labelMedium` text.
+ *  - Each filter renders as a flat full-width row (title left, control right) via
+ *    [FilterPreferenceRow] — same pattern as `SwitchPreferenceWidget`, no card wrapping.
+ *  - Drill-down sub-screens replace the body when the user opens a Group or the AutoComplete
+ *    tag picker; the [BackHandler] returns to the main list.
  *
  * Layout invariants that keep the action bar sticky inside the peek window:
- *  - The XML container is `wrap_content` so the Column sizes to its content.
- *  - The body LazyColumn is capped at `heightIn(max = BodyMaxHeight)`. With tabs (~48 dp) and
- *    action bar (~80 dp) added, the Column's natural height stays under the 480-dp `peekHeight`.
+ *  - XML container is `wrap_content` so the Column sizes to its content.
+ *  - The body LazyColumn is bounded by [BodyMaxHeight]. With tabs (~48 dp) and action bar
+ *    (~80 dp) added, the Column's natural height stays under the configured `peekHeight`.
  *  - The body scrolls internally when filters overflow — the action bar never moves.
  *
  * The composition mutates filter state IN PLACE on the [FilterList] passed in — matching the
  * legacy contract that [eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController.showFilters]
- * relies on (`oldFilters` snapshot vs current `presenter.sourceFilters` comparison). Do not
- * substitute a UI-state copy here or that comparison will silently fail.
+ * relies on. Do not substitute a UI-state copy here.
  *
  * The two `*Version` ints are change tokens — incremented by the host class when the underlying
  * data identity changes (`refreshFilters` after a reset, `refreshSavedSearches` after a save) so
@@ -97,30 +92,25 @@ internal fun SourceFilterSheetContent(
     onListScrollChange: ((canScrollUp: Boolean) -> Unit)? = null,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(FilterSheetTab.Filters) }
-    // Drill-down navigation for Filter.Group<*>. Holding the group instance (not its index) means
-    // the back gesture from inside the group always returns to the top-level filters even if the
-    // underlying FilterList shifts (reset / saved-search apply replaces the entire list).
-    var drillGroup by remember(filters) { mutableStateOf<Filter.Group<*>?>(null) }
+    // Drill-down navigation. The target is held by reference so back-gesture from inside a sub-
+    // screen always returns to the top-level filters even if the underlying FilterList shifts
+    // (reset / saved-search apply replaces the entire list).
+    var drillTarget by remember(filters) { mutableStateOf<FilterDrillTarget?>(null) }
 
-    BackHandler(enabled = drillGroup != null) { drillGroup = null }
+    BackHandler(enabled = drillTarget != null) { drillTarget = null }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (drillGroup == null) {
-                FilterSheetTabRow(
-                    selected = selectedTab,
-                    onSelected = { selectedTab = it },
-                    savedSearchCount = savedSearches.size,
-                )
-            } else {
-                DrillDownHeader(
-                    title = drillGroup!!.name,
-                    onBack = { drillGroup = null },
-                )
-            }
+            SheetTopBar(
+                drillTarget = drillTarget,
+                onBack = { drillTarget = null },
+                selectedTab = selectedTab,
+                onSelectTab = { selectedTab = it },
+                savedSearchCount = savedSearches.size,
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Box(
@@ -128,43 +118,64 @@ internal fun SourceFilterSheetContent(
                     .fillMaxWidth()
                     .heightIn(min = 200.dp, max = BodyMaxHeight),
             ) {
-                val currentDrill = drillGroup
-                when {
-                    currentDrill != null -> GroupChildrenScreen(
-                        group = currentDrill,
-                        filterVersion = filterVersion,
-                        onListScrollChange = onListScrollChange,
-                    )
-                    selectedTab == FilterSheetTab.Filters -> FiltersBody(
-                        filters = filters,
-                        filterVersion = filterVersion,
-                        onDrillGroup = { drillGroup = it },
-                        onListScrollChange = onListScrollChange,
-                    )
-                    else -> SavedSearchesList(
-                        savedSearches = savedSearches,
-                        savedSearchesVersion = savedSearchesVersion,
-                        onApply = onSavedSearchClicked,
-                        onDelete = onDeleteSavedSearchClicked,
-                    )
-                }
+                SheetBody(
+                    drillTarget = drillTarget,
+                    selectedTab = selectedTab,
+                    filters = filters,
+                    savedSearches = savedSearches,
+                    filterVersion = filterVersion,
+                    savedSearchesVersion = savedSearchesVersion,
+                    onDrillTarget = { drillTarget = it },
+                    onSavedSearchClicked = onSavedSearchClicked,
+                    onDeleteSavedSearchClicked = onDeleteSavedSearchClicked,
+                    onListScrollChange = onListScrollChange,
+                )
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            FilterSheetActionBar(
-                onReset = onReset,
-                onSave = onSave,
-                onApply = onApply,
-            )
+            FilterSheetActionBar(onReset, onSave, onApply)
         }
     }
 }
 
 internal enum class FilterSheetTab { Filters, Saved }
 
-private val BodyMaxHeight = 340.dp
+private val BodyMaxHeight = 400.dp
 
-// region Top bar
+/**
+ * Where the user has drilled to inside the sheet body. Sub-screens swap the main filter list out
+ * for a focused view of one filter.
+ */
+private sealed interface FilterDrillTarget {
+    val name: String
+    data class Group(val filter: Filter.Group<*>) : FilterDrillTarget {
+        override val name: String get() = filter.name
+    }
+    data class TagList(val filter: Filter.AutoComplete) : FilterDrillTarget {
+        override val name: String get() = filter.name
+    }
+}
+
+// region Top bar — tabs at the top level, drill-down header when inside a sub-screen.
+
+@Composable
+private fun SheetTopBar(
+    drillTarget: FilterDrillTarget?,
+    onBack: () -> Unit,
+    selectedTab: FilterSheetTab,
+    onSelectTab: (FilterSheetTab) -> Unit,
+    savedSearchCount: Int,
+) {
+    if (drillTarget == null) {
+        FilterSheetTabRow(
+            selected = selectedTab,
+            onSelected = onSelectTab,
+            savedSearchCount = savedSearchCount,
+        )
+    } else {
+        DrillDownHeader(title = drillTarget.name, onBack = onBack)
+    }
+}
 
 @Composable
 private fun FilterSheetTabRow(
@@ -181,10 +192,9 @@ private fun FilterSheetTabRow(
             selected = selected == FilterSheetTab.Filters,
             onClick = { onSelected(FilterSheetTab.Filters) },
             text = {
-                Text(
+                TabLabel(
                     text = stringResource(MR.strings.filter),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = if (selected == FilterSheetTab.Filters) FontWeight.SemiBold else FontWeight.Normal,
+                    active = selected == FilterSheetTab.Filters,
                 )
             },
         )
@@ -196,10 +206,9 @@ private fun FilterSheetTabRow(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
+                    TabLabel(
                         text = stringResource(MR.strings.saved_searches),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (selected == FilterSheetTab.Saved) FontWeight.SemiBold else FontWeight.Normal,
+                        active = selected == FilterSheetTab.Saved,
                     )
                     if (savedSearchCount > 0) {
                         Badge(
@@ -216,6 +225,15 @@ private fun FilterSheetTabRow(
             },
         )
     }
+}
+
+@Composable
+private fun TabLabel(text: String, active: Boolean) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+    )
 }
 
 @Composable
@@ -244,29 +262,69 @@ private fun DrillDownHeader(title: String, onBack: () -> Unit) {
 
 // endregion
 
-// region Filters body — vertical list of rows.
+// region Body — dispatch to filters list / drill sub-screen / saved-searches tab.
+
+@Composable
+private fun SheetBody(
+    drillTarget: FilterDrillTarget?,
+    selectedTab: FilterSheetTab,
+    filters: FilterList,
+    savedSearches: List<SavedSearch>,
+    filterVersion: Int,
+    savedSearchesVersion: Int,
+    onDrillTarget: (FilterDrillTarget?) -> Unit,
+    onSavedSearchClicked: (Long) -> Unit,
+    onDeleteSavedSearchClicked: (Long) -> Unit,
+    onListScrollChange: ((canScrollUp: Boolean) -> Unit)?,
+) {
+    when (drillTarget) {
+        is FilterDrillTarget.Group -> GroupChildrenScreen(
+            group = drillTarget.filter,
+            filterVersion = filterVersion,
+            onListScrollChange = onListScrollChange,
+        )
+        is FilterDrillTarget.TagList -> AutoCompleteScreen(
+            filter = drillTarget.filter,
+            onListScrollChange = onListScrollChange,
+        )
+        null -> when (selectedTab) {
+            FilterSheetTab.Filters -> FiltersBody(
+                filters = filters,
+                filterVersion = filterVersion,
+                onDrillGroup = { onDrillTarget(FilterDrillTarget.Group(it)) },
+                onDrillTags = { onDrillTarget(FilterDrillTarget.TagList(it)) },
+                onListScrollChange = onListScrollChange,
+            )
+            FilterSheetTab.Saved -> SavedSearchesList(
+                savedSearches = savedSearches,
+                savedSearchesVersion = savedSearchesVersion,
+                onApply = onSavedSearchClicked,
+                onDelete = onDeleteSavedSearchClicked,
+            )
+        }
+    }
+}
 
 @Composable
 private fun FiltersBody(
     filters: FilterList,
     filterVersion: Int,
     onDrillGroup: (Filter.Group<*>) -> Unit,
+    onDrillTags: (Filter.AutoComplete) -> Unit,
     onListScrollChange: ((canScrollUp: Boolean) -> Unit)?,
 ) {
     val listState = rememberLazyListState()
     BridgeScrollState(listState, onListScrollChange)
 
     if (filters.isEmpty()) {
-        EmptyFilters()
+        FilterSheetEmptyState(
+            icon = Icons.Outlined.SearchOff,
+            message = stringResource(MR.strings.source_has_no_filters),
+        )
         return
     }
 
-    // Reorder for display only — source extensions like e-hentai/ex-hentai dump filters in an
-    // arbitrary order (text input mid-list, drill-down groups split across toggles). We rebuild
-    // a more legible order *per Header-bounded section*: primary search inputs first, then
-    // drill-downs, then toggles, then plain text fields. The original Filter instances are
-    // preserved by reference — only display order changes — so the in-place mutation contract
-    // BrowseSourceController.showFilters() depends on still holds.
+    // organizeForDisplay produces a display-only ordering (originals are still mutated by ref).
     val displayFilters = remember(filters, filterVersion) { organizeForDisplay(filters) }
 
     LazyColumn(
@@ -278,60 +336,17 @@ private fun FiltersBody(
             items = displayFilters,
             key = { index, _ -> "filter-$filterVersion-$index" },
         ) { _, filter ->
-            FilterRow(filter, onDrillGroup)
+            FilterRow(filter, onDrillGroup, onDrillTags)
         }
     }
-}
-
-/**
- * Reorders `filters` for display. Header rows still anchor their section — every filter that
- * was originally between two Headers stays in that section — but within a section, filters are
- * sorted by type priority so the layout reads top-to-bottom: most important inputs first.
- */
-private fun organizeForDisplay(filters: FilterList): List<Filter<*>> {
-    data class Section(val header: Filter.Header?, val items: MutableList<Filter<*>>)
-    val sections = mutableListOf<Section>()
-    var current = Section(null, mutableListOf())
-    filters.forEach { f ->
-        if (f is Filter.Header) {
-            if (current.header != null || current.items.isNotEmpty()) sections.add(current)
-            current = Section(f, mutableListOf())
-        } else {
-            current.items.add(f)
-        }
-    }
-    if (current.header != null || current.items.isNotEmpty()) sections.add(current)
-    return sections.flatMap { section ->
-        val sorted = section.items.sortedBy(::displayPriority)
-        listOfNotNull(section.header) + sorted
-    }
-}
-
-/**
- * Lower value = rendered closer to the top of its section.
- *  - Sort  : 10 — primary axis of the listing
- *  - AutoComplete : 20 — main search input (tags, etc.)
- *  - Select : 30
- *  - Group  : 40 — drill-downs feel like sub-sections, lift above toggles
- *  - TriState : 50
- *  - CheckBox : 60 — boolean toggles bundle together
- *  - Text : 70 — page/jump-style numeric inputs at the bottom
- *  - Separator : 80
- */
-private fun displayPriority(f: Filter<*>): Int = when (f) {
-    is Filter.Sort -> 10
-    is Filter.AutoComplete -> 20
-    is Filter.Select<*> -> 30
-    is Filter.Group<*> -> 40
-    is Filter.TriState -> 50
-    is Filter.CheckBox -> 60
-    is Filter.Text -> 70
-    is Filter.Separator -> 80
-    else -> 100
 }
 
 @Composable
-private fun FilterRow(filter: Filter<*>, onDrillGroup: (Filter.Group<*>) -> Unit) {
+private fun FilterRow(
+    filter: Filter<*>,
+    onDrillGroup: (Filter.Group<*>) -> Unit,
+    onDrillTags: (Filter.AutoComplete) -> Unit,
+) {
     when (filter) {
         is Filter.Header -> FilterHeaderRow(filter)
         is Filter.Separator -> FilterSeparatorRow(filter)
@@ -340,7 +355,7 @@ private fun FilterRow(filter: Filter<*>, onDrillGroup: (Filter.Group<*>) -> Unit
         is Filter.Select<*> -> FilterSelectRow(filter)
         is Filter.Sort -> FilterSortRow(filter)
         is Filter.Text -> FilterTextRow(filter)
-        is Filter.AutoComplete -> AutoCompleteFilterRow(filter)
+        is Filter.AutoComplete -> FilterAutoCompleteRow(filter, onDrill = onDrillTags)
         is Filter.Group<*> -> FilterGroupRow(filter, onDrill = onDrillGroup)
     }
 }
@@ -356,7 +371,10 @@ private fun GroupChildrenScreen(
 
     val children = group.state
     if (children.isEmpty()) {
-        EmptyFilters()
+        FilterSheetEmptyState(
+            icon = Icons.Outlined.SearchOff,
+            message = stringResource(MR.strings.source_has_no_filters),
+        )
         return
     }
 
@@ -369,6 +387,9 @@ private fun GroupChildrenScreen(
             items = children,
             key = { index, _ -> "group-$filterVersion-$index" },
         ) { _, child ->
+            // Group children mirror top-level rendering for the subset of filter types groups
+            // actually contain in practice (Tachiyomi source extensions only nest checkboxes,
+            // tri-states, selects and text inside groups).
             when (child) {
                 is Filter.CheckBox -> FilterCheckBoxRow(child)
                 is Filter.TriState -> FilterTriStateRow(child)
@@ -376,33 +397,6 @@ private fun GroupChildrenScreen(
                 is Filter.Text -> FilterTextRow(child)
                 else -> Unit
             }
-        }
-    }
-}
-
-@Composable
-private fun EmptyFilters() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.SearchOff,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(32.dp),
-            )
-            Text(
-                text = stringResource(MR.strings.source_has_no_filters),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
         }
     }
 }
@@ -419,29 +413,10 @@ private fun SavedSearchesList(
     onDelete: (Long) -> Unit,
 ) {
     if (savedSearches.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.TurnedIn,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(32.dp),
-                )
-                Text(
-                    text = stringResource(MR.strings.no_saved_searches),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
+        FilterSheetEmptyState(
+            icon = Icons.Outlined.TurnedIn,
+            message = stringResource(MR.strings.no_saved_searches),
+        )
         return
     }
     LazyColumn(
@@ -503,10 +478,12 @@ private fun SavedSearchRow(
 
 // endregion
 
-// region Action bar — mirrors the legacy library filter sheet pattern: borderless text buttons
-// on the left (Reset uses the same colorSecondary that "Clear filters" used in
-// filter_bottom_sheet.xml, Save uses colorOnBackground) plus a primary filled Filter button
-// on the right.
+// region Action bar — three filled buttons, colour encodes intent.
+//   Reset → error/onErrorContainer pair: soft-danger "clear" action without alarming the user.
+//   Save  → secondaryContainer/onSecondaryContainer: neutral constructive action.
+//   Filter (apply) → primary/onPrimary filled Button: the prominent CTA.
+// Visual weight: tonal pair on the left reads quieter than the primary CTA on the right, so the
+// hierarchy stays obvious even though all three are filled.
 
 @Composable
 private fun FilterSheetActionBar(
@@ -520,41 +497,30 @@ private fun FilterSheetActionBar(
             .navigationBarsPadding()
             .imePadding()
             .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(
+        ActionBarTonalButton(
             onClick = onReset,
-            colors = ButtonDefaults.textButtonColors(
-                contentColor = MaterialTheme.colorScheme.secondary,
-            ),
-        ) {
-            Text(
-                text = stringResource(MR.strings.reset),
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
-        TextButton(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            label = stringResource(MR.strings.reset),
+        )
+        ActionBarTonalButton(
             onClick = onSave,
-            colors = ButtonDefaults.textButtonColors(
-                contentColor = MaterialTheme.colorScheme.onBackground,
-            ),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.TurnedIn,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = stringResource(MR.strings.save),
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            icon = Icons.Outlined.TurnedIn,
+            label = stringResource(MR.strings.save),
+        )
         Spacer(modifier = Modifier.weight(1f))
         Button(
             onClick = onApply,
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
         ) {
             Text(
                 text = stringResource(MR.strings.filter),
@@ -565,22 +531,35 @@ private fun FilterSheetActionBar(
     }
 }
 
-// endregion
-
-/**
- * Drives `sheetBehavior.isDraggable` from the inner LazyColumn's scroll state. The legacy
- * E2EBottomSheetDialog wired this for RecyclerView; we replicate the same UX for LazyColumn so
- * the sheet only drags when the list is scrolled to the top.
- */
 @Composable
-private fun BridgeScrollState(
-    state: LazyListState,
-    onChange: ((canScrollUp: Boolean) -> Unit)?,
+private fun ActionBarTonalButton(
+    onClick: () -> Unit,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
-    if (onChange == null) return
-    LaunchedEffect(state, onChange) {
-        snapshotFlow { state.canScrollBackward }
-            .distinctUntilChanged()
-            .collect { onChange(it) }
+    FilledTonalButton(
+        onClick = onClick,
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+        ),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+        )
     }
 }
+
+// endregion

@@ -51,8 +51,10 @@ class ComposeSourceFilterSheet(
         // The sheet content sizes itself (wrap_content): the body LazyColumn is bounded by a
         // heightIn(max) in Compose that leaves room for the tabs and the action bar, so the
         // whole Column always fits inside the peek window and the bottom buttons are visible
-        // without dragging.
-        sheetBehavior.peekHeight = 480.dpToPx
+        // without dragging. The peek is a touch taller than strictly needed (tabs ~48dp + body
+        // ~400dp + divider ~1dp + action bar ~80dp ≈ 530dp) to give the rows visual breathing
+        // room rather than packing them edge-to-edge.
+        sheetBehavior.peekHeight = 560.dpToPx
 
         binding.filterComposeView.setViewCompositionStrategy(
             ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool,

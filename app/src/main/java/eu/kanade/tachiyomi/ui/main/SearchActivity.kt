@@ -40,6 +40,10 @@ class SearchActivity : MainActivity() {
 
     private var backToMain = false
 
+    // SearchActivity pushes controllers directly onto the top router (no bottom-nav, no
+    // per-tab back-stacks). Skip the RootTabsController scaffolding that MainActivity uses.
+    override fun usesRootTabsController(): Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding.toolbar.navigationIcon = backDrawable
