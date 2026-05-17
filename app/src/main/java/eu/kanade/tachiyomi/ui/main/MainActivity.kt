@@ -1358,74 +1358,110 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
      */
     fun registerControllerChangeListener(targetRouter: Router) {
         if (!registeredRouters.add(targetRouter)) return
-        targetRouter.addChangeListener(mainChangeListener)
+        targetRouter.addChangeListener(createMainChangeListener(targetRouter))
     }
 
-    private val mainChangeListener = object : ControllerChangeHandler.ControllerChangeListener {
-        override fun onChangeStarted(
-            to: Controller?,
-            from: Controller?,
-            isPush: Boolean,
-            container: ViewGroup,
-            handler: ControllerChangeHandler,
-        ) {
-            Trace.beginSection("Hayai/MainActivity.onChangeStarted")
-            to?.view?.alpha = 1f
-            Trace.beginSection("Hayai/syncActivityViewWithController")
-            syncActivityViewWithController(to, from, isPush)
-            Trace.endSection()
-            binding.appBar.isVisible = !hideAppBar
-            binding.appBar.alpha = 1f
-            if (binding.backShadow.isVisible && !isPush) {
-                val bA = ObjectAnimator.ofFloat(binding.backShadow, View.ALPHA, 0f)
-                from?.view?.let { view ->
-                    bA.addUpdateListener {
-                        binding.backShadow.x = view.x - binding.backShadow.width
-                        if (router.backstackSize == 1) {
-                            to?.view?.let { toView -> nav.x = toView.x }
+    /**
+     * Whether [boundRouter] is the router currently responsible for the visible top
+     * controller. Used by [createMainChangeListener] to gate shared activity chrome
+     * work: pushes/pops happening in a dormant tab's child router (e.g. a click handler
+     * fires after the user already swapped tabs) must NOT rebind the appBar / tabs /
+     * nav icon / soft-input mode that the visible tab owns, or chrome from the inactive
+     * tab leaks across.
+     *
+     * The visible router is:
+     *  - [topRouter] when an occluding overlay (OnboardingController, etc.) is pushed
+     *    on top of RootTabsController — [topRouter.backstackSize] > 1.
+     *  - The active tab's child router otherwise.
+     *
+     * When a child router fires while another tab is active, the listener still applies
+     * per-controller view tweaks (`to.view.alpha = 1f`, `from.view.alpha = 0f`) since
+     * those are scoped to the controllers' own views. The active tab's chrome will
+     * resync via [onActiveTabChanged] when the user eventually swaps to that tab.
+     */
+    private fun isVisibleChange(boundRouter: Router): Boolean {
+        if (boundRouter === topRouter) return true
+        val rt = rootTabsController ?: return false
+        return topRouter.backstackSize == 1 && boundRouter === rt.activeChildRouter()
+    }
+
+    private fun createMainChangeListener(boundRouter: Router) =
+        object : ControllerChangeHandler.ControllerChangeListener {
+            override fun onChangeStarted(
+                to: Controller?,
+                from: Controller?,
+                isPush: Boolean,
+                container: ViewGroup,
+                handler: ControllerChangeHandler,
+            ) {
+                Trace.beginSection("Hayai/MainActivity.onChangeStarted")
+                // Per-controller view tweak — scoped to its own view, safe across tabs.
+                to?.view?.alpha = 1f
+                if (!isVisibleChange(boundRouter)) {
+                    Trace.endSection()
+                    return
+                }
+                Trace.beginSection("Hayai/syncActivityViewWithController")
+                syncActivityViewWithController(to, from, isPush)
+                Trace.endSection()
+                binding.appBar.isVisible = !hideAppBar
+                binding.appBar.alpha = 1f
+                if (binding.backShadow.isVisible && !isPush) {
+                    val bA = ObjectAnimator.ofFloat(binding.backShadow, View.ALPHA, 0f)
+                    from?.view?.let { view ->
+                        bA.addUpdateListener {
+                            binding.backShadow.x = view.x - binding.backShadow.width
+                            if (boundRouter.backstackSize == 1) {
+                                to?.view?.let { toView -> nav.x = toView.x }
+                            }
                         }
                     }
+                    bA.doOnEnd {
+                        binding.backShadow.alpha = 0.25f
+                        binding.backShadow.isVisible = false
+                        nav.x = 0f
+                    }
+                    bA.duration = 150
+                    bA.interpolator = DecelerateInterpolator(backVelocity.takeIf { it != 0f } ?: 1f)
+                    bA.start()
                 }
-                bA.doOnEnd {
-                    binding.backShadow.alpha = 0.25f
-                    binding.backShadow.isVisible = false
-                    nav.x = 0f
+                if (!isPush || boundRouter.backstackSize == 1) {
+                    nav.translationY = 0f
                 }
-                bA.duration = 150
-                bA.interpolator = DecelerateInterpolator(backVelocity.takeIf { it != 0f } ?: 1f)
-                bA.start()
+                snackBar?.dismiss()
+                Trace.endSection()
             }
-            if (!isPush || router.backstackSize == 1) {
-                nav.translationY = 0f
-            }
-            snackBar?.dismiss()
-            Trace.endSection()
-        }
 
-        override fun onChangeCompleted(
-            to: Controller?,
-            from: Controller?,
-            isPush: Boolean,
-            container: ViewGroup,
-            handler: ControllerChangeHandler,
-        ) {
-            to?.view?.x = 0f
-            nav.translationY = 0f
-            backVelocity = 0f
-            showDLQueueTutorial()
-            if (!(from is DialogController || to is DialogController) && from != null) {
-                from.view?.alpha = 0f
-            }
-            if (router.backstackSize == 1) {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && !isPush) {
-                    window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
+            override fun onChangeCompleted(
+                to: Controller?,
+                from: Controller?,
+                isPush: Boolean,
+                container: ViewGroup,
+                handler: ControllerChangeHandler,
+            ) {
+                // Per-controller view tweaks — scoped to the controllers' own views,
+                // safe across tabs. (The from-alpha=0 is the Tachiyomi legacy hack that
+                // hides the outgoing controller behind the incoming one once the change
+                // animation has settled; it gets restored to 1 when the controller is
+                // the `to` of a subsequent change.)
+                to?.view?.x = 0f
+                if (!(from is DialogController || to is DialogController) && from != null) {
+                    from.view?.alpha = 0f
                 }
-            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                @Suppress("DEPRECATION")
-                window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                if (!isVisibleChange(boundRouter)) return
+                nav.translationY = 0f
+                backVelocity = 0f
+                showDLQueueTutorial()
+                if (boundRouter.backstackSize == 1) {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && !isPush) {
+                        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
+                    }
+                } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                    @Suppress("DEPRECATION")
+                    window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                }
             }
         }
-    }
 
     /**
      * True when this Activity should install [RootTabsController] as the persistent root.

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Layout aliases used to give items a distinct viewType while reusing the same view tree.
+
+        FlexibleAdapter treats getLayoutRes() as the RecyclerView viewType. When two item
+        types share a viewType but produce different ViewHolder classes (e.g. ExtensionItem
+        and NovelPluginItem both rendering extension_card_item), a shared RecycledViewPool
+        will hand a holder from one adapter to the other and the bindViewHolder cast crashes.
+
+        Aliases give each item a distinct R.layout.* integer (so the pool partitions
+        correctly) while inflating the same underlying XML at runtime.
+    -->
+    <item name="novel_plugin_card_item" type="layout">@layout/extension_card_item</item>
+    <item name="novel_plugin_card_header" type="layout">@layout/extension_card_header</item>
+</resources>

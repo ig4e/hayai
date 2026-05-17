@@ -482,7 +482,12 @@ class BrowseController :
                 appBarVisible = !showingExtensions,
             )
             activity.setStatusBarColorTransparent(showingExtensions)
-            updateSheetMenu()
+            // Skip the sheet menu rebuild before the deferred init wires the ViewPager
+            // tabs — pre-init `tabs.selectedTabPosition` returns -1 (no selection) and
+            // updateSheetMenu would inflate the wrong menu (migration_main instead of
+            // extension_main). initBottomSheet's setSheetToolbar call covers the first
+            // correct inflate; subsequent calls (sheet slide / tab swap) re-run it.
+            if (bottomSheetReady) updateSheetMenu()
         }
     }
 
@@ -574,15 +579,22 @@ class BrowseController :
 
     override fun showSheet() {
         if (!isBindingInitialized) return
+        // User tapped the pill / triggered an external sheet-open before the deferred
+        // init ran. Force the wiring through synchronously so the open actually does
+        // something — postDelayed callback later becomes a no-op via bottomSheetReady.
+        if (!bottomSheetReady) initBottomSheet()
         binding.bottomSheet.root.sheetBehavior?.expand()
     }
 
     override fun hideSheet() {
         if (!isBindingInitialized) return
+        if (!bottomSheetReady) initBottomSheet()
         binding.bottomSheet.root.sheetBehavior?.collapse()
     }
 
     override fun toggleSheet() {
+        if (!isBindingInitialized) return
+        if (!bottomSheetReady) initBottomSheet()
         if (!binding.bottomSheet.root.sheetBehavior.isCollapsed()) {
             binding.bottomSheet.root.sheetBehavior?.collapse()
         } else {
@@ -627,7 +639,12 @@ class BrowseController :
 
     override fun onDestroyView(view: View) {
         adapter = null
-        binding.bottomSheet.root.onDestroy()
+        // onDestroy is a no-op on the bottom sheet if onCreate never ran (presenter
+        // wasn't attached), but we still call it for the normal post-init path.
+        if (bottomSheetReady) {
+            binding.bottomSheet.root.onDestroy()
+        }
+        bottomSheetReady = false
         super.onDestroyView(view)
     }
 
@@ -742,6 +759,12 @@ class BrowseController :
         // were 15–40ms each to inflate). Running on the post-fade idle frame keeps the swap
         // itself smooth.
         if (!type.isPush) {
+            // POP_ENTER (returning from a pushed controller) — user is back to interact
+            // with Browse, so force the deferred sheet wiring through now if it never
+            // got a chance to run (e.g. user pushed within the 280ms defer window).
+            // Without this, the refresh calls below would no-op because the sheet's
+            // presenter has no `view` attached yet.
+            if (!bottomSheetReady) initBottomSheet()
             android.os.Trace.beginSection("Hayai/Browse.refreshExtensions")
             binding.bottomSheet.root.updateExtTitle()
             binding.bottomSheet.root.presenter.refreshExtensions()
@@ -759,16 +782,19 @@ class BrowseController :
             }
         }
         if (type.isEnter) {
-            binding.bottomSheet.root.canExpand = true
+            // canExpand is the sheet's "user may drag" gate; the bottom-sheet init
+            // flips it on at the end of initBottomSheet, but for POP_ENTER on an
+            // already-initialised sheet we still need to reset it here.
+            if (bottomSheetReady) binding.bottomSheet.root.canExpand = true
             setBottomPadding()
             // Defer the migration refresh + menu update past the cross-fade settle
-            // (TAB_SWAP_DURATION_MS in RootTabsController = 250ms). These don't need to
-            // land in the first frame the user sees — refreshMigrations triggers DB I/O
-            // and a downstream updateDataSet, and updateTitleAndMenu rebuilds the toolbar
-            // menu, both of which can pile up with the layout inflation cost on first
-            // Browse entry. Posting them keeps the visible frames smooth.
+            // (TAB_SWAP_DURATION_MS in RootTabsController = 250ms). The postDelayed
+            // is FIFO with [initBottomSheet]'s — both run on the view's main-looper
+            // handler — and initBottomSheet was enqueued first from onViewCreated, so
+            // by the time this fires the sheet is ready.
             view?.postDelayed(POST_ENTRY_DEFER_MS) {
                 if (!isBindingInitialized) return@postDelayed
+                if (!bottomSheetReady) return@postDelayed
                 android.os.Trace.beginSection("Hayai/Browse.refreshMigrations")
                 binding.bottomSheet.root.presenter.refreshMigrations()
                 android.os.Trace.endSection()
@@ -786,6 +812,10 @@ class BrowseController :
     override fun onActivityResumed(activity: Activity) {
         super.onActivityResumed(activity)
         if (!isBindingInitialized) return
+        // Activity resume from background is a good time to interact with the sheet —
+        // if the user backgrounded during the deferred-init window, init now so the
+        // refresh below isn't lost to a null sheet presenter view.
+        if (!bottomSheetReady) initBottomSheet()
         binding.bottomSheet.root.presenter.refreshExtensions()
         binding.bottomSheet.root.presenter.refreshMigrations()
         setBottomPadding()

@@ -110,6 +110,11 @@ class MangaHeaderHolder(
     private var canCollapse = true
     private val accentColorState = mutableStateOf<Int?>(null)
     private val descriptionExpandedState = mutableStateOf(false)
+    // Cache the (description, genre) the post-layout lineCount probe last ran against.
+    // bind() is invoked on every notifyDataSetChanged; without a cache the probe re-runs
+    // after layout each time, costing an extra layout pass per bind even when the text
+    // hasn't changed. Same pattern as RecentMangaHolder's holder-level cache.
+    private var lastBoundDescSignature: Int = 0
 
     init {
 
@@ -198,7 +203,8 @@ class MangaHeaderHolder(
                 true
             }
             mangaSummary.customSelectionActionModeCallback = adapter.delegate.customActionMode(mangaSummary)
-            applyBlur()
+            // applyBlur() is deferred to updateCover.onSuccess — the backdrop ImageView has no
+            // bitmap at init, so calling it here only set alpha/renderEffect on an empty view.
             mangaCover.setOnClickListener { adapter.delegate.zoomImageFromThumb(coverCard) }
             trackButton.setOnClickListener { adapter.delegate.showTrackingSheet() }
             if (startExpanded) {
@@ -355,22 +361,31 @@ class MangaHeaderHolder(
         }
         setDescription()
 
-        binding.mangaSummary.post {
-            if (binding.subItemGroup.isVisible) {
-                if (binding.mangaSummary.lineCount < 3 && manga.genre.isNullOrBlank() &&
-                    binding.moreButton.isVisible && manga.initialized
-                ) {
-                    expandDesc()
-                    binding.lessButton.isVisible = false
-                    showMoreButton = binding.lessButton.isVisible
-                    canCollapse = false
+        // Only re-run the post-layout lineCount probe when the description or genres actually
+        // changed; expand/collapse based on adapter filter state is cheap and must run every
+        // bind, so it stays outside the cache gate.
+        val descSignature = (manga.description ?: "").hashCode() xor
+            (manga.genre ?: "").hashCode() xor
+            (if (manga.initialized) 1 else 0)
+        if (descSignature != lastBoundDescSignature) {
+            lastBoundDescSignature = descSignature
+            binding.mangaSummary.post {
+                if (binding.subItemGroup.isVisible) {
+                    if (binding.mangaSummary.lineCount < 3 && manga.genre.isNullOrBlank() &&
+                        binding.moreButton.isVisible && manga.initialized
+                    ) {
+                        expandDesc()
+                        binding.lessButton.isVisible = false
+                        showMoreButton = binding.lessButton.isVisible
+                        canCollapse = false
+                    }
                 }
             }
-            if (adapter.hasFilter()) {
-                collapse()
-            } else {
-                expand()
-            }
+        }
+        if (adapter.hasFilter()) {
+            collapse()
+        } else {
+            expand()
         }
         binding.mangaSummaryLabel.text = itemView.context.getString(
             MR.strings.about_this_,

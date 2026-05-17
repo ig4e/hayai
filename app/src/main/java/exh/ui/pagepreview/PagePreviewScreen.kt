@@ -8,13 +8,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import coil3.ImageLoader
-import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import exh.ui.pagepreview.components.PagePreviewContent
 import yokai.util.Screen
+import yokai.util.coil.appImageLoader
+import yokai.util.coil.loaderForSource
 
 class PagePreviewScreen(private val mangaId: Long) : Screen() {
 
@@ -25,22 +26,15 @@ class PagePreviewScreen(private val mangaId: Long) : Screen() {
         val state by screenModel.state.collectAsState()
         val onBackPress = LocalBackPress.currentOrThrow
 
-        // Key only on the source instance so the loader (and its memory cache) survives
-        // state updates from loadMore — otherwise every appended page rebuilds the loader
-        // and already-rendered thumbnails flicker as their cache is dropped.
+        // Key only on the source instance so the loader survives state updates from
+        // loadMore — otherwise every appended page rebuilds the loader and already-
+        // rendered thumbnails flicker. The source-routed loader inherits memory cache,
+        // disk cache, decoders, and dispatcher pools from the app singleton, so an
+        // earlier preview that loaded via the singleton stays warm here.
         val source = (state as? PagePreviewState.Success)?.source
-        val imageLoader = remember(context, source) {
+        val imageLoader: ImageLoader = remember(context, source) {
             val sourceClient = (source as? HttpSource)?.client
-            if (sourceClient != null) {
-                val clientLazy = lazy { sourceClient }
-                ImageLoader.Builder(context)
-                    .components {
-                        add(OkHttpNetworkFetcherFactory(clientLazy::value))
-                    }
-                    .build()
-            } else {
-                null
-            }
+            if (sourceClient != null) loaderForSource(context, sourceClient) else appImageLoader(context)
         }
 
         PagePreviewContent(

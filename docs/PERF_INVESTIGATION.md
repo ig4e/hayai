@@ -364,6 +364,151 @@ without a dedicated fix.
   (`tabAnimation`, `searchBarAnimation`, `toolbarColorAnim`) into a single
   `AnimatorSet` would also help, deferred.
 
+## MangaDetails page — polish + color fit + perf
+
+User asked to polish the manga details surface itself (separate from the push
+into it, which is the section above): "spacing and the description there's a
+gap between the rating, the previews in eh looks a bit bad and cramped … make
+the color detection a bit better and more fitting. make the layout overall more
+consistent and stable." Scope: surgical changes only, no header rewrite — the
+push critical path was just stabilized and a header-Compose rewrite would touch
+it. Skipped baselining (gfxinfo/perfetto) because the changes are surface-level
+and the perf-sensitive paths (push, scroll) weren't reported regressed.
+
+### 1. `Palette.getBestColor` — too eager to pick dominant
+
+`LibraryMangaImageTarget.getBestColor()` picked `dominantSwatch.rgb` whenever
+its saturation was ≥ 0.25 and luminance in (0.2, 0.8). On many covers the
+dominant swatch is a faintly-tinted background plate (sky, paper, large flat
+shading) that meets those bounds while the cover's actual accent lives in
+`vibrantSwatch`. Result: washed-out accents on the manga page.
+
+**Fix:** `app/src/main/java/eu/kanade/tachiyomi/data/coil/LibraryMangaImageTarget.kt`
+— raised dominant saturation threshold 0.25 → 0.35 and added a population
+guard requiring `dominantPop > vibPop * 2.5` before preferring dominant.
+Otherwise vibrant wins. Final `?: dominantSwatch?.rgb` fallback preserves
+behavior for flat covers where only dominant exists. Shared with
+`MangaCoverMetadata.kt:88`, so library tints get the same improvement.
+
+Cached colors in `vibrantCoverColorMap` / `coverColorMap` are untouched —
+existing library covers keep their previous picks until refreshed; new covers
+go through the new logic. Non-regression for users with established libraries.
+
+### 2. Soften accent blend in `setAccentColorValue`
+
+`MangaDetailsController.setAccentColorValue` blended the accent toward
+`colorOnDownloadBadgeDayNight` (a contrast text color) with factor
+`luminance * 0.5` light / `-(luminance - 1) * 0.33` dark. The blend ran even
+when the accent was already legible, washing out covers that didn't need
+correction.
+
+**Fix:** `MangaDetailsController.kt:317-326` — factors softened to
+`luminance * 0.35` / `-(luminance - 1) * 0.22`. The same luminance gates
+(`> 0.4` light / `≤ 0.6` dark) still trigger correction so out-of-theme
+accents still get pulled into range, just less aggressively.
+
+### 3. `EHentaiDescription` rating row + spacing
+
+The EH metadata block had a Row with the genre chip on the left and a
+two-line Column on the right (stars over `"%.2f"`). The right column made
+Row 1 taller than the chip and produced visible vertical slack against the
+uploader row below it. Outer padding was asymmetric
+(`start=16, end=4, top=8, bottom=4`) while the rest of the header uses
+`marginEnd=16dp`, so the right edge "ran out" before the rest of the page did.
+Internal `spacedBy(4.dp)` was tighter than the header's 8/12 rhythm.
+
+**Fix:** `app/src/main/java/exh/ui/metadata/adapters/EHentaiDescription.kt`
+— stars + numeric rating inline on one line; outer padding `horizontal=16,
+vertical=8`; vertical `spacedBy(8.dp)`. Rating is hidden when `≤ 0` instead
+of showing five empty stars. FlowRow stat-row vertical spacing `2 → 4dp` so
+wrapping stats line up cleanly.
+
+### 4. `manga_header_item.xml` rhythm
+
+Header XML mixed 6/8/12/14/16dp margins between blocks. Normalized to the
+8/12/16 scale:
+
+- `button_layout marginTop`: 14 → 12
+- `manga_summary_label marginTop`: 6 → 8
+
+Net header height unchanged (one block tightened by 2dp, the next loosened
+by 2dp). Closes the user-reported "gap between rating and description" by
+making the metadata→description-label transition match the 8dp rhythm of
+the rest of the header.
+
+### 5. EH page-preview strip polish + stability
+
+`PagePreviewInlineSection` had three issues:
+
+- LazyRow had `Modifier.padding(start=16.dp)` instead of `contentPadding` —
+  no end padding, so the last card kissed the right edge with no fade-out
+  affordance.
+- "View all" CTA was a centered `Text` in a full-width `Box` *below* the
+  strip, adding ~32dp to the section height when previews resolved but not
+  during Loading. The Loading→Success transition therefore jumped from
+  154dp to 186dp.
+- Page-index label below each thumb was the default surface-text colour
+  on the surface background — low contrast and visually disconnected from
+  the thumb.
+- No `key` on `items()`, so reorder/recompose churned all cells.
+
+**Fix:** `app/src/main/java/exh/ui/pagepreview/components/PagePreviewInlineSection.kt`
+— rewrote the section:
+
+- Single `LazyRow` for both Loading and Success states with shared
+  `contentPadding = horizontal=16dp` and `clipToPadding = false`.
+- `THUMB_HEIGHT/WIDTH` 150/105 → 152/108 (corners now `shapes.medium`).
+- Page number rendered as white text over a bottom-aligned 28dp vertical
+  gradient scrim on the thumb itself (`Color.Transparent → Color.Black @ 0.55`),
+  so it's readable regardless of cover content.
+- "View all" moved to a trailing tail card in the LazyRow, same dimensions
+  as the previews — keeps `ContentScale.FillWidth` for the thumbs (was kept
+  intentionally, `Crop` would trim character heads at the top of pages).
+- `items(s.previews, key = { it.imageUrl })` for stable recomposition.
+
+Stability win: section height is now `152dp` in both Loading and Success,
+`0dp` in Unavailable (still gated by the source-check from §"Library →
+MangaDetails push #4"). No 32dp jump between Loading and Success means
+chapter rows below no longer shift when previews arrive.
+
+### 6. `MangaHeaderHolder` micro-perf
+
+Two cleanups in `app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaHeaderHolder.kt`:
+
+- `applyBlur()` was called both in `init` (when the backdrop ImageView has
+  no bitmap yet) and in `updateCover.onSuccess` (when the bitmap lands).
+  The init call sets `alpha=0.2f` + `RenderEffect.createBlurEffect()` on an
+  empty view — no visible effect, just wasted allocations on every header
+  view holder construction. Dropped the init call; the XML's default
+  `android:alpha="0.1"` is what shows until the cover loads, which is the
+  same visual state as before.
+- `mangaSummary.post { … }` ran a post-layout `lineCount` probe after every
+  `bind()` to decide whether to auto-expand short descriptions. `bind()` is
+  called on every `notifyDataSetChanged`, so this fired repeatedly even when
+  the description hadn't changed. Cached `(description, genre, initialized)`
+  hash in `lastBoundDescSignature`; the post-layout probe only re-runs when
+  the signature changes. The synchronous `expand()/collapse()` based on
+  `adapter.hasFilter()` moved out of the post — they only toggle visibility
+  flags and don't need a layout pass.
+
+### Known residuals (left for follow-up)
+
+- **Unified header ComposeView** — the four ComposeViews
+  (`buttonGroupCompose`, `metadataCompose`, `mangaGenresTags`,
+  `pagePreviewCompose`) still pay 4× Compose runtime entry + `YokaiTheme`
+  composition. Coalescing into a single `ComposeView` hosting one
+  `YokaiTheme { Column { … } }` would cut slot-table allocations and give
+  a cohesive Compose subtree. Deferred because the push critical path was
+  just stabilized and the unified header touches the same surface.
+- **`setGenreTags` re-`setContent` on color change** — `updateColors(true)`
+  re-runs `setContent` on `mangaGenresTags` to flow the new accent into the
+  chip container colour. Should pipe the accent through `mutableStateOf`
+  state instead; coupled with the unified-ComposeView follow-up.
+- **No re-baseline** — user picked B/C/D/E and skipped the gfxinfo/perfetto
+  pass. Surface didn't have a captured baseline before this work, so the
+  perf wins are estimated from the source rather than measured. Open if a
+  regression report comes in.
+
 ## Sources bottom-sheet tab swap — chain of fixes
 
 User report: swapping between the Extensions / Novel / Migration tabs inside

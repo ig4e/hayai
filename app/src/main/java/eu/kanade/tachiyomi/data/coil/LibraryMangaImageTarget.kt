@@ -65,6 +65,9 @@ fun Palette.getBestColor(): Int? {
             (muted?.hsl?.get(1) ?: 0f) > mutedSaturationLimit -> muted?.rgb
         else -> arrayListOf(vibrant, lightVibrantSwatch, darkVibrantSwatch).maxByOrNull {
             if (it === vibrant) (it?.population ?: -1) * 3 else it?.population ?: -1
-        }?.rgb
+        }?.rgb ?: dominant?.rgb
+        // Final fallback: when dominant is the only swatch present (flat covers), the
+        // previous algorithm always returned it; without this we'd return null and the
+        // caller would fall back to colorPrimaryVariant.
     }
 }

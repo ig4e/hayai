@@ -9,7 +9,10 @@ import eu.kanade.tachiyomi.R
 
 /**
  * Header item for grouping novel plugins (by language, installed/available).
- * Reuses the extension_card_header layout.
+ *
+ * Inflates the same XML as ExtensionGroupItem via the `novel_plugin_card_header` alias so
+ * FlexibleAdapter/RecyclerView see a distinct viewType — same invariant as
+ * [NovelPluginItem]: distinct holder type must mean distinct viewType when pools are shared.
  */
 data class NovelPluginGroupItem(
     val name: String,
@@ -18,7 +21,7 @@ data class NovelPluginGroupItem(
     var installedSorting: Int? = null,
 ) : AbstractHeaderItem<NovelPluginGroupHolder>() {
 
-    override fun getLayoutRes(): Int = R.layout.extension_card_header
+    override fun getLayoutRes(): Int = R.layout.novel_plugin_card_header
 
     override fun createViewHolder(
         view: View,

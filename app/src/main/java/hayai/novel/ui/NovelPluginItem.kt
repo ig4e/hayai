@@ -11,7 +11,11 @@ import hayai.novel.plugin.model.NovelPluginIndex
 
 /**
  * Item representing a novel plugin in the browse bottom sheet.
- * Reuses extension_card_item layout.
+ *
+ * Inflates the same XML as the manga ExtensionItem (extension_card_item) but via the
+ * `novel_plugin_card_item` alias so FlexibleAdapter/RecyclerView see a distinct viewType —
+ * required because a shared RecycledViewPool is keyed by viewType and would otherwise hand
+ * an ExtensionHolder to this adapter and crash on the bindViewHolder cast.
  */
 data class NovelPluginItem(
     val plugin: NovelPluginIndex,
@@ -28,7 +32,7 @@ data class NovelPluginItem(
             installedVersion != null &&
             NovelPluginManager.isVersionNewer(plugin.version, installedVersion)
 
-    override fun getLayoutRes(): Int = R.layout.extension_card_item
+    override fun getLayoutRes(): Int = R.layout.novel_plugin_card_item
 
     override fun createViewHolder(
         view: View,

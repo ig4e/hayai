@@ -157,11 +157,14 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
         novelPluginAdapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         // NOVEL <--
         sheetBehavior = BottomSheetBehavior.from(this)
-        // Create recycler and set adapter.
+        // Assign controller BEFORE wiring the ViewPager. setAdapter() synchronously calls
+        // populate() -> instantiateItem() -> TabbedSheetAdapter.createView(), which reads
+        // this.controller — leaving it for after the adapter assignment crashed with
+        // UninitializedPropertyAccessException.
+        this.controller = controller
 
         binding.pager.adapter = TabbedSheetAdapter()
         binding.tabs.setupWithViewPager(binding.pager)
-        this.controller = controller
         binding.pager.doOnApplyWindowInsetsCompat { _, insets, _ ->
             val bottomBar = controller.activityBinding?.bottomNav
             val bottomH = bottomBar?.height ?: insets.getInsets(systemBars()).bottom

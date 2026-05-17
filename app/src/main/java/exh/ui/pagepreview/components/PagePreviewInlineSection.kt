@@ -1,16 +1,21 @@
 package exh.ui.pagepreview.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,6 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -55,8 +62,9 @@ private sealed class PreviewState {
     ) : PreviewState()
 }
 
-private val THUMB_HEIGHT = 150.dp
-private val THUMB_WIDTH = 105.dp
+private val THUMB_HEIGHT = 152.dp
+private val THUMB_WIDTH = 108.dp
+private val ROW_CONTENT_PADDING = PaddingValues(horizontal = 16.dp)
 
 @Composable
 fun PagePreviewInlineSection(
@@ -101,12 +109,12 @@ fun PagePreviewInlineSection(
 
     when (val s = state) {
         PreviewState.Loading -> {
-            // Skeleton loading cards
+            // Skeleton row that visually matches the Success layout so there's no shift
+            // when previews resolve.
             val alpha by rememberShimmerAlpha()
             LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = ROW_CONTENT_PADDING,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(5) {
@@ -114,7 +122,7 @@ fun PagePreviewInlineSection(
                         modifier = Modifier
                             .height(THUMB_HEIGHT)
                             .width(THUMB_WIDTH),
-                        shape = MaterialTheme.shapes.small,
+                        shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
                     ) {}
                 }
@@ -131,69 +139,112 @@ fun PagePreviewInlineSection(
                     }
                     .build()
             }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 4.dp),
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = ROW_CONTENT_PADDING,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(s.previews) { preview ->
-                        var isLoading by remember(preview.imageUrl) { mutableStateOf(true) }
-                        Column(
-                            modifier = Modifier
-                                .clip(MaterialTheme.shapes.small)
-                                .clickable { onOpenReaderAtPage(preview.index - 1) },
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .height(THUMB_HEIGHT)
-                                    .width(THUMB_WIDTH)
-                                    .clip(MaterialTheme.shapes.small),
-                            ) {
-                                AsyncImage(
-                                    model = preview.imageUrl,
-                                    contentDescription = "Page ${preview.index}",
-                                    imageLoader = imageLoader,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.FillWidth,
-                                    onState = { state ->
-                                        isLoading = state is AsyncImagePainter.State.Loading
-                                    },
-                                )
-                                if (isLoading) {
-                                    val alpha by rememberShimmerAlpha(label = "previewShimmer")
-                                    Surface(
-                                        modifier = Modifier.fillMaxSize(),
-                                        shape = MaterialTheme.shapes.small,
-                                        color = MaterialTheme.colorScheme.surfaceVariant
-                                            .copy(alpha = alpha),
-                                    ) {}
-                                }
-                            }
-                            Text(
-                                text = preview.index.toString(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenPagePreview() }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = stringResource(MR.strings.view_all),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                items(s.previews, key = { it.imageUrl }) { preview ->
+                    PreviewThumb(
+                        preview = preview,
+                        imageLoader = imageLoader,
+                        onClick = { onOpenReaderAtPage(preview.index - 1) },
                     )
                 }
+                item(key = "view_all_tail") {
+                    ViewAllTail(onClick = onOpenPagePreview)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewThumb(
+    preview: PagePreviewInfo,
+    imageLoader: ImageLoader,
+    onClick: () -> Unit,
+) {
+    var isLoading by remember(preview.imageUrl) { mutableStateOf(true) }
+    Box(
+        modifier = Modifier
+            .height(THUMB_HEIGHT)
+            .width(THUMB_WIDTH)
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick),
+    ) {
+        AsyncImage(
+            model = preview.imageUrl,
+            contentDescription = "Page ${preview.index}",
+            imageLoader = imageLoader,
+            modifier = Modifier.fillMaxSize(),
+            // Keep FillWidth (was the previous behavior) so the full page content shows
+            // — Crop would trim the top/bottom of the page, hiding character heads etc.
+            contentScale = ContentScale.FillWidth,
+            onState = { state ->
+                isLoading = state is AsyncImagePainter.State.Loading
+            },
+        )
+        if (isLoading) {
+            val alpha by rememberShimmerAlpha(label = "previewShimmer")
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
+            ) {}
+        }
+        // Bottom scrim + page number, readable over any cover content.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
+                    ),
+                ),
+        )
+        Text(
+            text = preview.index.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 8.dp, bottom = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun ViewAllTail(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .height(THUMB_HEIGHT)
+            .width(THUMB_WIDTH)
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Text(
+                    text = stringResource(MR.strings.view_all),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         }
     }

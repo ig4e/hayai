@@ -28,6 +28,12 @@ class RecyclerWithScrollerView @JvmOverloads constructor(context: Context, attrs
         binding.recycler.setRecycledViewPool(sheet.sharedExtensionPool)
         sheet.sharedExtensionPool.setMaxRecycledViews(R.layout.extension_card_item, 30)
         sheet.sharedExtensionPool.setMaxRecycledViews(R.layout.extension_card_header, 8)
+        // novel_plugin_card_* are layout aliases of the extension_card_* layouts;
+        // FlexibleAdapter uses them as distinct viewTypes so the shared pool partitions
+        // ExtensionHolder vs NovelPluginHolder (and their group headers) correctly.
+        // Mirror the caps so novel cards get the same reuse behavior.
+        sheet.sharedExtensionPool.setMaxRecycledViews(R.layout.novel_plugin_card_item, 30)
+        sheet.sharedExtensionPool.setMaxRecycledViews(R.layout.novel_plugin_card_header, 8)
         // Kill the item animator. Each tab swap (Manga/Extensions <-> Novel sources) ends
         // with an updateDataSet → notifyDataSetChanged on the destination recycler that, with
         // DefaultItemAnimator attached, runs add/change fades on every visible row — visible
