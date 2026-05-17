@@ -120,6 +120,12 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
 
     var isExpanding = false
 
+    // Shared across all 3 inner tab recyclers (Extensions, Novel, Migration) AND across
+    // BrowseController lifetimes so holders survive every nav swap. Without this, returning
+    // to Browse re-inflates ~12 extension cards (~150ms/frame) on each entry.
+    val sharedExtensionPool: RecyclerView.RecycledViewPool
+        get() = persistentExtensionPool
+
     override fun onFinishInflate() {
         super.onFinishInflate()
         binding = ExtensionsBottomSheetBinding.bind(this)
@@ -129,6 +135,10 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
         // Defer non-essential tab-swap work (menu rebuild, migration adapter swap) past the
         // typical 300ms ViewPager settle so it lands after the swipe is visually complete.
         private const val SWAP_DEFER_MS = 350L
+
+        // Process-static so holders are reused on every Browse re-entry; Views inside survive
+        // BrowseController + ExtensionBottomSheet destruction.
+        private val persistentExtensionPool = RecyclerView.RecycledViewPool()
     }
 
     fun onCreate(controller: BrowseController) {

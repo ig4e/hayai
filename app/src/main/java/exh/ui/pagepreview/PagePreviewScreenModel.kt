@@ -49,7 +49,15 @@ class PagePreviewScreenModel(
             }
             this@PagePreviewScreenModel.manga = manga
             val chapters = getChapter.awaitAll(mangaId, filterScanlators = false)
-            val chapter = chapters.minByOrNull { it.source_order }
+            // Prefer the chapter that shares manga.url's gallery so tapping a preview
+            // opens the SAME gallery whose thumbnails we render. For EH multi-version
+            // galleries that means we open the version the user added rather than the
+            // newest revision. Match by EH gallery id (path segment `/g/{gid}/…`); for
+            // non-EH manga this returns null and falls back to the previous behaviour.
+            val mangaGalleryId = extractEhGalleryId(manga.url)
+            val chapter = mangaGalleryId
+                ?.let { gid -> chapters.firstOrNull { extractEhGalleryId(it.url) == gid } }
+                ?: chapters.minByOrNull { it.source_order }
             if (chapter == null) {
                 mutableState.update { PagePreviewState.Error(Exception("No chapters found")) }
                 return@launch
@@ -90,12 +98,14 @@ class PagePreviewScreenModel(
                         hasNextPage = previewPage.hasNextPage,
                         isLoadingMore = false,
                         estimatedTotalPages = estimatedTotal ?: currentState.estimatedTotalPages,
+                        batchSize = batchSize ?: currentState.batchSize,
                     )
                     currentState is PagePreviewState.Success -> currentState.copy(
                         pagePreviews = previewPage.pagePreviews,
                         hasNextPage = previewPage.hasNextPage,
                         isLoadingMore = false,
                         estimatedTotalPages = estimatedTotal ?: currentState.estimatedTotalPages,
+                        batchSize = batchSize ?: currentState.batchSize,
                     )
                     else -> PagePreviewState.Success(
                         pagePreviews = previewPage.pagePreviews,
@@ -105,6 +115,7 @@ class PagePreviewScreenModel(
                         chapter = chapter!!,
                         source = source!!,
                         estimatedTotalPages = estimatedTotal,
+                        batchSize = batchSize,
                     )
                 }
             }
@@ -151,6 +162,11 @@ class PagePreviewScreenModel(
     }
 }
 
+private val EH_GALLERY_ID_REGEX = Regex("""/g/(\d+)/""")
+
+private fun extractEhGalleryId(url: String): String? =
+    EH_GALLERY_ID_REGEX.find(url)?.groupValues?.getOrNull(1)
+
 sealed class PagePreviewState {
     data object Loading : PagePreviewState()
 
@@ -162,6 +178,7 @@ sealed class PagePreviewState {
         val chapter: Chapter,
         val source: Source,
         val estimatedTotalPages: Int? = null,
+        val batchSize: Int? = null,
     ) : PagePreviewState()
 
     data class Error(val error: Throwable) : PagePreviewState()

@@ -8,6 +8,7 @@ import androidx.core.view.updatePaddingRelative
 import androidx.recyclerview.widget.RecyclerView
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.databinding.RecyclerWithScrollerBinding
 import eu.kanade.tachiyomi.widget.EmptyView
 
@@ -19,6 +20,14 @@ class RecyclerWithScrollerView @JvmOverloads constructor(context: Context, attrs
         binding.recycler.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
         binding.recycler.setHasFixedSize(true)
         binding.recycler.setItemViewCacheSize(8)
+        // Bump the recycled view pool size for the layouts used by ExtensionAdapter,
+        // SourceAdapter, NovelPluginAdapter. Default per-type cap is 5; with ~13 visible
+        // rows the bottom sheet was re-inflating 8+ rows every time the user returned to
+        // Browse (each ~15–30ms), the dominant cause of 200–600ms first-attach frames.
+        // Share a single pool across all 3 tabs so swaps between them also benefit.
+        binding.recycler.setRecycledViewPool(sheet.sharedExtensionPool)
+        sheet.sharedExtensionPool.setMaxRecycledViews(R.layout.extension_card_item, 30)
+        sheet.sharedExtensionPool.setMaxRecycledViews(R.layout.extension_card_header, 8)
         // Kill the item animator. Each tab swap (Manga/Extensions <-> Novel sources) ends
         // with an updateDataSet → notifyDataSetChanged on the destination recycler that, with
         // DefaultItemAnimator attached, runs add/change fades on every visible row — visible

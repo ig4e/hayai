@@ -952,6 +952,14 @@ open class LibraryController(
         adapter.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         setRecyclerLayout()
         binding.libraryGridRecycler.recycler.setHasFixedSize(true)
+        // Process-static pool so manga_grid_item holders are reused on every Library
+        // re-entry. Without it, root-nav back to Library re-inflates ~14 grid items
+        // each time (~18ms × 14 = 250ms/frame). Bumped per-type caps too — default 5
+        // is well under typical visible row counts.
+        binding.libraryGridRecycler.recycler.setRecycledViewPool(persistentLibraryPool)
+        persistentLibraryPool.setMaxRecycledViews(R.layout.manga_grid_item, 40)
+        persistentLibraryPool.setMaxRecycledViews(R.layout.manga_list_item, 40)
+        persistentLibraryPool.setMaxRecycledViews(R.layout.library_category_header_item, 8)
         binding.libraryGridRecycler.recycler.adapter = adapter
 
         adapter.fastScroller = binding.fastScroller
@@ -2702,5 +2710,11 @@ open class LibraryController(
                 destroyActionModeIfNeeded()
             }
         }
+    }
+
+    companion object {
+        // Shared across LibraryController lifetimes so manga_grid_item / header holders
+        // recycled on one entry are reused on the next. Survives controller destruction.
+        private val persistentLibraryPool = RecyclerView.RecycledViewPool()
     }
 }

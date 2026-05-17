@@ -753,7 +753,12 @@ class EHentai(
         chapters: List<SChapter>,
         page: Int,
     ): PagePreviewPage {
-        val galleryUrl = (baseUrl + (chapters.lastOrNull()?.url ?: manga.url))
+        // Use manga.url (the gallery the user actually added/reads), not
+        // chapters.lastOrNull() which after sortedByDescending(source_order) always
+        // resolves to the newest version (vN). For multi-version EH galleries the
+        // newest revision often has a different page count than the root, which made
+        // previews show a different gallery than the reader (Komikku/SY share the bug).
+        val galleryUrl = (baseUrl + manga.url)
             .toHttpUrl()
             .newBuilder()
             .removeAllQueryParameters("nw")

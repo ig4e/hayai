@@ -154,51 +154,6 @@ class ReaderViewModel(
         }
 
     /**
-     * Persisted active chapter id for infinite-scroll restore (Phase A #1). When the viewer
-     * pivots to a different on-screen chapter via `onChapterScrollUpdate` we record the
-     * visible chapter id + within-chapter scroll percent so a process restore can land on
-     * the right chapter, not the original-entry chapter.
-     */
-    var novelActiveChapterId: Long
-        get() = savedState.get<Long>("novel_active_chapter_id") ?: -1L
-        private set(value) { savedState["novel_active_chapter_id"] = value }
-
-    var novelActiveChapterProgress: Float
-        get() = savedState.get<Float>("novel_active_chapter_progress") ?: 0f
-        private set(value) { savedState["novel_active_chapter_progress"] = value }
-
-    fun setNovelActiveChapterState(chapterId: Long, progressPercent: Float) {
-        novelActiveChapterId = chapterId
-        novelActiveChapterProgress = progressPercent.coerceIn(0f, 1f)
-    }
-
-    /**
-     * If `viewerChapters.currChapter` drifted from the persisted active chapter, retarget
-     * state to the saved active chapter. Returns true if a retarget happened.
-     */
-    fun rebindToSavedActiveChapter(): Boolean {
-        if (!::chapterList.isInitialized) return false
-        val activeId = novelActiveChapterId
-        if (activeId <= 0L) return false
-        if (state.value.viewerChapters?.currChapter?.chapter?.id == activeId) return false
-        val pos = chapterList.indexOfFirst { it.chapter.id == activeId }
-        if (pos < 0) return false
-        val target = chapterList[pos]
-        val newChapters = ViewerChapters(
-            target,
-            chapterList.getOrNull(pos - 1),
-            chapterList.getOrNull(pos + 1),
-        )
-        mutableState.update { s ->
-            newChapters.ref()
-            s.viewerChapters?.unref()
-            s.copy(viewerChapters = newChapters)
-        }
-        chapterId = activeId
-        return true
-    }
-
-    /**
      * In-session per-chapter flag: set true when the *last* chapter in the list reaches
      * `NOVEL_LAST_CHAPTER_READ_THRESHOLD_PERCENT` while the user is actively scrolling.
      * Only the final chapter relies on this fallback — earlier chapters mark-read via
@@ -655,19 +610,32 @@ class ReaderViewModel(
     }
 
     /**
-     * Called when the visible chapter changes during infinite-scroll reading. Synchronously
-     * retargets [State.viewerChapters] to the new chapter so a later activity rebind renders
-     * the chapter the user is actually reading, not the entry chapter.
+     * Pushes the chapter the user is now looking at, so [State.viewerChapters] tracks the
+     * visible chapter rather than the entry chapter through infinite-scroll transitions.
+     *
+     * Invariant: `state.viewerChapters.currChapter` is the *single* source of truth for
+     * "what novel chapter is on screen right now". Every history write, progress save, and
+     * saved-state restore reads from it. Don't add parallel trackers (`novelActiveChapterId`,
+     * `currentChapterIndex`, etc.) — if they drift from this field, history will start
+     * writing to the wrong chapter and recents will show stale data, silently. That class
+     * of bug used to be the default; keep it impossible.
      */
-    fun setNovelVisibleChapter(chapter: eu.kanade.tachiyomi.data.database.models.Chapter?) {
-        chapter ?: return
+    fun setNovelVisibleChapter(readerChapter: ReaderChapter) {
         if (!::chapterList.isInitialized) return
-        val newChapterId = chapter.id ?: return
+        val newChapterId = readerChapter.chapter.id ?: return
         val newIndex = chapterList.indexOfFirst { it.chapter.id == newChapterId }
-        if (newIndex < 0) return
-        val readerChapter = chapterList[newIndex]
-        if (chapterId != newChapterId) {
-            val previousChapterId = chapterId
+        if (newIndex < 0) {
+            Logger.w {
+                "setNovelVisibleChapter: chapter $newChapterId not in chapterList " +
+                    "(size=${chapterList.size}); advancing without siblings rather than dropping."
+            }
+        }
+        if (chapterId == newChapterId) {
+            viewModelScope.launchIO { preload(readerChapter) }
+            return
+        }
+        val previousChapterId = chapterId
+        if (newIndex >= 0) {
             val oldIndex = chapterList.indexOfFirst { it.chapter.id == previousChapterId }
             if (oldIndex in 0 until newIndex) {
                 val leftBehind = chapterList[oldIndex]
@@ -680,24 +648,24 @@ class ReaderViewModel(
                     }
                 }
             }
-            sessionReachedThreshold.remove(previousChapterId)
-            chapterId = newChapterId
-
-            val newChapters = ViewerChapters(
-                readerChapter,
-                chapterList.getOrNull(newIndex - 1),
-                chapterList.getOrNull(newIndex + 1),
-            )
-            mutableState.update { state ->
-                newChapters.ref()
-                state.viewerChapters?.unref()
-                state.copy(viewerChapters = newChapters)
-            }
-            flushReadTimer()
-            restartReadTimer()
-
-            eventChannel.trySend(Event.NovelVisibleChapterChanged(readerChapter))
         }
+        sessionReachedThreshold.remove(previousChapterId)
+        chapterId = newChapterId
+
+        val newChapters = ViewerChapters(
+            readerChapter,
+            if (newIndex >= 0) chapterList.getOrNull(newIndex - 1) else null,
+            if (newIndex >= 0) chapterList.getOrNull(newIndex + 1) else null,
+        )
+        mutableState.update { state ->
+            newChapters.ref()
+            state.viewerChapters?.unref()
+            state.copy(viewerChapters = newChapters)
+        }
+        flushReadTimer(activeChapter = readerChapter)
+        restartReadTimer()
+
+        eventChannel.trySend(Event.NovelVisibleChapterChanged(readerChapter))
         viewModelScope.launchIO { preload(readerChapter) }
     }
 
@@ -990,11 +958,23 @@ class ReaderViewModel(
         chapterReadStartTime = Date().time
     }
 
-    fun flushReadTimer() {
-        getCurrentChapter()?.let {
-            viewModelScope.launchNonCancellableIO {
-                saveChapterHistory(it)
-            }
+    /**
+     * Writes a history row for the currently-visible chapter.
+     *
+     * For novels, callers can pass [activeChapter] explicitly when the writer knows the
+     * visible chapter (e.g. mid-transition) — this bypasses the `chapterId`-based
+     * resolution so we never write to a stale chapter while state propagates.
+     *
+     * For manga, [activeChapter] is null and we fall back to `getCurrentChapter()`, which
+     * resolves via `chapterId` kept in sync by `onPageSelected`.
+     */
+    fun flushReadTimer(activeChapter: ReaderChapter? = null) {
+        val chapter = activeChapter
+            ?: state.value.viewerChapters?.currChapter?.takeIf { source is TextSource }
+            ?: getCurrentChapter()
+            ?: return
+        viewModelScope.launchNonCancellableIO {
+            saveChapterHistory(chapter)
         }
     }
 

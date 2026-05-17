@@ -10,6 +10,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import androidx.asynclayoutinflater.view.AsyncLayoutInflater
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.children
@@ -81,6 +82,11 @@ class RecentMangaHolder(
         binding.removeHistory.setOnClickListener { adapter.delegate.onRemoveHistoryClicked(flexibleAdapterPosition) }
         binding.showMoreChapters.setOnClickListener { _ ->
             val moreVisible = !binding.moreChaptersLayout.isVisible
+            // Lazy inflate: if expanding and we haven't populated rows yet, do it now.
+            if (moreVisible) {
+                val pending = adapter.getItem(flexibleAdapterPosition) as? RecentMangaItem
+                if (pending != null) bindExtraChapters(pending)
+            }
             binding.moreChaptersLayout.isVisible = moreVisible
             adapter.delegate.updateExpandedExtraChapters(flexibleAdapterPosition, moreVisible)
             binding.showMoreChapters.setAnimVectorCompat(
@@ -271,41 +277,22 @@ class RecentMangaHolder(
                 R.drawable.ic_expand_more_24dp
             },
         )
-        val extraIds = binding.moreChaptersLayout.children.toList().shorterList().map {
-            it?.findViewById<DownloadButton>(R.id.download_button)?.tag
-        }.toList()
-        if (extraIds == item.mch.extraChapters.shorterList().map { it?.id }) {
-            var hasSameChapter = false
-            item.mch.extraChapters.shorterList().forEachIndexed { index, chapter ->
-                val binding =
-                    RecentSubChapterItemBinding.bind(binding.moreChaptersLayout.getChildAt(index))
-                binding.configureView(chapter, item)
-                if (isUpdates && !binding.subtitle.text.isNullOrBlank() && !hasSameChapter) {
-                    showScanlatorInBody(moreVisible, item)
-                    hasSameChapter = true
-                }
-            }
-            addMoreUpdatesText(!moreVisible, item)
+        // Sub-chapter rows are expensive (RecentSubChapterItemBinding.inflate is ~10ms;
+        // a row can have up to 10). Only do the work when the user has expanded the row
+        // — otherwise the inflate happens on demand from the showMoreChapters click.
+        // Drives the 138–191ms binds for recent_manga_item (0x7F0D03A1) we saw in perfetto.
+        if (moreVisible) {
+            bindExtraChapters(item)
         } else {
-            binding.moreChaptersLayout.removeAllViews()
-            var hasSameChapter = false
-            if (item.mch.extraChapters.isNotEmpty()) {
-                item.mch.extraChapters.shorterList().forEach { chapter ->
-                    val binding = RecentSubChapterItemBinding.inflate(
-                        LayoutInflater.from(context),
-                        binding.moreChaptersLayout,
-                        true,
-                    )
-                    binding.configureView(chapter, item)
-                    if (isUpdates && !binding.subtitle.text.isNullOrBlank() && !hasSameChapter) {
-                        showScanlatorInBody(moreVisible, item)
-                        hasSameChapter = true
-                    }
-                }
-                addMoreUpdatesText(!moreVisible, item)
-            } else {
+            // Hide any rows left over from a previous bind without inflating new ones.
+            for (i in 0 until binding.moreChaptersLayout.childCount) {
+                binding.moreChaptersLayout.getChildAt(i).isVisible = false
+            }
+            if (binding.moreChaptersLayout.childCount == 0) {
                 chapterId = null
             }
+            // Show "and N more" text in the body when rows are hidden but exist.
+            if (item.mch.extraChapters.isNotEmpty()) addMoreUpdatesText(true, item)
         }
         listOf(binding.mainView, binding.downloadButton.root, binding.showMoreChapters, binding.cardLayout).forEach {
             it.setOnTouchListener { _, event ->
@@ -321,6 +308,67 @@ class RecentMangaHolder(
                 }
                 false
             }
+        }
+    }
+
+    // Bumped each bind so async inflate callbacks can detect when their target is stale.
+    private var bindGeneration = 0
+
+    private fun bindExtraChapters(item: RecentMangaItem) {
+        val context = itemView.context
+        val targetChapters = item.mch.extraChapters.shorterList()
+        val needed = targetChapters.size
+        val currentChildren = binding.moreChaptersLayout.childCount
+        val deficit = (needed - currentChildren).coerceAtLeast(0)
+        val generation = ++bindGeneration
+
+        // Configure rows we already have (no inflate — just rebind data).
+        var hasSameChapter = false
+        val syncCount = currentChildren.coerceAtMost(needed)
+        for (i in 0 until syncCount) {
+            val child = binding.moreChaptersLayout.getChildAt(i)
+            child.isVisible = true
+            val subBinding = RecentSubChapterItemBinding.bind(child)
+            subBinding.configureView(targetChapters[i], item)
+            if (isUpdates && !subBinding.subtitle.text.isNullOrBlank() && !hasSameChapter) {
+                showScanlatorInBody(true, item)
+                hasSameChapter = true
+            }
+        }
+
+        // Hide surplus from previous binds.
+        for (i in needed until currentChildren) {
+            binding.moreChaptersLayout.getChildAt(i).isVisible = false
+        }
+
+        if (needed == 0) {
+            if (currentChildren == 0) chapterId = null
+            return
+        }
+
+        // Strip "and N more" since at least some rows are about to show.
+        addMoreUpdatesText(false, item)
+
+        if (deficit == 0) return
+
+        // For missing rows, inflate off the main thread. Each callback attaches its
+        // view at the right slot and configures it. RecyclerView holders are reused,
+        // so on subsequent binds these views persist and the deficit becomes 0.
+        val asyncInflater = adapter.getAsyncInflater(context)
+        for (offset in 0 until deficit) {
+            val targetIdx = currentChildren + offset
+            val chapter = targetChapters.getOrNull(targetIdx) ?: break
+            val callback = AsyncLayoutInflater.OnInflateFinishedListener { view, _, parent ->
+                if (generation != bindGeneration || parent == null) return@OnInflateFinishedListener
+                if (view.parent != null) return@OnInflateFinishedListener
+                parent.addView(view)
+                val subBinding = RecentSubChapterItemBinding.bind(view)
+                subBinding.configureView(chapter, item)
+                if (isUpdates && !subBinding.subtitle.text.isNullOrBlank()) {
+                    showScanlatorInBody(true, item)
+                }
+            }
+            asyncInflater.inflate(R.layout.recent_sub_chapter_item, binding.moreChaptersLayout, callback)
         }
     }
 

@@ -1783,10 +1783,10 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     override fun onPause() {
-        // Phase A #1: persist the visible chapter id + within-chapter progress to saved
-        // state so process-restore lands on the right chapter. Must happen BEFORE
-        // flushReadTimer (which writes history) so history records the visible chapter,
-        // not the original-entry one.
+        // Flush the novel viewer's latest scroll percent to its chapter's `last_page_read`
+        // before the read-timer write, so process-restore lands at the right within-chapter
+        // position. The chapter id itself is already in savedState via the VM (kept in sync
+        // by `setNovelVisibleChapter`), so no separate "active chapter" write is needed.
         (viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer)?.flushPersistentState()
         viewModel.flushReadTimer()
         super.onPause()
@@ -1851,12 +1851,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
      * method to the current viewer, but also set the subtitle on the binding.toolbar.
      */
     fun setChapters(viewerChapters: ViewerChapters) {
-        // If the persisted active chapter drifted from viewerChapters.currChapter (e.g.
-        // activity rebind mid-scroll), retarget first so we render what the user was reading.
         val isNovelViewer = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
-        if (isNovelViewer && viewModel.rebindToSavedActiveChapter()) {
-            return
-        }
 
         binding.pleaseWait.clearAnimation()
         binding.pleaseWait.isVisible = false

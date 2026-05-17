@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -21,6 +22,7 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,12 +43,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * M3 Expressive autocomplete filter. Replaces the legacy `AutoCompleteItem.kt`. Behaviour
- * mirrored verbatim from that file (length-3 trigger, 100-item cap, prefix-stripped matching,
- * `skipAutoFillTags` rejection, tap-chip-to-remove) so any source that used the old autocomplete
- * — most notably NHentai — keeps producing the same query.
+ * Autocomplete tag input. Visually matches the redesigned filter sheet — rounded filled text
+ * field, chip stack flowing below. Behaviour mirrored verbatim from the legacy
+ * `AutoCompleteItem.kt` (length-3 trigger, 100-item cap, prefix-stripped matching,
+ * `skipAutoFillTags` rejection, tap-chip-to-remove), so any source that depends on this
+ * (most notably NHentai) keeps producing the same query.
  *
- * State mutation routed through [FilterMutations] so unit tests can exercise the same code path.
+ * State mutation routed through [FilterMutations] so unit tests can exercise the same path.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +59,7 @@ internal fun AutoCompleteFilterRow(filter: Filter.AutoComplete) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         AutoCompleteTextField(
@@ -82,15 +85,16 @@ internal fun AutoCompleteFilterRow(filter: Filter.AutoComplete) {
             ) {
                 chips.forEach { chip ->
                     InputChip(
-                        selected = false,
+                        selected = true,
                         onClick = {
                             FilterMutations.removeAutoCompleteTag(filter, chip)
                             chips = filter.state
                         },
+                        shape = RoundedCornerShape(50),
                         label = {
                             Text(
                                 text = chip,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.labelLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -103,9 +107,9 @@ internal fun AutoCompleteFilterRow(filter: Filter.AutoComplete) {
                             )
                         },
                         colors = InputChipDefaults.inputChipColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            labelColor = MaterialTheme.colorScheme.onSurface,
-                            trailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            selectedTrailingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         ),
                     )
                 }
@@ -150,22 +154,30 @@ private fun AutoCompleteTextField(
                 value = it
                 expanded = true
             },
-            label = { Text(label) },
-            placeholder = if (placeholder.isNotEmpty()) {
-                { Text(placeholder) }
-            } else {
-                null
+            placeholder = {
+                Text(
+                    text = if (placeholder.isNotEmpty()) placeholder else label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             },
             modifier = Modifier
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
                 .fillMaxWidth(),
             singleLine = true,
+            shape = RoundedCornerShape(50),
+            textStyle = MaterialTheme.typography.bodyMedium,
             keyboardActions = KeyboardActions(onAny = { submit() }),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            ),
         )
 
         val filteredValues by produceState(emptyList<String>(), value) {
@@ -185,6 +197,7 @@ private fun AutoCompleteTextField(
                 modifier = Modifier.exposedDropdownSize(matchAnchorWidth = true),
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
+                shape = RoundedCornerShape(20.dp),
             ) {
                 filteredValues.fastForEach { suggestion ->
                     DropdownMenuItem(

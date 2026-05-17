@@ -34,6 +34,34 @@ internal object FilterMutations {
         filter.state = if (filter.state == target) Filter.TriState.STATE_IGNORE else target
     }
 
+    /**
+     * Cycles the TriState through Ignore → Include → Exclude → Ignore. Used by the M3 Expressive
+     * "single pill that rotates through three states" pattern — every tap rotates one step. Reaches
+     * every state the legacy two-chip pattern could reach, so the applied query is identical for
+     * every source.
+     */
+    fun cycleTriState(filter: Filter.TriState) {
+        filter.state = when (filter.state) {
+            Filter.TriState.STATE_IGNORE -> Filter.TriState.STATE_INCLUDE
+            Filter.TriState.STATE_INCLUDE -> Filter.TriState.STATE_EXCLUDE
+            else -> Filter.TriState.STATE_IGNORE
+        }
+    }
+
+    /**
+     * Direct-set TriState. Used when the picker shows all three states as separate targets (e.g.
+     * a 3-segment selector in a popup). Unlike [setTriState], this never toggles; tapping the
+     * already-selected target is a no-op rather than clearing to ignore.
+     */
+    fun setTriStateExact(filter: Filter.TriState, target: Int) {
+        require(
+            target == Filter.TriState.STATE_INCLUDE ||
+                target == Filter.TriState.STATE_EXCLUDE ||
+                target == Filter.TriState.STATE_IGNORE,
+        ) { "Invalid TriState target: $target" }
+        filter.state = target
+    }
+
     fun setText(filter: Filter.Text, text: String) {
         filter.state = text
     }

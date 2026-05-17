@@ -812,10 +812,14 @@ fun Controller.withFadeInTransaction(): RouterTransaction {
             .pushChangeHandler(SimpleSwapChangeHandler(false))
             .popChangeHandler(SimpleSwapChangeHandler(false))
     }
+    // Conductor's AnimatorChangeHandler default is 300ms — perceptibly slow on root nav
+    // (Library/Recents/Browse). 150ms reads as "snappy" without losing the fade entirely.
     return RouterTransaction.with(this)
-        .pushChangeHandler(FadeChangeHandler())
-        .popChangeHandler(OneWayFadeChangeHandler())
+        .pushChangeHandler(FadeChangeHandler(ROOT_NAV_FADE_MS))
+        .popChangeHandler(OneWayFadeChangeHandler(ROOT_NAV_FADE_MS))
 }
+
+private const val ROOT_NAV_FADE_MS = 150L
 
 fun Controller.openInBrowser(url: String?) {
     if (url == null) {

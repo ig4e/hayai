@@ -200,6 +200,12 @@ class RecentsController(bundle: Bundle? = null) :
         binding.recycler.setHasFixedSize(true)
         binding.recycler.setItemViewCacheSize(8)
         binding.recycler.itemAnimator = null
+        // Process-static pool so recent_manga_item holders are reused on every Recents
+        // re-entry. Without it, root-nav back to Recents re-inflates rows + their
+        // sub-chapter children (the dominant frame cost in perfetto).
+        binding.recycler.setRecycledViewPool(persistentRecentsPool)
+        persistentRecentsPool.setMaxRecycledViews(R.layout.recent_manga_item, 30)
+        persistentRecentsPool.setMaxRecycledViews(R.layout.recent_chapters_section_item, 8)
         binding.recycler.addItemDecoration(RecentMangaDivider(view.context))
         binding.recycler.onAnimationsFinished {
             (activity as? MainActivity)?.releaseSplash()
@@ -1392,4 +1398,10 @@ class RecentsController(bundle: Bundle? = null) :
         (activity as? MainActivity)?.setUndoSnackBar(snack)
     }
     // endregion
+
+    companion object {
+        // Shared across RecentsController lifetimes so recent_manga_item holders are
+        // reused on every Recents re-entry. Survives controller destruction.
+        private val persistentRecentsPool = androidx.recyclerview.widget.RecyclerView.RecycledViewPool()
+    }
 }

@@ -8,7 +8,6 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import eu.kanade.tachiyomi.databinding.SourceFilterSheetComposeBinding
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.util.system.dpToPx
-import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.widget.E2EBottomSheetDialog
 import kotlinx.coroutines.flow.MutableStateFlow
 import yokai.domain.source.browse.filter.models.SavedSearch
@@ -49,8 +48,11 @@ class ComposeSourceFilterSheet(
     private val savedSearchesVersion = MutableStateFlow(0)
 
     init {
-        sheetBehavior.peekHeight = 450.dpToPx
-        sheetBehavior.collapse()
+        // The sheet content sizes itself (wrap_content): the body LazyColumn is bounded by a
+        // heightIn(max) in Compose that leaves room for the tabs and the action bar, so the
+        // whole Column always fits inside the peek window and the bottom buttons are visible
+        // without dragging.
+        sheetBehavior.peekHeight = 480.dpToPx
 
         binding.filterComposeView.setViewCompositionStrategy(
             ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool,

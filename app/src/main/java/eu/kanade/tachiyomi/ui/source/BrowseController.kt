@@ -141,6 +141,16 @@ class BrowseController :
         adapter = SourceAdapter(this)
         // Create binding.sourceRecycler and set adapter.
         binding.sourceRecycler.layoutManager = LinearLayoutManagerAccurateOffset(view.context)
+        binding.sourceRecycler.setHasFixedSize(true)
+        binding.sourceRecycler.setItemViewCacheSize(8)
+        binding.sourceRecycler.itemAnimator = null
+        // Use a process-static pool so holders survive Browse controller destruction;
+        // without it, every root-nav re-entry re-inflates the visible deficit (~12
+        // source_item rows × ~10ms = 120ms/frame). Default per-type cap of 5 was also
+        // too low for the typical visible row count.
+        binding.sourceRecycler.setRecycledViewPool(persistentSourcePool)
+        persistentSourcePool.setMaxRecycledViews(R.layout.source_item, 30)
+        persistentSourcePool.setMaxRecycledViews(R.layout.source_header_item, 8)
 
         binding.sourceRecycler.adapter = adapter
         binding.sourceRecycler.onAnimationsFinished {
@@ -775,5 +785,9 @@ class BrowseController :
 
     companion object {
         const val HELP_URL = "https://mihon.app/docs/guides/source-migration"
+
+        // Shared across BrowseController lifetimes so source_item / header holders
+        // recycled on one entry are reused on the next; survives controller destruction.
+        private val persistentSourcePool = RecyclerView.RecycledViewPool()
     }
 }
