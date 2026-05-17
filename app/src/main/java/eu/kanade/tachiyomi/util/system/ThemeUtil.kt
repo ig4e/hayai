@@ -79,7 +79,7 @@ fun AppCompatActivity.setThemeByPref(preferences: PreferencesHelper) {
 fun AppCompatActivity.getThemeWithExtras(theme: Resources.Theme, preferences: PreferencesHelper, oldTheme: Resources.Theme?): Resources.Theme {
     val useAmoled = isDarkMode(preferences) && preferences.themeDarkAmoled().get()
     if (oldTheme != null && useAmoled) {
-        val array = oldTheme.obtainStyledAttributes(intArrayOf(android.R.attr.background))
+        val array = oldTheme.obtainStyledAttributes(intArrayOf(android.R.attr.colorBackground))
         val bg = array.getColor(0, 0)
         if (bg == AColor.BLACK) {
             return oldTheme

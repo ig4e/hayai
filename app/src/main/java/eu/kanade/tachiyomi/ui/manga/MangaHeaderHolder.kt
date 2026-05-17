@@ -395,7 +395,7 @@ class MangaHeaderHolder(
         }
         binding.trueBackdrop.setBackgroundColor(
             adapter.delegate.coverColor()
-                ?: itemView.context.getResourceColor(android.R.attr.background),
+                ?: itemView.context.getResourceColor(android.R.attr.colorBackground),
         )
 
         val tracked = presenter.isTracked() && !item.isLocked
@@ -546,7 +546,7 @@ class MangaHeaderHolder(
         val context = binding.root.context
         val dark = context.isInNightMode()
         val amoled = adapter.delegate.mangaPresenter().preferences.themeDarkAmoled().get()
-        val baseTagColor = context.getResourceColor(android.R.attr.background)
+        val baseTagColor = context.getResourceColor(android.R.attr.colorBackground)
         val bgArray = FloatArray(3)
         val accentArray = FloatArray(3)
         ColorUtils.colorToHSL(baseTagColor, bgArray)
@@ -614,7 +614,7 @@ class MangaHeaderHolder(
             backgroundTintList = ColorStateList.valueOf(
                 ColorUtils.blendARGB(
                     adapter.delegate.accentColor() ?: context.getResourceColor(materialR.attr.colorSecondary),
-                    context.getResourceColor(android.R.attr.background),
+                    context.getResourceColor(android.R.attr.colorBackground),
                     0.706f,
                 ),
             )
@@ -623,7 +623,7 @@ class MangaHeaderHolder(
             stateListAnimator = null
             resetStrokeColor()
             backgroundTintList =
-                ColorStateList.valueOf(context.getResourceColor(android.R.attr.background))
+                ColorStateList.valueOf(context.getResourceColor(android.R.attr.colorBackground))
         }
     }
 
@@ -653,7 +653,7 @@ class MangaHeaderHolder(
         with(binding) {
             trueBackdrop.setBackgroundColor(
                 adapter.delegate.coverColor()
-                    ?: trueBackdrop.context.getResourceColor(android.R.attr.background),
+                    ?: trueBackdrop.context.getResourceColor(android.R.attr.colorBackground),
             )
             TextViewCompat.setCompoundDrawableTintList(moreButton, ColorStateList.valueOf(accentColor))
             moreButton.setTextColor(accentColor)

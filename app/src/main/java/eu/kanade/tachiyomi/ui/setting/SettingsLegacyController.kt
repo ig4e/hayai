@@ -50,7 +50,7 @@ abstract class SettingsLegacyController : PreferenceController(), SettingsContro
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup, savedInstanceState: Bundle?): View {
         val view = super.onCreateView(inflater, container, savedInstanceState)
-        view.backgroundColor = view.context.getResourceColor(android.R.attr.background)
+        view.backgroundColor = view.context.getResourceColor(android.R.attr.colorBackground)
         scrollViewWith(listView, padBottom = true)
         return view
     }

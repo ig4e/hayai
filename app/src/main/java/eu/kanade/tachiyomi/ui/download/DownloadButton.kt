@@ -26,7 +26,7 @@ class DownloadButton @JvmOverloads constructor(context: Context, attrs: Attribut
             activeColor = ColorUtils.blendARGB(value, bgColor, 0.05f)
             downloadedColor = ColorUtils.blendARGB(value, cOnBgColor, 0.3f)
         }
-    private val bgColor = context.getResourceColor(android.R.attr.background)
+    private val bgColor = context.getResourceColor(android.R.attr.colorBackground)
     private val cOnBgColor = context.getResourceColor(materialR.attr.colorOnBackground)
     private var activeColor = ColorUtils.blendARGB(accentColor, bgColor, 0.05f)
     private var downloadedColor = ColorUtils.blendARGB(accentColor, cOnBgColor, 0.3f)
@@ -34,7 +34,7 @@ class DownloadButton @JvmOverloads constructor(context: Context, attrs: Attribut
     private val disabledColor by lazy {
         ContextCompat.getColor(context, materialR.color.material_on_surface_disabled)
     }
-    private val downloadedTextColor = context.getResourceColor(android.R.attr.background)
+    private val downloadedTextColor = context.getResourceColor(android.R.attr.colorBackground)
     private val errorColor by lazy { ContextCompat.getColor(context, R.color.md_red_500) }
     private val filledCircle by lazy {
         ContextCompat.getDrawable(context, R.drawable.filled_circle)?.mutate()

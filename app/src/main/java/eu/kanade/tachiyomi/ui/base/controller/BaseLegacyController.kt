@@ -28,7 +28,7 @@ abstract class BaseLegacyController<VB : ViewBinding>(bundle: Bundle? = null) :
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup, savedViewState: Bundle?): View {
         setAppBarVisibility()
         binding = createBinding(inflater)
-        binding.root.backgroundColor = binding.root.context.getResourceColor(android.R.attr.background)
+        binding.root.backgroundColor = binding.root.context.getResourceColor(android.R.attr.colorBackground)
         return binding.root
     }
 

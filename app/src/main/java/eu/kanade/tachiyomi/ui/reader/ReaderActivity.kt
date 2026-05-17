@@ -2762,7 +2762,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     binding.viewerContainer.setBackgroundColor(
                         ThemeUtil.readerBackgroundColor(
                             theme,
-                            getResourceColor(android.R.attr.background),
+                            getResourceColor(android.R.attr.colorBackground),
                         )
                     )
                 }

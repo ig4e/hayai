@@ -282,7 +282,7 @@ class EditMangaDialog : DialogController {
             removeAllViews()
             val dark = context.isInNightMode()
             val amoled = infoController.presenter.preferences.themeDarkAmoled().get()
-            val baseTagColor = context.getResourceColor(android.R.attr.background)
+            val baseTagColor = context.getResourceColor(android.R.attr.colorBackground)
             val bgArray = FloatArray(3)
             val accentArray = FloatArray(3)
 

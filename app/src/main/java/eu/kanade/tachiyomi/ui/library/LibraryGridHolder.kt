@@ -76,7 +76,7 @@ class LibraryGridHolder(
         binding.title.text = item.manga.manga.title.highlightText(item.filter, color)
         binding.behindTitle.text = item.manga.manga.title
         val mangaColor = item.manga.manga.dominantCoverColors
-        binding.coverConstraint.backgroundColor = mangaColor?.first ?: itemView.context.getResourceColor(android.R.attr.background)
+        binding.coverConstraint.backgroundColor = mangaColor?.first ?: itemView.context.getResourceColor(android.R.attr.colorBackground)
         binding.behindTitle.setTextColor(
             mangaColor?.second ?: itemView.context.getResourceColor(materialR.attr.colorOnBackground),
         )

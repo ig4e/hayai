@@ -124,7 +124,7 @@ class LibraryBadge @JvmOverloads constructor(context: Context, attrs: AttributeS
                     val bgColor = when (view) {
                         binding.downloadText -> context.getResourceColor(R.attr.colorTertiary)
                         binding.unreadText -> unreadBadgeBackground
-                        else -> context.getResourceColor(android.R.attr.background)
+                        else -> context.getResourceColor(android.R.attr.colorBackground)
                     }
                     if (view is ShapeableImageView) {
                         view.shapeAppearanceModel =

@@ -247,7 +247,7 @@ class ThemePreference @JvmOverloads constructor(context: Context, attrs: Attribu
                 themeContext.setTheme(item.theme.styleRes)
                 val primaryText = themeContext.getResourceColor(AR.attr.textColorPrimary)
                 val secondaryText = themeContext.getResourceColor(AR.attr.textColorSecondary)
-                val background = themeContext.getResourceColor(android.R.attr.background)
+                val background = themeContext.getResourceColor(android.R.attr.colorBackground)
                 val colorSecondary = themeContext.getResourceColor(materialR.attr.colorSecondary)
                 val appBar = themeContext.getResourceColor(materialR.attr.colorSurface)
                 val appBarText = themeContext.getResourceColor(R.attr.actionBarTintColor)

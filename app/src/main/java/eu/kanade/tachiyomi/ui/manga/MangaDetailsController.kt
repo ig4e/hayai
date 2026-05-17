@@ -331,7 +331,7 @@ class MangaDetailsController :
 
     private fun setCoverColorValue(colorToUse: Int? = null) {
         val context = view?.context ?: return
-        val colorBack = context.getResourceColor(android.R.attr.background)
+        val colorBack = context.getResourceColor(android.R.attr.colorBackground)
         coverColor =
             (
                 if (presenter.preferences.themeMangaDetails().get()) {
