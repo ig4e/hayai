@@ -107,7 +107,13 @@
         <item>@string/by_series</item>
         <item>@string/by_week</item>
         <item>@string/by_day</item>
+        <item>@string/recents_group_by_source</item>
         <item>@string/never</item>
+    </string-array>
+
+    <string-array name="group_updates_by">
+        <item>@string/by_day</item>
+        <item>@string/recents_group_by_source</item>
     </string-array>
 
     <string-array name="reader_nav">
