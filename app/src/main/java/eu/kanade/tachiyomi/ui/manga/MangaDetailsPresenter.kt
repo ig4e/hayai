@@ -85,7 +85,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -189,8 +188,21 @@ class MangaDetailsPresenter(
         val controller = view ?: return
 
         isLockedFromSearch = controller.shouldLockIfNeeded && SecureActivityDelegate.shouldBeLocked()
-        // Only fires on bundle-restore / deep-link; library push pre-initializes manga.
-        if (!::manga.isInitialized) runBlocking { refreshMangaFromDb() }
+        preloadCategories()
+
+        if (::manga.isInitialized) {
+            // Common path — manga was pre-initialised by the library push.
+            finalizeOnCreate()
+        } else {
+            // Bundle-restore / deep-link: load manga first, then continue setup on Main.
+            presenterScope.launchUI {
+                refreshMangaFromDb()
+                finalizeOnCreate()
+            }
+        }
+    }
+
+    private fun finalizeOnCreate() {
         syncData()
 
         presenterScope.launchUI {
@@ -738,13 +750,27 @@ class MangaDetailsPresenter(
         }
     }
 
+    // Populated by [preloadCategories] on presenter create. The favorite-button popup reads
+    // this synchronously; if a popup opens before the IO finishes, it just sees an empty list
+    // and the "Edit categories" entry is hidden — never blocks main.
+    @Volatile private var cachedCategories: List<Category> = emptyList()
+
     /**
-     * Get user categories.
-     *
-     * @return List of categories, not including the default category
+     * Get user categories. Returns the pre-loaded snapshot; refreshes when [preloadCategories]
+     * is re-invoked (e.g. after a category was added/edited).
      */
-    fun getCategories(): List<Category> {
-        return runBlocking { getCategories.await() }
+    fun getCategories(): List<Category> = cachedCategories
+
+    fun preloadCategories() {
+        presenterScope.launchIO {
+            val previous = cachedCategories
+            cachedCategories = getCategories.await()
+            // If the header was bound before the IO finished, its drag-to-open popup captured
+            // an empty category list — rebind so the "Edit categories" entry appears.
+            if (previous.isEmpty() && cachedCategories.isNotEmpty()) {
+                withUIContext { view?.updateHeader() }
+            }
+        }
     }
 
     fun confirmDeletion() {

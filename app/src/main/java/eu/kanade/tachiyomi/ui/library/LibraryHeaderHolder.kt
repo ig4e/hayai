@@ -18,6 +18,7 @@ import androidx.swiperefreshlayout.widget.CircularProgressDrawable
 import co.touchlab.kermit.Logger
 import com.github.florent37.viewtooltip.ViewTooltip
 import eu.davidea.flexibleadapter.SelectableAdapter
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -74,7 +75,7 @@ class LibraryHeaderHolder(val view: View, val adapter: LibraryCategoryAdapter) :
         runningDrawable.setStyle(CircularProgressDrawable.DEFAULT)
         runningDrawable.centerRadius = 6f.dpToPx
         runningDrawable.strokeWidth = 2f.dpToPx
-        runningDrawable.setColorSchemeColors(itemView.context.getResourceColor(R.attr.colorSecondary))
+        runningDrawable.setColorSchemeColors(itemView.context.getResourceColor(materialR.attr.colorSecondary))
 
         binding.endRefresh.setImageDrawable(progressDrawableEnd)
         binding.startRefresh.setImageDrawable(progressDrawableStart)
@@ -144,7 +145,7 @@ class LibraryHeaderHolder(val view: View, val adapter: LibraryCategoryAdapter) :
             ViewTooltip.on(itemView.context as? Activity, binding.categoryTitle).autoHide(true, 5000L)
                 .align(ViewTooltip.ALIGN.START).position(ViewTooltip.Position.TOP)
                 .text(MR.strings.long_press_category)
-                .color(itemView.context.getResourceColor(R.attr.colorSecondary))
+                .color(itemView.context.getResourceColor(materialR.attr.colorSecondary))
                 .textSize(TypedValue.COMPLEX_UNIT_SP, 15f).textColor(Color.WHITE)
                 .withShadow(false).corner(30).arrowWidth(15).arrowHeight(15).distanceWithView(0)
                 .show()
@@ -364,7 +365,7 @@ class LibraryHeaderHolder(val view: View, val adapter: LibraryCategoryAdapter) :
         val tintedDrawable = drawable?.mutate()
         tintedDrawable?.setTint(
             if (allSelected) {
-                contentView.context.getResourceColor(R.attr.colorSecondary)
+                contentView.context.getResourceColor(materialR.attr.colorSecondary)
             } else {
                 ContextCompat.getColor(contentView.context, R.color.gray_button)
             },

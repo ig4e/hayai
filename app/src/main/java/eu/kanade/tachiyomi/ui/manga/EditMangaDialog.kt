@@ -16,6 +16,7 @@ import androidx.core.view.isVisible
 import coil3.load
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.coil.useCustomCover
 import eu.kanade.tachiyomi.data.database.models.seriesType
@@ -281,12 +282,12 @@ class EditMangaDialog : DialogController {
             removeAllViews()
             val dark = context.isInNightMode()
             val amoled = infoController.presenter.preferences.themeDarkAmoled().get()
-            val baseTagColor = context.getResourceColor(R.attr.background)
+            val baseTagColor = context.getResourceColor(android.R.attr.background)
             val bgArray = FloatArray(3)
             val accentArray = FloatArray(3)
 
             ColorUtils.colorToHSL(baseTagColor, bgArray)
-            ColorUtils.colorToHSL(context.getResourceColor(R.attr.colorSecondary), accentArray)
+            ColorUtils.colorToHSL(context.getResourceColor(materialR.attr.colorSecondary), accentArray)
             val downloadedColor = ColorUtils.setAlphaComponent(
                 ColorUtils.HSLToColor(
                     floatArrayOf(

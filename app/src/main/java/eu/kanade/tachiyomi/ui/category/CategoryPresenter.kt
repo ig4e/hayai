@@ -6,7 +6,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.DeleteCategories
@@ -79,14 +78,20 @@ class CategoryPresenter(
         // Set the new item in the last position.
         cat.order = (categories.maxOfOrNull { it.order } ?: 0) + 1
 
-        // Insert into database.
+        // Insert into database. Fire off the write on our IO-friendly scope; the controller
+        // sees the new category after the DB round-trip completes (one frame or so), not
+        // synchronously on the click. We optimistically return true here — the duplicate check
+        // above already covers the only path that should return false.
         cat.mangaSort = LibrarySort.Title.categoryValue
-        // FIXME: Don't do blocking
-        runBlocking { insertCategories.awaitOne(cat) }
-        val cats = runBlocking { getCategories.await() }
-        val newCat = cats.find { it.name == name } ?: return false
-        categories.add(1, newCat)
-        reorderCategories(categories)
+        scope.launch {
+            insertCategories.awaitOne(cat)
+            val cats = getCategories.await()
+            val newCat = cats.find { it.name == name } ?: return@launch
+            withContext(Dispatchers.Main) {
+                categories.add(1, newCat)
+                reorderCategories(categories)
+            }
+        }
         return true
     }
 
@@ -150,16 +155,18 @@ class CategoryPresenter(
         }
 
         category.name = name
-        runBlocking {
+        scope.launch {
             updateCategories.awaitOne(
                 CategoryUpdate(
                     id = category.id!!.toLong(),
                     name = category.name,
                 )
             )
+            withContext(Dispatchers.Main) {
+                categories.find { it.id == category.id }?.name = name
+                controller.setCategories(categories.map(::CategoryItem))
+            }
         }
-        categories.find { it.id == category.id }?.name = name
-        controller.setCategories(categories.map(::CategoryItem))
         return true
     }
 

@@ -4,6 +4,7 @@ import android.view.View
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.isVisible
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import eu.kanade.tachiyomi.util.isLocal
@@ -20,7 +21,7 @@ abstract class LibraryHolder(
     val adapter: LibraryCategoryAdapter,
 ) : BaseFlexibleViewHolder(view, adapter) {
 
-    protected val color = ColorUtils.setAlphaComponent(itemView.context.getResourceColor(R.attr.colorSecondary), 75)
+    protected val color = ColorUtils.setAlphaComponent(itemView.context.getResourceColor(materialR.attr.colorSecondary), 75)
 
     init {
         val card = itemView.findViewById<MaterialCardView>(R.id.card)

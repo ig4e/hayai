@@ -9,6 +9,7 @@ import androidx.preference.PreferenceScreen
 import com.bluelinelabs.conductor.Controller
 import com.bluelinelabs.conductor.RouterTransaction
 import com.bluelinelabs.conductor.changehandler.SimpleSwapChangeHandler
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.more.AboutController
@@ -54,7 +55,7 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
     override fun setupPreferenceScreen(screen: PreferenceScreen) = with(screen) {
         titleRes = MR.strings.settings
 
-        val tintColor = context.getResourceColor(R.attr.colorSecondary)
+        val tintColor = context.getResourceColor(materialR.attr.colorSecondary)
 
         preference {
             iconRes = R.drawable.ic_tune_24dp

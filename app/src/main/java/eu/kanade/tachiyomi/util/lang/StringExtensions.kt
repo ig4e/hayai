@@ -19,6 +19,7 @@ import androidx.core.text.parseAsHtml
 import androidx.core.text.scale
 import androidx.core.text.superscript
 import dev.icerock.moko.resources.StringResource
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -138,7 +139,7 @@ fun String.asButton(context: Context, disabled: Boolean = false): SpannedString 
             ) { append(this@asButton) }
         }
         if (disabled) {
-            color(context.getColor(R.color.material_on_surface_disabled), buttonSpan)
+            color(context.getColor(materialR.color.material_on_surface_disabled), buttonSpan)
         } else {
             buttonSpan()
         }
@@ -184,7 +185,7 @@ fun String.withSubtitle(context: Context, subtitle: String): Spanned {
 
 fun String.addBetaTag(context: Context, useSuperScript: Boolean = true): Spanned {
     val betaText = context.getString(MR.strings.beta)
-    val colorS = context.getResourceColor(R.attr.colorSecondary)
+    val colorS = context.getResourceColor(materialR.attr.colorSecondary)
     return buildSpannedString {
         append(this@addBetaTag)
         val buttonSpan: SpannableStringBuilder.() -> Unit = {

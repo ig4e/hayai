@@ -14,7 +14,7 @@ import androidx.core.content.edit
 import androidx.core.view.isVisible
 import androidx.preference.Preference.SummaryProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import eu.kanade.tachiyomi.R
+import androidx.preference.R as preferenceR
 import eu.kanade.tachiyomi.util.view.setNeutralButton
 import yokai.i18n.MR
 import android.R as AR
@@ -51,7 +51,7 @@ class EditTextResetPreference @JvmOverloads constructor(
     override fun dialog(): MaterialAlertDialogBuilder {
         return super.dialog().apply {
             val attrs = intArrayOf(AR.attr.dialogLayout)
-            val a = context.obtainStyledAttributes(R.style.Preference_DialogPreference_EditTextPreference_Material, attrs)
+            val a = context.obtainStyledAttributes(preferenceR.style.Preference_DialogPreference_EditTextPreference_Material, attrs)
             val resourceId = a.getResourceId(0, 0)
             val view = LayoutInflater.from(context).inflate(resourceId, null)
             val textView = view.findViewById<EditText>(AR.id.edit)

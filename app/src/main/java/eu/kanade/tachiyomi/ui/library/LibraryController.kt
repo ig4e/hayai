@@ -59,6 +59,7 @@ import eu.davidea.flexibleadapter.SelectableAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.davidea.flexibleadapter.items.IHeader
 import eu.davidea.flexibleadapter.items.ISectionable
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.data.database.models.Category
@@ -873,7 +874,7 @@ open class LibraryController(
                 .position(ViewTooltip.Position.TOP)
                 .text(MR.strings.tap_library_to_show_filters)
                 .textColor(activity.getResourceColor(R.attr.colorOnSecondary))
-                .color(activity.getResourceColor(R.attr.colorSecondary))
+                .color(activity.getResourceColor(materialR.attr.colorSecondary))
                 .textSize(TypedValue.COMPLEX_UNIT_SP, 15f).withShadow(false)
                 .corner(30).arrowWidth(15).arrowHeight(15).distanceWithView(0)
 
@@ -2375,7 +2376,7 @@ open class LibraryController(
                 val pad = 12.dpToPx
                 setPadding(pad, 0, pad, 0)
                 setImageResource(R.drawable.ic_show_all_categories_24dp)
-                background = context.getResourceDrawable(R.attr.selectableItemBackgroundBorderless)
+                background = context.getResourceDrawable(android.R.attr.selectableItemBackgroundBorderless)
                 imageTintList = ColorStateList.valueOf(context.getResourceColor(R.attr.actionBarTintColor))
                 compatToolTipText = view?.context?.getString(MR.strings.show_all_categories)
             }

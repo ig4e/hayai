@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.forEach
 import androidx.core.view.get
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -47,15 +48,15 @@ class MaterialSpinnerView constructor(context: Context, attrs: AttributeSet?) :
         }
 
     private val blendedAccent = ColorUtils.blendARGB(
-        context.getResourceColor(R.attr.colorSecondary),
-        context.getResourceColor(R.attr.colorOnBackground),
+        context.getResourceColor(materialR.attr.colorSecondary),
+        context.getResourceColor(materialR.attr.colorOnBackground),
         0.5f,
     )
 
     private val slightAccent by lazy {
         ColorUtils.blendARGB(
-            context.getResourceColor(R.attr.colorSecondary),
-            context.getResourceColor(R.attr.colorOnBackground),
+            context.getResourceColor(materialR.attr.colorSecondary),
+            context.getResourceColor(materialR.attr.colorOnBackground),
             0.9f,
         )
     }

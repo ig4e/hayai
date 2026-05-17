@@ -23,6 +23,7 @@ import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.highlight.Highlight
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 import com.github.mikephil.charting.utils.MPPointF
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -206,7 +207,7 @@ class StatsDetailsChartLayout @JvmOverloads constructor(
         if (lineEntries.isNullOrEmpty()) return
 
         val lineDataSet = LineDataSet(lineEntries, "Start Year Distribution")
-        lineDataSet.color = context.getResourceColor(R.attr.colorOnBackground)
+        lineDataSet.color = context.getResourceColor(materialR.attr.colorOnBackground)
         lineDataSet.setDrawFilled(true)
         lineDataSet.fillDrawable = ContextCompat.getDrawable(context, R.drawable.line_chart_fill)
         setupLineChart(lineDataSet)
@@ -262,7 +263,7 @@ class StatsDetailsChartLayout @JvmOverloads constructor(
                 }
 
                 val barData = BarData(barDataSet)
-                barData.setValueTextColor(context.getResourceColor(R.attr.colorOnBackground))
+                barData.setValueTextColor(context.getResourceColor(materialR.attr.colorOnBackground))
                 barData.barWidth = 0.6F
                 barData.setValueFormatter(newValueFormatter)
                 barData.setValueTextSize(10f)
@@ -274,7 +275,7 @@ class StatsDetailsChartLayout @JvmOverloads constructor(
                     setDrawGridLines(false)
                     position = XAxis.XAxisPosition.BOTTOM
                     setLabelCount(barDataSet.entryCount, false)
-                    textColor = context.getResourceColor(R.attr.colorOnBackground)
+                    textColor = context.getResourceColor(materialR.attr.colorOnBackground)
 
                     if (!xAxisLabel.isNullOrEmpty()) {
                         valueFormatter = object : ValueFormatter() {
@@ -298,8 +299,8 @@ class StatsDetailsChartLayout @JvmOverloads constructor(
                         marker = mv
 
                         axisLeft.apply {
-                            textColor = context.getResourceColor(R.attr.colorOnBackground)
-                            axisLineColor = context.getResourceColor(R.attr.colorOnBackground)
+                            textColor = context.getResourceColor(materialR.attr.colorOnBackground)
+                            axisLineColor = context.getResourceColor(materialR.attr.colorOnBackground)
                             valueFormatter = newValueFormatter
                             val topValue = barData.yMax.getRoundedMaxLabel()
                             axisMaximum = topValue
@@ -370,7 +371,7 @@ class StatsDetailsChartLayout @JvmOverloads constructor(
                 }
 
                 val lineData = LineData(lineDataSet)
-                lineData.setValueTextColor(context.getResourceColor(R.attr.colorOnBackground))
+                lineData.setValueTextColor(context.getResourceColor(materialR.attr.colorOnBackground))
                 lineData.setValueFormatter(newValueFormatter)
                 lineData.setValueTextSize(10f)
                 statsLineChart.axisLeft.isEnabled = false
@@ -380,7 +381,7 @@ class StatsDetailsChartLayout @JvmOverloads constructor(
                     setDrawGridLines(false)
                     position = XAxis.XAxisPosition.BOTTOM
                     granularity = 1f
-                    textColor = context.getResourceColor(R.attr.colorOnBackground)
+                    textColor = context.getResourceColor(materialR.attr.colorOnBackground)
 
                     valueFormatter = object : ValueFormatter() {
                         override fun getFormattedValue(value: Float): String {

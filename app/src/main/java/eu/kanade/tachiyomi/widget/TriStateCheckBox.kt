@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.updateLayoutParams
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -77,14 +78,14 @@ class TriStateCheckBox constructor(context: Context, attrs: AttributeSet?) :
         attrValue
     }
     private var mOnCheckedChangeListener: OnCheckedChangeListener? = null
-    private val uncheckedColor = ColorStateList.valueOf(context.getResourceColor(R.attr.colorControlNormal))
-    private val checkedColor = ColorStateList.valueOf(context.getResourceColor(R.attr.colorSecondary))
-    private val inverseColor = ColorStateList.valueOf(context.getResourceColor(R.attr.colorSecondaryVariant))
-    private val indeterColor = ColorStateList.valueOf(context.getResourceColor(R.attr.colorPrimary))
+    private val uncheckedColor = ColorStateList.valueOf(context.getResourceColor(AR.attr.colorControlNormal))
+    private val checkedColor = ColorStateList.valueOf(context.getResourceColor(materialR.attr.colorSecondary))
+    private val inverseColor = ColorStateList.valueOf(context.getResourceColor(materialR.attr.colorSecondaryVariant))
+    private val indeterColor = ColorStateList.valueOf(context.getResourceColor(AR.attr.colorPrimary))
     private val ignoreColor get() = if (useIndeterminateForIgnore) indeterColor else inverseColor
 
     private val disabledColor = ColorStateList.valueOf(
-        ColorUtils.setAlphaComponent(context.getResourceColor(R.attr.colorControlNormal), (disabledAlpha * 255).roundToInt()),
+        ColorUtils.setAlphaComponent(context.getResourceColor(AR.attr.colorControlNormal), (disabledAlpha * 255).roundToInt()),
     )
 
     init {

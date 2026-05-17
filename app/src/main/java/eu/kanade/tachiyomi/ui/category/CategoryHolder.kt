@@ -10,6 +10,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.ItemTouchHelper
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.databinding.CategoriesItemBinding
@@ -52,7 +53,7 @@ class CategoryHolder(view: View, val adapter: CategoryAdapter) : BaseFlexibleVie
         }
         createCategory = category.order == CREATE_CATEGORY_ORDER
         if (createCategory) {
-            binding.title.setTextColor(ContextCompat.getColor(itemView.context, R.color.material_on_background_disabled))
+            binding.title.setTextColor(ContextCompat.getColor(itemView.context, materialR.color.material_on_background_disabled))
             regularDrawable = ContextCompat.getDrawable(
                 itemView.context,
                 R.drawable
@@ -63,7 +64,7 @@ class CategoryHolder(view: View, val adapter: CategoryAdapter) : BaseFlexibleVie
             binding.editText.setText("")
             binding.editText.hint = binding.title.text
         } else {
-            binding.title.setTextColor(itemView.context.getResourceColor(R.attr.colorOnBackground))
+            binding.title.setTextColor(itemView.context.getResourceColor(materialR.attr.colorOnBackground))
             regularDrawable = ContextCompat.getDrawable(
                 itemView.context,
                 R.drawable
@@ -83,7 +84,7 @@ class CategoryHolder(view: View, val adapter: CategoryAdapter) : BaseFlexibleVie
             binding.editText.requestFocus()
             binding.editText.selectAll()
             binding.editButton.setImageDrawable(ContextCompat.getDrawable(itemView.context, R.drawable.ic_check_24dp))
-            binding.editButton.drawable.mutate().setTint(itemView.context.getResourceColor(R.attr.colorSecondary))
+            binding.editButton.drawable.mutate().setTint(itemView.context.getResourceColor(materialR.attr.colorSecondary))
             showKeyboard()
             if (!createCategory) {
                 binding.reorder.setImageDrawable(

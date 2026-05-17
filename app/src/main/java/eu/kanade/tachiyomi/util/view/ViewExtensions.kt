@@ -80,6 +80,7 @@ import com.google.android.material.shape.CornerFamily
 import com.google.android.material.shape.ShapeAppearanceModel
 import com.google.android.material.snackbar.Snackbar
 import dev.icerock.moko.resources.StringResource
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.lang.tintText
 import eu.kanade.tachiyomi.util.system.ThemeUtil
@@ -341,12 +342,12 @@ fun setBottomEdge(view: View, activity: Activity) {
 
 fun SwipeRefreshLayout.setStyle() {
     setColorSchemeColors(context.getResourceColor(R.attr.actionBarTintColor))
-    setProgressBackgroundColorSchemeColor(context.getResourceColor(R.attr.colorPrimaryVariant))
+    setProgressBackgroundColorSchemeColor(context.getResourceColor(materialR.attr.colorPrimaryVariant))
 }
 
 fun MaterialButton.resetStrokeColor() {
     strokeColor = ColorStateList.valueOf(
-        ColorUtils.setAlphaComponent(context.getResourceColor(R.attr.colorOnSurface), 31),
+        ColorUtils.setAlphaComponent(context.getResourceColor(materialR.attr.colorOnSurface), 31),
     )
 }
 
@@ -417,8 +418,8 @@ inline fun View.popupMenu(
 
     if (selectedItemId != null) {
         val blendedAccent = ColorUtils.blendARGB(
-            context.getResourceColor(R.attr.colorSecondary),
-            context.getResourceColor(R.attr.colorOnBackground),
+            context.getResourceColor(materialR.attr.colorSecondary),
+            context.getResourceColor(materialR.attr.colorOnBackground),
             0.5f,
         )
         (popup.menu as? MenuBuilder)?.setOptionalIconsVisible(true)

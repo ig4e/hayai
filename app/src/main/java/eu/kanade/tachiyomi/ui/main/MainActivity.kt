@@ -67,6 +67,8 @@ import com.google.android.material.navigation.NavigationBarView
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
 import eu.kanade.tachiyomi.BuildConfig
+import com.google.android.material.R as materialR
+import androidx.appcompat.R as appcompatR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -501,7 +503,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         content.doOnApplyWindowInsetsCompat { v, insets, _ ->
             setNavBarColor(insets)
             val systemInsets = insets.ignoredSystemInsets
-            val contextView = window?.decorView?.findViewById<View>(R.id.action_mode_bar)
+            val contextView = window?.decorView?.findViewById<View>(appcompatR.id.action_mode_bar)
             contextView?.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                 leftMargin = systemInsets.left
                 rightMargin = systemInsets.right
@@ -850,7 +852,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         val bgColor = binding.appBar.backgroundColor ?: Color.TRANSPARENT
         if (changeBG && (if (solidBG) bgColor == Color.TRANSPARENT else false)) {
             binding.appBar.setBackgroundColor(
-                if (show && !solidBG) Color.TRANSPARENT else getResourceColor(R.attr.colorSurface),
+                if (show && !solidBG) Color.TRANSPARENT else getResourceColor(materialR.attr.colorSurface),
             )
         }
         setupSearchTBMenu(binding.toolbar.menu)
@@ -896,7 +898,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 when {
                     insets.hasSideNavBar() -> Color.BLACK
                     isInNightMode() -> ColorUtils.setAlphaComponent(
-                        getResourceColor(R.attr.colorPrimaryVariant),
+                        getResourceColor(materialR.attr.colorPrimaryVariant),
                         179,
                     )
                     else -> Color.argb(179, 0, 0, 0)
@@ -909,12 +911,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             }
             // if in landscape with 2/3 button mode, fully opaque nav bar
             insets.hasSideNavBar() -> {
-                getResourceColor(R.attr.colorPrimaryVariant)
+                getResourceColor(materialR.attr.colorPrimaryVariant)
             }
             // if in portrait with 2/3 button mode, translucent nav bar
             else -> {
                 ColorUtils.setAlphaComponent(
-                    getResourceColor(R.attr.colorPrimaryVariant),
+                    getResourceColor(materialR.attr.colorPrimaryVariant),
                     179,
                 )
             }
@@ -922,7 +924,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     }
 
     override fun startSupportActionMode(callback: ActionMode.Callback): ActionMode? {
-        window?.statusBarColor = getResourceColor(R.attr.colorPrimaryVariant)
+        window?.statusBarColor = getResourceColor(materialR.attr.colorPrimaryVariant)
         actionMode = super.startSupportActionMode(callback)
         reEnableBackPressedCallBack()
         return actionMode
@@ -1085,7 +1087,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                     recentsItem,
                     getString(MR.strings.manage_whats_downloading),
                     getString(MR.strings.visit_recents_for_download_queue),
-                ).outerCircleColorInt(getResourceColor(R.attr.colorSecondary)).outerCircleAlpha(0.95f)
+                ).outerCircleColorInt(getResourceColor(materialR.attr.colorSecondary)).outerCircleAlpha(0.95f)
                     .titleTextSize(
                         20,
                     )
@@ -1679,7 +1681,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             if (hasQueue) {
                 val badge = nav.getOrCreateBadge(R.id.nav_recents)
                 badge.updateQueueSize(queueSize)
-                badge.backgroundColor = if (downloading) getResourceColor(R.attr.colorError) else Color.GRAY
+                badge.backgroundColor = if (downloading) getResourceColor(appcompatR.attr.colorError) else Color.GRAY
                 showDLQueueTutorial()
             } else {
                 nav.removeBadge(R.id.nav_recents)

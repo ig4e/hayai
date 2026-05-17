@@ -16,6 +16,7 @@ import androidx.preference.PreferenceGroup
 import androidx.preference.PreferenceScreen
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
+import androidx.preference.R as preferenceR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -49,7 +50,7 @@ abstract class SettingsLegacyController : PreferenceController(), SettingsContro
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup, savedInstanceState: Bundle?): View {
         val view = super.onCreateView(inflater, container, savedInstanceState)
-        view.backgroundColor = view.context.getResourceColor(R.attr.background)
+        view.backgroundColor = view.context.getResourceColor(android.R.attr.background)
         scrollViewWith(listView, padBottom = true)
         return view
     }
@@ -83,13 +84,13 @@ abstract class SettingsLegacyController : PreferenceController(), SettingsContro
 
     private fun getThemedContext(): Context {
         val tv = TypedValue()
-        activity!!.theme.resolveAttribute(R.attr.preferenceTheme, tv, true)
+        activity!!.theme.resolveAttribute(preferenceR.attr.preferenceTheme, tv, true)
         return ContextThemeWrapper(activity, tv.resourceId)
     }
 
     private fun animatePreferenceHighlight(view: View) {
         ValueAnimator
-            .ofObject(ArgbEvaluator(), Color.TRANSPARENT, view.context.getResourceColor(R.attr.colorControlHighlight))
+            .ofObject(ArgbEvaluator(), Color.TRANSPARENT, view.context.getResourceColor(android.R.attr.colorControlHighlight))
             .apply {
                 duration = 500L
                 repeatCount = 2

@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.BuildConfig
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
@@ -72,7 +73,7 @@ internal class AppUpdateNotifier(private val context: Context) {
             setContentIntent(pendingIntent)
             setAutoCancel(true)
             setSmallIcon(AR.drawable.stat_sys_download_done)
-            color = context.getResourceColor(R.attr.colorSecondary)
+            color = context.getResourceColor(materialR.attr.colorSecondary)
             clearActions()
             val isOnA12 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
             // Download action

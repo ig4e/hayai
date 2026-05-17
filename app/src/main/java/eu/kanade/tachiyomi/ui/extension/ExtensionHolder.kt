@@ -155,7 +155,7 @@ class ExtensionHolder(view: View, val adapter: ExtensionAdapter) :
         val extension = item.extension
         val installStep = item.installStep
         strokeColor = ColorStateList.valueOf(Color.TRANSPARENT)
-        rippleColor = ColorStateList.valueOf(context.getResourceColor(R.attr.colorControlHighlight))
+        rippleColor = ColorStateList.valueOf(context.getResourceColor(android.R.attr.colorControlHighlight))
         stateListAnimator = null
         if (installStep != null) {
             setText(

@@ -29,6 +29,7 @@ import coil3.request.CachePolicy
 import coil3.request.error
 import coil3.request.placeholder
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.databinding.ChapterHeaderItemBinding
@@ -394,7 +395,7 @@ class MangaHeaderHolder(
         }
         binding.trueBackdrop.setBackgroundColor(
             adapter.delegate.coverColor()
-                ?: itemView.context.getResourceColor(R.attr.background),
+                ?: itemView.context.getResourceColor(android.R.attr.background),
         )
 
         val tracked = presenter.isTracked() && !item.isLocked
@@ -545,12 +546,12 @@ class MangaHeaderHolder(
         val context = binding.root.context
         val dark = context.isInNightMode()
         val amoled = adapter.delegate.mangaPresenter().preferences.themeDarkAmoled().get()
-        val baseTagColor = context.getResourceColor(R.attr.background)
+        val baseTagColor = context.getResourceColor(android.R.attr.background)
         val bgArray = FloatArray(3)
         val accentArray = FloatArray(3)
         ColorUtils.colorToHSL(baseTagColor, bgArray)
         ColorUtils.colorToHSL(
-            adapter.delegate.accentColor() ?: context.getResourceColor(R.attr.colorSecondary),
+            adapter.delegate.accentColor() ?: context.getResourceColor(materialR.attr.colorSecondary),
             accentArray,
         )
         val containerColorInt = ColorUtils.setAlphaComponent(
@@ -612,8 +613,8 @@ class MangaHeaderHolder(
             stateListAnimator = AnimatorInflater.loadStateListAnimator(context, R.animator.icon_btn_state_list_anim)
             backgroundTintList = ColorStateList.valueOf(
                 ColorUtils.blendARGB(
-                    adapter.delegate.accentColor() ?: context.getResourceColor(R.attr.colorSecondary),
-                    context.getResourceColor(R.attr.background),
+                    adapter.delegate.accentColor() ?: context.getResourceColor(materialR.attr.colorSecondary),
+                    context.getResourceColor(android.R.attr.background),
                     0.706f,
                 ),
             )
@@ -622,7 +623,7 @@ class MangaHeaderHolder(
             stateListAnimator = null
             resetStrokeColor()
             backgroundTintList =
-                ColorStateList.valueOf(context.getResourceColor(R.attr.background))
+                ColorStateList.valueOf(context.getResourceColor(android.R.attr.background))
         }
     }
 
@@ -652,7 +653,7 @@ class MangaHeaderHolder(
         with(binding) {
             trueBackdrop.setBackgroundColor(
                 adapter.delegate.coverColor()
-                    ?: trueBackdrop.context.getResourceColor(R.attr.background),
+                    ?: trueBackdrop.context.getResourceColor(android.R.attr.background),
             )
             TextViewCompat.setCompoundDrawableTintList(moreButton, ColorStateList.valueOf(accentColor))
             moreButton.setTextColor(accentColor)

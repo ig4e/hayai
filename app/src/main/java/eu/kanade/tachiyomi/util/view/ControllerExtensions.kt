@@ -47,6 +47,7 @@ import com.bluelinelabs.conductor.ControllerChangeType
 import com.bluelinelabs.conductor.Router
 import com.bluelinelabs.conductor.RouterTransaction
 import com.bluelinelabs.conductor.changehandler.SimpleSwapChangeHandler
+import com.google.android.material.R as materialR
 import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -206,8 +207,8 @@ fun <T> Controller.liftAppbarWith(
             !(activityBinding?.toolbar?.isVisible == true || activityBinding?.tabsFrameLayout?.isVisible == true)
         val percent = ImageUtil.getPercentOfColor(
             activityBinding!!.appBar.backgroundColor ?: Color.TRANSPARENT,
-            activity!!.getResourceColor(R.attr.colorSurface),
-            activity!!.getResourceColor(R.attr.colorPrimaryVariant),
+            activity!!.getResourceColor(materialR.attr.colorSurface),
+            activity!!.getResourceColor(materialR.attr.colorPrimaryVariant),
         )
         if (floatingBar) {
             setAppBarBG(0f)
@@ -380,8 +381,8 @@ fun Controller.scrollViewWith(
             }
             val percent = ImageUtil.getPercentOfColor(
                 activityBinding!!.appBar.backgroundColor ?: Color.TRANSPARENT,
-                activity!!.getResourceColor(R.attr.colorSurface),
-                activity!!.getResourceColor(R.attr.colorPrimaryVariant),
+                activity!!.getResourceColor(materialR.attr.colorSurface),
+                activity!!.getResourceColor(materialR.attr.colorPrimaryVariant),
             )
             toolbarColorAnim = ValueAnimator.ofFloat(percent, isColored.toInt().toFloat())
             toolbarColorAnim?.addUpdateListener { valueAnimator ->
@@ -455,7 +456,7 @@ fun Controller.scrollViewWith(
                         val params = fakeToolbarView?.layoutParams
                         params?.height = recycler.paddingTop
                         params?.width = MATCH_PARENT
-                        v.setBackgroundColor(v.context.getResourceColor(R.attr.colorSurface))
+                        v.setBackgroundColor(v.context.getResourceColor(materialR.attr.colorSurface))
                         v.layoutParams = params
                         onLeavingController?.invoke()
                     }
@@ -472,7 +473,7 @@ fun Controller.scrollViewWith(
                         (params as? FrameLayout.LayoutParams)?.gravity = Gravity.BOTTOM
                         fakeBottomNavView?.translationY = bottomNav.translationY
                         params?.width = MATCH_PARENT
-                        v.setBackgroundColor(v.context.getResourceColor(R.attr.colorPrimaryVariant))
+                        v.setBackgroundColor(v.context.getResourceColor(materialR.attr.colorPrimaryVariant))
                         v.layoutParams = params
                     }
                     toolbarColorAnim?.cancel()
@@ -735,11 +736,11 @@ fun Controller.setAppBarBG(value: Float, includeTabView: Boolean = false) {
         (this as? FloatingSearchInterface)?.showFloatingBar() == true && !includeTabView
     if (!isControllerVisible) return
     if (floatingBar) {
-        (activityBinding?.cardView as? CardView)?.setCardBackgroundColor(context.getResourceColor(R.attr.colorPrimaryVariant))
+        (activityBinding?.cardView as? CardView)?.setCardBackgroundColor(context.getResourceColor(materialR.attr.colorPrimaryVariant))
         if (this !is SmallToolbarInterface && activityBinding?.appBar?.useLargeToolbar == true &&
             activityBinding?.appBar?.compactSearchMode != true
         ) {
-            val colorSurface = context.getResourceColor(R.attr.colorSurface)
+            val colorSurface = context.getResourceColor(materialR.attr.colorSurface)
             val color = ColorUtils.blendARGB(
                 colorSurface,
                 ColorUtils.setAlphaComponent(colorSurface, 0),
@@ -755,8 +756,8 @@ fun Controller.setAppBarBG(value: Float, includeTabView: Boolean = false) {
         }
     } else {
         val color = ColorUtils.blendARGB(
-            context.getResourceColor(R.attr.colorSurface),
-            context.getResourceColor(R.attr.colorPrimaryVariant),
+            context.getResourceColor(materialR.attr.colorSurface),
+            context.getResourceColor(materialR.attr.colorPrimaryVariant),
             value,
         )
         activityBinding?.appBar?.setBackgroundColor(color)
@@ -766,8 +767,8 @@ fun Controller.setAppBarBG(value: Float, includeTabView: Boolean = false) {
         }
         if ((this as? FloatingSearchInterface)?.showFloatingBar() == true) {
             val invColor = ColorUtils.blendARGB(
-                context.getResourceColor(R.attr.colorSurface),
-                context.getResourceColor(R.attr.colorPrimaryVariant),
+                context.getResourceColor(materialR.attr.colorSurface),
+                context.getResourceColor(materialR.attr.colorPrimaryVariant),
                 1 - value,
             )
             (activityBinding?.cardView as? CardView)?.setCardBackgroundColor(

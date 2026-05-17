@@ -1,7 +1,6 @@
 [versions]
 activity = "1.11.0"
-# FIXME: Stuck on outdated AGP once again cuz CE EAP is kill, thanks JetBrains.
-agp = "8.12.2"
+agp = "8.13.2"
 lifecycle = "2.9.4"
 
 [libraries]

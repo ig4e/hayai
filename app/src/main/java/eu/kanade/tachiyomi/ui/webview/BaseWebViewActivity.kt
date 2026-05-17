@@ -11,6 +11,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.viewbinding.ViewBinding
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.changesIn
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
@@ -28,7 +29,7 @@ open class BaseWebViewActivity : BaseActivity<ViewBinding>() {
         delegate.localNightMode = preferences.nightMode().get()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = ColorUtils.setAlphaComponent(
-            getResourceColor(R.attr.colorSurface),
+            getResourceColor(materialR.attr.colorSurface),
             255,
         )
 
@@ -56,8 +57,8 @@ open class BaseWebViewActivity : BaseActivity<ViewBinding>() {
 
         val attrs = theme.obtainStyledAttributes(
             intArrayOf(
-                R.attr.colorSurface,
-                R.attr.colorPrimaryVariant,
+                materialR.attr.colorSurface,
+                materialR.attr.colorPrimaryVariant,
             ),
         )
         val colorSurface = attrs.getColor(0, 0)

@@ -6,6 +6,7 @@ import androidx.core.view.isVisible
 import androidx.core.content.ContextCompat
 import coil3.asImage
 import coil3.load
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -51,7 +52,7 @@ class SourceHolder(view: View, val adapter: SourceAdapter) :
             imageTintList = ColorStateList.valueOf(
                 context.getResourceColor(
                     if (isPinned) {
-                        R.attr.colorSecondary
+                        materialR.attr.colorSecondary
                     } else {
                         AR.attr.textColorSecondary
                     },

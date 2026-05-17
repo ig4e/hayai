@@ -77,6 +77,7 @@ import com.google.android.material.transition.platform.MaterialContainerTransfor
 import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.BuildConfig
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.preference.toggle
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
@@ -980,7 +981,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         // Set binding.toolbar
         setSupportActionBar(binding.toolbar)
         val primaryColor = ColorUtils.setAlphaComponent(
-            getResourceColor(R.attr.colorSurface),
+            getResourceColor(materialR.attr.colorSurface),
             200,
         )
         binding.appBar.setBackgroundColor(primaryColor)
@@ -1210,7 +1211,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
             wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             if (!fullscreen && sheetManageNavColor) {
-                window.navigationBarColor = getResourceColor(R.attr.colorSurface)
+                window.navigationBarColor = getResourceColor(materialR.attr.colorSurface)
             }
             binding.appBar.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                 leftMargin = systemInsets.left
@@ -1314,8 +1315,8 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     fun setNavColor(insets: WindowInsetsCompat) {
         sheetManageNavColor = when {
             isSplitScreen -> {
-                window.statusBarColor = getResourceColor(R.attr.colorPrimaryVariant)
-                window.navigationBarColor = getResourceColor(R.attr.colorPrimaryVariant)
+                window.statusBarColor = getResourceColor(materialR.attr.colorPrimaryVariant)
+                window.navigationBarColor = getResourceColor(materialR.attr.colorPrimaryVariant)
                 false
             }
             Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1 -> {
@@ -1325,7 +1326,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     insets.hasSideNavBar() -> Color.BLACK
                     isInNightMode() -> {
                         ColorUtils.setAlphaComponent(
-                            getResourceColor(R.attr.colorPrimaryVariant),
+                            getResourceColor(materialR.attr.colorPrimaryVariant),
                             179,
                         )
                     }
@@ -1338,7 +1339,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 false
             }
             insets.hasSideNavBar() -> {
-                window.navigationBarColor = getResourceColor(R.attr.colorSurface)
+                window.navigationBarColor = getResourceColor(materialR.attr.colorSurface)
                 false
             }
             // if in portrait with 2/3 button mode, translucent nav bar
@@ -2203,6 +2204,16 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             binding.readerNav.leftPageText.text = currentPage
             binding.readerNav.rightPageText.text = totalPages
         }
+        // Size labels to fit the widest possible text for this chapter so 1000+ pages don't line-wrap.
+        val maxDigits = totalPages.length
+        val isDoublePageMode = (viewer as? PagerViewer)?.config?.doublePages == true
+        listOf(binding.readerNav.leftPageText, binding.readerNav.rightPageText).forEach { textView ->
+            val isCurrent = (viewer is R2LPagerViewer).xor(textView === binding.readerNav.leftPageText)
+            val chars = if (isDoublePageMode && isCurrent) maxDigits * 2 + 1 else maxDigits
+            textView.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                width = maxOf(chars * 10 + 4, 32).spToPx
+            }
+        }
         if (binding.chaptersSheet.chaptersBottomSheet.selectedChapterId != page.chapter.chapter.id) {
             binding.chaptersSheet.chaptersBottomSheet.refreshList()
         }
@@ -2579,7 +2590,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 window.navigationBarColor =
                     ColorUtils.setAlphaComponent(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 || isInNightMode()) {
-                            getResourceColor(R.attr.colorSurface)
+                            getResourceColor(materialR.attr.colorSurface)
                         } else {
                             Color.BLACK
                         },
@@ -2725,7 +2736,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     binding.viewerContainer.setBackgroundColor(
                         ThemeUtil.readerBackgroundColor(
                             theme,
-                            getResourceColor(R.attr.background),
+                            getResourceColor(android.R.attr.background),
                         )
                     )
                 }

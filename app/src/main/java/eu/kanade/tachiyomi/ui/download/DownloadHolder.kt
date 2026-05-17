@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.download
 import android.view.View
 import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.ItemTouchHelper
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.databinding.DownloadItemBinding
@@ -56,7 +57,7 @@ class DownloadHolder(private val view: View, val adapter: DownloadAdapter) :
 
         binding.downloadMenu.setVectorCompat(
             R.drawable.ic_more_vert_24dp,
-            R.attr.colorOnBackground,
+            materialR.attr.colorOnBackground,
         )
     }
 

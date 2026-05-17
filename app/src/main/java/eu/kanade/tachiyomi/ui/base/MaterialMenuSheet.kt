@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.mikepenz.fastadapter.FastAdapter
 import com.mikepenz.fastadapter.adapters.ItemAdapter
 import dev.icerock.moko.resources.StringResource
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -107,8 +108,8 @@ class MaterialMenuSheet(
             elevationAnimator?.cancel()
             isElevated = elevate
             elevationAnimator?.cancel()
-            val nonElevateColor = activity.getResourceColor(R.attr.colorSurface)
-            val elevateColor = activity.getResourceColor(R.attr.colorPrimaryVariant)
+            val nonElevateColor = activity.getResourceColor(materialR.attr.colorSurface)
+            val elevateColor = activity.getResourceColor(materialR.attr.colorPrimaryVariant)
 
             elevationAnimator = ValueAnimator.ofArgb(
                 if (elevate) nonElevateColor else elevateColor,

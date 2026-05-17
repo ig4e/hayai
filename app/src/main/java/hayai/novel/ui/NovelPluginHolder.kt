@@ -87,7 +87,7 @@ class NovelPluginHolder(view: View, val adapter: NovelPluginAdapter) :
         isClickable = !item.isInstalling
         isActivated = false
         strokeColor = ColorStateList.valueOf(Color.TRANSPARENT)
-        rippleColor = ColorStateList.valueOf(context.getResourceColor(R.attr.colorControlHighlight))
+        rippleColor = ColorStateList.valueOf(context.getResourceColor(android.R.attr.colorControlHighlight))
         stateListAnimator = null
 
         when {

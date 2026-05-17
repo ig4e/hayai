@@ -61,6 +61,7 @@ import com.google.android.material.snackbar.Snackbar
 import dev.icerock.moko.resources.StringResource
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.SelectableAdapter
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.database.models.Category
@@ -148,7 +149,6 @@ import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
@@ -331,14 +331,14 @@ class MangaDetailsController :
 
     private fun setCoverColorValue(colorToUse: Int? = null) {
         val context = view?.context ?: return
-        val colorBack = context.getResourceColor(R.attr.background)
+        val colorBack = context.getResourceColor(android.R.attr.background)
         coverColor =
             (
                 if (presenter.preferences.themeMangaDetails().get()) {
                     (colorToUse ?: manga?.vibrantCoverColor)
                 } else {
                     ColorUtils.blendARGB(
-                        context.getResourceColor(R.attr.colorSecondary),
+                        context.getResourceColor(materialR.attr.colorSecondary),
                         colorBack,
                         0.5f,
                     )
@@ -377,7 +377,7 @@ class MangaDetailsController :
         headerColor = if (presenter.preferences.themeMangaDetails().get()) {
             (colorToUse ?: manga?.vibrantCoverColor)?.let { color ->
                 val newColor =
-                    makeColorFrom(color, context.getResourceColor(R.attr.colorPrimaryVariant))
+                    makeColorFrom(color, context.getResourceColor(materialR.attr.colorPrimaryVariant))
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 || context.isInNightMode()) {
                     activity?.window?.navigationBarColor = ColorUtils.setAlphaComponent(
                         newColor,
@@ -440,7 +440,7 @@ class MangaDetailsController :
         )
         binding.fab.backgroundTintList = ColorStateList(states, colors)
         val textColors = intArrayOf(
-            ColorUtils.setAlphaComponent(context.getResourceColor(R.attr.colorOnSurface), 97),
+            ColorUtils.setAlphaComponent(context.getResourceColor(materialR.attr.colorOnSurface), 97),
             context.getResourceColor(AR.attr.textColorPrimaryInverse),
         )
         binding.fab.setTextColor(ColorStateList(states, textColors))
@@ -602,7 +602,7 @@ class MangaDetailsController :
         if (actionMode != null) {
             return
         }
-        val scrollingColor = headerColor ?: activity.getResourceColor(R.attr.colorPrimaryVariant)
+        val scrollingColor = headerColor ?: activity.getResourceColor(materialR.attr.colorPrimaryVariant)
         val topColor = ColorUtils.setAlphaComponent(scrollingColor, 0)
         val scrollingStatusColor =
             ColorUtils.setAlphaComponent(scrollingColor, (0.87f * 255).roundToInt())
@@ -706,7 +706,7 @@ class MangaDetailsController :
 
     private fun setStatusBarAndToolbar() {
         val topColor = Color.TRANSPARENT
-        val scrollingColor = headerColor ?: activity!!.getResourceColor(R.attr.colorPrimaryVariant)
+        val scrollingColor = headerColor ?: activity!!.getResourceColor(materialR.attr.colorPrimaryVariant)
         val scrollingStatusColor =
             ColorUtils.setAlphaComponent(scrollingColor, (0.87f * 255).roundToInt())
         activity?.window?.statusBarColor = if (toolbarIsColored) scrollingStatusColor else topColor
@@ -783,7 +783,7 @@ class MangaDetailsController :
 
             getHeader()?.clearDescFocus()
             val colorSurface = activity?.getResourceColor(
-                R.attr.colorSurface,
+                materialR.attr.colorSurface,
             ) ?: Color.BLACK
             if (router.backstackSize > 0 &&
                 router.backstack.last().controller !is MangaDetailsController

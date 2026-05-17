@@ -36,6 +36,7 @@ import androidx.work.WorkManager
 import co.touchlab.kermit.Logger
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.App
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
@@ -269,7 +270,7 @@ fun Context.openInBrowser(uri: Uri, @ColorInt toolbarColor: Int? = null, forceBr
         val intent = CustomTabsIntent.Builder()
             .setDefaultColorSchemeParams(
                 CustomTabColorSchemeParams.Builder()
-                    .setToolbarColor(toolbarColor ?: getResourceColor(R.attr.colorPrimaryVariant))
+                    .setToolbarColor(toolbarColor ?: getResourceColor(materialR.attr.colorPrimaryVariant))
                     .build(),
             )
             .build()
@@ -301,7 +302,7 @@ fun Context.openInBrowser(url: String, forceBrowser: Boolean, fullBrowser: Boole
             val intent = CustomTabsIntent.Builder()
                 .setDefaultColorSchemeParams(
                     CustomTabColorSchemeParams.Builder()
-                        .setToolbarColor(getResourceColor(R.attr.colorPrimaryVariant))
+                        .setToolbarColor(getResourceColor(materialR.attr.colorPrimaryVariant))
                         .build(),
                 )
                 .build()

@@ -11,10 +11,10 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.lang.removeArticles
 import eu.kanade.tachiyomi.util.system.isLTR
+import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import eu.kanade.tachiyomi.util.system.withDefContext
 import java.util.*
-import kotlinx.coroutines.runBlocking
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.history.interactor.GetHistory
@@ -76,24 +76,7 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
     fun setItems(list: List<LibraryItem>) {
         // A copy of manga always unfiltered.
         mangas = list.toList()
-
-        // In paged mode the per-tab recycler renders a single category, so FlexibleAdapter's
-        // auto-section insertion (which fires inside performFilter → updateDataSet →
-        // prepareItemsForUpdate and is not gated by setDisplayHeadersAtStartUp / headersShown)
-        // would draw a category bubble above the items — the flash users saw when switching tabs.
-        // We suppress getHeader() for the duration of the synchronous setItems window only on this
-        // thread, so concurrent flow work on Dispatchers.IO (LibraryPresenter.getLibraryItems' groupBy
-        // lambdas, etc.) continues to see the real header.
-        if (isPagedMode) {
-            LibraryItem.suppressSectionHeader.set(true)
-            try {
-                performFilter()
-            } finally {
-                LibraryItem.suppressSectionHeader.remove()
-            }
-        } else {
-            performFilter()
-        }
+        performFilter()
     }
 
     private fun setItemsPerCategoryMap() {
@@ -171,7 +154,31 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
     }
 
     private fun performFilter() {
-        runBlocking { performFilterAsync() }
+        // Launch on the controller's viewScope so the filter is cancelled with the view.
+        // Fall back to a process-scope launch if the controller is gone or its lateinit
+        // viewScope hasn't been initialised yet (rare: setItems before preCreateView).
+        val scope = runCatching { controller?.viewScope }.getOrNull()
+        if (scope != null) {
+            scope.launchUI { runFilterWithSuppression() }
+        } else {
+            launchUI { runFilterWithSuppression() }
+        }
+    }
+
+    // In paged mode the per-tab recycler renders a single category, so FlexibleAdapter's
+    // auto-section insertion (which fires inside performFilter → updateDataSet →
+    // prepareItemsForUpdate and is not gated by setDisplayHeadersAtStartUp / headersShown)
+    // would draw a category bubble above the items — the flash users saw when switching tabs.
+    // Suppress getHeader() on the launching thread for the duration of the filter; concurrent
+    // flow work on Dispatchers.IO continues to see the real header.
+    private suspend fun runFilterWithSuppression() {
+        val suppress = isPagedMode
+        if (suppress) LibraryItem.suppressSectionHeader.set(true)
+        try {
+            performFilterAsync()
+        } finally {
+            if (suppress) LibraryItem.suppressSectionHeader.remove()
+        }
     }
 
     suspend fun performFilterAsync() {

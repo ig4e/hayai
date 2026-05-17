@@ -5,7 +5,6 @@ import android.text.Layout
 import android.util.AttributeSet
 import android.util.TypedValue
 import com.google.android.material.textview.MaterialTextView
-import eu.kanade.tachiyomi.R
 import android.R as AR
 
 class CustomDialogTitle constructor(context: Context, attrs: AttributeSet? = null) :
@@ -21,19 +20,21 @@ class CustomDialogTitle constructor(context: Context, attrs: AttributeSet? = nul
                 if (ellipsisCount > 0) {
                     isSingleLine = false
                     maxLines = 2
+                    // Inline a one-element styleable for android:textSize so we don't depend
+                    // on a generated R.styleable from a transitive lib (only the platform
+                    // textSize attr is needed).
                     val a = context.obtainStyledAttributes(
                         null,
-                        R.styleable.TextAppearance,
+                        intArrayOf(AR.attr.textSize),
                         AR.attr.textAppearanceMedium,
                         AR.style.TextAppearance_Medium,
                     )
-                    a.getDimensionPixelSize(
-                        R.styleable.TextAppearance_android_textSize,
-                        0,
-                    ).takeIf { it != 0 }?.let { textSize ->
-                        // textSize is already expressed in pixels
-                        setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
-                    }
+                    a.getDimensionPixelSize(0, 0)
+                        .takeIf { it != 0 }
+                        ?.let { textSize ->
+                            // textSize is already expressed in pixels
+                            setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize.toFloat())
+                        }
                     a.recycle()
                     super.onMeasure(widthMeasureSpec, heightMeasureSpec)
                 }

@@ -11,6 +11,8 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import java.math.RoundingMode
 import java.text.NumberFormat
+import yokai.i18n.MR
+import yokai.util.lang.getString
 
 class EHentaiUpdateNotifier(private val context: Context) {
 
@@ -32,7 +34,7 @@ class EHentaiUpdateNotifier(private val context: Context) {
     val progressNotificationBuilder by lazy {
         ensureChannel()
         NotificationCompat.Builder(context, CHANNEL_ID).apply {
-            setContentTitle(context.getString(R.string.app_name))
+            setContentTitle(context.getString(MR.strings.app_name))
             setSmallIcon(R.drawable.ic_refresh_24dp)
             setLargeIcon(notificationBitmap)
             setOngoing(true)

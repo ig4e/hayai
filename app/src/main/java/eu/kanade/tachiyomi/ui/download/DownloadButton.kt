@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.isVisible
 import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.databinding.DownloadButtonBinding
@@ -19,21 +20,21 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 class DownloadButton @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
     FrameLayout(context, attrs) {
 
-    var accentColor = context.getResourceColor(R.attr.colorSecondary)
+    var accentColor = context.getResourceColor(materialR.attr.colorSecondary)
         set(value) {
             field = value
             activeColor = ColorUtils.blendARGB(value, bgColor, 0.05f)
             downloadedColor = ColorUtils.blendARGB(value, cOnBgColor, 0.3f)
         }
-    private val bgColor = context.getResourceColor(R.attr.background)
-    private val cOnBgColor = context.getResourceColor(R.attr.colorOnBackground)
+    private val bgColor = context.getResourceColor(android.R.attr.background)
+    private val cOnBgColor = context.getResourceColor(materialR.attr.colorOnBackground)
     private var activeColor = ColorUtils.blendARGB(accentColor, bgColor, 0.05f)
     private var downloadedColor = ColorUtils.blendARGB(accentColor, cOnBgColor, 0.3f)
     private val progressBGColor by lazy { ContextCompat.getColor(context, R.color.divider) }
     private val disabledColor by lazy {
-        ContextCompat.getColor(context, R.color.material_on_surface_disabled)
+        ContextCompat.getColor(context, materialR.color.material_on_surface_disabled)
     }
-    private val downloadedTextColor = context.getResourceColor(R.attr.background)
+    private val downloadedTextColor = context.getResourceColor(android.R.attr.background)
     private val errorColor by lazy { ContextCompat.getColor(context, R.color.md_red_500) }
     private val filledCircle by lazy {
         ContextCompat.getDrawable(context, R.drawable.filled_circle)?.mutate()

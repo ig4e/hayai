@@ -21,6 +21,7 @@ import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import androidx.recyclerview.widget.ConcatAdapter
 import co.touchlab.kermit.Logger
+import androidx.preference.R as preferenceR
 import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.preference.minusAssign
@@ -285,7 +286,7 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
 
     private fun getPreferenceThemeContext(): Context {
         val tv = TypedValue()
-        activity!!.theme.resolveAttribute(R.attr.preferenceTheme, tv, true)
+        activity!!.theme.resolveAttribute(preferenceR.attr.preferenceTheme, tv, true)
         return ContextThemeWrapper(activity, tv.resourceId)
     }
 

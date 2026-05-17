@@ -12,6 +12,7 @@ import androidx.core.view.marginBottom
 import androidx.core.view.updateLayoutParams
 import coil3.dispose
 import coil3.size.Scale
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.dominantCoverColors
 import eu.kanade.tachiyomi.data.database.models.isNovel
@@ -75,9 +76,9 @@ class LibraryGridHolder(
         binding.title.text = item.manga.manga.title.highlightText(item.filter, color)
         binding.behindTitle.text = item.manga.manga.title
         val mangaColor = item.manga.manga.dominantCoverColors
-        binding.coverConstraint.backgroundColor = mangaColor?.first ?: itemView.context.getResourceColor(R.attr.background)
+        binding.coverConstraint.backgroundColor = mangaColor?.first ?: itemView.context.getResourceColor(android.R.attr.background)
         binding.behindTitle.setTextColor(
-            mangaColor?.second ?: itemView.context.getResourceColor(R.attr.colorOnBackground),
+            mangaColor?.second ?: itemView.context.getResourceColor(materialR.attr.colorOnBackground),
         )
         val authorArtist = if (item.manga.manga.author == item.manga.manga.artist || item.manga.manga.artist.isNullOrBlank()) {
             item.manga.manga.author?.trim() ?: ""

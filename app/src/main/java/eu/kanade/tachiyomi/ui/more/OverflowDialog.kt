@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updateLayoutParams
 import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat
 import eu.kanade.tachiyomi.BuildConfig
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -43,8 +44,8 @@ class OverflowDialog(
 
         binding.overflowCardView.backgroundTintList = ColorStateList.valueOf(
             ColorUtils.blendARGB(
-                activity.getResourceColor(R.attr.background),
-                activity.getResourceColor(R.attr.colorSecondary),
+                activity.getResourceColor(android.R.attr.background),
+                activity.getResourceColor(materialR.attr.colorSecondary),
                 0.075f,
             ),
         )

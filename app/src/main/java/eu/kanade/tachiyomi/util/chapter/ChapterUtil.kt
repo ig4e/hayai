@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.ColorUtils
 import androidx.core.widget.TextViewCompat
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.hideChapterTitle
@@ -108,12 +109,12 @@ class ChapterUtil {
         private fun readColor(context: Context): Int = context.contextCompatColor(R.color.read_chapter)
 
         private fun unreadColor(context: Context, secondary: Boolean = false): Int {
-            val color = context.getResourceColor(R.attr.colorOnSurface)
+            val color = context.getResourceColor(materialR.attr.colorOnSurface)
             // 78% alpha for chapter details, 100% for chapter number/title
             return ColorUtils.setAlphaComponent(color, if (secondary) 198 else 255)
         }
 
-        private fun bookmarkedColor(context: Context): Int = context.getResourceColor(R.attr.colorSecondary)
+        private fun bookmarkedColor(context: Context): Int = context.getResourceColor(materialR.attr.colorSecondary)
 
         private val volumeRegex = Regex("""(vol|volume)\.? *([0-9]+)?""", RegexOption.IGNORE_CASE)
         private val seasonRegex = Regex("""(Season |S)([0-9]+)?""")

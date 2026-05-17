@@ -32,8 +32,9 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -60,13 +61,21 @@ class StatsDetailsPresenter(
 
     private val context
         get() = view?.view?.context ?: prefs.context
-    var libraryMangas = runBlocking { getLibrary() }
+    // Empty until load() resolves. The controller awaits load() in viewScope before any
+    // resetAndSetup/initializeChips/getStatisticData call, so synchronous readers of
+    // libraryMangas/mangasDistinct never see the stale empty state during real rendering.
+    var libraryMangas: MutableList<LibraryManga> = mutableListOf()
         set(value) {
             field = value
             mangasDistinct = field.distinct()
+            sources = getEnabledSources()
         }
-    private var mangasDistinct = libraryMangas.distinct()
-    val sources = getEnabledSources()
+    private var mangasDistinct: List<LibraryManga> = emptyList()
+    // Refreshed by [libraryMangas] setter (so [load] and [updateLibrary] both rebuild it).
+    // Empty until load resolves; chipSource dialog and setupReadDuration's source lookup
+    // never run before the controller's `viewScope.launchUI { presenter.load(); … }`.
+    var sources: List<Source> = emptyList()
+        private set
     val extensionManager by injectLazy<ExtensionManager>()
     val enabledLanguages = prefs.enabledLanguages().get()
 
@@ -90,7 +99,7 @@ class StatsDetailsPresenter(
         add(Calendar.WEEK_OF_YEAR, 1)
     }
     private var daysRange = getDaysRange()
-    var history = getMangaHistoryGroupedByDay()
+    var history: Map<Calendar, List<MangaChapterHistory>> = emptyMap()
     var historyByDayAndManga = emptyMap<Calendar, Map<Manga, List<History>>>()
 
     var currentStats: ArrayList<StatsData>? = null
@@ -114,10 +123,15 @@ class StatsDetailsPresenter(
             context.getString(MR.strings.on_hiatus),
         )
     }
-    private val defaultCategory by lazy {
-        if (libraryMangas.any { it.category == 0 }) arrayOf(Category.createDefault(context)) else emptyArray()
-    }
-    val categoriesStats by lazy { defaultCategory + getCategories().toTypedArray() }
+    // Computed getters (not `by lazy`) because the presenter starts with empty libraryMangas /
+    // cached categories and populates them via load(); a lazy memoised on first read would
+    // permanently capture the initial empty state.
+    private val defaultCategory: Array<Category>
+        get() = if (libraryMangas.any { it.category == 0 }) arrayOf(Category.createDefault(context)) else emptyArray()
+    val categoriesStats: Array<Category>
+        get() = defaultCategory + getCategories().toTypedArray()
+
+    @Volatile private var cachedCategories: List<Category> = emptyList()
     val languagesStats by lazy {
         prefs.enabledLanguages().get()
             .associateWith { lang -> LocaleHelper.getSourceDisplayName(lang, context) }
@@ -581,13 +595,23 @@ class StatsDetailsPresenter(
         presenterScope.launch { libraryMangas = getLibrary() }
     }
 
+    /**
+     * One-shot async load of the data backing every synchronous getter
+     * (libraryMangas / mangasDistinct / cachedCategories / history). Must be awaited
+     * before resetAndSetup/initializeChips/getStatisticData run, otherwise the screen
+     * renders with empty data.
+     */
+    suspend fun load() {
+        libraryMangas = withContext(Dispatchers.IO) { getLibrary() }
+        cachedCategories = withContext(Dispatchers.IO) { getCategories.await() }
+        history = getMangaHistoryGroupedByDay()
+    }
+
     private suspend fun getLibrary(): MutableList<LibraryManga> {
         return getLibraryManga.await().toMutableList()
     }
 
-    private fun getCategories(): MutableList<Category> {
-        return runBlocking { getCategories.await() }.toMutableList()
-    }
+    private fun getCategories(): MutableList<Category> = cachedCategories.toMutableList()
 
     private suspend fun List<LibraryManga>.getReadDuration(): Long {
         return sumOf { manga -> getHistory.awaitAllByMangaId(manga.manga.id!!).sumOf { it.time_read } }
@@ -596,8 +620,8 @@ class StatsDetailsPresenter(
     /**
      * Get the manga and history grouped by day during the selected period
      */
-    fun getMangaHistoryGroupedByDay(): Map<Calendar, List<MangaChapterHistory>> {
-        val history = runBlocking {
+    suspend fun getMangaHistoryGroupedByDay(): Map<Calendar, List<MangaChapterHistory>> {
+        val history = withContext(Dispatchers.IO) {
             handler.awaitList {
                 historyQueries.getPerPeriod(startDate.timeInMillis, endDate.timeInMillis, MangaChapterHistory::mapper)
             }
@@ -660,7 +684,9 @@ class StatsDetailsPresenter(
     }
 
     fun updateMangaHistory() {
-        history = getMangaHistoryGroupedByDay()
+        presenterScope.launch {
+            history = getMangaHistoryGroupedByDay()
+        }
     }
 
     fun convertCalendarToLongString(calendar: Calendar): String {

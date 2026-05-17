@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.core.view.isVisible
 import dev.icerock.moko.resources.StringResource
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.databinding.FilterTagGroupBinding
@@ -107,7 +108,7 @@ class FilterTagGroup@JvmOverloads constructor(context: Context, attrs: Attribute
         }
         for (i in 0 until itemCount) {
             buttons[i].isVisible = true
-            buttons[i].setTextColor(context.getResourceColor(R.attr.colorOnBackground))
+            buttons[i].setTextColor(context.getResourceColor(materialR.attr.colorOnBackground))
         }
         for (i in 0 until (itemCount - 1)) separators[i].isVisible = true
     }
@@ -133,7 +134,7 @@ class FilterTagGroup@JvmOverloads constructor(context: Context, attrs: Attribute
                     if (binding.firstButton.isActivated) {
                         R.attr.colorOnSecondary
                     } else {
-                        R.attr.colorOnBackground
+                        materialR.attr.colorOnBackground
                     },
                 ),
             )
@@ -168,7 +169,7 @@ class FilterTagGroup@JvmOverloads constructor(context: Context, attrs: Attribute
                 if (mainButton.isActivated) {
                     R.attr.colorOnSecondary
                 } else {
-                    R.attr.colorOnBackground
+                    materialR.attr.colorOnBackground
                 },
             ),
         )

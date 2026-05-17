@@ -8,6 +8,7 @@ import android.view.View
 import androidx.preference.PreferenceScreen
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
+import androidx.preference.R as preferenceR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
@@ -61,7 +62,7 @@ class SettingsReaderHubController : SettingsLegacyController(), MainActivityTabs
 
     private fun getThemedContext(): Context {
         val tv = TypedValue()
-        activity!!.theme.resolveAttribute(R.attr.preferenceTheme, tv, true)
+        activity!!.theme.resolveAttribute(preferenceR.attr.preferenceTheme, tv, true)
         return ContextThemeWrapper(activity, tv.resourceId)
     }
 

@@ -30,7 +30,11 @@ import eu.kanade.tachiyomi.widget.TriStateCheckBox
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.category.interactor.SetMangaCategories
@@ -76,6 +80,10 @@ class SetCategoriesSheet(
     private val getCategories: GetCategories by injectLazy()
     private val setMangaCategories: SetMangaCategories by injectLazy()
     private val updateManga: UpdateManga by injectLazy()
+
+    // Process-scope: pending DB writes (favorite, setMangaCategories) need to complete even
+    // if the sheet is dismissed mid-save.
+    private val sheetScope = CoroutineScope(Job() + Dispatchers.Main)
 
     private val preferences: PreferencesHelper by injectLazy()
     override var recyclerView: RecyclerView? = binding.categoryRecyclerView
@@ -245,19 +253,21 @@ class SetCategoriesSheet(
         binding.cancelButton.setOnClickListener { dismiss() }
         binding.newCategoryButton.setOnClickListener {
             ManageCategoryDialog(null) {
-                // FIXME: Don't do blocking
-                categories = runBlocking { getCategories.await() }.toMutableList()
-                val map = itemAdapter.adapterItems.associate { it.category.id to it.state }
-                itemAdapter.set(
-                    categories.mapIndexed { index, category ->
-                        AddCategoryItem(category).apply {
-                            skipInversed =
-                                preselected.getOrElse(index) { TriStateCheckBox.State.UNCHECKED } != TriStateCheckBox.State.IGNORE
-                            state = map[category.id] ?: TriStateCheckBox.State.CHECKED
-                        }
-                    },
-                )
-                setCategoriesButtons()
+                sheetScope.launch {
+                    val fresh = withContext(Dispatchers.IO) { getCategories.await() }
+                    categories = fresh.toMutableList()
+                    val map = itemAdapter.adapterItems.associate { it.category.id to it.state }
+                    itemAdapter.set(
+                        categories.mapIndexed { index, category ->
+                            AddCategoryItem(category).apply {
+                                skipInversed =
+                                    preselected.getOrElse(index) { TriStateCheckBox.State.UNCHECKED } != TriStateCheckBox.State.IGNORE
+                                state = map[category.id] ?: TriStateCheckBox.State.CHECKED
+                            }
+                        },
+                    )
+                    setCategoriesButtons()
+                }
             }.show(activity)
         }
 
@@ -268,38 +278,48 @@ class SetCategoriesSheet(
     }
 
     private fun addMangaToCategories() {
-        if (listManga.size == 1 && !listManga.first().favorite) {
-            val manga = listManga.first()
-            manga.favorite = !manga.favorite
-            manga.date_added = Date().time
-
-            // FIXME: Don't do blocking
-            runBlocking {
-                updateManga.await(
-                    MangaUpdate(
-                        id = manga.id!!,
-                        favorite = manga.favorite,
-                        dateAdded = manga.date_added,
-                    )
-                )
-            }
-        }
-
         val addCategories = checkedItems.map(AddCategoryItem::category)
         val removeCategories = uncheckedItems.map(AddCategoryItem::category)
-        val mangaCategories = listManga.map { manga ->
-            // FIXME: Don't do blocking
-            runBlocking { getCategories.awaitByMangaId(manga.id!!) }
-                .subtract(removeCategories.toSet())
-                .plus(addCategories)
-                .distinct()
-                .map { MangaCategory.create(manga, it) }
-        }.flatten()
+        // Set the "last added to" hint synchronously so subsequent dialog opens see it
+        // immediately. The DB writes below run async and the sheet dismisses while they
+        // finish — onMangaAdded() fires when the final write resolves.
         if (addCategories.isNotEmpty() || listManga.size == 1) {
             Category.lastCategoriesAddedTo =
                 addCategories.mapNotNull { it.id }.toSet().ifEmpty { setOf(0) }
         }
-        runBlocking { setMangaCategories.awaitAll(listManga.mapNotNull { it.id }, mangaCategories) }
-        onMangaAdded()
+
+        val singleManga = listManga.singleOrNull()
+        val flipToFavorite = singleManga != null && !singleManga.favorite
+        if (flipToFavorite) {
+            singleManga!!.favorite = true
+            singleManga.date_added = Date().time
+        }
+        // Snapshot of the data we need on IO — capture now in case the sheet view is gone
+        // by the time the launched work runs.
+        val mangaIds = listManga.mapNotNull { it.id }
+        val mangaList = listManga.toList()
+
+        sheetScope.launch {
+            withContext(Dispatchers.IO) {
+                if (flipToFavorite && singleManga != null) {
+                    updateManga.await(
+                        MangaUpdate(
+                            id = singleManga.id!!,
+                            favorite = singleManga.favorite,
+                            dateAdded = singleManga.date_added,
+                        )
+                    )
+                }
+                val mangaCategories = mangaList.map { manga ->
+                    getCategories.awaitByMangaId(manga.id!!)
+                        .subtract(removeCategories.toSet())
+                        .plus(addCategories)
+                        .distinct()
+                        .map { MangaCategory.create(manga, it) }
+                }.flatten()
+                setMangaCategories.awaitAll(mangaIds, mangaCategories)
+            }
+            onMangaAdded()
+        }
     }
 }

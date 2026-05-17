@@ -17,6 +17,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.mikepenz.fastadapter.FastAdapter
 import com.mikepenz.fastadapter.adapters.ItemAdapter
 import com.mikepenz.fastadapter.listeners.ClickEventHook
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -59,7 +60,7 @@ class ReaderChapterSheet @JvmOverloads constructor(context: Context, attrs: Attr
 
     fun setup(activity: ReaderActivity) {
         viewModel = activity.viewModel
-        val fullPrimary = activity.getResourceColor(R.attr.colorSurface)
+        val fullPrimary = activity.getResourceColor(materialR.attr.colorSurface)
 
         val primary = ColorUtils.setAlphaComponent(fullPrimary, 200)
 

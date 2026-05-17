@@ -5,6 +5,7 @@ import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.core.view.updateLayoutParams
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -87,13 +88,13 @@ class SortTextView constructor(context: Context, attrs: AttributeSet?) :
         with(binding.sortImageView) {
             when (state) {
                 State.ASCENDING -> {
-                    setVectorCompat(R.drawable.ic_arrow_upward_24dp, R.attr.colorSecondary)
+                    setVectorCompat(R.drawable.ic_arrow_upward_24dp, materialR.attr.colorSecondary)
                 }
                 State.DESCENDING -> {
-                    setVectorCompat(R.drawable.ic_arrow_downward_24dp, R.attr.colorSecondary)
+                    setVectorCompat(R.drawable.ic_arrow_downward_24dp, materialR.attr.colorSecondary)
                 }
                 State.NONE -> {
-                    setVectorCompat(R.drawable.ic_blank_24dp, R.attr.colorOnSurface)
+                    setVectorCompat(R.drawable.ic_blank_24dp, materialR.attr.colorOnSurface)
                 }
             }
         }

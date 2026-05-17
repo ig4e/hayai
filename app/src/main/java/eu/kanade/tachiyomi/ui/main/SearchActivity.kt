@@ -24,7 +24,10 @@ import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.system.extensionIntentForText
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
-import kotlinx.coroutines.runBlocking
+import androidx.lifecycle.lifecycleScope
+import eu.kanade.tachiyomi.util.system.launchUI
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
@@ -160,23 +163,33 @@ class SearchActivity : MainActivity() {
             }
             Constants.SHORTCUT_MANGA, Constants.SHORTCUT_MANGA_BACK -> {
                 val extras = intent.extras ?: return false
-                if (intent.action == Constants.SHORTCUT_MANGA_BACK && preferences.openChapterInShortcuts().get()) {
-                    val mangaId = extras.getLong(Constants.MANGA_EXTRA)
-                    if (mangaId != 0L) {
-                        runBlocking { getManga.awaitById(mangaId) }?.let { manga ->
-                            val chapters = runBlocking { getChapter.awaitAll(manga) }
-                            val nextUnreadChapter = ChapterSort(manga).getNextUnreadChapter(chapters, false)
-                            if (nextUnreadChapter != null) {
-                                val activity =
-                                    ReaderActivity.newIntent(this, manga, nextUnreadChapter)
-                                startActivity(activity)
-                                finish()
-                                return true
-                            }
+                val isBack = intent.action == Constants.SHORTCUT_MANGA_BACK
+                val mangaId = extras.getLong(Constants.MANGA_EXTRA)
+                if (isBack && preferences.openChapterInShortcuts().get() && mangaId != 0L) {
+                    // Resolve manga + next unread chapter off main; either launch reader or fall
+                    // back to the details controller. We always return true synchronously — the
+                    // routing decision is made inside the coroutine.
+                    lifecycleScope.launchUI {
+                        val manga = withContext(Dispatchers.IO) { getManga.awaitById(mangaId) }
+                        val nextUnreadChapter = manga?.let {
+                            val chapters = withContext(Dispatchers.IO) { getChapter.awaitAll(it) }
+                            ChapterSort(it).getNextUnreadChapter(chapters, false)
+                        }
+                        if (manga != null && nextUnreadChapter != null) {
+                            startActivity(ReaderActivity.newIntent(this@SearchActivity, manga, nextUnreadChapter))
+                            finish()
+                        } else {
+                            SecureActivityDelegate.promptLockIfNeeded(this@SearchActivity, true)
+                            router.replaceTopController(
+                                RouterTransaction.with(MangaDetailsController(extras))
+                                    .pushChangeHandler(SimpleSwapChangeHandler())
+                                    .popChangeHandler(FadeChangeHandler()),
+                            )
                         }
                     }
+                    return true
                 }
-                if (intent.action == Constants.SHORTCUT_MANGA_BACK) {
+                if (isBack) {
                     SecureActivityDelegate.promptLockIfNeeded(this, true)
                 }
                 router.replaceTopController(

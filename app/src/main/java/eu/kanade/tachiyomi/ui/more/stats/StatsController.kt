@@ -13,6 +13,7 @@ import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.database.models.Track
@@ -24,6 +25,7 @@ import eu.kanade.tachiyomi.ui.more.stats.details.StatsDetailsController
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.mapStatus
 import eu.kanade.tachiyomi.util.system.getResourceColor
+import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.roundToTwoDecimal
 import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.util.view.scrollViewWith
@@ -37,7 +39,10 @@ class StatsController : BaseLegacyController<StatsControllerBinding>() {
 
     val presenter = StatsPresenter()
 
-    private val mangaDistinct = presenter.mangaDistinct
+    // Property getter so we always see the presenter's current snapshot — the prior
+    // `private val mangaDistinct = presenter.mangaDistinct` captured the empty list at
+    // construction and never updated after presenter.load() resolved.
+    private val mangaDistinct get() = presenter.mangaDistinct
     private var scoresList = emptyList<Double>()
 
     /**
@@ -50,14 +55,17 @@ class StatsController : BaseLegacyController<StatsControllerBinding>() {
     override fun onViewCreated(view: View) {
         super.onViewCreated(view)
         scrollViewWith(binding.statsScrollView, true)
-        handleGeneralStats()
-        if (mangaDistinct.isNotEmpty()) {
-            binding.viewDetailLayout.setOnClickListener {
-                router.pushController(StatsDetailsController().withFadeTransaction())
+        viewScope.launchUI {
+            presenter.load()
+            handleGeneralStats()
+            if (mangaDistinct.isNotEmpty()) {
+                binding.viewDetailLayout.setOnClickListener {
+                    router.pushController(StatsDetailsController().withFadeTransaction())
+                }
+                handleStatusDistribution()
             }
-            handleStatusDistribution()
+            if (scoresList.isNotEmpty()) handleScoreDistribution()
         }
-        if (scoresList.isNotEmpty()) handleScoreDistribution()
     }
 
     private fun handleGeneralStats() {
@@ -86,7 +94,7 @@ class StatsController : BaseLegacyController<StatsControllerBinding>() {
         }
     }
 
-    private fun getScoresList(mangaTracks: List<Pair<LibraryManga, MutableList<Track>>>): List<Double> {
+    private fun getScoresList(mangaTracks: List<Pair<LibraryManga, List<Track>>>): List<Double> {
         return mangaTracks.filter { it.second.isNotEmpty() }
             .map {
                 it.second.filter { track -> track.score > 0 }
@@ -159,7 +167,7 @@ class StatsController : BaseLegacyController<StatsControllerBinding>() {
         try {
             with(binding.mangaStatsScoreBarChart) {
                 val barData = BarData(barDataSet)
-                barData.setValueTextColor(activity!!.getResourceColor(R.attr.colorOnBackground))
+                barData.setValueTextColor(activity!!.getResourceColor(materialR.attr.colorOnBackground))
                 barData.setValueFormatter(valueFormatter)
                 barData.barWidth = 0.6f
                 barData.setValueTextSize(10f)
@@ -170,7 +178,7 @@ class StatsController : BaseLegacyController<StatsControllerBinding>() {
                     setDrawGridLines(false)
                     position = XAxis.XAxisPosition.BOTTOM
                     setLabelCount(barDataSet.entryCount, false)
-                    textColor = activity!!.getResourceColor(R.attr.colorOnBackground)
+                    textColor = activity!!.getResourceColor(materialR.attr.colorOnBackground)
                 }
 
                 apply {

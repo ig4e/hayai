@@ -19,6 +19,7 @@ import androidx.core.widget.TextViewCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bluelinelabs.conductor.Controller
 import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
@@ -249,7 +250,7 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
                 setToolbarModeBy(null, true)
                 return
             }
-            val attrs = intArrayOf(R.attr.textAppearanceHeadlineMedium)
+            val attrs = intArrayOf(materialR.attr.textAppearanceHeadlineMedium)
             val ta = context.obtainStyledAttributes(attrs)
             val resId = ta.getResourceId(0, 0)
             ta.recycle()
@@ -451,7 +452,7 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
                 mainToolbar?.isInvisible = false
             }
             if (tabsFrameLayout?.isVisible == false) {
-                cardFrame?.backgroundColor = mainActivity.getResourceColor(R.attr.colorSurface)
+                cardFrame?.backgroundColor = mainActivity.getResourceColor(materialR.attr.colorSurface)
             } else {
                 cardFrame?.backgroundColor = null
             }

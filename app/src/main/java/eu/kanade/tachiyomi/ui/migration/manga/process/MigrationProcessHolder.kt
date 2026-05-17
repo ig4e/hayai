@@ -5,6 +5,7 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.coil.useCustomCover
 import eu.kanade.tachiyomi.databinding.MangaGridItemBinding
@@ -67,11 +68,11 @@ class MigrationProcessHolder(
 
             binding.migrationMenu.setVectorCompat(
                 R.drawable.ic_more_vert_24dp,
-                R.attr.colorOnBackground,
+                materialR.attr.colorOnBackground,
             )
             binding.skipManga.setVectorCompat(
                 R.drawable.ic_close_24dp,
-                R.attr.colorOnBackground,
+                materialR.attr.colorOnBackground,
             )
             binding.migrationMenu.isInvisible = true
             binding.skipManga.isVisible = true

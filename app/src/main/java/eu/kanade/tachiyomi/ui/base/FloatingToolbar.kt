@@ -12,6 +12,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import com.google.android.material.textview.MaterialTextView
+import androidx.appcompat.R as appcompatR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.system.contextCompatDrawable
 import eu.kanade.tachiyomi.util.system.getResourceColor
@@ -64,11 +65,11 @@ class FloatingToolbar @JvmOverloads constructor(context: Context, attrs: Attribu
     init {
         val a = context.obtainStyledAttributes(
             attrs,
-            R.styleable.Toolbar,
+            appcompatR.styleable.Toolbar,
             0,
             defStyleRes,
         )
-        subtitleTextAppearance = a.getResourceId(R.styleable.Toolbar_subtitleTextAppearance, 0)
+        subtitleTextAppearance = a.getResourceId(appcompatR.styleable.Toolbar_subtitleTextAppearance, 0)
         a.recycle()
     }
     override fun onFinishInflate() {

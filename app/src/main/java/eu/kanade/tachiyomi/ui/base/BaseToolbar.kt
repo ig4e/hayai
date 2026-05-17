@@ -7,6 +7,7 @@ import androidx.annotation.DrawableRes
 import androidx.core.view.isVisible
 import com.bluelinelabs.conductor.Router
 import com.google.android.material.appbar.MaterialToolbar
+import androidx.appcompat.R as appcompatR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.SearchActivity
@@ -32,11 +33,11 @@ open class BaseToolbar @JvmOverloads constructor(context: Context, attrs: Attrib
     init {
         val a = context.obtainStyledAttributes(
             attrs,
-            R.styleable.Toolbar,
+            appcompatR.styleable.Toolbar,
             0,
             defStyleRes,
         )
-        titleTextAppearance = a.getResourceId(R.styleable.Toolbar_titleTextAppearance, 0)
+        titleTextAppearance = a.getResourceId(appcompatR.styleable.Toolbar_titleTextAppearance, 0)
         a.recycle()
     }
 

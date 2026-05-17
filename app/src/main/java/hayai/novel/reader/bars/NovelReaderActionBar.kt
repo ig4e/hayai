@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import yokai.i18n.MR
@@ -101,13 +102,13 @@ fun NovelReaderActionBar(
 ) {
     val context = LocalContext.current
     val backgroundColor = remember(context) {
-        Color(context.getResourceColor(R.attr.colorSurface)).copy(alpha = 200f / 255f)
+        Color(context.getResourceColor(materialR.attr.colorSurface)).copy(alpha = 200f / 255f)
     }
     val iconTint = remember(context) {
         Color(context.getResourceColor(R.attr.actionBarTintColor))
     }
     val rippleColor = remember(context) {
-        Color(context.getResourceColor(R.attr.colorControlHighlight))
+        Color(context.getResourceColor(android.R.attr.colorControlHighlight))
     }
     val activeTint = MaterialTheme.colorScheme.primary
     val iconSize = 24.dp

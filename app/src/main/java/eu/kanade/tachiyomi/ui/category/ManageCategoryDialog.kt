@@ -19,7 +19,11 @@ import eu.kanade.tachiyomi.util.view.setPositiveButton
 import eu.kanade.tachiyomi.util.view.setTitle
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import eu.kanade.tachiyomi.widget.TriStateCheckBox
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.category.interactor.InsertCategories
@@ -41,6 +45,17 @@ class ManageCategoryDialog(bundle: Bundle? = null) :
     private val preferences by injectLazy<PreferencesHelper>()
     private val getCategories by injectLazy<GetCategories>()
     private val insertCategories by injectLazy<InsertCategories>()
+
+    // Process-scope: pending DB writes need to complete even if the dialog is dismissed mid-save.
+    private val dialogScope = CoroutineScope(Job() + Dispatchers.Main)
+    // Pre-loaded once at construction so categoryExists / order computation don't need to block.
+    @Volatile private var cachedCategories: List<Category> = emptyList()
+
+    init {
+        dialogScope.launch {
+            cachedCategories = withContext(Dispatchers.IO) { getCategories.await() }
+        }
+    }
 
     lateinit var binding: MangaCategoryDialogBinding
 
@@ -84,20 +99,27 @@ class ManageCategoryDialog(bundle: Bundle? = null) :
         val text = binding.title.text.toString()
         val categoryExists = categoryExists(text)
         val category = this.category ?: Category.create(text)
+        var deferUpdateLibrary = false
         if (category.id != 0) {
             if (text.isNotBlank() && !categoryExists &&
                 !text.equals(this.category?.name ?: "", true)
             ) {
                 category.name = text
                 if (this.category == null) {
-                    // FIXME: Don't do blocking
-                    val categories = runBlocking { getCategories.await() }
-                    category.order = (categories.maxOfOrNull { it.order } ?: 0) + 1
+                    // New category. Compute order from the pre-loaded cache, then insert async —
+                    // updateLibrary is fired after the insert resolves the real id.
+                    category.order = (cachedCategories.maxOfOrNull { it.order } ?: 0) + 1
                     category.mangaSort = LibrarySort.Title.categoryValue
-                    category.id = runBlocking { insertCategories.awaitOne(category) }?.toInt()
                     this.category = category
+                    deferUpdateLibrary = true
+                    dialogScope.launch {
+                        val newId = withContext(Dispatchers.IO) { insertCategories.awaitOne(category) }
+                        category.id = newId?.toInt()
+                        updateLibrary?.invoke(category.id)
+                    }
                 } else {
-                    runBlocking { insertCategories.awaitOne(category) }
+                    // Existing category update — fire and forget on IO; UI doesn't observe the result.
+                    dialogScope.launch(Dispatchers.IO) { insertCategories.awaitOne(category) }
                 }
             } else if (categoryExists) {
                 binding.categoryTextLayout.error =
@@ -130,7 +152,7 @@ class ManageCategoryDialog(bundle: Bundle? = null) :
             preferences.libraryUpdateInterval().set(0)
             LibraryUpdateJob.setupTask(preferences.context, 0)
         }
-        updateLibrary?.invoke(category.id)
+        if (!deferUpdateLibrary) updateLibrary?.invoke(category.id)
         return true
     }
 
@@ -138,8 +160,7 @@ class ManageCategoryDialog(bundle: Bundle? = null) :
      * Returns true if a category with the given name already exists.
      */
     private fun categoryExists(name: String): Boolean {
-        // FIXME: Don't do blocking
-        return runBlocking { getCategories.await() }.any {
+        return cachedCategories.any {
             it.name.equals(name, true) && category?.id != it.id
         }
     }

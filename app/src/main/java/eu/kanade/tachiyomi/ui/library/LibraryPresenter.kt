@@ -62,7 +62,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.retry
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -1441,9 +1440,14 @@ class LibraryPresenter(
 
     /** Returns if manga is in a category by id */
     fun mangaIsInCategory(manga: LibraryManga, catId: Int?): Boolean {
-        // FIXME: Don't do blocking
-        val categories = runBlocking { getCategories.awaitByMangaId(manga.manga.id!!) }.map { it.id }
-        return catId in categories
+        if (catId == null) return false
+        // In-memory check: every (manga, category) pair is its own LibraryMangaItem entry,
+        // so we just look for an existing item with the matching manga id and category.
+        return currentLibraryItems.any {
+            it is LibraryMangaItem &&
+                it.manga.manga.id == manga.manga.id &&
+                it.manga.category == catId
+        }
     }
 
     fun toggleCategoryVisibility(categoryId: Int) {

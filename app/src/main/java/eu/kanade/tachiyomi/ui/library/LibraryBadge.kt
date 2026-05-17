@@ -9,6 +9,7 @@ import androidx.core.view.updatePaddingRelative
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.imageview.ShapeableImageView
 import com.google.android.material.shape.MaterialShapeDrawable
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -43,7 +44,7 @@ class LibraryBadge @JvmOverloads constructor(context: Context, attrs: AttributeS
         val unreadBadgeBackground = if (showTotalChapters) {
             context.contextCompatColor(R.color.total_badge)
         } else {
-            context.getResourceColor(R.attr.colorSecondary)
+            context.getResourceColor(materialR.attr.colorSecondary)
         }
 
         with(binding.unreadText) {
@@ -123,7 +124,7 @@ class LibraryBadge @JvmOverloads constructor(context: Context, attrs: AttributeS
                     val bgColor = when (view) {
                         binding.downloadText -> context.getResourceColor(R.attr.colorTertiary)
                         binding.unreadText -> unreadBadgeBackground
-                        else -> context.getResourceColor(R.attr.background)
+                        else -> context.getResourceColor(android.R.attr.background)
                     }
                     if (view is ShapeableImageView) {
                         view.shapeAppearanceModel =
@@ -178,7 +179,7 @@ class LibraryBadge @JvmOverloads constructor(context: Context, attrs: AttributeS
         binding.unreadText.background =
             MaterialShapeDrawable(makeShapeCorners(radius, radius)).apply {
                 this.fillColor =
-                    ColorStateList.valueOf(context.getResourceColor(R.attr.colorSecondary))
+                    ColorStateList.valueOf(context.getResourceColor(materialR.attr.colorSecondary))
             }
     }
 }

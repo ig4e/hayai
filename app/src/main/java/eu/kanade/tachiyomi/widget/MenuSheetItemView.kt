@@ -12,6 +12,7 @@ import androidx.annotation.StringRes
 import androidx.core.view.isGone
 import androidx.core.widget.TextViewCompat
 import dev.icerock.moko.resources.StringResource
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -87,11 +88,11 @@ class MenuSheetItemView constructor(context: Context, attrs: AttributeSet?) :
     override fun setSelected(selected: Boolean) {
         super.setSelected(selected)
         if (isSelected) {
-            setIconColor(context.getResourceColor(R.attr.colorSecondary))
-            setTextColor(context.getResourceColor(R.attr.colorSecondary))
+            setIconColor(context.getResourceColor(materialR.attr.colorSecondary))
+            setTextColor(context.getResourceColor(materialR.attr.colorSecondary))
         } else {
-            setTextColor(context.getResourceColor(R.attr.colorOnBackground))
-            setIconColor(context.getResourceColor(R.attr.colorOnBackground))
+            setTextColor(context.getResourceColor(materialR.attr.colorOnBackground))
+            setIconColor(context.getResourceColor(materialR.attr.colorOnBackground))
             setEndIcon(0)
         }
     }

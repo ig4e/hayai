@@ -30,6 +30,7 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.datepicker.MaterialDatePicker
 import dev.icerock.moko.resources.PluralsResource
 import dev.icerock.moko.resources.StringResource
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.databinding.StatsDetailsChartBinding
@@ -49,6 +50,7 @@ import eu.kanade.tachiyomi.util.system.contextCompatDrawable
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.isLandscape
 import eu.kanade.tachiyomi.util.system.launchIO
+import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.toInt
 import eu.kanade.tachiyomi.util.system.toLocalCalendar
@@ -112,8 +114,13 @@ class StatsDetailsController :
             resetFilters(true)
         }
 
-        resetAndSetup()
-        initializeChips()
+        // presenter.load() populates libraryMangas / cachedCategories / history off main.
+        // resetAndSetup + initializeChips read those so they must run after load resolves.
+        viewScope.launchUI {
+            presenter.load()
+            resetAndSetup()
+            initializeChips()
+        }
         with(binding) {
             chartLinearLayout?.root?.doOnApplyWindowInsetsCompat { view, insets, _ ->
                 view.updatePaddingRelative(
@@ -248,14 +255,14 @@ class StatsDetailsController :
         val activity = activity ?: return
         toolbarIsColored = isColor
         if (isControllerVisible) setTitle()
-        val scrollingColor = activity.getResourceColor(R.attr.colorPrimaryVariant)
-        val topColor = activity.getResourceColor(R.attr.colorSurface)
+        val scrollingColor = activity.getResourceColor(materialR.attr.colorPrimaryVariant)
+        val topColor = activity.getResourceColor(materialR.attr.colorSurface)
         colorAnimator?.cancel()
         val view = binding.filterConstraintLayout ?: binding.statsHorizontalScroll
         val percent = ImageUtil.getPercentOfColor(
             view.backgroundColor ?: Color.TRANSPARENT,
-            activity.getResourceColor(R.attr.colorSurface),
-            activity.getResourceColor(R.attr.colorPrimaryVariant),
+            activity.getResourceColor(materialR.attr.colorSurface),
+            activity.getResourceColor(materialR.attr.colorPrimaryVariant),
         )
         val cA = ValueAnimator.ofFloat(
             percent,
@@ -569,9 +576,9 @@ class StatsDetailsController :
     }
 
     fun Chip.setColors(sizeStat: Int) {
-        val emptyTextColor = activity!!.getResourceColor(R.attr.colorOnBackground)
-        val filteredBackColor = activity!!.getResourceColor(R.attr.colorSecondary)
-        val emptyBackColor = activity!!.getResourceColor(R.attr.colorSurface)
+        val emptyTextColor = activity!!.getResourceColor(materialR.attr.colorOnBackground)
+        val filteredBackColor = activity!!.getResourceColor(materialR.attr.colorSecondary)
+        val emptyBackColor = activity!!.getResourceColor(materialR.attr.colorSurface)
         val alwaysShowIcon = this == binding.chipStat
         val neverSelect = alwaysShowIcon || sizeStat == 0
         setTextColor(if (neverSelect) emptyTextColor else emptyBackColor)

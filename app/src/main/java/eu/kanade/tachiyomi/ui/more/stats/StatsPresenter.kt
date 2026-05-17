@@ -15,7 +15,8 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
 import eu.kanade.tachiyomi.ui.more.stats.StatsHelper.getReadDuration
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -38,16 +39,36 @@ class StatsPresenter(
     private val getLibraryManga: GetLibraryManga by injectLazy()
     private val getTrack: GetTrack by injectLazy()
 
-    private val libraryMangas = getLibrary()
-    val mangaDistinct = libraryMangas.distinct()
+    // Empty until load() resolves. The controller awaits load() in viewScope before reading
+    // any of these so the screen mounts immediately rather than blocking on a synchronous
+    // library + per-manga track scan at construction.
+    private var libraryMangas: List<LibraryManga> = emptyList()
+    var mangaDistinct: List<LibraryManga> = emptyList()
+        private set
 
-    private fun getLibrary(): MutableList<LibraryManga> {
-        return runBlocking { getLibraryManga.await() }.toMutableList()
+    private var tracksByManga: Map<Long, List<Track>> = emptyMap()
+    private var totalReadDurationMs: Long? = null
+
+    /**
+     * Loads the library snapshot, per-manga tracks, and total read duration on IO.
+     * Must be awaited before [getTracks], [getReadDuration], [mangaDistinct], or
+     * [getGlobalUpdateManga] return meaningful values.
+     */
+    suspend fun load() {
+        libraryMangas = withContext(Dispatchers.IO) { getLibraryManga.await() }
+        mangaDistinct = libraryMangas.distinct()
+        tracksByManga = withContext(Dispatchers.IO) {
+            mangaDistinct.associate { lm ->
+                val id = lm.manga.id!!
+                id to getTrack.awaitAllByMangaId(id)
+            }
+        }
+        totalReadDurationMs = withContext(Dispatchers.IO) {
+            handler.awaitOneOrNull { historyQueries.getTotalReadDuration() }?.sum?.toLong()
+        }
     }
 
-    fun getTracks(manga: Manga): MutableList<Track> {
-        return runBlocking { getTrack.awaitAllByMangaId(manga.id) }.toMutableList()
-    }
+    fun getTracks(manga: Manga): List<Track> = tracksByManga[manga.id] ?: emptyList()
 
     fun getLoggedTrackers(): List<TrackService> {
         return trackManager.services.filter { it.isLogged }
@@ -85,10 +106,6 @@ class StatsPresenter(
         return service?.get10PointScore(track.score)
     }
 
-    fun getReadDuration(): String {
-        val chaptersTime = runBlocking {
-            handler.awaitOneOrNull { historyQueries.getTotalReadDuration() }?.sum?.toLong()
-        }
-        return chaptersTime.getReadDuration(prefs.context.getString(MR.strings.none))
-    }
+    fun getReadDuration(): String =
+        totalReadDurationMs.getReadDuration(prefs.context.getString(MR.strings.none))
 }

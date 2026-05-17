@@ -23,6 +23,7 @@ import com.mikepenz.fastadapter.adapters.ItemAdapter
 import com.mikepenz.fastadapter.items.AbstractItem
 import com.mikepenz.fastadapter.select.SelectExtension
 import com.mikepenz.fastadapter.select.getSelectExtension
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -246,11 +247,11 @@ class ThemePreference @JvmOverloads constructor(context: Context, attrs: Attribu
                 themeContext.setTheme(item.theme.styleRes)
                 val primaryText = themeContext.getResourceColor(AR.attr.textColorPrimary)
                 val secondaryText = themeContext.getResourceColor(AR.attr.textColorSecondary)
-                val background = themeContext.getResourceColor(R.attr.background)
-                val colorSecondary = themeContext.getResourceColor(R.attr.colorSecondary)
-                val appBar = themeContext.getResourceColor(R.attr.colorSurface)
+                val background = themeContext.getResourceColor(android.R.attr.background)
+                val colorSecondary = themeContext.getResourceColor(materialR.attr.colorSecondary)
+                val appBar = themeContext.getResourceColor(materialR.attr.colorSurface)
                 val appBarText = themeContext.getResourceColor(R.attr.actionBarTintColor)
-                val bottomBar = themeContext.getResourceColor(R.attr.colorPrimaryVariant)
+                val bottomBar = themeContext.getResourceColor(materialR.attr.colorPrimaryVariant)
                 val inactiveTab = themeContext.getResourceColor(R.attr.tabBarIconInactive)
                 val activeTab = themeContext.getResourceColor(R.attr.tabBarIconColor)
                 binding.themeToolbar.setBackgroundColor(appBar)

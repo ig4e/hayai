@@ -10,6 +10,8 @@ import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceViewHolder
+import androidx.preference.R as preferenceR
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -24,7 +26,7 @@ class SwitchPreferenceCategory @JvmOverloads constructor(
     PreferenceCategory(
         context,
         attrs,
-        R.attr.switchPreferenceCompatStyle,
+        preferenceR.attr.switchPreferenceCompatStyle,
     ),
     CompoundButton.OnCheckedChangeListener {
 
@@ -35,7 +37,7 @@ class SwitchPreferenceCategory @JvmOverloads constructor(
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
         super.onBindViewHolder(holder)
         val titleView = holder.findViewById(AR.id.title) as TextView
-        titleView.setTextColor(context.getResourceColor(R.attr.colorSecondary))
+        titleView.setTextColor(context.getResourceColor(materialR.attr.colorSecondary))
         syncSwitchView(holder)
     }
 

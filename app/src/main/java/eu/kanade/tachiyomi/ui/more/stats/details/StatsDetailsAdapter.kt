@@ -10,6 +10,7 @@ import androidx.core.text.bold
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -83,7 +84,7 @@ class StatsDetailsAdapter(
             statsSublabelText.isVisible = false
 
             statsLabelText.setTextColor(
-                item.color ?: context.getResourceColor(R.attr.colorOnBackground),
+                item.color ?: context.getResourceColor(materialR.attr.colorOnBackground),
             )
             val label = item.label?.let {
                 if (stat == Stats.LENGTH) {
@@ -127,7 +128,7 @@ class StatsDetailsAdapter(
             logoContainer.isVisible = false
 
             statsLabelText.setTextColor(
-                item.color ?: context.getResourceColor(R.attr.colorOnBackground),
+                item.color ?: context.getResourceColor(materialR.attr.colorOnBackground),
             )
             val formattedScore = item.label?.uppercase() + if (item.label?.toIntOrNull() != null) "★" else ""
             statsLabelText.text = formattedScore
@@ -151,7 +152,7 @@ class StatsDetailsAdapter(
 
             statsRankText.text = String.format("%02d.", position + 1)
             statsLabelText.setTextColor(
-                item.color ?: context.getResourceColor(R.attr.colorOnBackground),
+                item.color ?: context.getResourceColor(materialR.attr.colorOnBackground),
             )
             statsLabelText.text = item.label?.uppercase()
             if (item.icon != null) {
@@ -185,7 +186,7 @@ class StatsDetailsAdapter(
 
             statsRankText.text = String.format("%02d.", position + 1)
             statsLabelText.setTextColor(
-                item.color ?: context.getResourceColor(R.attr.colorOnBackground),
+                item.color ?: context.getResourceColor(materialR.attr.colorOnBackground),
             )
             statsLabelText.text = item.label?.uppercase()
             statsScoreText.text =
