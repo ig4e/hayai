@@ -146,8 +146,8 @@ open class BrowseSourceController(bundle: Bundle) :
      */
     private var progressItem: ProgressItem? = null
 
-    /** Current filter sheet */
-    private var filterSheet: SourceFilterSheet? = null
+    /** Current filter sheet — Compose + M3 Expressive */
+    private var composeFilterSheet: eu.kanade.tachiyomi.ui.source.browse.compose.ComposeSourceFilterSheet? = null
     private var lastPosition: Int = -1
 
     // Basically a cache just so the filter sheet is shown faster
@@ -394,41 +394,59 @@ open class BrowseSourceController(bundle: Bundle) :
     }
 
     private fun showFilters() {
-        if (filterSheet != null) return
-        val oldFilters = mutableListOf<Any?>()
+        if (composeFilterSheet != null) return
+        showComposeFilters()
+    }
+
+    /**
+     * Snapshot of every filter's state taken at the moment the sheet is shown. The dismiss
+     * callback compares this against the post-mutation `presenter.sourceFilters` to decide whether
+     * the query needs to be re-run.
+     */
+    private fun snapshotCurrentFilters(): List<Any?> {
+        val out = mutableListOf<Any?>()
         for (i in presenter.sourceFilters) {
             if (i is Filter.Group<*>) {
                 val subFilters = mutableListOf<Any?>()
                 for (j in i.state) { subFilters.add((j as Filter<*>).state) }
-                oldFilters.add(subFilters)
+                out.add(subFilters)
             } else {
-                oldFilters.add(i.state)
+                out.add(i.state)
             }
         }
-        filterSheet = SourceFilterSheet(
-            activity = activity!!,
-            searches = { savedSearches },
-            onSearchClicked = {
-                var matches = true
-                for (i in presenter.sourceFilters.indices) {
-                    val filter = oldFilters.getOrNull(i)
-                    val sourceFilter = presenter.sourceFilters[i]
-                    if (sourceFilter is Filter.Group<*> && filter is List<*>) {
-                        for (j in filter.indices) {
-                            if (filter[j] != (sourceFilter.state[j] as Filter<*>).state) {
-                                matches = false; break
-                            }
-                        }
-                    } else if (filter != sourceFilter.state) { matches = false; break }
-                    if (!matches) break
+        return out
+    }
+
+    private fun filtersDifferFromSnapshot(oldFilters: List<Any?>): Boolean {
+        var matches = true
+        for (i in presenter.sourceFilters.indices) {
+            val filter = oldFilters.getOrNull(i)
+            val sourceFilter = presenter.sourceFilters[i]
+            if (sourceFilter is Filter.Group<*> && filter is List<*>) {
+                for (j in filter.indices) {
+                    if (filter[j] != (sourceFilter.state[j] as Filter<*>).state) {
+                        matches = false; break
+                    }
                 }
-                if (!matches) { applyFilters() }
+            } else if (filter != sourceFilter.state) { matches = false; break }
+            if (!matches) break
+        }
+        return !matches
+    }
+
+    private fun showComposeFilters() {
+        val oldFilters = snapshotCurrentFilters()
+        val sheet = eu.kanade.tachiyomi.ui.source.browse.compose.ComposeSourceFilterSheet(
+            activity = activity!!,
+            getSavedSearches = { savedSearches },
+            getFilters = { presenter.sourceFilters },
+            onSearchClicked = {
+                if (filtersDifferFromSnapshot(oldFilters)) { applyFilters() }
             },
             onResetClicked = {
                 presenter.appliedFilters = FilterList()
-                val newFilters = presenter.source.getFilterList()
-                presenter.sourceFilters = newFilters
-                filterSheet?.setFilters(presenter.filterItems)
+                presenter.sourceFilters = presenter.source.getFilterList()
+                composeFilterSheet?.refreshFilters()
             },
             onSaveClicked = {
                 viewScope.launchIO {
@@ -441,7 +459,7 @@ open class BrowseSourceController(bundle: Bundle) :
                             .setPositiveButton(MR.strings.save) { _, _ ->
                                 if (searchName.isNotBlank() && searchName !in names) {
                                     presenter.saveSearch(searchName.trim(), presenter.query, presenter.sourceFilters)
-                                    filterSheet?.scrollToTop()
+                                    composeFilterSheet?.refreshSavedSearches()
                                 } else { activity!!.toast(MR.strings.save_search_invalid_name) }
                             }
                             .setNegativeButton(MR.strings.cancel, null)
@@ -455,8 +473,8 @@ open class BrowseSourceController(bundle: Bundle) :
                     if (search?.filters == null) return@launchIO
                     withUIContext {
                         presenter.sourceFilters = search.filters
-                        filterSheet?.setFilters(presenter.filterItems)
-                        filterSheet?.dismiss()
+                        composeFilterSheet?.refreshFilters()
+                        composeFilterSheet?.dismiss()
                     }
                 }
             },
@@ -465,15 +483,18 @@ open class BrowseSourceController(bundle: Bundle) :
                     .setTitle(MR.strings.save_search_delete)
                     .setMessage(MR.strings.save_search_delete)
                     .setPositiveButton(MR.strings.cancel, null)
-                    .setNegativeButton(android.R.string.ok) { _, _ -> presenter.deleteSearch(searchId) }
+                    .setNegativeButton(android.R.string.ok) { _, _ ->
+                        presenter.deleteSearch(searchId)
+                        composeFilterSheet?.refreshSavedSearches()
+                    }
                     .show()
             },
         )
-        filterSheet?.setFilters(presenter.filterItems)
+        composeFilterSheet = sheet
         presenter.filtersChanged = false
-        filterSheet?.setOnCancelListener { filterSheet = null }
-        filterSheet?.setOnDismissListener { filterSheet = null }
-        filterSheet?.show()
+        sheet.setOnCancelListener { composeFilterSheet = null }
+        sheet.setOnDismissListener { composeFilterSheet = null }
+        sheet.show()
     }
 
     /**

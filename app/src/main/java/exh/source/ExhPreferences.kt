@@ -65,6 +65,11 @@ class ExhPreferences(
 
     val enhancedEHentaiView: Preference<Boolean> = preferenceStore.getBoolean("enhanced_e_hentai_view", true)
 
+    // Number of concurrent page-loading workers for E-Hentai / ExHentai. EhViewer ships 3,
+    // TachiyomiSY ships 2. Image hosts have no documented per-IP burst limit; the only risk
+    // is daily image-quota burn (which affects ExH users sooner). 3 is the empirical sweet spot.
+    val ehReaderThreads: Preference<Int> = preferenceStore.getInt("eh_reader_threads", 3)
+
     val recommendationSearchFlags: Preference<Int> = preferenceStore.getInt("rec_search_flags", Int.MAX_VALUE)
 
     // === Data Saver: Basic ===

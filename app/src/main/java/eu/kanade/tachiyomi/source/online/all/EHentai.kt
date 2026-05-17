@@ -55,12 +55,16 @@ import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchManga
 import exh.util.urlImportFetchSearchMangaSuspend
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -89,6 +93,7 @@ import java.io.IOException
 import java.net.URLEncoder
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
+import java.util.concurrent.ConcurrentHashMap
 
 class EHentai(
     override val id: Long,
@@ -116,11 +121,66 @@ class EHentai(
     override val baseUrl: String
         get() = "https://$domain"
 
+    // Per-site /api.php host. EhViewer (the most actively-maintained Android reference) uses
+    // a separate `s.exhentai.org` subdomain for ExH because showkey is site-scoped and the
+    // returned image URLs route through that site's H@H pool. Using api.e-hentai.org for ExH
+    // (the old SY behaviour) silently fails for ExH-restricted galleries that don't exist
+    // on the public EH index.
+    private val apiUrl: String
+        get() = if (exh) "https://s.exhentai.org/api.php" else "https://api.e-hentai.org/api.php"
+
     override val lang = "all"
     override val supportsLatest = true
 
     private val exhPreferences: ExhPreferences by injectLazy()
     private val updateHelper: EHentaiUpdateHelper by injectLazy()
+
+    /**
+     * Per-gallery session state shared between getPageList (which discovers MPV link and
+     * gallery id/token) and getImageUrl (which needs them to call /api.php). Keyed by
+     * gallery id because page URLs (`/s/{imgkey}/{gid}-{page}`) carry the gid but not the
+     * chapter URL. ConcurrentHashMap handles concurrent reads/writes from N worker
+     * coroutines safely.
+     */
+    private val gallerySessions = ConcurrentHashMap<Long, GallerySession>()
+
+    /**
+     * Image-URL resolution state for a single gallery. Promotes itself:
+     *   - Starts as Mode.None or Mode.MPV at gallery load time.
+     *   - If None and the first HTML scrape yields a `showkey`, promotes itself to
+     *     Mode.ShowKey so all subsequent images use the showpage API.
+     */
+    private class GallerySession(
+        val gid: Long,
+        val token: String,
+        val mpvKey: String? = null,
+        val mpvImageKeys: Map<Int, String>? = null,
+    ) {
+        // Volatile so the worker that extracts the showkey publishes it safely to peers.
+        @Volatile var showKey: String? = null
+        val hasMpv: Boolean get() = mpvKey != null && mpvImageKeys != null
+    }
+
+    class StaleIgneousException : Exception(
+        "Invalid igneous cookie, try re-logging or finding a correct one to input in the login menu",
+    )
+
+    class SadPandaException : Exception(
+        "ExHentai returned an empty response. Your IP may be temporarily blocked or your session cookies have expired — try re-logging.",
+    )
+
+    /**
+     * Pre-flight check before firing any batch of requests. Mirrors EhViewer's
+     * `EhCookieStore` stale-igneous detection: if the user's igneous cookie is the literal
+     * sentinel `mystery` (which EH returns when the cookie is wrong but the session is
+     * otherwise valid), every subsequent request will return empty HTML. Catching this
+     * upfront prevents N parallel API calls from all failing in lockstep.
+     */
+    private fun checkExhSession() {
+        if (exh && exhPreferences.igneousVal.get().equals("mystery", true)) {
+            throw StaleIgneousException()
+        }
+    }
 
     /**
      * Gallery list entry
@@ -446,31 +506,70 @@ class EHentai(
         return Observable.empty()
     }
 
-    @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getPageList"))
-    override fun fetchPageList(
-        chapter: SChapter,
-    ): Observable<List<Page>> = fetchChapterPage(chapter, baseUrl + chapter.url)
-        .map {
-            it.mapIndexed { i, s ->
-                Page(i, s)
-            }
-        }!!
+    /**
+     * Parallel page-list fetch. Replaces the legacy sequential recursion through
+     * `nextPageUrl(...)` with a `?p=N` (0-indexed) fan-out: fetch page 1 sequentially,
+     * read the total thumbnail-page count from `table.ptt`, then issue pages 2..N in
+     * parallel. Also primes `gallerySessions` for downstream image-URL resolution by
+     * detecting the MPV link (`#gmid a[href*='/mpv/']`) and pre-loading the MPV state
+     * when present.
+     *
+     * Pre-flight `checkExhSession()` ensures a stale igneous fails fast with a typed
+     * exception before N parallel requests are wasted.
+     */
+    override suspend fun getPageList(chapter: SChapter): List<Page> {
+        checkExhSession()
 
-    private fun fetchChapterPage(
-        chapter: SChapter,
-        np: String,
-        pastUrls: List<String> = emptyList(),
-    ): Observable<List<String>> {
-        val urls = ArrayList(pastUrls)
-        return chapterPageCall(np).flatMap {
-            val jsoup = it.asJsoup()
-            urls += parseChapterPage(jsoup)
-            val nextUrl = nextPageUrl(jsoup)
-            if (nextUrl != null) {
-                fetchChapterPage(chapter, nextUrl, urls)
-            } else {
-                Observable.just(urls)
+        val firstUrl = baseUrl + chapter.url
+        val firstUrlHttp = firstUrl.toHttpUrl()
+        val gid = EHentaiSearchMetadata.galleryId(chapter.url).toLongOrNull()
+        val token = EHentaiSearchMetadata.galleryToken(chapter.url)
+
+        val firstDoc = client.newCall(exGet(firstUrl)).awaitSuccess().asJsoup()
+        val firstPageUrls = parseChapterPage(firstDoc)
+        val totalThumbPages = extractTotalThumbPages(firstDoc)
+        val mpvHref = firstDoc.selectFirst("#gmid a[href*=/mpv/]")?.attr("href")
+
+        val allPageUrls: List<String> = if (totalThumbPages <= 1) {
+            firstPageUrls
+        } else {
+            // Issue pages 2..N in parallel. Each request goes through the same `client`
+            // so cookies + Sad-Panda interceptor apply. coroutineScope ensures failure
+            // in any child cancels all siblings (no orphaned requests on error).
+            val later: List<Pair<Int, List<String>>> = coroutineScope {
+                (1 until totalThumbPages).map { p ->
+                    async(Dispatchers.IO) {
+                        val pUrl = firstUrlHttp.newBuilder()
+                            .setQueryParameter("p", p.toString())
+                            .build()
+                            .toString()
+                        val doc = client.newCall(exGet(pUrl)).awaitSuccess().asJsoup()
+                        p to parseChapterPage(doc)
+                    }
+                }.awaitAll()
             }
+            firstPageUrls + later.sortedBy { it.first }.flatMap { it.second }
+        }
+
+        // Prime the per-gallery session for cheap image-URL resolution downstream.
+        if (gid != null) {
+            val session = if (mpvHref != null) {
+                loadMpvSession(mpvHref, gid, token) ?: GallerySession(gid = gid, token = token)
+            } else {
+                GallerySession(gid = gid, token = token)
+            }
+            gallerySessions[gid] = session
+        }
+
+        return allPageUrls.mapIndexed { i, url -> Page(i, url) }
+    }
+
+    @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getPageList"))
+    override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
+        // Bridge for any remaining legacy callers; the modern reader uses the suspend
+        // override above which gets MPV/parallel benefits.
+        return Observable.fromCallable {
+            kotlinx.coroutines.runBlocking { getPageList(chapter) }
         }
     }
 
@@ -487,15 +586,54 @@ class EHentai(
         ).sortedBy(Pair<Int, String>::first).map { it.second }
     }
 
-    private fun chapterPageCall(np: String): Observable<Response> {
-        return client.newCall(chapterPageRequest(np)).asObservableSuccess()
-    }
-    private fun chapterPageRequest(np: String): Request {
-        return exGet(url = np, additionalHeaders = headers)
+    /**
+     * Reads the total thumbnail-page count from EH's pagination footer (`table.ptt`).
+     * The last numeric anchor in the footer is the highest page index; if the footer is
+     * absent (galleries with a single thumb page have no footer), returns 1.
+     */
+    private fun extractTotalThumbPages(doc: Document): Int {
+        return doc.select("table.ptt tbody tr td a")
+            .asReversed()
+            .firstNotNullOfOrNull { it.text().toIntOrNull() }
+            ?: 1
     }
 
-    private fun nextPageUrl(element: Element): String? = element.select("a[onclick=return false]").last()?.let {
-        return if (it.text() == ">") it.attr("href") else null
+    /**
+     * Fetches the /mpv/ page and parses the JS-embedded `mpvkey` + `imagelist`. Returns
+     * null if the page wasn't parseable (which can happen if the user lost the perk
+     * mid-session or EH's template changes); caller falls back to non-MPV mode.
+     */
+    private suspend fun loadMpvSession(mpvHref: String, gid: Long, token: String): GallerySession? {
+        return try {
+            val absHref = if (mpvHref.startsWith("http")) mpvHref else baseUrl + mpvHref
+            val doc = client.newCall(exGet(absHref)).awaitSuccess().asJsoup()
+            val scriptText = doc.select("script").joinToString("\n") { it.data() }
+            val mpvKey = MPV_KEY_REGEX.find(scriptText)?.groupValues?.getOrNull(1)
+            val imageListJson = MPV_IMAGELIST_REGEX.find(scriptText)?.groupValues?.getOrNull(1)
+            if (mpvKey == null || imageListJson == null) {
+                logger.w { "MPV link present for gid=$gid but parser failed; falling back to showpage" }
+                return null
+            }
+            val imageList = Json.parseToJsonElement(imageListJson).jsonArray
+            val keys = buildMap<Int, String> {
+                imageList.forEachIndexed { idx, el ->
+                    el.jsonObject["k"]?.jsonPrimitive?.contentOrNull?.let { put(idx + 1, it) }
+                }
+            }
+            if (keys.isEmpty()) {
+                logger.w { "MPV imagelist parsed empty for gid=$gid" }
+                return null
+            }
+            GallerySession(
+                gid = gid,
+                token = token,
+                mpvKey = mpvKey,
+                mpvImageKeys = keys,
+            )
+        } catch (e: Exception) {
+            logger.w(e) { "MPV session load failed for gid=$gid; falling back to showpage" }
+            null
+        }
     }
 
     override fun popularMangaRequest(page: Int): Request {
@@ -507,14 +645,16 @@ class EHentai(
         it.checkValid()
     }
 
-    private fun <T : MangasPage> T.checkValid(): MangasPage =
+    private fun <T : MangasPage> T.checkValid(): MangasPage {
+        // Only stale-igneous is reliably detectable here without false-positiving on
+        // legitimately-empty search results. The generic Sad Panda case (empty response
+        // with otherwise-valid cookies) is detected upstream in the cookie interceptor by
+        // inspecting raw body size, which doesn't confuse "no search matches" with "banned".
         if (exh && mangas.isEmpty() && exhPreferences.igneousVal.get().equals("mystery", true)) {
-            throw Exception(
-                "Invalid igneous cookie, try re-logging or finding a correct one to input in the login menu",
-            )
-        } else {
-            this
+            throw StaleIgneousException()
         }
+        return this
+    }
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getLatestUpdates"))
     override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
@@ -553,7 +693,10 @@ class EHentai(
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val toplist = ToplistOption.entries[filters.firstNotNullOfOrNull { (it as? ToplistOptions)?.state } ?: 0]
         if (toplist != ToplistOption.NONE) {
-            val uri = "https://e-hentai.org".toUri().buildUpon()
+            // Use the source's own baseUrl so ExH users land on exhentai.org/toplist.php
+            // with their igneous cookie, rather than being redirected to e-hentai.org which
+            // won't show ExH-restricted entries.
+            val uri = baseUrl.toUri().buildUpon()
             uri.appendPath("toplist.php")
             uri.appendQueryParameter("tl", toplist.index.toString())
             uri.appendQueryParameter("p", (page - 1).toString())
@@ -878,19 +1021,70 @@ class EHentai(
     override fun pageListParse(response: Response) =
         throw UnsupportedOperationException("Unused method was called somehow!")
 
+    /**
+     * Resolves a page to its image URL using the cheapest available method:
+     *   1. MPV `imagedispatch` API — if the user has the Multi-Page Viewer perk and we
+     *      detected the /mpv/ link at gallery-load time. Smallest response payload.
+     *   2. `showpage` API — once we've cached a showkey from an earlier HTML scrape in
+     *      this gallery. Works for any logged-in user without paid perks.
+     *   3. Per-page HTML scrape (legacy) — falls through when neither API key is known
+     *      yet. The scrape extracts the showkey from JS so subsequent calls upgrade.
+     *
+     * `nl` rotation (retry-on-failed-image) is preserved across all three modes: the
+     * response's new `s` field is encoded back into `page.url` as `?nl=...`, mirroring
+     * the original HTML-scrape behaviour so HttpPageLoader.retryPage works unchanged.
+     */
     override suspend fun getImageUrl(page: Page): String {
-        val imageUrlResponse = client.newCall(imageUrlRequest(page)).awaitSuccess()
-        return realImageUrlParse(imageUrlResponse, page)
+        val pageUri = page.url.toHttpUrl()
+        val segments = pageUri.pathSegments
+        // Page URL format: /s/{imgkey}/{gid}-{pageIndex}
+        val imgKey = segments.getOrNull(1)
+        val gidPagePart = segments.lastOrNull()?.split('-')
+        val gid = gidPagePart?.getOrNull(0)?.toLongOrNull()
+        val pageIdx = gidPagePart?.getOrNull(1)?.toIntOrNull()
+        val nlParam = pageUri.queryParameter("nl")
+
+        val session = gid?.let { gallerySessions[it] }
+
+        // Mode 1: MPV imagedispatch. session != null implies gid != null (session is
+        // gid-keyed) — the compiler smart-casts gid accordingly inside the block.
+        if (session != null && session.hasMpv && pageIdx != null) {
+            val mpvKey = session.mpvKey!!
+            val mpvImgKey = session.mpvImageKeys?.get(pageIdx)
+            if (mpvImgKey != null) {
+                return resolveImageDispatch(page, gid, pageIdx, mpvImgKey, mpvKey, nlParam)
+            }
+            // Fall through if we somehow don't have a key for this index (shouldn't happen
+            // for well-formed MPV responses but defensive).
+        }
+
+        // Mode 2: showpage API (cached showkey).
+        if (session != null && pageIdx != null && imgKey != null) {
+            val showKey = session.showKey
+            if (showKey != null) {
+                return resolveShowpage(page, gid, pageIdx, imgKey, showKey, nlParam)
+            }
+        }
+
+        // Mode 3: legacy HTML scrape. Extracts showkey if present and promotes the
+        // session so subsequent images skip the HTML round-trip.
+        val response = client.newCall(imageUrlRequest(page)).awaitSuccess()
+        return realImageUrlParse(response, page, gid)
     }
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getImageUrl"))
     override fun fetchImageUrl(page: Page): Observable<String> {
-        return client.newCall(imageUrlRequest(page))
-            .asObservableSuccess()
-            .map { realImageUrlParse(it, page) }
+        return Observable.fromCallable {
+            kotlinx.coroutines.runBlocking { getImageUrl(page) }
+        }
     }
 
-    private fun realImageUrlParse(response: Response, page: Page): String {
+    /**
+     * Legacy HTML-scrape path. Extracts the image URL the slow way (one HTML fetch per
+     * image) AND grabs the `showkey` JS var if present, promoting the gallery session to
+     * Mode.ShowKey so the next image in the same gallery uses the cheap `showpage` API.
+     */
+    private fun realImageUrlParse(response: Response, page: Page, gid: Long?): String {
         with(response.asJsoup()) {
             val currentImage = getElementById("img")!!.attr("src")
             // Each press of the retry button will choose another server
@@ -901,7 +1095,203 @@ class EHentai(
             if (currentImage == "https://ehgt.org/g/509.gif" || currentImage == "https://exhentai.org/img/509.gif") {
                 throw Exception("Exceeded page quota")
             }
+            // Opportunistically extract showkey from any script tag so future image
+            // resolutions in this gallery can skip the HTML scrape. The var is rendered
+            // server-side as: var showkey="abc123def...";
+            //
+            // If no session exists yet (app restart resumed the reader without re-running
+            // getPageList), create a fresh non-MPV session keyed by gid so the showkey we
+            // extract here is available to subsequent images in this gallery.
+            if (gid != null) {
+                val scriptText = select("script").joinToString("\n") { it.data() }
+                val extractedKey = SHOWKEY_REGEX.find(scriptText)?.groupValues?.getOrNull(1)
+                if (extractedKey != null) {
+                    gallerySessions.compute(gid) { _, existing ->
+                        when {
+                            existing == null -> GallerySession(gid = gid, token = "").also {
+                                it.showKey = extractedKey
+                            }
+                            existing.showKey == null && !existing.hasMpv -> existing.also {
+                                it.showKey = extractedKey
+                            }
+                            else -> existing
+                        }
+                    }
+                    logger.d { "Extracted showkey for gid=$gid; subsequent images will use showpage API" }
+                }
+            }
             return currentImage
+        }
+    }
+
+    /**
+     * POSTs `method=showpage` to /api.php and returns the resolved image URL.
+     * Response shape (per ehwiki / EhViewer EhEngine.kt):
+     *   { "i3": "<img src='...' />", "i6": "...nl token wrapper...", "s": "nlToken",
+     *     "k": "newImgKey", "n": ... }
+     * The actual image URL is parsed out of the i3 HTML fragment. The new `nl` token is
+     * encoded back into page.url for retry support.
+     */
+    private suspend fun resolveShowpage(
+        page: Page,
+        gid: Long,
+        pageIdx: Int,
+        imgKey: String,
+        showKey: String,
+        nl: String?,
+    ): String {
+        val payload = buildJsonObject {
+            put("method", "showpage")
+            put("gid", gid)
+            put("page", pageIdx)
+            put("imgkey", imgKey)
+            put("showkey", showKey)
+            if (nl != null) put("nl", nl)
+        }
+        val response = postApi(payload)
+        val imgHtml = response["i3"]?.jsonPrimitive?.contentOrNull
+            ?: throw Exception("Malformed showpage response (no i3 field): $response")
+        val imageUrl = SHOWPAGE_IMG_SRC_REGEX.find(imgHtml)?.groupValues?.getOrNull(1)
+            ?: throw Exception("Could not parse image URL from showpage i3: $imgHtml")
+        if (imageUrl == "https://ehgt.org/g/509.gif" || imageUrl == "https://exhentai.org/img/509.gif") {
+            throw Exception("Exceeded page quota")
+        }
+        // Rotate nl for the next retry attempt.
+        response["s"]?.jsonPrimitive?.contentOrNull?.let { newNl ->
+            page.url = addParam(stripParam(page.url, "nl"), "nl", newNl)
+        }
+        return imageUrl
+    }
+
+    /**
+     * POSTs `method=imagedispatch` (MPV variant of showpage) and returns the image URL.
+     * Response is pure JSON instead of HTML-wrapped: `{ "i": "image_url", "s": "nl", ... }`.
+     */
+    private suspend fun resolveImageDispatch(
+        page: Page,
+        gid: Long,
+        pageIdx: Int,
+        imgKey: String,
+        mpvKey: String,
+        nl: String?,
+    ): String {
+        val payload = buildJsonObject {
+            put("method", "imagedispatch")
+            put("gid", gid)
+            put("page", pageIdx)
+            put("imgkey", imgKey)
+            put("mpvkey", mpvKey)
+            if (nl != null) put("nl", nl)
+        }
+        val response = postApi(payload)
+        val imageUrl = response["i"]?.jsonPrimitive?.contentOrNull
+            ?: throw Exception("Malformed imagedispatch response (no i field): $response")
+        // Defensive: imagedispatch sometimes returns a scheme-relative path; force https.
+        val finalImageUrl = when {
+            imageUrl.startsWith("http") -> imageUrl
+            imageUrl.startsWith("//") -> "https:$imageUrl"
+            else -> imageUrl
+        }
+        if (finalImageUrl == "https://ehgt.org/g/509.gif" || finalImageUrl == "https://exhentai.org/img/509.gif") {
+            throw Exception("Exceeded page quota")
+        }
+        response["s"]?.jsonPrimitive?.contentOrNull?.let { newNl ->
+            page.url = addParam(stripParam(page.url, "nl"), "nl", newNl)
+        }
+        return finalImageUrl
+    }
+
+    private fun stripParam(url: String, param: String): String {
+        val httpUrl = url.toHttpUrlOrNull() ?: return url
+        return httpUrl.newBuilder().removeAllQueryParameters(param).build().toString()
+    }
+
+    /**
+     * Parsed gdata response entry. Mirrors the fields EH returns in `gmetadata[]`.
+     * Field names match the wire format so JSON deserialisation could be added later
+     * without breaking callers. `tags` is the wire `tags[]` array (namespace:value
+     * strings). The full set of wire fields includes `archiver_key`, `parent_gid`, and
+     * others that we don't currently consume; add to this class as needed.
+     */
+    data class GdataEntry(
+        val gid: Long,
+        val token: String,
+        val title: String,
+        val titleJpn: String?,
+        val category: String,
+        val thumb: String,
+        val uploader: String?,
+        val posted: Long,
+        val filecount: Int,
+        val filesize: Long,
+        val expunged: Boolean,
+        val rating: Double?,
+        val torrentcount: Int,
+        val tags: List<String>,
+    )
+
+    /**
+     * Batched metadata fetch via `method=gdata`. Replaces N HTML detail-page fetches
+     * with `ceil(N/25)` POSTs — a 25× request-count reduction for library refresh on
+     * EH-heavy libraries.
+     *
+     * EH's /api.php accepts max 25 `[gid, token]` pairs per call. Larger inputs are
+     * chunked. Calls run sequentially with no inter-batch delay because the per-call
+     * size limit already implies natural pacing; FooIbar/EhViewer add a 5-second gap
+     * for long sweeps which we mirror at the caller's level if doing many batches.
+     *
+     * Public for future wiring into LibraryUpdateJob. Throws StaleIgneousException
+     * up-front for ExH to avoid wasted batches on a known-bad session.
+     */
+    suspend fun fetchGdataMetadata(galleries: List<Pair<Long, String>>): List<GdataEntry> {
+        if (galleries.isEmpty()) return emptyList()
+        checkExhSession()
+
+        return galleries.chunked(GDATA_MAX_BATCH).flatMap { batch ->
+            val payload = buildJsonObject {
+                put("method", "gdata")
+                put(
+                    "gidlist",
+                    buildJsonArray {
+                        batch.forEach { (gid, token) ->
+                            add(
+                                buildJsonArray {
+                                    add(gid)
+                                    add(token)
+                                },
+                            )
+                        }
+                    },
+                )
+                // `namespace=1` returns tags as namespaced strings (e.g. "language:english")
+                // rather than the legacy flat list. Matches what Hayai's parser expects.
+                put("namespace", 1)
+            }
+            val response = postApi(payload)
+            val metadata = response["gmetadata"]?.jsonArray.orEmpty()
+            metadata.mapNotNull { entry ->
+                val obj = entry.jsonObject
+                val gid = obj["gid"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                    ?: return@mapNotNull null
+                val token = obj["token"]?.jsonPrimitive?.contentOrNull
+                    ?: return@mapNotNull null
+                GdataEntry(
+                    gid = gid,
+                    token = token,
+                    title = obj["title"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                    titleJpn = obj["title_jpn"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() },
+                    category = obj["category"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                    thumb = obj["thumb"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                    uploader = obj["uploader"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() },
+                    posted = obj["posted"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()?.let { it * 1000L } ?: 0L,
+                    filecount = obj["filecount"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                    filesize = obj["filesize"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: 0L,
+                    expunged = obj["expunged"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
+                    rating = obj["rating"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull(),
+                    torrentcount = obj["torrentcount"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                    tags = obj["tags"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+                )
+            }
         }
     }
 
@@ -987,8 +1377,14 @@ class EHentai(
 
     fun cookiesHeader(sp: Int = spPref().get()) = buildCookies(rawCookies(sp))
 
-    // Headers
-    override fun headersBuilder() = super.headersBuilder().add("Cookie", cookiesHeader())
+    // Headers. EH/ExH's H@H image nodes (the residential IPs that serve some thumbnails
+    // and full-size images) hot-link-protect by checking Referer; without it some thumbs
+    // 403 while CDN-served thumbs (ehgt.org) succeed, which manifests as "some covers
+    // load and some don't" in browse/library lists. Matching EhViewer's behaviour we send
+    // a static site-root Referer on every request — well-behaved clients always do.
+    override fun headersBuilder() = super.headersBuilder()
+        .add("Cookie", cookiesHeader())
+        .add("Referer", "$baseUrl/")
 
     private fun addParam(url: String, param: String, value: String) = url.toUri()
         .buildUpon()
@@ -1005,7 +1401,32 @@ class EHentai(
                 .addHeader("Cookie", cookiesHeader())
                 .build()
 
-            chain.proceed(newReq)
+            val response = chain.proceed(newReq)
+
+            // Sad-Panda / IP-ban detection on ExH: an HTML response with effectively no
+            // body is the sentinel. Restricted to text/html so we don't mis-flag image
+            // 200s. Uses peekBody so the response remains consumable by the actual caller.
+            // Skipped for /api.php because those legitimately return small JSON.
+            if (exh && response.isSuccessful) {
+                val urlPath = response.request.url.encodedPath
+                val ct = response.body.contentType()?.toString().orEmpty()
+                val looksHtml = ct.startsWith("text/html", ignoreCase = true) ||
+                    urlPath.endsWith(".php") || urlPath == "/" || urlPath.startsWith("/g/")
+                val isApi = urlPath.endsWith("/api.php")
+                if (looksHtml && !isApi) {
+                    val peek = response.peekBody(SAD_PANDA_PEEK_BYTES).string()
+                    val trimmed = peek.trim()
+                    // EhViewer's heuristic: empty body OR a body so short it can't be a real
+                    // gallery / search page. Real EH responses always contain an <html> tag
+                    // within the first kilobyte.
+                    if (trimmed.isEmpty() || (trimmed.length < SAD_PANDA_MIN_HTML_BYTES && !trimmed.contains("<html", ignoreCase = true))) {
+                        response.close()
+                        throw SadPandaException()
+                    }
+                }
+            }
+
+            response
         }
         .addInterceptor(ThumbnailPreviewInterceptor())
         .build()
@@ -1230,7 +1651,16 @@ class EHentai(
         return EHentaiSearchMetadata.normalizeUrl(super.cleanMangaUrl(url))
     }
 
-    private fun getGalleryUrlFromPage(uri: Uri): String {
+    /**
+     * Resolves a `/s/{ptoken}/{gid}-{page}` URL to its parent gallery URL via /api.php.
+     *
+     * Route the call through `apiUrl` (per-instance host) and `client` (carries igneous +
+     * member cookies). The previous implementation hard-coded `api.e-hentai.org` and built
+     * its own Request, which silently failed for ExH-restricted galleries because that
+     * host has no view onto restricted content. EhViewer's pattern: same /api.php method
+     * on the matching site's host with the matching cookie jar.
+     */
+    private suspend fun getGalleryUrlFromPage(uri: Uri): String {
         val lastSplit = uri.pathSegments.last().split("-")
         val pageNum = lastSplit.last()
         val gallery = lastSplit.first()
@@ -1252,19 +1682,27 @@ class EHentai(
             )
         }
 
-        val outJson = Json.decodeFromString<JsonObject>(
-            client.newCall(
-                Request.Builder()
-                    .url(EH_API_BASE)
-                    .post(json.toString().toRequestBody(JSON))
-                    .build(),
-            ).execute().body.string(),
-        )
+        val outJson = postApi(json)
 
         val obj = outJson["tokenlist"]!!.jsonArray.first().jsonObject
         return "${uri.scheme}://${uri.host}/g/${obj["gid"]!!.jsonPrimitive.int}/${
             obj["token"]!!.jsonPrimitive.content
         }/"
+    }
+
+    /**
+     * Common /api.php POST helper. Uses the per-instance `client` so cookies/igneous are
+     * attached and the response goes through the Sad-Panda interceptor (which won't trip
+     * for /api.php because it returns JSON, not HTML).
+     */
+    private suspend fun postApi(payload: JsonObject): JsonObject {
+        val request = Request.Builder()
+            .url(apiUrl)
+            .post(payload.toString().toRequestBody(JSON))
+            .headers(headers)
+            .build()
+        val body = client.newCall(request).awaitSuccess().body.string()
+        return Json.decodeFromString(body)
     }
 
     data class EHentaiThumbnailPreview(
@@ -1313,7 +1751,11 @@ class EHentai(
                                 0,
                                 thumbnailPreview.width.coerceAtMost(bitmap.width - thumbnailPreview.widthOffset),
                                 thumbnailPreview.height.coerceAtMost(bitmap.height),
-                            ).compress(Bitmap.CompressFormat.JPEG, 100, it)
+                            // Quality 85 is visually equivalent to 100 for these small sprite
+                            // crops but produces ~3× smaller payloads to Coil. EhViewer/Hentoid
+                            // both ship lossy re-encodes in the same range. WEBP_LOSSY would be
+                            // smaller still but requires API 30+; minSdk=23 rules it out.
+                            ).compress(Bitmap.CompressFormat.JPEG, 85, it)
                             it.toByteArray()
                         }
                         .toResponseBody("image/jpeg".toMediaType())
@@ -1341,8 +1783,31 @@ class EHentai(
         private val MATCH_SEEK_REGEX = "^\\d{2,4}-\\d{1,2}(-\\d{1,2})?".toRegex()
         private val MATCH_JUMP_REGEX = "^\\d+(\$|d\$|w\$|m\$|y\$|-\$)".toRegex()
 
-        private const val EH_API_BASE = "https://api.e-hentai.org/api.php"
         private val JSON = "application/json; charset=utf-8".toMediaTypeOrNull()!!
+
+        // Sad-Panda detection thresholds. EhViewer/Hentoid agree that a healthy EH/ExH
+        // HTML response is multi-kilobyte and always contains an <html> tag in the first
+        // kilobyte. An empty-ish body without one is the sentinel for an IP-ban page or
+        // a malformed-cookie 200.
+        private const val SAD_PANDA_PEEK_BYTES = 1024L
+        private const val SAD_PANDA_MIN_HTML_BYTES = 100
+
+        // Per-image-page JS holds `var showkey="abc...";` — accept single or double quotes
+        // and arbitrary whitespace around the `=` per EH's varying server-side templates.
+        private val SHOWKEY_REGEX = Regex("""var\s+showkey\s*=\s*["']([^"']+)["']""")
+
+        // MPV page JS holds five top-level vars; we need mpvkey and imagelist. imagelist
+        // is a JSON array literal that may span many lines, so the regex captures
+        // greedily to the next `;` on its own and we parse the captured JSON afterwards.
+        private val MPV_KEY_REGEX = Regex("""var\s+mpvkey\s*=\s*["']([^"']+)["']""")
+        private val MPV_IMAGELIST_REGEX = Regex("""var\s+imagelist\s*=\s*(\[[\s\S]*?\])\s*;""")
+
+        // Showpage response's i3 field is HTML like `<a ...><img id="img" src="URL" /></a>`.
+        private val SHOWPAGE_IMG_SRC_REGEX = Regex("""<img[^>]+id=["']img["'][^>]+src=["']([^"']+)["']""")
+
+        // EH's /api.php caps `gdata` requests at 25 (gid, token) pairs per call.
+        // Empirically enforced server-side; larger arrays return an error.
+        private const val GDATA_MAX_BATCH = 25
 
         private val FAVORITES_BORDER_HEX_COLORS = listOf(
             "000",

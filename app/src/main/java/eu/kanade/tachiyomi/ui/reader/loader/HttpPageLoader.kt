@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -48,17 +49,34 @@ class HttpPageLoader(
 
     private val preloadSize get() = preferences.preloadSize().get()
 
+    // EH / ExH benefit from parallel page loading because every page requires an extra HTTP
+    // round-trip to resolve its image URL (per-page HTML scrape or showpage API). Other
+    // sources keep the single-worker behaviour because most of them ship their own
+    // RateLimitInterceptor and would just serialise at the OkHttp layer anyway.
+    private val workerCount: Int = if (source is EHentai) {
+        exhPreferences.ehReaderThreads.get().coerceIn(1, 8)
+    } else {
+        1
+    }
+
     init {
-        scope.launchIO {
-            flow {
-                while (true) {
-                    emit(runInterruptible { queue.take() }.page)
+        // Spawn N worker coroutines, each draining the shared PriorityBlockingQueue.
+        // The queue is thread-safe and the per-page `Page.State.Queue` check prevents
+        // double-processing of the same page (a page enqueued twice via preloadNextPages
+        // is filtered out by the second worker because the first worker mutates state to
+        // LoadPage before releasing).
+        repeat(workerCount) {
+            scope.launchIO {
+                flow {
+                    while (true) {
+                        emit(runInterruptible { queue.take() }.page)
+                    }
                 }
+                    .filter { it.status is Page.State.Queue }
+                    .collect {
+                        _loadPage(it)
+                    }
             }
-                .filter { it.status is Page.State.Queue }
-                .collect {
-                    _loadPage(it)
-                }
         }
     }
 

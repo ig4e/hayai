@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.source.browse
 
 import co.touchlab.kermit.Logger
-import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.database.models.removeCover
@@ -14,20 +13,6 @@ import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
-import eu.kanade.tachiyomi.ui.source.filter.AutoCompleteItem
-import eu.kanade.tachiyomi.ui.source.filter.CheckboxItem
-import eu.kanade.tachiyomi.ui.source.filter.CheckboxSectionItem
-import eu.kanade.tachiyomi.ui.source.filter.GroupItem
-import eu.kanade.tachiyomi.ui.source.filter.HeaderItem
-import eu.kanade.tachiyomi.ui.source.filter.SelectItem
-import eu.kanade.tachiyomi.ui.source.filter.SelectSectionItem
-import eu.kanade.tachiyomi.ui.source.filter.SeparatorItem
-import eu.kanade.tachiyomi.ui.source.filter.SortGroup
-import eu.kanade.tachiyomi.ui.source.filter.SortItem
-import eu.kanade.tachiyomi.ui.source.filter.TextItem
-import eu.kanade.tachiyomi.ui.source.filter.TextSectionItem
-import eu.kanade.tachiyomi.ui.source.filter.TriStateItem
-import eu.kanade.tachiyomi.ui.source.filter.TriStateSectionItem
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchNonCancellableIO
 import eu.kanade.tachiyomi.util.system.launchUI
@@ -94,16 +79,15 @@ open class BrowseSourcePresenter(
         get() = pager.currentPage
 
     /**
-     * Modifiable list of filters.
+     * Modifiable list of filters. Mutated in place by the new
+     * [eu.kanade.tachiyomi.ui.source.browse.compose.ComposeSourceFilterSheet] composables —
+     * setting this field is reserved for wholesale swaps (reset, saved-search apply).
      */
     var sourceFilters = FilterList()
         set(value) {
             field = value
             filtersChanged = true
-            filterItems = value.toItems()
         }
-
-    var filterItems: List<IFlexible<*>> = emptyList()
 
     /**
      * List of filters used by the [Pager]. If empty alongside [query], the popular query is used.
@@ -354,43 +338,6 @@ open class BrowseSourcePresenter(
         } else {
             useLatest = false
             BrowseSourcePager(source, query, filters)
-        }
-    }
-
-    private fun FilterList.toItems(): List<IFlexible<*>> {
-        return mapNotNull { filter ->
-            when (filter) {
-                is Filter.Header -> HeaderItem(filter)
-                is Filter.Separator -> SeparatorItem(filter)
-                is Filter.CheckBox -> CheckboxItem(filter)
-                is Filter.TriState -> TriStateItem(filter)
-                is Filter.Text -> TextItem(filter)
-                is Filter.Select<*> -> SelectItem(filter)
-                is Filter.Group<*> -> {
-                    val group = GroupItem(filter)
-                    val subItems = filter.state.mapNotNull { type ->
-                        when (type) {
-                            is Filter.CheckBox -> CheckboxSectionItem(type)
-                            is Filter.TriState -> TriStateSectionItem(type)
-                            is Filter.Text -> TextSectionItem(type)
-                            is Filter.Select<*> -> SelectSectionItem(type)
-                            else -> null
-                        }
-                    }
-                    subItems.forEach { it.header = group }
-                    group.subItems = subItems
-                    group
-                }
-                is Filter.Sort -> {
-                    val group = SortGroup(filter)
-                    val subItems = filter.values.map {
-                        SortItem(it, group)
-                    }
-                    group.subItems = subItems
-                    group
-                }
-                is Filter.AutoComplete -> AutoCompleteItem(filter)
-            }
         }
     }
 
