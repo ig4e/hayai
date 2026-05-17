@@ -314,12 +314,16 @@ class MangaDetailsController :
         accentColor = if (presenter.preferences.themeMangaDetails().get()) {
             (colorToUse ?: manga?.vibrantCoverColor)?.let {
                 val luminance = ColorUtils.calculateLuminance(it).toFloat()
+                // Softer blend than before (0.5/0.33 → 0.35/0.22): the previous factors pulled
+                // the accent too far toward the contrast text color, washing out covers that
+                // were already close to legible. Keeps the original luminance gates so out-of-
+                // theme accents still get corrected, just less aggressively.
                 if (if (!context.isInNightMode()) luminance > 0.4 else luminance <= 0.6) {
                     ColorUtils.blendARGB(
                         it,
                         context.contextCompatColor(R.color.colorOnDownloadBadgeDayNight),
                         (if (!context.isInNightMode()) luminance else -(luminance - 1))
-                            .toFloat() * if (context.isInNightMode()) 0.33f else 0.5f,
+                            .toFloat() * if (context.isInNightMode()) 0.22f else 0.35f,
                     )
                 } else {
                     it

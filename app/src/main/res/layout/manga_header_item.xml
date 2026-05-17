@@ -174,7 +174,7 @@
             android:id="@+id/button_layout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:orientation="horizontal"
             android:paddingStart="16dp"
             android:paddingEnd="16dp">
@@ -247,7 +247,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
         android:text="@string/description"
         android:textIsSelectable="false"

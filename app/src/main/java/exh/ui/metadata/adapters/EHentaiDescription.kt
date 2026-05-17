@@ -47,14 +47,17 @@ fun EHentaiDescription(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Row 1: Genre chip on left, rating on right
+        // Row 1: Genre chip on left, single-line rating on right.
+        // Previous version stacked stars over "%.2f" as a 2-line right column, which made
+        // Row 1 taller than the genre chip and produced visible vertical slack against
+        // the next row.
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             val genreInfo = meta.genre?.let { MetadataUIUtil.getGenreAndColour(it, isDark) }
             val genreText = genreInfo?.second ?: meta.genre ?: "Unknown"
@@ -64,18 +67,15 @@ fun EHentaiDescription(
             Spacer(Modifier.weight(1f, fill = true))
 
             val ratingFloat = meta.averageRating?.toFloat() ?: 0F
-            val ratingColor = getRatingColor(ratingFloat)
-            val fullStars = ratingFloat.toInt()
-            val hasHalf = (ratingFloat - fullStars) >= 0.5f
-            val starText = buildString {
-                repeat(fullStars) { append("★") }
-                if (hasHalf) append("½")
-                repeat(5 - fullStars - if (hasHalf) 1 else 0) { append("☆") }
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-                modifier = Modifier.padding(end = 12.dp),
-            ) {
+            if (ratingFloat > 0f) {
+                val ratingColor = getRatingColor(ratingFloat)
+                val fullStars = ratingFloat.toInt()
+                val hasHalf = (ratingFloat - fullStars) >= 0.5f
+                val starText = buildString {
+                    repeat(fullStars) { append("★") }
+                    if (hasHalf) append("½")
+                    repeat(5 - fullStars - if (hasHalf) 1 else 0) { append("☆") }
+                }
                 Text(
                     text = starText,
                     style = MaterialTheme.typography.bodyMedium,
@@ -129,7 +129,7 @@ fun EHentaiDescription(
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 meta.length?.let {
                     StatItem("$it pages")
@@ -148,7 +148,6 @@ fun EHentaiDescription(
                 }
             }
         }
-
     }
 }
 

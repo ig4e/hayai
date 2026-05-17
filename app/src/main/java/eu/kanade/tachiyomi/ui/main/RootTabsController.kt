@@ -253,11 +253,12 @@ class RootTabsController : Controller() {
 
     companion object {
         /**
-         * Duration of the cross-fade between tab containers. Short enough that snappy
-         * tab swaps still feel snappy, long enough that the eye registers the
-         * transition instead of a hard cut. Honors [ReducedMotion] — see [animateSwap].
+         * Duration of the cross-fade between tab containers. Tuned so the transition is
+         * actually perceptible — Material's "between screens" guideline lands around
+         * 300ms; 250ms feels intentional without dragging on rapid taps. Honors
+         * [ReducedMotion] (snap-to-end) — see [animateSwap].
          */
-        private const val TAB_SWAP_DURATION_MS = 150L
+        private const val TAB_SWAP_DURATION_MS = 250L
 
         private const val KEY_CURRENT_TAB = "RootTabsController.currentTabId"
         // Stable container ids so Conductor's child router restores into the same FrameLayout

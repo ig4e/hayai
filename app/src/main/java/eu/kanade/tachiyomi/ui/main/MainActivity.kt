@@ -719,6 +719,11 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             extensionManager.getExtensionUpdates(true)
         }
 
+        // Pay the XML parse + classloader cost for the Browse cold path on an IO
+        // thread now, while the user is still looking at Library. First Browse tap
+        // then only pays the on-frame view construction.
+        eu.kanade.tachiyomi.ui.source.BrowseWarmup.primeAsync(resources)
+
         preferences.extensionUpdatesCount()
             .changesIn(lifecycleScope) {
                 setExtensionsBadge()

@@ -4,20 +4,10 @@ import android.content.Context
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
-import android.view.View
 import androidx.preference.PreferenceScreen
-import com.bluelinelabs.conductor.ControllerChangeHandler
-import com.bluelinelabs.conductor.ControllerChangeType
 import androidx.preference.R as preferenceR
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner
-import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
-import eu.kanade.tachiyomi.ui.base.controller.DialogController
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
-import eu.kanade.tachiyomi.util.view.activityBinding
-import eu.kanade.tachiyomi.util.view.bindStringTabs
-import eu.kanade.tachiyomi.util.view.isControllerVisible
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
@@ -27,11 +17,16 @@ import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
  * screens behind real tabs — mirroring the activity-level `mainTabs` pattern
  * used by [eu.kanade.tachiyomi.ui.recents.RecentsController].
  *
+ * Tab binding is fully declarative: [describeChrome] returns a `TabsSpec` and
+ * [eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder] applies it on every
+ * activation (push, pop-back, tab swap). No manual `bindStringTabs` /
+ * `showTabBar` calls — those would compete with the binder for ownership of the
+ * shared activity tab strip.
+ *
  * The actual preference DSL lives in [SettingsMangaReaderController] /
  * [SettingsNovelReaderController] (and their `populateManga…` /
  * `populateNovel…` file-level extension functions). This controller delegates
- * its preference screen to whichever sub-controller matches the selected tab,
- * and rebinds the activity's tab strip on each entry / tab switch.
+ * its preference screen to whichever sub-controller matches the selected tab.
  *
  * Every preference key is preserved; switching tabs only rebuilds the visible
  * preference screen — no migration, no recreate-the-controller dance.
@@ -66,59 +61,13 @@ class SettingsReaderHubController : SettingsLegacyController(), MainActivityTabs
         return ContextThemeWrapper(activity, tv.resourceId)
     }
 
-    private fun bindTabs() {
-        val activity = activity ?: return
-        val tabs = activityBinding?.mainTabs ?: return
-        val labels = listOf(
-            activity.getString(MR.strings.manga),
-            activity.getString(MR.strings.novel),
-        )
-        tabs.bindStringTabs(
-            labels = labels,
-            selectedIndex = selectedTab.ordinal,
-            onSelected = { idx ->
-                val target = ReaderTab.entries[idx]
-                if (target != selectedTab) {
-                    selectedTab = target
-                    rebuildPreferenceScreen()
-                }
-            },
-            onReselected = { listView.scrollToPosition(0) },
-        )
-        (activity as? MainActivity)?.showTabBar(true)
-    }
-
-    override fun onAttach(view: View) {
-        super.onAttach(view)
-        // Re-bind in case the activity tab strip was torn down while another
-        // controller was on top (returning here via back navigation).
-        if (isAttached) bindTabs()
-    }
-
-    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
-        super.onChangeStarted(handler, type)
-        if (type.isEnter) {
-            if (isControllerVisible) {
-                bindTabs()
-            }
-        } else {
-            val lastController = router.backstack.lastOrNull()?.controller
-            val nextOwnsTabs = (lastController as? MainActivityTabsOwner)?.ownsActivityTabs == true
-            if (lastController !is DialogController && !nextOwnsTabs) {
-                (activity as? MainActivity)?.showTabBar(
-                    show = false,
-                    animate = lastController !is SmallToolbarInterface,
-                )
-            }
-        }
-    }
-
     override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec {
         val act = activity
-        val labels = if (act != null) listOf(
-            act.getString(MR.strings.manga),
-            act.getString(MR.strings.novel),
-        ) else listOf("", "")
+        val labels = if (act != null) {
+            listOf(act.getString(MR.strings.manga), act.getString(MR.strings.novel))
+        } else {
+            listOf("", "")
+        }
         return eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
             appBarVisible = true,
             includeTabsInLayout = true,

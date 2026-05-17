@@ -41,18 +41,30 @@ class LibraryMangaImageTarget(
 fun Palette.getBestColor(defaultColor: Int) = getBestColor() ?: defaultColor
 
 fun Palette.getBestColor(): Int? {
-    val vibPopulation = vibrantSwatch?.population ?: -1
-    val domLum = dominantSwatch?.hsl?.get(2) ?: -1f
-    val mutedPopulation = mutedSwatch?.population ?: -1
-    val mutedSaturationLimit = if (mutedPopulation > vibPopulation * 3f) 0.1f else 0.25f
+    // Prefer the most expressive swatch. The previous algorithm picked the dominant swatch
+    // whenever its saturation was ≥0.25 — but on many covers the dominant is a background
+    // plate (sky, paper, large flat shading) that's slightly tinted, while the cover's actual
+    // accent lives in the vibrant swatch. Pick dominant only when it clearly dwarfs vibrant
+    // AND is well-saturated; otherwise trust vibrant.
+    val vibrant = vibrantSwatch
+    val muted = mutedSwatch
+    val dominant = dominantSwatch
+    val vibPop = vibrant?.population ?: -1
+    val mutedPop = muted?.population ?: -1
+    val domPop = dominant?.population ?: -1
+    val domSat = dominant?.hsl?.get(1) ?: 0f
+    val domLum = dominant?.hsl?.get(2) ?: -1f
+    val mutedSaturationLimit = if (mutedPop > vibPop * 3f) 0.1f else 0.25f
     return when {
-        (dominantSwatch?.hsl?.get(1) ?: 0f) >= .25f &&
-            domLum <= .8f && domLum > .2f -> dominantSwatch?.rgb
-        vibPopulation >= mutedPopulation * 0.75f -> vibrantSwatch?.rgb
-        mutedPopulation > vibPopulation * 1.5f &&
-            (mutedSwatch?.hsl?.get(1) ?: 0f) > mutedSaturationLimit -> mutedSwatch?.rgb
-        else -> arrayListOf(vibrantSwatch, lightVibrantSwatch, darkVibrantSwatch).maxByOrNull {
-            if (it === vibrantSwatch) (it?.population ?: -1) * 3 else it?.population ?: -1
+        // Dominant only wins when well-saturated, in a usable luminance band, and clearly
+        // out-populates vibrant. Without the population guard, faintly-tinted backgrounds
+        // beat strong character accents.
+        domSat >= 0.35f && domLum in 0.2f..0.8f && domPop > vibPop * 2.5f -> dominant?.rgb
+        vibPop >= mutedPop * 0.75f -> vibrant?.rgb
+        mutedPop > vibPop * 1.5f &&
+            (muted?.hsl?.get(1) ?: 0f) > mutedSaturationLimit -> muted?.rgb
+        else -> arrayListOf(vibrant, lightVibrantSwatch, darkVibrantSwatch).maxByOrNull {
+            if (it === vibrant) (it?.population ?: -1) * 3 else it?.population ?: -1
         }?.rgb
     }
 }

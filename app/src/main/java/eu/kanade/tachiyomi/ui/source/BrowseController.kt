@@ -198,6 +198,12 @@ class BrowseController :
         if (!isReturning) {
             activityBinding?.appBar?.lockYPos = true
         }
+        // Grab the BottomSheetBehavior reference now even though full sheet wiring is
+        // deferred — setBottomSheetTabs reads it for the initial pill alpha. The
+        // behavior itself is created by CoordinatorLayout from XML
+        // (app:layout_behavior in extensions_bottom_sheet.xml); we're just holding a ref.
+        binding.bottomSheet.root.sheetBehavior =
+            BottomSheetBehavior.from(binding.bottomSheet.root)
         binding.sourceRecycler.post {
             setBottomSheetTabs(if (binding.bottomSheet.root.sheetBehavior.isCollapsed()) 0f else 1f)
             binding.sourceRecycler.updatePaddingRelative(
@@ -205,106 +211,11 @@ class BrowseController :
             )
             updateTitleAndMenu()
         }
-
-        binding.bottomSheet.root.onCreate(this)
-
-        basePreferences.extensionInstaller().changes()
-            .drop(1)
-            .onEach {
-                binding.bottomSheet.root.setCanInstallPrivately(it == ExtensionInstaller.PRIVATE)
-            }
-            .launchIn(viewScope)
-
-        binding.bottomSheet.root.sheetBehavior?.isGestureInsetBottomIgnored = true
-
-        binding.bottomSheet.root.sheetBehavior?.addBottomSheetCallback(
-            object : BottomSheetBehavior
-            .BottomSheetCallback() {
-                override fun onSlide(bottomSheet: View, progress: Float) {
-                    val oldShow = showingExtensions
-                    showingExtensions = progress > 0.92f
-                    if (oldShow != showingExtensions) {
-                        updateTitleAndMenu()
-                        (activity as? MainActivity)?.reEnableBackPressedCallBack()
-                    }
-                    binding.bottomSheet.root.apply {
-                        if (lastScale != 1f && scaleY != 1f) {
-                            val scaleProgress = ((1f - progress) * (1f - lastScale)) + lastScale
-                            scaleX = scaleProgress
-                            scaleY = scaleProgress
-                            for (i in 0 until childCount) {
-                                val childView = getChildAt(i)
-                                childView.scaleY = scaleProgress
-                            }
-                        }
-                    }
-                    binding.bottomSheet.sheetToolbar.isVisible = true
-                    setBottomSheetTabs(max(0f, progress))
-                }
-
-                override fun onStateChanged(p0: View, state: Int) {
-                    if (state == BottomSheetBehavior.STATE_SETTLING) {
-                        binding.bottomSheet.root.updatedNestedRecyclers()
-                    } else if (state == BottomSheetBehavior.STATE_EXPANDED && binding.bottomSheet.root.isExpanding) {
-                        binding.bottomSheet.root.updatedNestedRecyclers()
-                        binding.bottomSheet.root.isExpanding = false
-                    }
-
-                    binding.bottomSheet.root.apply {
-                        if ((
-                            state == BottomSheetBehavior.STATE_COLLAPSED ||
-                                state == BottomSheetBehavior.STATE_EXPANDED ||
-                                state == BottomSheetBehavior.STATE_HIDDEN
-                            ) &&
-                            scaleY != 1f
-                        ) {
-                            scaleX = 1f
-                            scaleY = 1f
-                            pivotY = 0f
-                            translationX = 0f
-                            for (i in 0 until childCount) {
-                                val childView = getChildAt(i)
-                                childView.scaleY = 1f
-                            }
-                            lastScale = 1f
-                        }
-                    }
-
-                    val extBottomSheet = binding.bottomSheet.root
-                    if (state == BottomSheetBehavior.STATE_EXPANDED ||
-                        state == BottomSheetBehavior.STATE_COLLAPSED
-                    ) {
-                        binding.bottomSheet.root.sheetBehavior?.isDraggable = true
-                        showingExtensions = state == BottomSheetBehavior.STATE_EXPANDED
-                        binding.bottomSheet.sheetToolbar.isVisible = showingExtensions
-                        updateTitleAndMenu()
-                        if (state == BottomSheetBehavior.STATE_EXPANDED) {
-                            extBottomSheet.fetchOnlineExtensionsIfNeeded()
-                        } else {
-                            extBottomSheet.shouldCallApi = true
-                        }
-                    }
-
-                    retainViewMode = if (state == BottomSheetBehavior.STATE_EXPANDED) {
-                        RetainViewMode.RETAIN_DETACH
-                    } else {
-                        RetainViewMode.RELEASE_DETACH
-                    }
-                    binding.bottomSheet.sheetLayout.isClickable = state == BottomSheetBehavior.STATE_COLLAPSED
-                    binding.bottomSheet.sheetLayout.isFocusable = state == BottomSheetBehavior.STATE_COLLAPSED
-                    if (state == BottomSheetBehavior.STATE_COLLAPSED || state == BottomSheetBehavior.STATE_EXPANDED) {
-                        setBottomSheetTabs(if (state == BottomSheetBehavior.STATE_COLLAPSED) 0f else 1f)
-                    }
-                }
-            },
-        )
-
-        if (showingExtensions) {
-            binding.bottomSheet.root.sheetBehavior?.expand()
-        }
         ogRadius = view.resources.getDimension(R.dimen.rounded_radius)
 
-        setSheetToolbar()
+        // Source loading kicks off background coroutines on Dispatchers.Default, so
+        // it stays on the cold-entry frame — the recycler is empty until the load
+        // completes, no point deferring it.
         presenter.onCreate()
         if (presenter.sourceItems.isNotEmpty()) {
             setSources(presenter.sourceItems, presenter.lastUsedItem)
@@ -312,6 +223,144 @@ class BrowseController :
             binding.sourceRecycler.checkHeightThen {
                 binding.sourceRecycler.scrollToPosition(0)
             }
+        }
+
+        // Defer the bottom-sheet wiring past the cross-fade settle. The user can't
+        // open the sheet inside the first ~300ms of cold entry (they just tapped
+        // the bottom-nav), and pushing `pager.adapter = TabbedSheetAdapter()` plus
+        // the slide callback plus `setSheetToolbar()` off the cold frame is the
+        // dominant first-entry-jank win. See [initBottomSheet] for what runs.
+        view.postDelayed({ initBottomSheet() }, POST_ENTRY_DEFER_MS)
+    }
+
+    private var bottomSheetReady = false
+
+    /**
+     * Heavy bottom-sheet wiring deferred off the Browse cold-entry frame.
+     *
+     * Costs absorbed here (~80–150ms total on Samsung A35 cold):
+     * - `ExtensionBottomSheet.onCreate(this)` — instantiates the three adapters and
+     *   assigns `pager.adapter = TabbedSheetAdapter()`, which immediately inflates
+     *   ViewPager pages 0 + 1 (offscreen-page-limit defaults to 1).
+     * - `addBottomSheetCallback(...)` — slide callback allocates closures over
+     *   `binding`; cheap on its own but stacks with the above on first frame.
+     * - `setSheetToolbar()` — `inflateMenu(R.menu.extension_main)` parses + builds
+     *   a Menu (parse already cached by [BrowseWarmup], but Menu construction
+     *   still costs).
+     *
+     * Idempotent — guarded by [bottomSheetReady], reset in [onDestroyView] so a
+     * pop-back recreation re-runs it.
+     */
+    private fun initBottomSheet() {
+        if (bottomSheetReady) return
+        if (!isBindingInitialized || view == null) return
+        bottomSheetReady = true
+
+        android.os.Trace.beginSection("Hayai/Browse.initBottomSheet")
+        try {
+            binding.bottomSheet.root.onCreate(this)
+
+            basePreferences.extensionInstaller().changes()
+                .drop(1)
+                .onEach {
+                    binding.bottomSheet.root.setCanInstallPrivately(it == ExtensionInstaller.PRIVATE)
+                }
+                .launchIn(viewScope)
+
+            binding.bottomSheet.root.sheetBehavior?.isGestureInsetBottomIgnored = true
+
+            binding.bottomSheet.root.sheetBehavior?.addBottomSheetCallback(
+                object : BottomSheetBehavior
+                .BottomSheetCallback() {
+                    override fun onSlide(bottomSheet: View, progress: Float) {
+                        val oldShow = showingExtensions
+                        showingExtensions = progress > 0.92f
+                        if (oldShow != showingExtensions) {
+                            updateTitleAndMenu()
+                            (activity as? MainActivity)?.reEnableBackPressedCallBack()
+                        }
+                        binding.bottomSheet.root.apply {
+                            if (lastScale != 1f && scaleY != 1f) {
+                                val scaleProgress = ((1f - progress) * (1f - lastScale)) + lastScale
+                                scaleX = scaleProgress
+                                scaleY = scaleProgress
+                                for (i in 0 until childCount) {
+                                    val childView = getChildAt(i)
+                                    childView.scaleY = scaleProgress
+                                }
+                            }
+                        }
+                        binding.bottomSheet.sheetToolbar.isVisible = true
+                        setBottomSheetTabs(max(0f, progress))
+                    }
+
+                    override fun onStateChanged(p0: View, state: Int) {
+                        if (state == BottomSheetBehavior.STATE_SETTLING) {
+                            binding.bottomSheet.root.updatedNestedRecyclers()
+                        } else if (state == BottomSheetBehavior.STATE_EXPANDED && binding.bottomSheet.root.isExpanding) {
+                            binding.bottomSheet.root.updatedNestedRecyclers()
+                            binding.bottomSheet.root.isExpanding = false
+                        }
+
+                        binding.bottomSheet.root.apply {
+                            if ((
+                                state == BottomSheetBehavior.STATE_COLLAPSED ||
+                                    state == BottomSheetBehavior.STATE_EXPANDED ||
+                                    state == BottomSheetBehavior.STATE_HIDDEN
+                                ) &&
+                                scaleY != 1f
+                            ) {
+                                scaleX = 1f
+                                scaleY = 1f
+                                pivotY = 0f
+                                translationX = 0f
+                                for (i in 0 until childCount) {
+                                    val childView = getChildAt(i)
+                                    childView.scaleY = 1f
+                                }
+                                lastScale = 1f
+                            }
+                        }
+
+                        val extBottomSheet = binding.bottomSheet.root
+                        if (state == BottomSheetBehavior.STATE_EXPANDED ||
+                            state == BottomSheetBehavior.STATE_COLLAPSED
+                        ) {
+                            binding.bottomSheet.root.sheetBehavior?.isDraggable = true
+                            showingExtensions = state == BottomSheetBehavior.STATE_EXPANDED
+                            binding.bottomSheet.sheetToolbar.isVisible = showingExtensions
+                            updateTitleAndMenu()
+                            if (state == BottomSheetBehavior.STATE_EXPANDED) {
+                                extBottomSheet.fetchOnlineExtensionsIfNeeded()
+                            } else {
+                                extBottomSheet.shouldCallApi = true
+                            }
+                        }
+
+                        retainViewMode = if (state == BottomSheetBehavior.STATE_EXPANDED) {
+                            RetainViewMode.RETAIN_DETACH
+                        } else {
+                            RetainViewMode.RELEASE_DETACH
+                        }
+                        binding.bottomSheet.sheetLayout.isClickable = state == BottomSheetBehavior.STATE_COLLAPSED
+                        binding.bottomSheet.sheetLayout.isFocusable = state == BottomSheetBehavior.STATE_COLLAPSED
+                        if (state == BottomSheetBehavior.STATE_COLLAPSED || state == BottomSheetBehavior.STATE_EXPANDED) {
+                            setBottomSheetTabs(if (state == BottomSheetBehavior.STATE_COLLAPSED) 0f else 1f)
+                        }
+                    }
+                },
+            )
+
+            if (showingExtensions) {
+                binding.bottomSheet.root.sheetBehavior?.expand()
+            }
+
+            setSheetToolbar()
+            // The pre-defer state of canExpand stays at its default false; flip on now
+            // that the sheet is wired so tab-activated / change-started honors it.
+            binding.bottomSheet.root.canExpand = isControllerVisible
+        } finally {
+            android.os.Trace.endSection()
         }
     }
 
@@ -370,6 +419,13 @@ class BrowseController :
                 true
             }
         }
+        // Defensive re-attach: any menu rebuild (extension_main <-> migration_main) goes
+        // through the toolbar's MenuItem expand/collapse machinery, which has been
+        // observed to leave the leading nav button's click listener inactive until a
+        // forced re-layout. Re-attaching here keeps the X functional across tab swaps.
+        binding.bottomSheet.sheetToolbar.setNavigationOnClickListener {
+            binding.bottomSheet.root.sheetBehavior?.collapse()
+        }
     }
 
     private fun setSheetToolbar() {
@@ -403,10 +459,16 @@ class BrowseController :
             }
             return@setOnMenuItemClickListener true
         }
+        // Inflate the menu BEFORE attaching the navigation click listener. The Extensions
+        // tab's `action_search` MenuItem inflates a MiniSearchView action view whose
+        // attachment + `collapseActionView()` on first inflate can leave the toolbar's
+        // leading button in a state where a listener attached earlier doesn't dispatch
+        // until something else triggers a re-layout (e.g. a tab tap). Attaching the nav
+        // listener after the menu is set up avoids that initial dead-tap on tab 0.
+        updateSheetMenu()
         binding.bottomSheet.sheetToolbar.setNavigationOnClickListener {
             binding.bottomSheet.root.sheetBehavior?.collapse()
         }
-        updateSheetMenu()
     }
 
     fun updateTitleAndMenu() {
@@ -699,13 +761,26 @@ class BrowseController :
         if (type.isEnter) {
             binding.bottomSheet.root.canExpand = true
             setBottomPadding()
-            android.os.Trace.beginSection("Hayai/Browse.refreshMigrations")
-            binding.bottomSheet.root.presenter.refreshMigrations()
-            android.os.Trace.endSection()
-            android.os.Trace.beginSection("Hayai/Browse.updateTitleAndMenu")
-            updateTitleAndMenu()
-            android.os.Trace.endSection()
+            // Defer the migration refresh + menu update past the cross-fade settle
+            // (TAB_SWAP_DURATION_MS in RootTabsController = 250ms). These don't need to
+            // land in the first frame the user sees — refreshMigrations triggers DB I/O
+            // and a downstream updateDataSet, and updateTitleAndMenu rebuilds the toolbar
+            // menu, both of which can pile up with the layout inflation cost on first
+            // Browse entry. Posting them keeps the visible frames smooth.
+            view?.postDelayed(POST_ENTRY_DEFER_MS) {
+                if (!isBindingInitialized) return@postDelayed
+                android.os.Trace.beginSection("Hayai/Browse.refreshMigrations")
+                binding.bottomSheet.root.presenter.refreshMigrations()
+                android.os.Trace.endSection()
+                android.os.Trace.beginSection("Hayai/Browse.updateTitleAndMenu")
+                updateTitleAndMenu()
+                android.os.Trace.endSection()
+            }
         }
+    }
+
+    private inline fun View.postDelayed(delayMs: Long, crossinline action: () -> Unit) {
+        postDelayed({ action() }, delayMs)
     }
 
     override fun onActivityResumed(activity: Activity) {
@@ -886,5 +961,14 @@ class BrowseController :
         // Shared across BrowseController lifetimes so source_item / header holders
         // recycled on one entry are reused on the next; survives controller destruction.
         private val persistentSourcePool = RecyclerView.RecycledViewPool()
+
+        /**
+         * Delay used to push non-essential first-entry work past the cross-fade settle
+         * (see [eu.kanade.tachiyomi.ui.main.RootTabsController.TAB_SWAP_DURATION_MS] +
+         * a small safety margin). refreshMigrations + updateTitleAndMenu both block the
+         * main thread; running them inside the first visible frame stacks with the XML
+         * inflate cost of the bottom sheet and produces jank on cold Browse open.
+         */
+        private const val POST_ENTRY_DEFER_MS = 280L
     }
 }
