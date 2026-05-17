@@ -12,11 +12,14 @@ import androidx.compose.runtime.Composable
 import cafe.adriel.voyager.navigator.CurrentScreen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.CrossfadeTransition
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import yokai.presentation.theme.LocalReducedMotion
 import eu.kanade.tachiyomi.data.updater.AppDownloadInstallJob
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
+import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.setNegativeButton
 import eu.kanade.tachiyomi.util.view.setPositiveButton
 import eu.kanade.tachiyomi.util.view.setTitle
@@ -25,7 +28,7 @@ import yokai.i18n.MR
 import yokai.presentation.settings.screen.about.AboutScreen
 import android.R as AR
 
-class AboutController : BaseComposeController() {
+class AboutController : BaseComposeController(), eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
 
     @Composable
     override fun ScreenContent() {
@@ -37,6 +40,22 @@ class AboutController : BaseComposeController() {
             },
         )
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type.isEnter && isControllerVisible) {
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = null,
+            useSmallToolbar = true,
+            tabs = null,
+        )
 
     @Deprecated("Use [DialogHostState.showNewUpdateDialog] instead", ReplaceWith("DialogHostState.showNewUpdateDialog()"))
     class NewUpdateDialogController(bundle: Bundle? = null) : DialogController(bundle) {

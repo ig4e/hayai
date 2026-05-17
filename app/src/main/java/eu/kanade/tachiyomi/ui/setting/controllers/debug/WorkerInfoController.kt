@@ -6,6 +6,8 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import com.mikepenz.fastadapter.FastAdapter
 import com.mikepenz.fastadapter.adapters.ItemAdapter
 import eu.kanade.tachiyomi.R
@@ -20,7 +22,7 @@ import eu.kanade.tachiyomi.util.view.scrollViewWith
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.merge
 
-class WorkerInfoController : BaseCoroutineController<SubDebugControllerBinding, WorkerInfoPresenter>() {
+class WorkerInfoController : BaseCoroutineController<SubDebugControllerBinding, WorkerInfoPresenter>(), eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
 
     companion object {
         const val title = "Worker info"
@@ -70,4 +72,20 @@ class WorkerInfoController : BaseCoroutineController<SubDebugControllerBinding, 
         }
         return super.onOptionsItemSelected(item)
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type == ControllerChangeType.PUSH_ENTER || type == ControllerChangeType.POP_ENTER) {
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.recycler,
+            useSmallToolbar = false,
+            tabs = null,
+        )
 }

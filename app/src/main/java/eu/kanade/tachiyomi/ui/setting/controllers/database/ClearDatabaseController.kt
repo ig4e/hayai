@@ -19,6 +19,8 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.Payload
 import eu.kanade.tachiyomi.R
@@ -40,6 +42,7 @@ import android.R as AR
 class ClearDatabaseController :
     BaseCoroutineController<ClearDatabaseControllerBinding, ClearDatabasePresenter>(),
     FlexibleAdapter.OnItemClickListener,
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     FlexibleAdapter.OnUpdateListener {
 
     private var adapter: FlexibleAdapter<ClearDatabaseSourceItem>? = null
@@ -252,4 +255,20 @@ class ClearDatabaseController :
         adapter.notifyDataSetChanged()
         view?.snack(MR.strings.clear_database_completed)
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type == ControllerChangeType.PUSH_ENTER || type == ControllerChangeType.POP_ENTER) {
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.recycler,
+            useSmallToolbar = false,
+            tabs = null,
+        )
 }

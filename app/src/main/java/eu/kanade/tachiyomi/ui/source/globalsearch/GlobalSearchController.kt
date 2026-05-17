@@ -51,6 +51,7 @@ open class GlobalSearchController(
 ) : BaseCoroutineController<SourceGlobalSearchControllerBinding, GlobalSearchPresenter>(bundle),
     SearchControllerInterface,
     GlobalSearchAdapter.OnTitleClickListener,
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     GlobalSearchCardAdapter.OnMangaClickListener {
 
     /**
@@ -207,6 +208,7 @@ open class GlobalSearchController(
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
         if (type.isEnter && isControllerVisible) {
+            (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
             val searchView = activityBinding?.searchToolbar?.searchView ?: return
             val searchItem = activityBinding?.searchToolbar?.searchItem ?: return
             searchItem.expandActionView()
@@ -221,6 +223,15 @@ open class GlobalSearchController(
             lastPosition = -1
         }
     }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.recycler,
+            useSmallToolbar = false,
+            tabs = null,
+        )
 
     override fun onActionViewExpand(item: MenuItem?) {
         val searchView = activityBinding?.searchToolbar?.searchView ?: return

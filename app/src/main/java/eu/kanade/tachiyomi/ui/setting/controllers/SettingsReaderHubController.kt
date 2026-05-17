@@ -113,6 +113,33 @@ class SettingsReaderHubController : SettingsLegacyController(), MainActivityTabs
         }
     }
 
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec {
+        val act = activity
+        val labels = if (act != null) listOf(
+            act.getString(MR.strings.manga),
+            act.getString(MR.strings.novel),
+        ) else listOf("", "")
+        return eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = true,
+            scrollSource = if (view != null) listView else null,
+            useSmallToolbar = true,
+            tabs = eu.kanade.tachiyomi.ui.main.chrome.TabsSpec(
+                labels = labels,
+                selectedIndex = selectedTab.ordinal,
+                mode = eu.kanade.tachiyomi.ui.main.chrome.TabMode.Fixed,
+                onSelected = { idx ->
+                    val target = ReaderTab.entries[idx]
+                    if (target != selectedTab) {
+                        selectedTab = target
+                        rebuildPreferenceScreen()
+                    }
+                },
+                onReselected = { if (view != null) listView.scrollToPosition(0) },
+            ),
+        )
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt(STATE_SELECTED_TAB, selectedTab.ordinal)
         super.onSaveInstanceState(outState)

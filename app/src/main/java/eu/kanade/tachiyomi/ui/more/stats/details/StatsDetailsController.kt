@@ -23,6 +23,8 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePaddingRelative
 import androidx.recyclerview.widget.ConcatAdapter
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.highlight.Highlight
@@ -76,6 +78,7 @@ import android.R as AR
 class StatsDetailsController :
     BaseCoroutineController<StatsDetailsControllerBinding, StatsDetailsPresenter>(),
     SmallToolbarInterface,
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     StatsDetailsChartLayout.StatDetailsHeaderListener {
 
     override val presenter = StatsDetailsPresenter()
@@ -860,4 +863,20 @@ class StatsDetailsController :
             }
         }
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type.isEnter && isControllerVisible) {
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.statsRecyclerView,
+            useSmallToolbar = true,
+            tabs = null,
+        )
 }

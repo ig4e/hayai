@@ -5,6 +5,8 @@ import android.view.LayoutInflater
 import android.view.View
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
 import eu.davidea.flexibleadapter.FlexibleAdapter
@@ -15,6 +17,7 @@ import eu.kanade.tachiyomi.ui.category.CategoryPresenter.Companion.CREATE_CATEGO
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.liftAppbarWith
 import eu.kanade.tachiyomi.util.view.setAction
 import eu.kanade.tachiyomi.util.view.setMessage
@@ -33,6 +36,7 @@ class CategoryController(bundle: Bundle? = null) :
     FlexibleAdapter.OnItemClickListener,
     FlexibleAdapter.OnItemMoveListener,
     SmallToolbarInterface,
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     CategoryAdapter.CategoryItemListener {
 
     /**
@@ -98,6 +102,22 @@ class CategoryController(bundle: Bundle? = null) :
         confirmDelete()
         return super.handleBack()
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type.isEnter && isControllerVisible) {
+            (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.recycler,
+            useSmallToolbar = true,
+            tabs = null,
+        )
 
     /**
      * Called from the presenter when the categories are updated.

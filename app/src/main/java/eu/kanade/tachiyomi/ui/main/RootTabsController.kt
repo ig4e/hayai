@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.ui.main
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -17,6 +20,7 @@ import eu.kanade.tachiyomi.ui.recents.RecentsController
 import eu.kanade.tachiyomi.ui.source.BrowseController
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.base.BasePreferences
+import yokai.presentation.theme.ReducedMotion
 
 /**
  * Contract implemented by controllers that can sit at the root of a [RootTabsController]
@@ -128,17 +132,68 @@ class RootTabsController : Controller() {
         }
         (outgoing as? RootTabContent)?.onTabDeactivated()
 
-        if (prev != -1) containers[prev]?.isVisible = false
+        val outgoingContainer = if (prev != -1) containers[prev] else null
         val target = containers[tabId] ?: return
-        target.isVisible = true
         currentTabId = tabId
         ensureChildRoot(tabId)
 
         val incoming = childRouterFor(tabId)?.backstack?.lastOrNull()?.controller
         (incoming as? RootTabContent)?.onTabActivated()
 
+        animateSwap(outgoingContainer, target)
         (activity as? MainActivity)?.onActiveTabChanged(prev, tabId)
     }
+
+    /**
+     * Cross-fade between two tab containers: incoming alpha 0→1, outgoing alpha 1→0,
+     * then outgoing visibility=GONE so its view tree drops out of measure/layout passes.
+     *
+     * Honors [ReducedMotion.isEnabled] — snaps to the end state without an animator when
+     * the user has opted into reduced motion (Appearance → Motion preference).
+     *
+     * Cancels any prior in-flight swap so rapid taps don't stack animators.
+     */
+    private fun animateSwap(outgoing: FrameLayout?, incoming: FrameLayout) {
+        swapAnimator?.cancel()
+        swapAnimator = null
+
+        if (ReducedMotion.isEnabled() || outgoing == null) {
+            // No previous tab to fade out from (initial selection) or reduced motion — snap.
+            outgoing?.let {
+                it.alpha = 0f
+                it.isVisible = false
+            }
+            incoming.alpha = 1f
+            incoming.isVisible = true
+            return
+        }
+
+        incoming.alpha = 0f
+        incoming.isVisible = true
+        // outgoing stays visible at alpha 1 until the fade-out completes.
+
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = TAB_SWAP_DURATION_MS
+            addUpdateListener { va ->
+                val t = va.animatedValue as Float
+                incoming.alpha = t
+                outgoing.alpha = 1f - t
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (swapAnimator !== animation) return
+                    outgoing.alpha = 0f
+                    outgoing.isVisible = false
+                    incoming.alpha = 1f
+                    swapAnimator = null
+                }
+            })
+        }
+        swapAnimator = animator
+        animator.start()
+    }
+
+    private var swapAnimator: Animator? = null
 
     private fun childRouterFor(tabId: Int): Router? {
         val container = containers[tabId] ?: return null
@@ -197,6 +252,13 @@ class RootTabsController : Controller() {
     }
 
     companion object {
+        /**
+         * Duration of the cross-fade between tab containers. Short enough that snappy
+         * tab swaps still feel snappy, long enough that the eye registers the
+         * transition instead of a hard cut. Honors [ReducedMotion] — see [animateSwap].
+         */
+        private const val TAB_SWAP_DURATION_MS = 150L
+
         private const val KEY_CURRENT_TAB = "RootTabsController.currentTabId"
         // Stable container ids so Conductor's child router restores into the same FrameLayout
         // across config changes. Picked from the 0x7E_xx_xxxx custom-id range to avoid R clash.

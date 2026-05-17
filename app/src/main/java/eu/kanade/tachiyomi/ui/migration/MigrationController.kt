@@ -6,6 +6,8 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import androidx.core.view.doOnNextLayout
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.R
@@ -32,6 +34,7 @@ class MigrationController :
     BaseCoroutineController<MigrationControllerBinding, MigrationPresenter>(),
     FlexibleAdapter.OnItemClickListener,
     SourceAdapter.OnAllClickListener,
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     BaseMigrationInterface {
 
     private var adapter: FlexibleAdapter<IFlexible<*>>? = null
@@ -158,4 +161,20 @@ class MigrationController :
         }
         adapter?.updateDataSet(sources)
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type == ControllerChangeType.PUSH_ENTER || type == ControllerChangeType.POP_ENTER) {
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.migrationRecycler,
+            useSmallToolbar = false,
+            tabs = null,
+        )
 }

@@ -13,6 +13,8 @@ import androidx.core.view.marginBottom
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePaddingRelative
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import com.bluelinelabs.conductor.Router
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -50,6 +52,7 @@ class PreMigrationController(bundle: Bundle? = null) :
     BaseLegacyController<PreMigrationControllerBinding>(bundle),
     FlexibleAdapter.OnItemClickListener,
     SmallToolbarInterface,
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     StartMigrationListener {
     private val sourceManager: SourceManager by injectLazy()
     private val prefs: PreferencesHelper by injectLazy()
@@ -267,4 +270,20 @@ class PreMigrationController(bundle: Bundle? = null) :
             )
         }
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type == ControllerChangeType.PUSH_ENTER || type == ControllerChangeType.POP_ENTER) {
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.recycler,
+            useSmallToolbar = true,
+            tabs = null,
+        )
 }

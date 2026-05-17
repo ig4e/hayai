@@ -5,6 +5,8 @@ import android.view.View
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import co.touchlab.kermit.Logger
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
@@ -28,6 +30,7 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.roundToTwoDecimal
 import eu.kanade.tachiyomi.util.view.compatToolTipText
+import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlin.math.roundToInt
@@ -35,7 +38,9 @@ import yokai.i18n.MR
 import yokai.util.lang.getString
 import android.R as AR
 
-class StatsController : BaseLegacyController<StatsControllerBinding>() {
+class StatsController :
+    BaseLegacyController<StatsControllerBinding>(),
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
 
     val presenter = StatsPresenter()
 
@@ -193,6 +198,22 @@ class StatsController : BaseLegacyController<StatsControllerBinding>() {
             Logger.e(e) { "Failed to show chart" }
         }
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type.isEnter && isControllerVisible) {
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.statsScrollView,
+            useSmallToolbar = false,
+            tabs = null,
+        )
 
     class StatusDistributionItem(
         val status: String,

@@ -36,7 +36,7 @@ import uy.kohesive.injekt.injectLazy
 import yokai.domain.base.BasePreferences
 import java.util.*
 
-abstract class SettingsLegacyController : PreferenceController(), SettingsControllerInterface, BackHandlerControllerInterface, BaseControllerPreferenceControllerCommonInterface {
+abstract class SettingsLegacyController : PreferenceController(), SettingsControllerInterface, BackHandlerControllerInterface, BaseControllerPreferenceControllerCommonInterface, eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
 
     var preferenceKey: String? = null
     val basePreferences: BasePreferences by injectLazy()
@@ -114,12 +114,22 @@ abstract class SettingsLegacyController : PreferenceController(), SettingsContro
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         if (type.isEnter && isControllerVisible) {
             setTitle()
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
         } else if (type.isEnter) {
             view?.alpha = 0f
         }
         setHasOptionsMenu(type.isEnter && isControllerVisible)
         super.onChangeStarted(handler, type)
     }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = if (view != null) listView else null,
+            useSmallToolbar = true,
+            tabs = null,
+        )
 
     inline fun <T> Preference.visibleIf(preference: eu.kanade.tachiyomi.core.preference.Preference<T>, crossinline block: (T) -> Boolean) {
         preference.changesIn(viewScope) { isVisible = block(it) }

@@ -18,6 +18,8 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
 import co.touchlab.kermit.Logger
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.MigrationListControllerBinding
@@ -75,6 +77,7 @@ class MigrationListController(bundle: Bundle? = null) :
     MigrationProcessAdapter.MigrationProcessInterface,
     BottomNavBarInterface,
     SmallToolbarInterface,
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     CoroutineScope {
 
     init {
@@ -570,6 +573,22 @@ class MigrationListController(bundle: Bundle? = null) :
             }
         }
     }
+
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        if (type == ControllerChangeType.PUSH_ENTER || type == ControllerChangeType.POP_ENTER) {
+            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        }
+    }
+
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            includeTabsInLayout = false,
+            scrollSource = binding.recycler,
+            useSmallToolbar = true,
+            tabs = null,
+        )
 
     companion object {
         const val CONFIG_EXTRA = "config_extra"

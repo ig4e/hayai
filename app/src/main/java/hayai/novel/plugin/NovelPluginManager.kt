@@ -147,7 +147,7 @@ class NovelPluginManager(
             val sourceFilters = cachedSource?.filters ?: metadata?.filters
 
             val lang = savedMeta?.let { langFromLnReaderLang(it.lang) }
-                ?: cachedSource?.lang?.takeIf { it.isNotBlank() }?.let(::langFromLnReaderLang)
+                ?: cachedSource?.lang?.takeIf { it.isNotBlank() }
                 ?: getLangCode(sourceId)
             val iconUrl = savedMeta?.iconUrl ?: cachedSource?.iconUrl
 
@@ -506,28 +506,41 @@ class NovelPluginManager(
         const val DEFAULT_ICON_FILE_NAME = "icon.png"
 
         /**
-         * Convert LNReader language names to ISO 639-1 codes.
+         * Convert LNReader plugin lang strings to ISO 639-1 codes.
+         *
+         * LNReader's plugins.min.json reports `lang` as the native endonym
+         * (e.g. "Русский", "中文, 汉语, 漢語") rather than the English name, so
+         * matching by English keyword would miss all but "English".
          */
-        fun langFromLnReaderLang(lang: String): String = when (lang.lowercase()) {
-            "english" -> "en"
-            "arabic" -> "ar"
-            "chinese" -> "zh"
-            "french" -> "fr"
-            "german" -> "de"
-            "indonesian" -> "id"
-            "italian" -> "it"
-            "japanese" -> "ja"
-            "korean" -> "ko"
-            "polish" -> "pl"
-            "portuguese" -> "pt"
-            "russian" -> "ru"
-            "spanish" -> "es"
-            "thai" -> "th"
-            "turkish" -> "tr"
-            "ukrainian" -> "uk"
-            "vietnamese" -> "vi"
-            "multilingual" -> "all"
-            else -> lang.take(2).lowercase()
+        fun langFromLnReaderLang(lang: String): String {
+            // Strip BiDi marks (LRM U+200E, RLM U+200F) that prefix some entries,
+            // collapse whitespace, lowercase. Without this "‎العربية" wouldn't match.
+            val normalized = lang
+                .replace("‎", "")
+                .replace("‏", "")
+                .trim()
+                .lowercase()
+            return when (normalized) {
+                "english" -> "en"
+                "العربية", "arabic" -> "ar"
+                "中文, 汉语, 漢語", "chinese" -> "zh"
+                "français", "french" -> "fr"
+                "deutsch", "german" -> "de"
+                "bahasa indonesia", "indonesian" -> "id"
+                "italiano", "italian" -> "it"
+                "日本語", "japanese" -> "ja"
+                "조선말, 한국어", "korean" -> "ko"
+                "polski", "polish" -> "pl"
+                "português", "portuguese" -> "pt"
+                "русский", "russian" -> "ru"
+                "español", "spanish" -> "es"
+                "ไทย", "thai" -> "th"
+                "türkçe", "turkish" -> "tr"
+                "українська", "ukrainian" -> "uk"
+                "tiếng việt", "vietnamese" -> "vi"
+                "multi", "multilingual" -> "all"
+                else -> "other"
+            }
         }
 
         fun isVersionNewer(candidate: String, installed: String): Boolean {
