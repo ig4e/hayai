@@ -1010,8 +1010,8 @@
     <string name="pref_behavior">Comportamento</string>
     <string name="random">Aleatório</string>
     <string name="label_recent_updates">Atualizações</string>
-    <string name="recents_long_tap_default">Mostrar fila de descargas</string>
-    <string name="recents_long_tap_last_read">Abrir o último capítulo lido</string>
+    <string name="recents_nav_action_download_queue">Mostrar fila de descargas</string>
+    <string name="recents_nav_action_last_read">Abrir o último capítulo lido</string>
     <string name="ext_installer_packageinstaller">Padrão</string>
     <string name="ext_installer_legacy">Legado</string>
     <string name="ext_installer_summary">Permite instalar extensões sem a necessidade de confirmação do utilizador e ativa atualizações automáticas para dispositivos anteriores ao Android 12</string>
@@ -1078,8 +1078,8 @@
     <string name="pref_mark_as_read_duplicate_read_chapter">Marcar capítulo de leitura duplicada como lido</string>
     <string name="pref_mark_as_read_duplicate_read_chapter_existing">Depois de ler um capítulo</string>
     <string name="pref_mark_as_read_duplicate_read_chapter_new">Após buscar um novo capítulo</string>
-    <string name="browse_long_tap_default">Abrir extensões / menu de migração</string>
-    <string name="browse_long_tap_search">Abrir pesquisa global</string>
+    <string name="browse_nav_action_sources_sheet">Abrir extensões / menu de migração</string>
+    <string name="browse_nav_action_global_search">Abrir pesquisa global</string>
     <string name="ext_installer_summary_legacy">O instalador legado ainda não é implementado, atualmente retroceder para PackageInstaller (Padrão)</string>
     <string name="untrusted_extension_message">Extensões maliciosas podem ler qualquer credencial de login armazenada ou executar código arbitrário.\n\nAo confiar nesta extensão, aceita esses riscos.</string>
     <string name="pref_hardware_bitmap_threshold">Limiar personalizado de bitmap em hardware</string>

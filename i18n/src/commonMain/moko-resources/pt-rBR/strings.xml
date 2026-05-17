@@ -1055,10 +1055,10 @@
     <string name="crash_screen_title">Ocorreu um erro inesperado</string>
     <string name="download_with_id_details">Pode corrigir problemas com conflitos de capítulos baixados quando eles têm o mesmo nome</string>
     <string name="pref_display_profile">Perfil de exibição personalizado</string>
-    <string name="recents_long_tap_default">Mostrar fila de downloads</string>
+    <string name="recents_nav_action_download_queue">Mostrar fila de downloads</string>
     <string name="crash_screen_description">%s encontrou um erro inesperado. Sugerimos que você tire uma captura de tela desta mensagem, faça o dump dos logs de falha e compartilhe em um problema no GitHub.</string>
     <string name="pref_legacy_cutout">Abrir configurações de recorte legado</string>
-    <string name="recents_long_tap_last_read">Abrir o último capítulo lido</string>
+    <string name="recents_nav_action_last_read">Abrir o último capítulo lido</string>
     <string name="recents_long_tap">Comportamento do toque longo em \'Recentes\'</string>
     <string name="pref_cutout_short">Mostrar conteúdo na área de recorte</string>
     <string name="share_cover">Compartilhar capa</string>
@@ -1081,8 +1081,8 @@
     <string name="random">Aleatório</string>
     <string name="enable_chapter_swipe_action">Habilitar função de “Swipe” dos capítulos</string>
     <string name="label_recent_updates">Atualizações</string>
-    <string name="browse_long_tap_default">Extensões abertas / Menu de migração</string>
-    <string name="browse_long_tap_search">Abrir pesquisa global</string>
+    <string name="browse_nav_action_sources_sheet">Extensões abertas / Menu de migração</string>
+    <string name="browse_nav_action_global_search">Abrir pesquisa global</string>
     <string name="ext_installer_summary_legacy">O instalador legado ainda não foi implementado, retornando para o PackageInstaller (Padrão)</string>
     <string name="long_strip">Tira longa</string>
     <string name="pref_hardware_bitmap_threshold">Limite de bitmap para hardware customizado</string>

@@ -6,11 +6,13 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import coil3.asImage
 import coil3.load
+import coil3.request.transformations
 import dev.icerock.moko.resources.compose.stringResource
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.AbstractHeaderItem
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.coil.PaddedSourceIconTransformation
 import eu.kanade.tachiyomi.databinding.RecentsHeaderItemBinding
 import eu.kanade.tachiyomi.databinding.RecentsSourceHeaderItemBinding
 import eu.kanade.tachiyomi.source.LocalSource
@@ -134,9 +136,11 @@ class RecentMangaHeaderItem(
                     val file = source.iconFile
                     when {
                         file != null && file.exists() -> iconView.load(file) {
+                            transformations(PaddedSourceIconTransformation())
                             fallback?.asImage()?.let { placeholder(it); error(it) }
                         }
                         !source.iconUrl.isNullOrBlank() -> iconView.load(source.iconUrl) {
+                            transformations(PaddedSourceIconTransformation())
                             fallback?.asImage()?.let { placeholder(it); error(it) }
                         }
                         else -> iconView.setImageDrawable(fallback)

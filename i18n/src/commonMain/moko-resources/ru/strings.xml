@@ -985,8 +985,8 @@
     <string name="app_settings">Настройки приложения</string>
     <string name="pref_debug_info">Отладочная информация</string>
     <string name="label_background_activity">Фоновая активность</string>
-    <string name="browse_long_tap_default">Открыть меню расширений/миграции</string>
-    <string name="browse_long_tap_search">Открыть глобальный поиск</string>
+    <string name="browse_nav_action_sources_sheet">Открыть меню расширений/миграции</string>
+    <string name="browse_nav_action_global_search">Открыть глобальный поиск</string>
     <string name="browse_long_tap">Реакция на долгий тап в поиске</string>
     <string name="ext_installer_summary_legacy">Старый метод установки ещё не реализован, используем стандартный PackageInstaller</string>
     <string name="untrusted_extension_message">Вредоносные расширения могут получить доступ к чтению и изменению данных входа или выполнять произвольный код.\n\nДоверяя этому расширению, вы действуете на свой страх и риск.</string>
@@ -1028,9 +1028,9 @@
     <string name="invalid_location_generic">Неверный путь</string>
     <string name="open_random_series_global">Открыть случайную серию (Глобально)</string>
     <string name="enable_chapter_swipe_action">Включить действие при свайпе главы</string>
-    <string name="recents_long_tap_last_read">Открыть последнюю прочитанную главу</string>
+    <string name="recents_nav_action_last_read">Открыть последнюю прочитанную главу</string>
     <string name="recents_long_tap">Реакция на долгий тап в недавних</string>
-    <string name="recents_long_tap_default">Показать очередь загрузки</string>
+    <string name="recents_nav_action_download_queue">Показать очередь загрузки</string>
     <string name="pref_cutout_short">Показывать содержимое в области выреза</string>
     <string name="save_pages_separately">Сохранять страницы в отдельных папках</string>
     <string name="create_folders_by_manga_title">Создаёт папки по названию манги</string>

@@ -140,8 +140,9 @@
     <string name="your_library">Your library</string>
     <string name="updating_library">Updating library</string>
     <string name="update_library">Update library</string>
-    <string name="library_double_tap_default">No action</string>
-    <string name="library_double_tap_update">Update library</string>
+    <string name="library_nav_action_update">Update library</string>
+    <string name="library_nav_action_filters">Open filters</string>
+    <string name="library_long_tap">Long tap Library behavior</string>
     <string name="library_double_tap">Double tap Library behavior</string>
     <string name="not_selected">Not selected</string>
     <string name="selected">Selected</string>
@@ -321,11 +322,9 @@
     <string name="only_downloaded">Only downloaded</string>
     <string name="unread_or_downloaded">Unread or downloaded</string>
     <string name="clear_history">Clear history</string>
-    <string name="recents_long_tap_default">Show download queue</string>
-    <string name="recents_long_tap_last_read">Open last read chapter</string>
+    <string name="recents_nav_action_download_queue">Show download queue</string>
+    <string name="recents_nav_action_last_read">Open last read chapter</string>
     <string name="recents_long_tap">Long tap Recents behavior</string>
-    <string name="recents_double_tap_default">No action</string>
-    <string name="recents_double_tap_last_read">Open last read chapter</string>
     <string name="recents_double_tap">Double tap Recents behavior</string>
     <string name="recents_group_by_source">By source</string>
     <string name="recents_select">Select</string>
@@ -360,11 +359,9 @@
     <string name="last_used">Last used</string>
     <string name="local_source_help_guide">Local source guide</string>
     <string name="check_site_in_web">Check website in WebView</string>
-    <string name="browse_long_tap_default">Open extensions / migration menu</string>
-    <string name="browse_long_tap_search">Open global search</string>
+    <string name="browse_nav_action_sources_sheet">Open sources sheet</string>
+    <string name="browse_nav_action_global_search">Open global search</string>
     <string name="browse_long_tap">Long tap Browse behavior</string>
-    <string name="browse_double_tap_default">No action</string>
-    <string name="browse_double_tap_search">Open global search</string>
     <string name="browse_double_tap">Double tap Browse behavior</string>
 
     <!-- Other Screens -->

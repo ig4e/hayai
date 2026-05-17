@@ -963,9 +963,9 @@
     <string name="onboarding_description">先選擇一些預設值，您可以隨時在稍後的設定中更改這些東西</string>
     <string name="onboarding_finish">開始使用</string>
     <string name="open_random_series_global">打開隨機作品</string>
-    <string name="recents_long_tap_default">顯示下載佇列</string>
-    <string name="recents_long_tap_last_read">打開最後閱讀的章節</string>
-    <string name="browse_long_tap_search">打開全局搜尋</string>
+    <string name="recents_nav_action_download_queue">顯示下載佇列</string>
+    <string name="recents_nav_action_last_read">打開最後閱讀的章節</string>
+    <string name="browse_nav_action_global_search">打開全局搜尋</string>
     <string name="crop_borders_long_strip">邊緣裁剪(長圖)</string>
     <string name="invalid_location_generic">無效位置</string>
     <string name="selected">已選中</string>

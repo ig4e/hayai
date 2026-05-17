@@ -1022,12 +1022,12 @@
     <string name="crash_screen_restart_application">Reiniciar la aplicación</string>
     <string name="refresh">Refrescar</string>
     <string name="onboarding_storage_action_select">Selecciona una carpeta</string>
-    <string name="recents_long_tap_default">Mostrar cola de descarga</string>
-    <string name="recents_long_tap_last_read">Abrir último capítulo leído</string>
+    <string name="recents_nav_action_download_queue">Mostrar cola de descarga</string>
+    <string name="recents_nav_action_last_read">Abrir último capítulo leído</string>
     <string name="recents_long_tap">Comportamiento al pulsar prolongadamente en Recientes</string>
-    <string name="browse_long_tap_search">Abrir búsqueda global</string>
+    <string name="browse_nav_action_global_search">Abrir búsqueda global</string>
     <string name="browse_long_tap">Comportamiento al pulsar prolongadamente en Explorar</string>
-    <string name="browse_long_tap_default">Abrir el menú de extensiones / migración</string>
+    <string name="browse_nav_action_sources_sheet">Abrir el menú de extensiones / migración</string>
     <string name="pref_cutout_short">Mostrar contenido en el área recortada</string>
     <string name="pref_display_profile">Perfil de visualización personalizado</string>
     <string name="data_and_storage">Datos y almacenamiento</string>

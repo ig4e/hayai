@@ -1007,7 +1007,7 @@
     <string name="invalid_location_generic">Emplacement invalide</string>
     <string name="onboarding_storage_help_info">Vous effectuez une mise à jour à partir d\'une ancienne version et vous ne savez pas quoi sélectionner ? Reportez-vous à la section Mise à niveau Tachiyomi dans le guide de stockage Mihon pour plus d\'information.</string>
     <string name="onboarding_permission_install_apps_description">Pour installer l\'application sur les mises à jour.</string>
-    <string name="recents_long_tap_default">Montrer la queue de téléchargement</string>
+    <string name="recents_nav_action_download_queue">Montrer la queue de téléchargement</string>
     <string name="crop_borders_long_strip">Rogner les bords (Bande longue)</string>
     <string name="browse_long_tap">Appui long Comportement naviguer</string>
     <string name="ext_installer_packageinstaller">Défaut</string>
@@ -1019,7 +1019,7 @@
     <string name="not_selected">Non sélectionné</string>
     <string name="selected">Sélectionné</string>
     <string name="open_random_series_global">Ouvre une série aléatoire (Global)</string>
-    <string name="recents_long_tap_last_read">Ouvrir le dernier chapitre lu</string>
+    <string name="recents_nav_action_last_read">Ouvrir le dernier chapitre lu</string>
     <string name="recents_long_tap">Appui long Comportement récents</string>
     <string name="untrusted_extension_message">Des extensions malveillantes peuvent lire les identifiants de connexion enregistrés ou exécuter du code arbitraire.\n\nEn faisant confiance à cette extension, vous acceptez ces risques.</string>
     <string name="long_strip">Bande longue</string>
@@ -1028,8 +1028,8 @@
     <string name="pref_use_compose_library">Utiliser la bibliothèque de composition expérimentale</string>
     <string name="random">Aléatoire</string>
     <string name="label_recent_updates">Mises à Jour</string>
-    <string name="browse_long_tap_default">Ouvrir le menu extensions / migration</string>
-    <string name="browse_long_tap_search">Ouvrir la recherche globale</string>
+    <string name="browse_nav_action_sources_sheet">Ouvrir le menu extensions / migration</string>
+    <string name="browse_nav_action_global_search">Ouvrir la recherche globale</string>
     <string name="ext_installer_summary_legacy">L\'installateur hérité n\'est pas encore implémenté, retour actuelle à PackageInstaller (par défaut)</string>
     <string name="enable_chapter_swipe_action">Activer l\'action de balayage de chapitre</string>
     <string name="pref_hardware_bitmap_threshold_default">Par défaut (%d)</string>

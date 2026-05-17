@@ -877,11 +877,11 @@
     <string name="by_series">Sarjojen mukaan</string>
     <string name="by_week">Viikon mukaan</string>
     <string name="by_day">Päivän mukaan</string>
-    <string name="recents_long_tap_default">Näytä latausjono</string>
-    <string name="recents_long_tap_last_read">Avaa viimeksi luettu luku</string>
+    <string name="recents_nav_action_download_queue">Näytä latausjono</string>
+    <string name="recents_nav_action_last_read">Avaa viimeksi luettu luku</string>
     <string name="recents_long_tap">Kosketa pitkään Viimeaikaisten käyttäytyminen</string>
-    <string name="browse_long_tap_default">Avaa laajennukset / siirtovalikko</string>
-    <string name="browse_long_tap_search">Avaa laajamittaiinen haku</string>
+    <string name="browse_nav_action_sources_sheet">Avaa laajennukset / siirtovalikko</string>
+    <string name="browse_nav_action_global_search">Avaa laajamittaiinen haku</string>
     <string name="ext_installer_packageinstaller">Oletus</string>
     <string name="ext_installer_summary">Mahdollistaa laajennusten asentamisen ilman käyttäjän kehotteita ja mahdollistaa automaattiset päivitykset Android 12 -käyttöjärjestelmää käyttäville laitteille</string>
     <string name="could_not_install_extension">Laajennusta ei voitu asentaa</string>

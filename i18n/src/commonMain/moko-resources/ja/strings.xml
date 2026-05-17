@@ -254,8 +254,8 @@
     <string name="only_downloaded">ダウンロード済みのみ</string>
     <string name="unread_or_downloaded">未読またはダウンロード済み</string>
     <string name="clear_history">履歴を全消去</string>
-    <string name="recents_long_tap_default">ダウンロードキューを表示</string>
-    <string name="recents_long_tap_last_read">最後に読んだ章を開く</string>
+    <string name="recents_nav_action_download_queue">ダウンロードキューを表示</string>
+    <string name="recents_nav_action_last_read">最後に読んだ章を開く</string>
     <string name="recents_long_tap">長押しで最近の動作</string>
     <!-- Browse -->
     <string name="search_filters">フィルターを検索</string>
@@ -276,8 +276,8 @@
     <string name="last_used">最後に使用した</string>
     <string name="local_source_help_guide">ローカルソースガイド</string>
     <string name="check_site_in_web">WebViewでサイトを開く</string>
-    <string name="browse_long_tap_default">拡張機能/移行メニューを開く</string>
-    <string name="browse_long_tap_search">グローバル検索を開く</string>
+    <string name="browse_nav_action_sources_sheet">拡張機能/移行メニューを開く</string>
+    <string name="browse_nav_action_global_search">グローバル検索を開く</string>
     <string name="browse_long_tap">長押しでブラウズの動作</string>
     <!-- Other Screens -->
     <!-- Extensions -->

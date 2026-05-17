@@ -983,10 +983,10 @@
     <string name="open_random_series_global">Magbukas ng random na serye (Pangkahalatan)</string>
     <string name="enable_chapter_swipe_action">Paganahin ang pagkilos na pag-swipe ng kabanata</string>
     <string name="label_recent_updates">Mga update</string>
-    <string name="recents_long_tap_default">Ipakita ang queue sa pag-download</string>
-    <string name="recents_long_tap_last_read">Buksan ang huling nabasang kabanata</string>
+    <string name="recents_nav_action_download_queue">Ipakita ang queue sa pag-download</string>
+    <string name="recents_nav_action_last_read">Buksan ang huling nabasang kabanata</string>
     <string name="recents_long_tap">Gawi ng pag-long tap sa Kamakailan</string>
-    <string name="browse_long_tap_search">Buksan ang pangkalahatang paghanap</string>
+    <string name="browse_nav_action_global_search">Buksan ang pangkalahatang paghanap</string>
     <string name="browse_long_tap">Gawi ng pag-log tap sa Maghanap</string>
     <string name="ext_installer_legacy">Legasiya</string>
     <string name="ext_installer_summary">Nagbibigay-daan sa mga extension na ma-install nang walang mga prompt ng user at nagbibigay-daan sa mga awtomatikong pag-update para sa mga device sa ilalim ng Android 12</string>
@@ -1043,7 +1043,7 @@
     <string name="crash_screen_description">Nagkaroon ng hindi inaasahang error ang %s. Iminumungkahi naming i-screenshot mo ang mensaheng ito, i-dump ang mga crash log, at pagkatapos ay ibahagi ito sa isang GitHub Issue.</string>
     <string name="refresh">I-refresh</string>
     <string name="long_strip">Pahabang strip</string>
-    <string name="browse_long_tap_default">Buksan ang mga extension / menu ng paglilipat</string>
+    <string name="browse_nav_action_sources_sheet">Buksan ang mga extension / menu ng paglilipat</string>
     <string name="onboarding_permission_ignore_battery_opts_description">Ma-iwasan ang mga hadlang sa mahahabang pag-update ng aklatan, pag-download, at pag-restore ng mga backup.</string>
     <string name="selected">Napili</string>
     <string name="pref_hardware_bitmap_threshold_summary">Kung naglo-load ang reader ng isang blangkong imahe ay unti-unting bawasan ang threshold.\nNapili: %s</string>

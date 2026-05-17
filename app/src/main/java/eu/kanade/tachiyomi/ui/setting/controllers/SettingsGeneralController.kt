@@ -225,19 +225,10 @@ class SettingsGeneralController : SettingsLegacyController() {
             titleRes = MR.strings.navigation
 
             listPreference(activity) {
-                bindTo(basePreferences.longTapRecentsNavBehaviour())
-                titleRes = MR.strings.recents_long_tap
+                bindTo(basePreferences.longTapLibraryNavBehaviour())
+                titleRes = MR.strings.library_long_tap
 
-                val values = BasePreferences.LongTapRecents.entries.toList()
-                entriesRes = values.map { it.titleResId }.toTypedArray()
-                entryValues = values.map { it.name }.toTypedArray().toList()
-            }
-
-            listPreference(activity) {
-                bindTo(basePreferences.longTapBrowseNavBehaviour())
-                titleRes = MR.strings.browse_long_tap
-
-                val values = BasePreferences.LongTapBrowse.entries.toList()
+                val values = BasePreferences.LibraryNavAction.entries.toList()
                 entriesRes = values.map { it.titleResId }.toTypedArray()
                 entryValues = values.map { it.name }.toTypedArray().toList()
             }
@@ -246,7 +237,16 @@ class SettingsGeneralController : SettingsLegacyController() {
                 bindTo(basePreferences.doubleTapLibraryNavBehaviour())
                 titleRes = MR.strings.library_double_tap
 
-                val values = BasePreferences.DoubleTapLibrary.entries.toList()
+                val values = BasePreferences.LibraryNavAction.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
+
+            listPreference(activity) {
+                bindTo(basePreferences.longTapRecentsNavBehaviour())
+                titleRes = MR.strings.recents_long_tap
+
+                val values = BasePreferences.RecentsNavAction.entries.toList()
                 entriesRes = values.map { it.titleResId }.toTypedArray()
                 entryValues = values.map { it.name }.toTypedArray().toList()
             }
@@ -255,7 +255,16 @@ class SettingsGeneralController : SettingsLegacyController() {
                 bindTo(basePreferences.doubleTapRecentsNavBehaviour())
                 titleRes = MR.strings.recents_double_tap
 
-                val values = BasePreferences.DoubleTapRecents.entries.toList()
+                val values = BasePreferences.RecentsNavAction.entries.toList()
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray().toList()
+            }
+
+            listPreference(activity) {
+                bindTo(basePreferences.longTapBrowseNavBehaviour())
+                titleRes = MR.strings.browse_long_tap
+
+                val values = BasePreferences.BrowseNavAction.entries.toList()
                 entriesRes = values.map { it.titleResId }.toTypedArray()
                 entryValues = values.map { it.name }.toTypedArray().toList()
             }
@@ -264,7 +273,7 @@ class SettingsGeneralController : SettingsLegacyController() {
                 bindTo(basePreferences.doubleTapBrowseNavBehaviour())
                 titleRes = MR.strings.browse_double_tap
 
-                val values = BasePreferences.DoubleTapBrowse.entries.toList()
+                val values = BasePreferences.BrowseNavAction.entries.toList()
                 entriesRes = values.map { it.titleResId }.toTypedArray()
                 entryValues = values.map { it.name }.toTypedArray().toList()
             }

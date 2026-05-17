@@ -18,6 +18,12 @@ class RecyclerWithScrollerView @JvmOverloads constructor(context: Context, attrs
     fun setUp(sheet: ExtensionBottomSheet, binding: RecyclerWithScrollerBinding, height: Int) {
         binding.recycler.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
         binding.recycler.setHasFixedSize(true)
+        binding.recycler.setItemViewCacheSize(8)
+        // Kill the item animator. Each tab swap (Manga/Extensions <-> Novel sources) ends
+        // with an updateDataSet → notifyDataSetChanged on the destination recycler that, with
+        // DefaultItemAnimator attached, runs add/change fades on every visible row — visible
+        // as a flicker during the ViewPager swipe.
+        binding.recycler.itemAnimator = null
         binding.recycler.addItemDecoration(ExtensionDividerItemDecoration(context))
         binding.recycler.updatePaddingRelative(bottom = height)
         binding.recycler.addOnScrollListener(

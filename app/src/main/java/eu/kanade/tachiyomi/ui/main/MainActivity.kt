@@ -390,78 +390,26 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         }
         var continueSwitchingTabs = false
         nav.getItemView(R.id.nav_library)?.setOnLongClickListener {
-            if (!LibraryUpdateJob.isRunning(this)) {
-                LibraryUpdateJob.startNow(this)
-                binding.mainContent.snack(MR.strings.updating_library) {
-                    anchorView = binding.bottomNav
-                    setAction(MR.strings.cancel) {
-                        LibraryUpdateJob.stop(context)
-                        lifecycleScope.launchUI {
-                            NotificationReceiver.dismissNotification(
-                                context,
-                                Notifications.ID_LIBRARY_PROGRESS,
-                            )
-                        }
-                    }
-                }
+            if (nav.selectedItemId != R.id.nav_library) {
+                nav.selectedItemId = R.id.nav_library
             }
+            runLibraryNavAction(basePreferences.longTapLibraryNavBehaviour().get(), showSheet = true)
             true
         }
         nav.getItemView(R.id.nav_recents)?.setOnLongClickListener {
             if (nav.selectedItemId != R.id.nav_recents) {
                 nav.selectedItemId = R.id.nav_recents
             }
-            when (basePreferences.longTapRecentsNavBehaviour().get()) {
-                BasePreferences.LongTapRecents.DEFAULT -> {
-                    nav.post {
-                        val controller =
-                            router.backstack.firstOrNull()?.controller as? BottomSheetController
-                        controller?.showSheet()
-                    }
-                }
-                BasePreferences.LongTapRecents.LAST_READ -> {
-                    lifecycleScope.launchUI {
-                        val lastReadChapter = getRecents.awaitUngrouped(
-                            filterScanlators = true,
-                            isResuming = true,
-                            search = "",
-                            offset = 0,
-                        ).maxByOrNull { it.history.last_read }
-                        lastReadChapter ?: return@launchUI
-
-                        val manga = lastReadChapter.manga
-                        val chapter = lastReadChapter.chapter
-                        startActivity(ReaderActivity.newIntent(this@MainActivity, manga, chapter))
-                    }
-                }
-            }
+            runRecentsNavAction(basePreferences.longTapRecentsNavBehaviour().get(), showSheet = true)
             true
         }
         nav.getItemView(R.id.nav_browse)?.setOnLongClickListener {
             if (nav.selectedItemId != R.id.nav_browse) {
                 nav.selectedItemId = R.id.nav_browse
             }
-            when (basePreferences.longTapBrowseNavBehaviour().get()) {
-                BasePreferences.LongTapBrowse.DEFAULT -> {
-                    nav.post {
-                        val controller =
-                            router.backstack.firstOrNull()?.controller as? BottomSheetController
-                        controller?.showSheet()
-                    }
-                }
-                BasePreferences.LongTapBrowse.SEARCH ->
-                    router.pushController(GlobalSearchController().withFadeTransaction())
-            }
+            runBrowseNavAction(basePreferences.longTapBrowseNavBehaviour().get(), showSheet = true)
             true
         }
-
-        setupNavDoubleTapListeners()
-        basePreferences.doubleTapLibraryNavBehaviour()
-            .changesIn(lifecycleScope) { setupNavDoubleTapListeners() }
-        basePreferences.doubleTapRecentsNavBehaviour()
-            .changesIn(lifecycleScope) { setupNavDoubleTapListeners() }
-        basePreferences.doubleTapBrowseNavBehaviour()
-            .changesIn(lifecycleScope) { setupNavDoubleTapListeners() }
 
         val container: ViewGroup = binding.controllerContainer
 
@@ -579,9 +527,20 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 )
             } else if (currentRoot.tag()?.toIntOrNull() == id) {
                 if (router.backstackSize == 1) {
-                    val controller =
-                        router.getControllerWithTag(id.toString()) as? BottomSheetController
-                    controller?.toggleSheet()
+                    when (id) {
+                        R.id.nav_library -> runLibraryNavAction(
+                            basePreferences.doubleTapLibraryNavBehaviour().get(),
+                            showSheet = false,
+                        )
+                        R.id.nav_recents -> runRecentsNavAction(
+                            basePreferences.doubleTapRecentsNavBehaviour().get(),
+                            showSheet = false,
+                        )
+                        R.id.nav_browse -> runBrowseNavAction(
+                            basePreferences.doubleTapBrowseNavBehaviour().get(),
+                            showSheet = false,
+                        )
+                    }
                 }
             }
             true
@@ -966,99 +925,65 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         }
     }
 
-    private fun setupNavDoubleTapListeners() {
-        val libEnabled = basePreferences.doubleTapLibraryNavBehaviour().get() !=
-            BasePreferences.DoubleTapLibrary.DEFAULT
-        setupNavItemDoubleTap(R.id.nav_library, libEnabled) { handleLibraryDoubleTap() }
-
-        val recentsEnabled = basePreferences.doubleTapRecentsNavBehaviour().get() !=
-            BasePreferences.DoubleTapRecents.DEFAULT
-        setupNavItemDoubleTap(R.id.nav_recents, recentsEnabled) { handleRecentsDoubleTap() }
-
-        val browseEnabled = basePreferences.doubleTapBrowseNavBehaviour().get() !=
-            BasePreferences.DoubleTapBrowse.DEFAULT
-        setupNavItemDoubleTap(R.id.nav_browse, browseEnabled) { handleBrowseDoubleTap() }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupNavItemDoubleTap(itemId: Int, isEnabled: Boolean, onDoubleTap: () -> Unit) {
-        val view = nav.getItemView(itemId) ?: return
-        if (!isEnabled) {
-            view.setOnTouchListener(null)
-            return
-        }
-        val detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent): Boolean = true
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                view.performClick()
-                return true
-            }
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                onDoubleTap()
-                return true
-            }
-            override fun onLongPress(e: MotionEvent) {
-                view.performLongClick()
-            }
-        })
-        view.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
-    }
-
-    private fun handleLibraryDoubleTap() {
-        when (basePreferences.doubleTapLibraryNavBehaviour().get()) {
-            BasePreferences.DoubleTapLibrary.DEFAULT -> Unit
-            BasePreferences.DoubleTapLibrary.UPDATE_LIBRARY -> {
-                if (!LibraryUpdateJob.isRunning(this)) {
-                    LibraryUpdateJob.startNow(this)
-                    binding.mainContent.snack(MR.strings.updating_library) {
-                        anchorView = binding.bottomNav
-                        setAction(MR.strings.cancel) {
-                            LibraryUpdateJob.stop(context)
-                            lifecycleScope.launchUI {
-                                NotificationReceiver.dismissNotification(
-                                    context,
-                                    Notifications.ID_LIBRARY_PROGRESS,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+    private fun runLibraryNavAction(action: BasePreferences.LibraryNavAction, showSheet: Boolean) {
+        when (action) {
+            BasePreferences.LibraryNavAction.UPDATE_LIBRARY -> startLibraryUpdate()
+            BasePreferences.LibraryNavAction.FILTERS -> toggleRootBottomSheet(R.id.nav_library, showSheet)
         }
     }
 
-    private fun handleRecentsDoubleTap() {
-        if (nav.selectedItemId != R.id.nav_recents) {
-            nav.selectedItemId = R.id.nav_recents
-        }
-        when (basePreferences.doubleTapRecentsNavBehaviour().get()) {
-            BasePreferences.DoubleTapRecents.DEFAULT -> Unit
-            BasePreferences.DoubleTapRecents.LAST_READ -> {
-                lifecycleScope.launchUI {
-                    val lastReadChapter = getRecents.awaitUngrouped(
-                        filterScanlators = true,
-                        isResuming = true,
-                        search = "",
-                        offset = 0,
-                    ).maxByOrNull { it.history.last_read }
-                    lastReadChapter ?: return@launchUI
-
-                    val manga = lastReadChapter.manga
-                    val chapter = lastReadChapter.chapter
-                    startActivity(ReaderActivity.newIntent(this@MainActivity, manga, chapter))
-                }
-            }
+    private fun runRecentsNavAction(action: BasePreferences.RecentsNavAction, showSheet: Boolean) {
+        when (action) {
+            BasePreferences.RecentsNavAction.DOWNLOAD_QUEUE -> toggleRootBottomSheet(R.id.nav_recents, showSheet)
+            BasePreferences.RecentsNavAction.LAST_READ -> openLastReadChapter()
         }
     }
 
-    private fun handleBrowseDoubleTap() {
-        if (nav.selectedItemId != R.id.nav_browse) {
-            nav.selectedItemId = R.id.nav_browse
-        }
-        when (basePreferences.doubleTapBrowseNavBehaviour().get()) {
-            BasePreferences.DoubleTapBrowse.DEFAULT -> Unit
-            BasePreferences.DoubleTapBrowse.SEARCH ->
+    private fun runBrowseNavAction(action: BasePreferences.BrowseNavAction, showSheet: Boolean) {
+        when (action) {
+            BasePreferences.BrowseNavAction.SOURCES_SHEET -> toggleRootBottomSheet(R.id.nav_browse, showSheet)
+            BasePreferences.BrowseNavAction.GLOBAL_SEARCH ->
                 router.pushController(GlobalSearchController().withFadeTransaction())
+        }
+    }
+
+    private fun toggleRootBottomSheet(navId: Int, showOnly: Boolean) {
+        nav.post {
+            val controller = router.backstack.firstOrNull()?.controller as? BottomSheetController
+                ?: return@post
+            if (showOnly) controller.showSheet() else controller.toggleSheet()
+        }
+    }
+
+    private fun startLibraryUpdate() {
+        if (LibraryUpdateJob.isRunning(this)) return
+        LibraryUpdateJob.startNow(this)
+        binding.mainContent.snack(MR.strings.updating_library) {
+            anchorView = binding.bottomNav
+            setAction(MR.strings.cancel) {
+                LibraryUpdateJob.stop(context)
+                lifecycleScope.launchUI {
+                    NotificationReceiver.dismissNotification(
+                        context,
+                        Notifications.ID_LIBRARY_PROGRESS,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun openLastReadChapter() {
+        lifecycleScope.launchUI {
+            val lastReadChapter = getRecents.awaitUngrouped(
+                filterScanlators = true,
+                isResuming = true,
+                search = "",
+                offset = 0,
+            ).maxByOrNull { it.history.last_read } ?: return@launchUI
+
+            startActivity(
+                ReaderActivity.newIntent(this@MainActivity, lastReadChapter.manga, lastReadChapter.chapter),
+            )
         }
     }
 

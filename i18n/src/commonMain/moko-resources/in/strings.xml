@@ -983,10 +983,10 @@
     <string name="pref_mark_as_read_duplicate_read_chapter">Tandai duplikat bab yang sudah terbaca sebagai sudah dibaca</string>
     <string name="pref_mark_as_read_duplicate_read_chapter_existing">Setelah membaca bab</string>
     <string name="pref_mark_as_read_duplicate_read_chapter_new">Setelah mengambil bab baru</string>
-    <string name="recents_long_tap_default">Tampilkan antrian unduhan</string>
-    <string name="recents_long_tap_last_read">Buka bab yang terkahir kali dibaca</string>
-    <string name="browse_long_tap_default">Buka ekstensi / menu migrasi</string>
-    <string name="browse_long_tap_search">Buka pencarian global</string>
+    <string name="recents_nav_action_download_queue">Tampilkan antrian unduhan</string>
+    <string name="recents_nav_action_last_read">Buka bab yang terkahir kali dibaca</string>
+    <string name="browse_nav_action_sources_sheet">Buka ekstensi / menu migrasi</string>
+    <string name="browse_nav_action_global_search">Buka pencarian global</string>
     <string name="ext_installer_legacy">Legacy</string>
     <string name="ext_installer_summary">Memungkinkan ekstensi diinstal tanpa perizinan pengguna dan memungkinkan pembaruan otomatis untuk perangkat di bawah Android 12</string>
     <string name="untrusted_extension_message">Ekstensi berbahaya dapat membaca semua kredensial masuk yang tersimpan atau menjalankan kode abitrer.\n\nDengan mempercayai ekstensi berikut anda menerima resiko tersebut.</string>

@@ -1015,9 +1015,9 @@
     <string name="pref_mark_as_read_duplicate_read_chapter_new">Dopo aver acquisito un nuovo capitolo</string>
     <string name="random">Casuale</string>
     <string name="label_recent_updates">Aggiornamenti</string>
-    <string name="recents_long_tap_default">Mostra coda di download</string>
-    <string name="recents_long_tap_last_read">Apri ultimo capitolo letto</string>
-    <string name="browse_long_tap_default">Apri menu estensioni / migrazioni</string>
-    <string name="browse_long_tap_search">Apri ricerca globale</string>
+    <string name="recents_nav_action_download_queue">Mostra coda di download</string>
+    <string name="recents_nav_action_last_read">Apri ultimo capitolo letto</string>
+    <string name="browse_nav_action_sources_sheet">Apri menu estensioni / migrazioni</string>
+    <string name="browse_nav_action_global_search">Apri ricerca globale</string>
     <string name="ext_installer_packageinstaller">Predefinito</string>
 </resources>

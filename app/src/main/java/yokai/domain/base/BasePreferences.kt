@@ -35,39 +35,31 @@ class BasePreferences(private val preferenceStore: PreferenceStore) {
 
     fun crashReport() = preferenceStore.getBoolean("pref_crash_report", true)
 
-    fun longTapBrowseNavBehaviour() = preferenceStore.getEnum("pref_browser_long_tap", LongTapBrowse.DEFAULT)
+    fun longTapLibraryNavBehaviour() = preferenceStore.getEnum("pref_library_long_tap", LibraryNavAction.UPDATE_LIBRARY)
 
-    enum class LongTapBrowse(val titleResId: StringResource) {
-        DEFAULT(MR.strings.browse_long_tap_default),
-        SEARCH(MR.strings.browse_long_tap_search),
+    fun doubleTapLibraryNavBehaviour() = preferenceStore.getEnum("pref_library_double_tap", LibraryNavAction.FILTERS)
+
+    enum class LibraryNavAction(val titleResId: StringResource) {
+        UPDATE_LIBRARY(MR.strings.library_nav_action_update),
+        FILTERS(MR.strings.library_nav_action_filters),
     }
 
-    fun longTapRecentsNavBehaviour() = preferenceStore.getEnum("pref_recents_long_tap", LongTapRecents.DEFAULT)
+    fun longTapRecentsNavBehaviour() = preferenceStore.getEnum("pref_recents_long_tap", RecentsNavAction.DOWNLOAD_QUEUE)
 
-    enum class LongTapRecents(val titleResId: StringResource) {
-        DEFAULT(MR.strings.recents_long_tap_default),
-        LAST_READ(MR.strings.recents_long_tap_last_read),
+    fun doubleTapRecentsNavBehaviour() = preferenceStore.getEnum("pref_recents_double_tap", RecentsNavAction.DOWNLOAD_QUEUE)
+
+    enum class RecentsNavAction(val titleResId: StringResource) {
+        DOWNLOAD_QUEUE(MR.strings.recents_nav_action_download_queue),
+        LAST_READ(MR.strings.recents_nav_action_last_read),
     }
 
-    fun doubleTapLibraryNavBehaviour() = preferenceStore.getEnum("pref_library_double_tap", DoubleTapLibrary.DEFAULT)
+    fun longTapBrowseNavBehaviour() = preferenceStore.getEnum("pref_browser_long_tap", BrowseNavAction.SOURCES_SHEET)
 
-    enum class DoubleTapLibrary(val titleResId: StringResource) {
-        DEFAULT(MR.strings.library_double_tap_default),
-        UPDATE_LIBRARY(MR.strings.library_double_tap_update),
-    }
+    fun doubleTapBrowseNavBehaviour() = preferenceStore.getEnum("pref_browser_double_tap", BrowseNavAction.SOURCES_SHEET)
 
-    fun doubleTapRecentsNavBehaviour() = preferenceStore.getEnum("pref_recents_double_tap", DoubleTapRecents.DEFAULT)
-
-    enum class DoubleTapRecents(val titleResId: StringResource) {
-        DEFAULT(MR.strings.recents_double_tap_default),
-        LAST_READ(MR.strings.recents_double_tap_last_read),
-    }
-
-    fun doubleTapBrowseNavBehaviour() = preferenceStore.getEnum("pref_browser_double_tap", DoubleTapBrowse.DEFAULT)
-
-    enum class DoubleTapBrowse(val titleResId: StringResource) {
-        DEFAULT(MR.strings.browse_double_tap_default),
-        SEARCH(MR.strings.browse_double_tap_search),
+    enum class BrowseNavAction(val titleResId: StringResource) {
+        SOURCES_SHEET(MR.strings.browse_nav_action_sources_sheet),
+        GLOBAL_SEARCH(MR.strings.browse_nav_action_global_search),
     }
 
     fun hardwareBitmapThreshold() = preferenceStore.getInt("pref_hardware_bitmap_threshold", GLUtil.SAFE_TEXTURE_LIMIT)
