@@ -112,4 +112,14 @@
         <item quantity="one">After %1$s minute</item>
         <item quantity="other">After %1$s minutes</item>
     </plurals>
+
+    <plurals name="recents_n_items_hidden">
+        <item quantity="one">%1$d item hidden</item>
+        <item quantity="other">%1$d items hidden</item>
+    </plurals>
+
+    <plurals name="recents_n_items_unhidden">
+        <item quantity="one">%1$d item unhidden</item>
+        <item quantity="other">%1$d items unhidden</item>
+    </plurals>
 </resources>

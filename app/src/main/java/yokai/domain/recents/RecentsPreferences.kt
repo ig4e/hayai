@@ -15,4 +15,21 @@ class RecentsPreferences(private val preferenceStore: PreferenceStore) {
 
     fun showTitleFirstInRecents() =
         preferenceStore.getBoolean(PreferenceKeys.showTitleFirstInRecents, false)
+
+    fun groupChaptersUpdates() =
+        preferenceStore.getEnum(PreferenceKeys.groupChaptersUpdates, UpdatesGroupType.ByDay)
+
+    fun hiddenSourcesInHistory() =
+        preferenceStore.getStringSet(PreferenceKeys.hiddenSourcesInHistory, emptySet())
+
+    fun hiddenSourcesInUpdates() =
+        preferenceStore.getStringSet(PreferenceKeys.hiddenSourcesInUpdates, emptySet())
+
+    fun showHiddenInHistory() =
+        preferenceStore.getBoolean(PreferenceKeys.showHiddenInHistory, false)
+
+    fun showHiddenInUpdates() =
+        preferenceStore.getBoolean(PreferenceKeys.showHiddenInUpdates, false)
 }
+
+enum class UpdatesGroupType { ByDay, BySource }

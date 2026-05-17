@@ -327,6 +327,15 @@
     <string name="recents_double_tap_default">No action</string>
     <string name="recents_double_tap_last_read">Open last read chapter</string>
     <string name="recents_double_tap">Double tap Recents behavior</string>
+    <string name="recents_group_by_source">By source</string>
+    <string name="recents_select">Select</string>
+    <string name="recents_select_all">Select all</string>
+    <string name="recents_invert_selection">Invert selection</string>
+    <string name="recents_hide">Hide</string>
+    <string name="recents_hide_from_source_">Hide all from %1$s</string>
+    <string name="recents_show_hidden">Show hidden</string>
+    <string name="recents_hidden_sources">Hidden sources</string>
+    <string name="recents_no_hidden_sources">No hidden sources</string>
 
     <!-- Browse -->
     <string name="search_filters">Search filters</string>

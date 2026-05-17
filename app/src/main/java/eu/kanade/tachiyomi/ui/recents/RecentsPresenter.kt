@@ -702,10 +702,12 @@ class RecentsPresenter(
         BySeries,
         ByWeek,
         ByDay,
+        BySource,
         Never,
         ;
 
         val isByTime get() = this == ByWeek || this == ByDay
+        val isBySource get() = this == BySource
     }
 
     companion object {
