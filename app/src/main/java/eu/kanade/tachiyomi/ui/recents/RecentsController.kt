@@ -1056,6 +1056,22 @@ class RecentsController(bundle: Bundle? = null) :
         return super.onOptionsItemSelected(item)
     }
 
+    /**
+     * Adds [sourceId] to the per-tab hidden-sources pref (History or Updates),
+     * then refreshes the list. Invoked by [RecentMangaHeaderItem]'s source
+     * header overflow ("Hide all from <source>"). Wave 2B (group-by-source)
+     * owns this; Wave 2A does not touch it.
+     */
+    override fun onHideSourceClicked(sourceId: String) {
+        val pref = when (presenter.viewType) {
+            RecentsViewType.History -> presenter.recentsPreferences.hiddenSourcesInHistory()
+            RecentsViewType.Updates -> presenter.recentsPreferences.hiddenSourcesInUpdates()
+            else -> return
+        }
+        pref.set(pref.get() + sourceId)
+        presenter.getRecents()
+    }
+
     override fun noMoreLoad(newItemsSize: Int) {}
 
     override fun onLoadMore(lastPosition: Int, currentPage: Int) {

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.recents
 
 import android.view.View
+import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.RecyclerView
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.AbstractHeaderItem
@@ -111,10 +112,25 @@ class RecentMangaHeaderItem(
         private fun bindSource(item: RecentMangaHeaderItem) {
             val name = item.sourceName ?: view.context.getString(MR.strings.unknown)
             sourceBinding.title.text = name
-            // Overflow click handler is wired in a follow-up commit (Wave 2B
-            // "source-level hide filter and overflow"). Leave the icon
-            // present so the layout stays stable across the two commits.
-            sourceBinding.overflow.setOnClickListener(null)
+            sourceBinding.overflow.setOnClickListener { anchor ->
+                val sourceId = item.sourceId ?: return@setOnClickListener
+                val popup = PopupMenu(anchor.context, anchor)
+                popup.menu.add(
+                    /* groupId = */ 0,
+                    /* itemId = */ MENU_HIDE_SOURCE,
+                    /* order = */ 0,
+                    anchor.context.getString(MR.strings.recents_hide_from_source_, name),
+                )
+                popup.setOnMenuItemClickListener { menuItem ->
+                    if (menuItem.itemId == MENU_HIDE_SOURCE) {
+                        adapter.delegate.onHideSourceClicked(sourceId)
+                        true
+                    } else {
+                        false
+                    }
+                }
+                popup.show()
+            }
         }
 
         override fun onLongClick(view: View?): Boolean {
@@ -128,5 +144,7 @@ class RecentMangaHeaderItem(
         const val NEW_CHAPTERS = 1
         const val NEWLY_ADDED = 2
         const val SOURCE = 3
+
+        private const val MENU_HIDE_SOURCE = 1
     }
 }

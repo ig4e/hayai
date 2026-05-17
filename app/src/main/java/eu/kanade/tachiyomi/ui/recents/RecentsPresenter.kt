@@ -149,15 +149,15 @@ class RecentsPresenter(
             lastRecents = null
         }
         getRecents()
-        // Note: showHidden* and hiddenSources* observers are registered in a
-        // follow-up commit ("source-level hide filter and overflow"); this
-        // commit only adds BySource grouping which still re-renders via the
-        // existing groupChaptersHistory observer / explicit getRecents calls.
         listOf(
             preferences.groupChaptersHistory(),
             recentsPreferences.showReadInAllRecents(),
             preferences.sortFetchedTime(),
             recentsPreferences.groupChaptersUpdates(),
+            recentsPreferences.showHiddenInHistory(),
+            recentsPreferences.showHiddenInUpdates(),
+            recentsPreferences.hiddenSourcesInHistory(),
+            recentsPreferences.hiddenSourcesInUpdates(),
         ).forEach {
             it.changes()
                 .drop(1)
@@ -388,6 +388,17 @@ class RecentsPresenter(
         }
 
         if (query != oldQuery) return
+        // Per-tab hidden-source filter. Hide-lists are scoped to History or
+        // Updates individually; for GroupedAll (the mixed view) we intersect:
+        // an entry only disappears from Grouped when the user has hidden the
+        // source in BOTH tabs (otherwise it's still real in at least one).
+        val hiddenSources: Set<String> = when (viewType) {
+            RecentsViewType.History -> recentsPreferences.hiddenSourcesInHistory().get()
+            RecentsViewType.Updates -> recentsPreferences.hiddenSourcesInUpdates().get()
+            RecentsViewType.GroupedAll ->
+                recentsPreferences.hiddenSourcesInHistory().get()
+                    .intersect(recentsPreferences.hiddenSourcesInUpdates().get())
+        }
         val mangaList = cReading.distinctBy {
             if (query.isEmpty() && viewType.isAll) it.manga.id else it.chapter.id
         }.filter { mch ->
@@ -403,6 +414,8 @@ class RecentsPresenter(
         }.filter { mch ->
             // Layer fuzzy matching on top of the SQL pre-filter so typos resolve here too.
             if (query.isBlank()) true else FuzzyMatcher.matches(query, mch.manga.title, 70)
+        }.filter { mch ->
+            hiddenSources.isEmpty() || mch.manga.source.toString() !in hiddenSources
         }
         val pairs: List<Pair<MangaChapterHistory, Chapter>> = mangaList.mapNotNull {
             val chapter: Chapter? = when {

@@ -81,6 +81,10 @@ class RecentMangaAdapter(val delegate: RecentsInterface) :
                 notifyItemChanged(0)
             }
         }
+        // Grouping/hide prefs are owned by RecentsPresenter (it reads them in
+        // runRecents and reissues the list). The presenter already observes
+        // these via .changes() in onCreate, so the adapter doesn't need its
+        // own register() call — re-emitting recents triggers updateDataSet().
     }
 
     fun getItemByChapterId(id: Long): RecentMangaItem? {
@@ -135,11 +139,19 @@ class RecentMangaAdapter(val delegate: RecentsInterface) :
         fun scope(): CoroutineScope
         fun getViewType(): RecentsViewType
         fun onItemLongClick(position: Int, chapter: ChapterHistory): Boolean
+
         /**
          * Cover tap fired while [isInSelectionMode] is true — the controller
          * routes it through the same toggle path as a regular row tap.
          */
         fun onItemSelectionToggled(position: Int)
+
+        /**
+         * Called from the source header overflow when the user picks "Hide all
+         * from <source>". Adds [sourceId] to the per-tab hidden-sources pref and
+         * refreshes the list.
+         */
+        fun onHideSourceClicked(sourceId: String)
     }
 
     override fun onItemSwiped(position: Int, direction: Int) {
