@@ -3,18 +3,22 @@ package eu.kanade.tachiyomi.ui.recents
 import android.animation.LayoutTransition
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePaddingRelative
 import androidx.transition.TransitionManager
 import androidx.transition.TransitionSet
+import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.ChapterHistory
@@ -29,6 +33,7 @@ import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterNa
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.system.contextCompatColor
 import eu.kanade.tachiyomi.util.system.dpToPx
+import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import eu.kanade.tachiyomi.util.view.setAnimVectorCompat
 import eu.kanade.tachiyomi.util.view.setCards
@@ -50,8 +55,22 @@ class RecentMangaHolder(
     private val isUpdates get() = adapter.viewType.isUpdates
     private val isSmallUpdates get() = isUpdates && !adapter.showUpdatedTime
 
+    /** Tinted overlay for selected rows; mirrors LibraryHolder's secondary-alpha treatment. */
+    private val selectedBackground by lazy {
+        val base = itemView.context.getResourceColor(materialR.attr.colorSecondary)
+        ColorDrawable(ColorUtils.setAlphaComponent(base, 75))
+    }
+
     init {
-        binding.cardLayout.setOnClickListener { adapter.delegate.onCoverClick(flexibleAdapterPosition) }
+        binding.cardLayout.setOnClickListener {
+            // While in multi-select, treat cover taps as selection toggles
+            // instead of opening MangaDetailsController.
+            if (adapter.isInSelectionMode) {
+                adapter.delegate.onItemSelectionToggled(flexibleAdapterPosition)
+            } else {
+                adapter.delegate.onCoverClick(flexibleAdapterPosition)
+            }
+        }
         binding.removeHistory.setOnClickListener { adapter.delegate.onRemoveHistoryClicked(flexibleAdapterPosition) }
         binding.showMoreChapters.setOnClickListener { _ ->
             val moreVisible = !binding.moreChaptersLayout.isVisible
@@ -231,6 +250,7 @@ class RecentMangaHolder(
                 item.chapter.read,
             )
         }
+        updateSelectedBackground()
 
         binding.showMoreChapters.setImageResource(
             if (moreVisible) {
@@ -467,7 +487,23 @@ class RecentMangaHolder(
     override fun onLongClick(view: View?): Boolean {
         super.onLongClick(view)
         val item = adapter.getItem(flexibleAdapterPosition) as? RecentMangaItem ?: return false
-        return item.mch.history.id != null
+        // Within History/Updates the long-press has to be "consumed" so the
+        // click listener doesn't also fire — otherwise the user would enter
+        // selection mode AND open the reader in the same gesture.
+        return adapter.selectionEnabled || item.mch.history.id != null
+    }
+
+    /**
+     * Tint the row's foreground while the holder represents a selected entry.
+     * Uses the same alpha-secondary tint as [LibraryHolder] for visual parity
+     * with the library multi-select UI.
+     */
+    fun updateSelectedBackground() {
+        binding.mainView.foreground = if (adapter.isSelected(flexibleAdapterPosition)) {
+            selectedBackground
+        } else {
+            ColorDrawable(Color.TRANSPARENT)
+        }
     }
 
     fun notifyStatus(status: Download.State, progress: Int, isRead: Boolean, animated: Boolean = false) {

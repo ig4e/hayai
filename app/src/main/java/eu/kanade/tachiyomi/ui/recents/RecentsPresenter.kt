@@ -47,6 +47,8 @@ import yokai.domain.history.interactor.GetHistory
 import yokai.domain.history.interactor.UpsertHistory
 import yokai.domain.recents.RecentsPreferences
 import yokai.domain.recents.interactor.GetRecents
+import yokai.domain.recents.interactor.HideRecents
+import yokai.domain.recents.interactor.UnhideRecents
 import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
 
@@ -697,6 +699,98 @@ class RecentsPresenter(
     override fun onPageProgressUpdate(download: Download) {
         view?.updateChapterDownload(download)
     }
+
+    // region Bulk selection actions (Wave 2A)
+    private val hideRecents: HideRecents by injectLazy()
+    private val unhideRecents: UnhideRecents by injectLazy()
+
+    /**
+     * Snapshot used to restore a chapter's read state after a bulk
+     * mark-as-read undo. Triples of (chapterId, lastPageRead, pagesLeft) keyed
+     * by chapter id; the boolean read state is implied by what flipped.
+     */
+    data class MarkReadSnapshot(
+        val chapterId: Long,
+        val wasRead: Boolean,
+        val lastPageRead: Int,
+        val pagesLeft: Int,
+    )
+
+    /**
+     * Capture the current read state for every selected chapter so an undo
+     * snackbar can restore them in one shot.
+     */
+    fun snapshotReadState(chapterIds: List<Long>): List<MarkReadSnapshot> {
+        return chapterIds.mapNotNull { id ->
+            val ch = findChapterById(id) ?: return@mapNotNull null
+            MarkReadSnapshot(id, ch.read, ch.last_page_read, ch.pages_left)
+        }
+    }
+
+    private fun findChapterById(chapterId: Long): Chapter? {
+        for (item in recentItems) {
+            if (item.mch.chapter.id == chapterId) return item.mch.chapter
+            item.mch.extraChapters.firstOrNull { it.id == chapterId }?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * Mark every chapter in [chapterIds] as [read]. Used by the contextual
+     * action mode for bulk read/unread toggles.
+     */
+    fun bulkMarkRead(chapterIds: List<Long>, read: Boolean) {
+        presenterScope.launchNonCancellableIO {
+            chapterIds.forEach { id ->
+                val chapter = findChapterById(id) ?: return@forEach
+                chapter.read = read
+                if (!read) {
+                    chapter.last_page_read = 0
+                    chapter.pages_left = 0
+                }
+                updateChapter.await(chapter.toProgressUpdate())
+            }
+            getRecents()
+        }
+    }
+
+    /**
+     * Restore read state from a [snapshotReadState] capture. The original
+     * pages_left / last_page_read are restored so resume-position is intact.
+     */
+    fun restoreReadState(snapshots: List<MarkReadSnapshot>) {
+        presenterScope.launchNonCancellableIO {
+            snapshots.forEach { snap ->
+                val chapter = findChapterById(snap.chapterId) ?: return@forEach
+                chapter.read = snap.wasRead
+                chapter.last_page_read = snap.lastPageRead
+                chapter.pages_left = snap.pagesLeft
+                updateChapter.await(chapter.toProgressUpdate())
+            }
+            getRecents()
+        }
+    }
+
+    /**
+     * Hide [items] (chapterId -> mangaId) from the given recents [tab]. SQL
+     * already filters hidden rows out, so the follow-up [getRecents] drops
+     * them naturally without local list mutation.
+     */
+    fun hideItems(tab: Int, items: List<Pair<Long, Long>>) {
+        presenterScope.launchNonCancellableIO {
+            hideRecents.await(tab, items)
+            getRecents()
+        }
+    }
+
+    /** Undo a previous [hideItems] call by removing the hidden rows. */
+    fun unhideItems(tab: Int, chapterIds: List<Long>) {
+        presenterScope.launchNonCancellableIO {
+            unhideRecents.await(tab, chapterIds)
+            getRecents()
+        }
+    }
+    // endregion
 
     enum class GroupType {
         BySeries,

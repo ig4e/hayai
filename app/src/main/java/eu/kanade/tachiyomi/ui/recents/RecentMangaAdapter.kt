@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.recents
 
 import android.view.View
 import androidx.recyclerview.widget.ItemTouchHelper
+import eu.davidea.flexibleadapter.SelectableAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -89,6 +90,28 @@ class RecentMangaAdapter(val delegate: RecentsInterface) :
         } as? RecentMangaItem
     }
 
+    /**
+     * True when the History/Updates tabs allow multi-select. GroupedAll falls
+     * back to the existing single-item dialogs.
+     */
+    val selectionEnabled: Boolean
+        get() = viewType.isHistory || viewType.isUpdates
+
+    /**
+     * True when at least one item is currently selected — used to swap the
+     * toolbar / suppress swipe / treat cover clicks as selection toggles.
+     */
+    val isInSelectionMode: Boolean
+        get() = mode == SelectableAdapter.Mode.MULTI && selectedItemCount > 0
+
+    /**
+     * Collect every selected [RecentMangaItem] in adapter order. Sub-chapters
+     * are never selectable, so this exposes only the top-level entries.
+     */
+    fun selectedRecentItems(): List<RecentMangaItem> {
+        return getSelectedPositions().mapNotNull { getItem(it) as? RecentMangaItem }
+    }
+
     private fun <T> Preference<T>.register(notify: Boolean = true, onChanged: (T) -> Unit) {
         changes()
             .drop(1)
@@ -112,10 +135,18 @@ class RecentMangaAdapter(val delegate: RecentsInterface) :
         fun scope(): CoroutineScope
         fun getViewType(): RecentsViewType
         fun onItemLongClick(position: Int, chapter: ChapterHistory): Boolean
+        /**
+         * Cover tap fired while [isInSelectionMode] is true — the controller
+         * routes it through the same toggle path as a regular row tap.
+         */
+        fun onItemSelectionToggled(position: Int)
     }
 
     override fun onItemSwiped(position: Int, direction: Int) {
         super.onItemSwiped(position, direction)
+        // Suppress swipe-to-mark while the user is in multi-select; the
+        // gesture is still hooked by the action mode toolbar.
+        if (isInSelectionMode) return
         when (direction) {
             ItemTouchHelper.LEFT -> delegate.markAsRead(position)
             ItemTouchHelper.RIGHT -> delegate.markAsRead(position)

@@ -49,6 +49,16 @@ class RecentMangaItem(
         return mch.manga.id != null
     }
 
+    /**
+     * Selection mode only includes real top-level items. Footers (rows where
+     * [mch.manga.id] is null, e.g. "Continue reading" / "Newly added") are not
+     * checkable. Sub-chapters are handled inside the holder and never receive a
+     * selectable position of their own.
+     */
+    override fun isSelectable(): Boolean {
+        return mch.manga.id != null
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other is RecentMangaItem) {

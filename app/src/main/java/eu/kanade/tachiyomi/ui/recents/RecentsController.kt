@@ -12,6 +12,8 @@ import android.view.RoundedCorner
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.BackEventCompat
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.view.ActionMode
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.HistoryToggleOff
 import androidx.compose.material.icons.filled.SearchOff
@@ -31,6 +33,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
 import eu.davidea.flexibleadapter.FlexibleAdapter
+import eu.davidea.flexibleadapter.SelectableAdapter
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -60,6 +63,7 @@ import eu.kanade.tachiyomi.ui.source.browse.ProgressItem
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedAsRead
 import eu.kanade.tachiyomi.util.system.addCheckBoxPrompt
 import eu.kanade.tachiyomi.util.system.dpToPx
+import yokai.domain.recents.models.RecentsHidden
 import eu.kanade.tachiyomi.util.system.getBottomGestureInsets
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.ignoredSystemInsets
@@ -116,7 +120,8 @@ class RecentsController(bundle: Bundle? = null) :
     RootSearchInterface,
     FloatingSearchInterface,
     BottomSheetController,
-    MainActivityTabsOwner {
+    MainActivityTabsOwner,
+    ActionMode.Callback {
 
     override val ownsActivityTabs: Boolean = true
 
@@ -138,6 +143,18 @@ class RecentsController(bundle: Bundle? = null) :
     private var ogRadius = 0f
     private var deviceRadius = 0f to 0f
     private var lastScale = 1f
+
+    /**
+     * Active contextual action mode toolbar, owned by the host activity. Non-null
+     * iff the user is in multi-select on History/Updates.
+     */
+    private var actionMode: ActionMode? = null
+
+    /**
+     * Anchor for range select. Updated on every long-press; reset when
+     * selection mode is destroyed or all items deselected.
+     */
+    private var lastClickPosition: Int = -1
 
     private var query = ""
         set(value) {
@@ -498,6 +515,7 @@ class RecentsController(bundle: Bundle? = null) :
 
     override fun canStillGoBack(): Boolean {
         return showingDownloads ||
+            actionMode != null ||
             presenter.uiPreferences.recentsViewType().get() != presenter.viewType.mainValue
     }
 
@@ -526,6 +544,10 @@ class RecentsController(bundle: Bundle? = null) :
     override fun handleBack(): Boolean {
         if (showingDownloads) {
             binding.downloadBottomSheet.dlBottomSheet.dismiss()
+            return true
+        }
+        if (actionMode != null) {
+            destroyActionModeIfNeeded()
             return true
         }
         val viewType = RecentsViewType.valueOf(presenter.uiPreferences.recentsViewType().get())
@@ -569,6 +591,9 @@ class RecentsController(bundle: Bundle? = null) :
 
     override fun onDestroyView(view: View) {
         super.onDestroyView(view)
+        // Drop the action mode before the underlying view is torn down so we
+        // don't leak the activity reference.
+        destroyActionModeIfNeeded()
         displaySheet?.dismiss()
         displaySheet = null
     }
@@ -737,6 +762,9 @@ class RecentsController(bundle: Bundle? = null) :
     }
 
     fun tempJumpTo(viewType: RecentsViewType) {
+        // Switching tabs in the middle of a multi-select would leave stale
+        // selection positions hanging around; collapse it cleanly.
+        destroyActionModeIfNeeded()
         presenter.toggleGroupRecents(viewType, false)
         activityBinding?.mainTabs?.run { selectTab(getTabAt(viewType.mainValue)) }
         (activity as? MainActivity)?.reEnableBackPressedCallBack()
@@ -745,6 +773,7 @@ class RecentsController(bundle: Bundle? = null) :
 
     private fun setViewType(viewType: RecentsViewType) {
         if (viewType != presenter.viewType) {
+            destroyActionModeIfNeeded()
             presenter.toggleGroupRecents(viewType)
             updateTitleAndMenu()
         }
@@ -757,6 +786,15 @@ class RecentsController(bundle: Bundle? = null) :
     override fun onItemClick(view: View?, position: Int): Boolean {
         val item = adapter.getItem(position) ?: return false
         if (item is RecentMangaItem) {
+            // While in multi-select, a tap toggles selection instead of
+            // opening the reader. Footer rows (mch.manga.id == null) keep
+            // their existing "jump to other tab" behaviour.
+            if (adapter.isInSelectionMode && item.mch.manga.id != null) {
+                snack?.dismiss()
+                lastClickPosition = position
+                toggleSelection(position)
+                return false
+            }
             if (item.mch.manga.id == null) {
                 val headerItem = adapter.getHeaderOf(item) as? RecentMangaHeaderItem
                 tempJumpTo(
@@ -790,16 +828,33 @@ class RecentsController(bundle: Bundle? = null) :
 
     override fun onItemLongClick(position: Int) {
         val item = adapter.getItem(position) as? RecentMangaItem ?: return
+        if (item.mch.manga.id == null) return
+        // History/Updates → enter (or extend) multi-select. GroupedAll keeps
+        // the pre-existing single-item dialog flow.
+        if (adapter.selectionEnabled) {
+            handleSelectionLongClick(position)
+            return
+        }
         showRemoveHistoryDialog(item.mch.manga, item.mch.history, item.mch.chapter)
     }
 
     override fun onItemLongClick(position: Int, chapter: ChapterHistory): Boolean {
         val history = chapter.history ?: return false
         val item = adapter.getItem(position) as? RecentMangaItem ?: return false
+        // Sub-chapter long-press is intentionally NOT a selection entry point.
+        // If we're already in selection mode, swallow the gesture so the
+        // toolbar stays visible; otherwise fall back to the existing dialog.
+        if (adapter.isInSelectionMode) return true
         if (history.id != null) {
             showRemoveHistoryDialog(item.mch.manga, history, chapter)
         }
         return history.id != null
+    }
+
+    override fun onItemSelectionToggled(position: Int) {
+        snack?.dismiss()
+        lastClickPosition = position
+        toggleSelection(position)
     }
 
     private fun showRemoveHistoryDialog(manga: Manga, history: History, chapter: Chapter) {
@@ -1027,4 +1082,234 @@ class RecentsController(bundle: Bundle? = null) :
         progressItem = ProgressItem()
         adapter.setEndlessScrollListener(this, progressItem!!)
     }
+
+    // region Selection mode (Wave 2A)
+
+    /**
+     * Pick the [RecentsHidden] tab id matching the active view type. Only
+     * called from selection-mode flows, which only run on History/Updates.
+     */
+    private fun currentHiddenTab(): Int = when (presenter.viewType) {
+        RecentsViewType.History -> RecentsHidden.TAB_HISTORY
+        RecentsViewType.Updates -> RecentsHidden.TAB_UPDATES
+        else -> RecentsHidden.TAB_HISTORY
+    }
+
+    /**
+     * Toggle [position]'s selection and refresh the action mode UI.
+     */
+    private fun toggleSelection(position: Int) {
+        adapter.toggleSelection(position)
+        // The FlexibleAdapter only redraws the activation state; we still need
+        // to repaint our custom row tint.
+        (binding.recycler.findViewHolderForAdapterPosition(position) as? RecentMangaHolder)
+            ?.updateSelectedBackground()
+        invalidateActionMode()
+    }
+
+    /**
+     * Long-click entry point used by both the top-level row and the cover.
+     * Implements first-press anchor + second-press range select like the
+     * library multi-select.
+     */
+    private fun handleSelectionLongClick(position: Int) {
+        snack?.dismiss()
+        createActionModeIfNeeded()
+        when {
+            lastClickPosition == -1 -> setSelected(position, true)
+            lastClickPosition > position -> {
+                for (i in position until lastClickPosition) setSelected(i, true)
+            }
+            lastClickPosition < position -> {
+                for (i in lastClickPosition + 1..position) setSelected(i, true)
+            }
+            else -> setSelected(position, true)
+        }
+        lastClickPosition = position
+        invalidateActionMode()
+    }
+
+    /**
+     * Add or remove [position] from the selection without touching the action
+     * mode UI. Used by range-select.
+     */
+    private fun setSelected(position: Int, selected: Boolean) {
+        val item = adapter.getItem(position) as? RecentMangaItem ?: return
+        if (!item.isSelectable) return
+        val isSelected = adapter.isSelected(position)
+        if (selected && !isSelected) {
+            adapter.addSelection(position)
+        } else if (!selected && isSelected) {
+            adapter.removeSelection(position)
+        }
+        (binding.recycler.findViewHolderForAdapterPosition(position) as? RecentMangaHolder)
+            ?.updateSelectedBackground()
+    }
+
+    private fun createActionModeIfNeeded() {
+        if (actionMode == null) {
+            adapter.mode = SelectableAdapter.Mode.MULTI
+            adapter.isSwipeEnabled = false
+            actionMode = (activity as? AppCompatActivity)?.startSupportActionMode(this)
+        }
+    }
+
+    private fun destroyActionModeIfNeeded() {
+        actionMode?.finish()
+    }
+
+    private fun invalidateActionMode() {
+        if (adapter.selectedItemCount == 0) {
+            destroyActionModeIfNeeded()
+            return
+        }
+        actionMode?.invalidate()
+    }
+
+    override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+        mode.menuInflater.inflate(R.menu.recents_selection, menu)
+        return true
+    }
+
+    override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+        val count = adapter.selectedItemCount
+        if (count == 0) {
+            destroyActionModeIfNeeded()
+            return false
+        }
+        mode.title = view?.context?.getString(MR.strings.selected_, count)
+        return true
+    }
+
+    override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_select_all -> {
+                selectAllSelectable()
+                true
+            }
+            R.id.action_mark_as_read -> {
+                bulkMarkAsRead()
+                true
+            }
+            R.id.action_hide -> {
+                bulkHide()
+                true
+            }
+            else -> false
+        }
+    }
+
+    override fun onDestroyActionMode(mode: ActionMode?) {
+        actionMode = null
+        lastClickPosition = -1
+        adapter.mode = SelectableAdapter.Mode.IDLE
+        adapter.clearSelection()
+        adapter.isSwipeEnabled = true
+        // Repaint visible rows so the selection tint clears.
+        (0 until adapter.itemCount).forEach { pos ->
+            (binding.recycler.findViewHolderForAdapterPosition(pos) as? RecentMangaHolder)
+                ?.updateSelectedBackground()
+        }
+    }
+
+    private fun selectAllSelectable() {
+        var changed = false
+        (0 until adapter.itemCount).forEach { pos ->
+            val item = adapter.getItem(pos) as? RecentMangaItem ?: return@forEach
+            if (!item.isSelectable) return@forEach
+            if (!adapter.isSelected(pos)) {
+                adapter.addSelection(pos)
+                (binding.recycler.findViewHolderForAdapterPosition(pos) as? RecentMangaHolder)
+                    ?.updateSelectedBackground()
+                changed = true
+            }
+        }
+        if (changed) {
+            invalidateActionMode()
+        }
+    }
+
+    /**
+     * Mark every selected chapter as read (or all unread if every selection is
+     * already read). Snapshot the previous state so the undo snackbar can
+     * restore it in bulk.
+     */
+    private fun bulkMarkAsRead() {
+        val view = view ?: return
+        val items = adapter.selectedRecentItems()
+        if (items.isEmpty()) return
+        // Read-state to apply: if everything is already read, flip all to
+        // unread; otherwise mark them all read. Mirrors LibraryController's
+        // markReadStatus semantics.
+        val targetRead = !items.all { it.chapter.read }
+        val chapterIds = items.mapNotNull { it.chapter.id }
+        val snapshot = presenter.snapshotReadState(chapterIds)
+        presenter.bulkMarkRead(chapterIds, targetRead)
+        destroyActionModeIfNeeded()
+        snack?.dismiss()
+        snack = view.snack(
+            if (targetRead) MR.strings.marked_as_read else MR.strings.marked_as_unread,
+            Snackbar.LENGTH_INDEFINITE,
+        ) {
+            anchorView = activityBinding?.bottomNav
+            var undoing = false
+            setAction(MR.strings.undo) {
+                presenter.restoreReadState(snapshot)
+                undoing = true
+            }
+            addCallback(
+                object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
+                    override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
+                        super.onDismissed(transientBottomBar, event)
+                        if (!undoing && targetRead) {
+                            // Mirror the single-item flow: update tracking
+                            // after the user has accepted the read action.
+                            val preferences = presenter.preferences
+                            items.forEach { ri ->
+                                updateTrackChapterMarkedAsRead(preferences, ri.chapter, ri.mch.manga.id) {}
+                            }
+                        }
+                    }
+                },
+            )
+        }
+        (activity as? MainActivity)?.setUndoSnackBar(snack)
+    }
+
+    /**
+     * Hide every selection from the current tab. SQL filters the rows on the
+     * next refresh; undo just deletes the hidden rows again.
+     */
+    private fun bulkHide() {
+        val view = view ?: return
+        val tab = currentHiddenTab()
+        val items = adapter.selectedRecentItems()
+        if (items.isEmpty()) return
+        val pairs = items.mapNotNull { ri ->
+            val cId = ri.chapter.id ?: return@mapNotNull null
+            val mId = ri.mch.manga.id ?: return@mapNotNull null
+            cId to mId
+        }
+        if (pairs.isEmpty()) return
+        presenter.hideItems(tab, pairs)
+        destroyActionModeIfNeeded()
+        snack?.dismiss()
+        val count = pairs.size
+        snack = view.snack(
+            view.context.getString(
+                MR.plurals.recents_n_items_hidden,
+                count,
+                count,
+            ),
+            Snackbar.LENGTH_LONG,
+        ) {
+            anchorView = activityBinding?.bottomNav
+            setAction(MR.strings.undo) {
+                presenter.unhideItems(tab, pairs.map { it.first })
+            }
+        }
+        (activity as? MainActivity)?.setUndoSnackBar(snack)
+    }
+
+    // endregion
 }
