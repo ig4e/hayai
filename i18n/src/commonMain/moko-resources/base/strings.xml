@@ -336,6 +336,10 @@
     <string name="recents_show_hidden">Show hidden</string>
     <string name="recents_hidden_sources">Hidden sources</string>
     <string name="recents_no_hidden_sources">No hidden sources</string>
+    <string name="recents_default_tab">Default tab</string>
+    <string name="recents_clear_all_hidden">Clear all hidden</string>
+    <string name="recents_clear_all_hidden_confirm">All hidden entries for this tab will be restored.</string>
+    <string name="recents_cleared_hidden">Hidden entries cleared</string>
 
     <!-- Browse -->
     <string name="search_filters">Search filters</string>
