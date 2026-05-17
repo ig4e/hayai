@@ -186,6 +186,7 @@
         </activity>
         <activity android:name=".ui.reader.ReaderActivity"
             android:theme="@style/Theme.Tachiyomi.SplashScreen"
+            android:configChanges="uiMode|orientation|screenSize|keyboardHidden|locale|fontScale|density|smallestScreenSize|screenLayout|navigation"
             android:exported="true">
             <intent-filter>
                 <action android:name="com.samsung.android.support.REMOTE_ACTION" />

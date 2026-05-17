@@ -1723,7 +1723,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 }
             }
         } else {
-            loadHtmlContent(finalContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+            scope.launch {
+                loadHtmlContent(finalContent, chapterId, chapter.chapter.name, chapter.chapter.url)
+            }
         }
     }
 
@@ -1932,8 +1934,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         isAppendOrPrepend: Boolean = false,
         isPrepend: Boolean = false,
     ) {
-        var content = page.text
-        if (content.isNullOrBlank()) {
+        val rawText = page.text
+        if (rawText.isNullOrBlank()) {
             lastErrorRetryContext = chapter to page
             displayError(Exception(activity.getString(MR.strings.novel_error_no_text)))
             return
@@ -1941,45 +1943,29 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
         val chapterId = chapter.chapter.id ?: return
 
-        // Optionally strip chapter title from content
-        if (preferences.novelHideChapterTitle.get()) {
-            content = stripChapterTitle(content, chapter.chapter.name)
-        }
+        val hideTitle = preferences.novelHideChapterTitle.get()
+        val forceLowercase = preferences.novelForceTextLowercase.get()
+        val chapterName = chapter.chapter.name
+        val chapterUrl = chapter.chapter.url
+        val shouldTranslate = !isAppendOrPrepend
 
-        // Keep preprocessing consistent with normal WebView loads.
-        content = applyRegexReplacements(content)
-
-        // Optionally force lowercase
-        if (preferences.novelForceTextLowercase.get()) {
-            content = content.lowercase()
-        }
-
-        val finalContent = content
         scope.launch {
-            // Check if we should translate based on context
-            val shouldTranslate = if (isAppendOrPrepend) {
-                // For infinite scroll, only translate if real-time translation is enabled.
-                // Translation is out of scope for the initial Hayai port — stub to false.
-                false
-            } else {
-                // For manual navigation, always allow translation if enabled
-                true
-            }
-
-            // Apply translation logic if allowed
-            val processedContent = if (shouldTranslate) {
-                activity.translateContentIfEnabled(finalContent)
-            } else {
-                finalContent
-            }
-            val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(chapter.chapter.url)
-            val renderableContent = if (plainTextMode) {
-                NovelViewerTextUtils.normalizePlainTextContent(processedContent)
-            } else {
-                NovelViewerTextUtils.normalizeContentForHtml(
-                    processedContent,
-                    chapter.chapter.url,
-                )
+            val renderableContent = withContext(Dispatchers.Default) {
+                var content = rawText
+                if (hideTitle) content = stripChapterTitle(content, chapterName)
+                content = applyRegexReplacements(content)
+                if (forceLowercase) content = content.lowercase()
+                val processed = if (shouldTranslate) {
+                    activity.translateContentIfEnabled(content)
+                } else {
+                    content
+                }
+                val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(chapterUrl)
+                if (plainTextMode) {
+                    NovelViewerTextUtils.normalizePlainTextContent(processed)
+                } else {
+                    NovelViewerTextUtils.normalizeContentForHtml(processed, chapterUrl)
+                }
             }
 
             withContext(Dispatchers.Main) {
@@ -2110,7 +2096,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         """.trimIndent()
 
         evaluateJavascriptSafe(js, null)
-        webView.postDelayed({ injectCustomScript() }, 120)
         Logger.d {
             "NovelWebViewViewer: Prepended chapter $chapterId with transition (${loadedChapterIds.size} total)"
         }
@@ -2175,7 +2160,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         """.trimIndent()
 
         evaluateJavascriptSafe(js, null)
-        webView.postDelayed({ injectCustomScript() }, 120)
         Logger.d { "NovelWebViewViewer: Appended chapter $chapterId (${loadedChapterIds.size} total)" }
     }
 
@@ -2313,7 +2297,7 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             .replace("\"", "&quot;").replace("'", "&#39;")
 
-    private fun loadHtmlContent(
+    private suspend fun loadHtmlContent(
         content: String,
         chapterId: Long? = null,
         chapterName: String? = null,
@@ -2332,139 +2316,95 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             ?: loadedChapters.firstOrNull()
         val prevChapterForCard: ReaderChapter? = currentChapters?.prevChapter
         val normalizedChapterUrl = normalizeUrl(chapterUrl)
-        val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(normalizedChapterUrl)
-        // Strip script/style/noscript tags from content to prevent unwanted JS execution
-        var cleanContent = if (plainTextMode) {
-            NovelViewerTextUtils.normalizePlainTextContent(content)
-        } else {
-            NovelViewerTextUtils.normalizeContentForHtml(content, normalizedChapterUrl)
-                .replace(Regex("<script[^>]*>.*?</script>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
-                .replace(Regex("<script[^>]*/>", RegexOption.IGNORE_CASE), "")
-                .replace(Regex("<style[^>]*>.*?</style>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
-                .replace(Regex("<noscript[^>]*>.*?</noscript>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
-        }
-
         val blockMedia = preferences.novelBlockMedia.get()
-        if (blockMedia) {
-            cleanContent = stripMediaTags(cleanContent)
-        }
-
-        // Apply user's regex find & replace rules
-        cleanContent = applyRegexReplacements(cleanContent)
-
         val stylePayload = buildCustomStylePayload()
-        webView.setBackgroundColor(stylePayload.backgroundColor)
-        container.setBackgroundColor(stylePayload.backgroundColor)
 
-        // Clear loaded chapters for fresh start
-        loadedChapterIds.clear()
-        loadedChapters.clear()
-        currentChapterIndex = 0
-        // Phase C #17/#18: the WebView is about to be replaced, so the previous paragraph
-        // caches and the active-TTS chapter no longer have valid DOM targets.
-        chapterParagraphsById.clear()
-        currentTtsChapterId = null
-
-        // Initial invisible chapter divider marker for boundary tracking. The first chapter
-        // shouldn't show a visible inline card — that's reserved for the transitions added
-        // by appendHtmlContent / prependHtmlContent on subsequent chapter loads. The static
-        // top card built below sits ABOVE this marker so it doesn't conflict with chapter
-        // boundary detection.
-        val chapterDivider = if (chapterId != null) {
-            """<div class="chapter-divider" data-chapter-id="$chapterId" style="height:0;margin:0;padding:0;"></div>
-               <div class="chapter-content" data-chapter-id="$chapterId">"""
-        } else {
-            ""
-        }
-        val chapterDividerEnd = if (chapterId != null) "</div>" else ""
-
-        // Static top card: scroll-up affordance that shows either the previous-chapter
-        // transition or a "no previous chapter" notice. Marked with `initial-prev-card`
-        // so the prepend handler can remove it once the real previous chapter loads
-        // (otherwise we'd end up with two stacked Prev/Current cards). Wrapped in a
-        // chapter-divider so updateChapterBoundaries() doesn't get confused — the .initial
-        // qualifier in CSS gives it visual whitespace without affecting boundary math.
-        val topCardHtml = if (currChapterForCard != null) {
-            val cardInner = buildTransitionCardHtml(
-                from = prevChapterForCard,
-                to = currChapterForCard,
-                isNext = false,
-            )
-            val cardId = prevChapterForCard?.chapter?.id?.toString() ?: "no-prev"
-            """<div class="chapter-divider chapter-transition initial-prev-card" data-chapter-id="$cardId">$cardInner</div>"""
-        } else {
-            ""
-        }
-
-        val mediaBlockCss = if (blockMedia) {
-            "img, video, audio, source, svg, image { display: none !important; }"
-        } else {
-            ""
-        }
-
-        // Build global JS variables for custom scripts
-        val chapterMetaScript = buildChapterMetaScript()
-
-        var finalContent = cleanContent
-        var embeddedHead = ""
-
-        if (plainTextMode) {
-            // Phase C #17: plain-text chapter rendered as a single <pre> — stash the whole
-            // body as one paragraph so chapterParagraphsById[chapterId] is never null when
-            // a sentence-tap fires.
-            if (chapterId != null) {
-                chapterParagraphsById[chapterId] =
-                    if (cleanContent.isBlank()) emptyList() else listOf(cleanContent)
+        val prepared = withContext(Dispatchers.Default) {
+            val plainTextMode = NovelViewerTextUtils.isPlainTextChapter(normalizedChapterUrl)
+            var cleanContent = if (plainTextMode) {
+                NovelViewerTextUtils.normalizePlainTextContent(content)
+            } else {
+                NovelViewerTextUtils.normalizeContentForHtml(content, normalizedChapterUrl)
+                    .replace(Regex("<script[^>]*>.*?</script>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+                    .replace(Regex("<script[^>]*/>", RegexOption.IGNORE_CASE), "")
+                    .replace(Regex("<style[^>]*>.*?</style>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+                    .replace(Regex("<noscript[^>]*>.*?</noscript>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
             }
-            finalContent = """
-                <pre class="chapter-content" data-tsundoku-plain-text="1" style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; margin: 0;"></pre>
-                <script>
-                    document.querySelector('.chapter-content').textContent = ${JSONObject.quote(cleanContent)};
-                </script>
-            """.trimIndent()
-        } else {
-            try {
-                // Extra DOM-level sanitisation that the regex pre-strip can miss
-                // (e.g. <link rel="stylesheet"> tags). Done BEFORE tagging so the
-                // helper sees the same sanitised tree the WebView will render.
-                val doc = org.jsoup.Jsoup.parse(finalContent)
-                doc.select("style, link[rel=stylesheet]").remove()
-                doc.select("script, noscript").remove()
-                val bodyNode = doc.body()
-                val sanitized = if (bodyNode != null && (bodyNode.hasText() || bodyNode.children().isNotEmpty())) {
-                    bodyNode.html()
-                } else {
-                    finalContent
-                }
+            if (blockMedia) cleanContent = stripMediaTags(cleanContent)
+            cleanContent = applyRegexReplacements(cleanContent)
 
-                // Phase C #17: single source of truth for chapter paragraph tagging.
-                // Helper assigns chapter-local data-paragraph-index to every text-bearing
-                // block and returns the matching paragraph list so the JS click handler
-                // and the Kotlin chunker share one coordinate system.
-                val tagged = NovelViewerTextUtils.normalizeAndTagContentForHtml(sanitized, normalizedChapterUrl)
-                finalContent = tagged.html
-                if (chapterId != null) {
-                    chapterParagraphsById[chapterId] = tagged.paragraphs
-                }
-            } catch (e: Exception) {
-                Logger.w {
-                    "NovelWebViewViewer: loadHtmlContent Jsoup pass failed: ${e.message}"
+            var finalContent = cleanContent
+            var paragraphsForChapter: List<String>? = null
+
+            if (plainTextMode) {
+                paragraphsForChapter = if (cleanContent.isBlank()) emptyList() else listOf(cleanContent)
+                finalContent = """
+                    <pre class="chapter-content" data-tsundoku-plain-text="1" style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; margin: 0;"></pre>
+                    <script>
+                        document.querySelector('.chapter-content').textContent = ${JSONObject.quote(cleanContent)};
+                    </script>
+                """.trimIndent()
+            } else {
+                try {
+                    val doc = org.jsoup.Jsoup.parse(finalContent)
+                    doc.select("style, link[rel=stylesheet]").remove()
+                    doc.select("script, noscript").remove()
+                    val bodyNode = doc.body()
+                    val sanitized = if (bodyNode != null && (bodyNode.hasText() || bodyNode.children().isNotEmpty())) {
+                        bodyNode.html()
+                    } else {
+                        finalContent
+                    }
+                    val tagged = NovelViewerTextUtils.normalizeAndTagContentForHtml(sanitized, normalizedChapterUrl)
+                    finalContent = tagged.html
+                    paragraphsForChapter = tagged.paragraphs
+                } catch (e: Exception) {
+                    Logger.w {
+                        "NovelWebViewViewer: loadHtmlContent Jsoup pass failed: ${e.message}"
+                    }
                 }
             }
-        }
 
-        val escapedInitialStyle = stylePayload.css
-            .replace("</style>", "<\\/style>")
-            .replace("</Style>", "<\\/Style>")
-            .replace("</STYLE>", "<\\/STYLE>")
+            val chapterDivider = if (chapterId != null) {
+                """<div class="chapter-divider" data-chapter-id="$chapterId" style="height:0;margin:0;padding:0;"></div>
+                   <div class="chapter-content" data-chapter-id="$chapterId">"""
+            } else {
+                ""
+            }
+            val chapterDividerEnd = if (chapterId != null) "</div>" else ""
 
-        val hideHeadingCss = if (stylePayload.hideChapterTitle) {
-            "h1:first-of-type, h2:first-of-type, h3:first-of-type, h4:first-of-type, h5:first-of-type, h6:first-of-type { display: none !important; }"
-        } else {
-            ""
-        }
+            val topCardHtml = if (currChapterForCard != null) {
+                val cardInner = buildTransitionCardHtml(
+                    from = prevChapterForCard,
+                    to = currChapterForCard,
+                    isNext = false,
+                )
+                val cardId = prevChapterForCard?.chapter?.id?.toString() ?: "no-prev"
+                """<div class="chapter-divider chapter-transition initial-prev-card" data-chapter-id="$cardId">$cardInner</div>"""
+            } else {
+                ""
+            }
 
-        val html = """
+            val mediaBlockCss = if (blockMedia) {
+                "img, video, audio, source, svg, image { display: none !important; }"
+            } else {
+                ""
+            }
+
+            val chapterMetaScript = buildChapterMetaScript()
+
+            val escapedInitialStyle = stylePayload.css
+                .replace("</style>", "<\\/style>")
+                .replace("</Style>", "<\\/Style>")
+                .replace("</STYLE>", "<\\/STYLE>")
+
+            val hideHeadingCss = if (stylePayload.hideChapterTitle) {
+                "h1:first-of-type, h2:first-of-type, h3:first-of-type, h4:first-of-type, h5:first-of-type, h6:first-of-type { display: none !important; }"
+            } else {
+                ""
+            }
+
+            val html = """
             <!DOCTYPE html>
             <html>
             <head>
@@ -2574,7 +2514,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                     $mediaBlockCss
                 </style>
                 <style id="tsundoku-custom-style">$escapedInitialStyle</style>
-                $embeddedHead
                 <script>$chapterMetaScript</script>
             </head>
             <body>
@@ -2613,10 +2552,25 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 </script>
             </body>
             </html>
-        """.trimIndent()
+            """.trimIndent()
 
-        webView.loadDataWithBaseURL(resolveWebViewBaseUrl(normalizedChapterUrl), html, "text/html", "UTF-8", null)
+            PreparedHtml(html = html, paragraphsForChapter = paragraphsForChapter)
+        }
+
+        webView.setBackgroundColor(stylePayload.backgroundColor)
+        container.setBackgroundColor(stylePayload.backgroundColor)
+        loadedChapterIds.clear()
+        loadedChapters.clear()
+        currentChapterIndex = 0
+        chapterParagraphsById.clear()
+        currentTtsChapterId = null
+        if (chapterId != null && prepared.paragraphsForChapter != null) {
+            chapterParagraphsById[chapterId] = prepared.paragraphsForChapter
+        }
+        webView.loadDataWithBaseURL(resolveWebViewBaseUrl(normalizedChapterUrl), prepared.html, "text/html", "UTF-8", null)
     }
+
+    private data class PreparedHtml(val html: String, val paragraphsForChapter: List<String>?)
 
 
 

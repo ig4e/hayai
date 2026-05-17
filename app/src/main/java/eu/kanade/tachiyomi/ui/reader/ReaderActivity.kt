@@ -283,6 +283,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     private var backPressedCallback: OnBackPressedCallback? = null
 
     var isScrollingThroughPagesOrChapters = false
+    private var lastUiModeMask = -1
     private var hingeGapSize = 0
         set(value) {
             field = value
@@ -364,6 +365,8 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         }
 
         super.onCreate(savedInstanceState)
+
+        lastUiModeMask = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
 
         binding = ReaderActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -1794,6 +1797,23 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         viewModel.restartReadTimer()
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        val oldUiMode = lastUiModeMask
+        val newUiMode = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        lastUiModeMask = newUiMode
+
+        super.onConfigurationChanged(newConfig)
+
+        if (oldUiMode != newUiMode) {
+            // Theme tree caches light/dark; only a recreate keeps toolbar/sheet colors consistent.
+            recreate()
+            return
+        }
+
+        setOrientation(viewModel.getMangaOrientationType())
+        setCutoutMode()
+    }
+
     fun reloadChapters(doublePages: Boolean, force: Boolean = false) {
         val pViewer = viewer as? PagerViewer ?: return
         pViewer.updateShifting()
@@ -1831,6 +1851,13 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
      * method to the current viewer, but also set the subtitle on the binding.toolbar.
      */
     fun setChapters(viewerChapters: ViewerChapters) {
+        // If the persisted active chapter drifted from viewerChapters.currChapter (e.g.
+        // activity rebind mid-scroll), retarget first so we render what the user was reading.
+        val isNovelViewer = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+        if (isNovelViewer && viewModel.rebindToSavedActiveChapter()) {
+            return
+        }
+
         binding.pleaseWait.clearAnimation()
         binding.pleaseWait.isVisible = false
         if (indexChapterToShift != null && indexPageToShift != null) {
@@ -1841,7 +1868,6 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             indexPageToShift = null
         }
         val currentChapterPageCount = viewerChapters.currChapter.pages?.size ?: 1
-        val isNovelViewer = viewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
         binding.readerNav.root.visibility = when {
             isNovelViewer && binding.chaptersSheet.root.sheetBehavior.isCollapsed() -> View.VISIBLE
             !isNovelViewer && currentChapterPageCount == 1 -> View.GONE

@@ -173,6 +173,33 @@ class ReaderViewModel(
     }
 
     /**
+     * If `viewerChapters.currChapter` drifted from the persisted active chapter, retarget
+     * state to the saved active chapter. Returns true if a retarget happened.
+     */
+    fun rebindToSavedActiveChapter(): Boolean {
+        if (!::chapterList.isInitialized) return false
+        val activeId = novelActiveChapterId
+        if (activeId <= 0L) return false
+        val curr = state.value.viewerChapters?.currChapter
+        if (curr?.chapter?.id == activeId) return false
+        val target = chapterList.firstOrNull { it.chapter.id == activeId } ?: return false
+        val pos = chapterList.indexOf(target)
+        if (pos < 0) return false
+        val newChapters = ViewerChapters(
+            target,
+            chapterList.getOrNull(pos - 1),
+            chapterList.getOrNull(pos + 1),
+        )
+        mutableState.update { s ->
+            newChapters.ref()
+            s.viewerChapters?.unref()
+            s.copy(viewerChapters = newChapters)
+        }
+        chapterId = activeId
+        return true
+    }
+
+    /**
      * In-session per-chapter flag: set true when the *last* chapter in the list reaches
      * `NOVEL_LAST_CHAPTER_READ_THRESHOLD_PERCENT` while the user is actively scrolling.
      * Only the final chapter relies on this fallback — earlier chapters mark-read via
@@ -629,8 +656,9 @@ class ReaderViewModel(
     }
 
     /**
-     * Called by the Tsundoku-derived NovelViewer when the on-screen chapter changes during
-     * infinite-scroll reading. Trigger preload of the next chapter so it's ready to splice in.
+     * Called when the visible chapter changes during infinite-scroll reading. Synchronously
+     * retargets [State.viewerChapters] to the new chapter so a later activity rebind renders
+     * the chapter the user is actually reading, not the entry chapter.
      */
     fun setNovelVisibleChapter(chapter: eu.kanade.tachiyomi.data.database.models.Chapter?) {
         chapter ?: return
@@ -643,10 +671,6 @@ class ReaderViewModel(
             val newIndex = chapterList.indexOfFirst { it.chapter.id == newChapterId }
             if (oldIndex in 0 until newIndex) {
                 val leftBehind = chapterList[oldIndex]
-                // Forward transition is the primary mark-read signal for novels: moving past
-                // a chapter means the user is done with it. The percent guard prevents a
-                // mid-chapter "tap next to peek" from auto-marking — the transition is the
-                // strong signal, but it must be backed by substantial scroll progress.
                 if (
                     !leftBehind.chapter.read &&
                     leftBehind.chapter.last_page_read >= NOVEL_TRANSITION_READ_GUARD_PERCENT
@@ -658,6 +682,23 @@ class ReaderViewModel(
             }
             sessionReachedThreshold.remove(previousChapterId)
             chapterId = newChapterId
+
+            val pos = chapterList.indexOf(readerChapter)
+            if (pos >= 0) {
+                val newChapters = ViewerChapters(
+                    readerChapter,
+                    chapterList.getOrNull(pos - 1),
+                    chapterList.getOrNull(pos + 1),
+                )
+                mutableState.update { state ->
+                    newChapters.ref()
+                    state.viewerChapters?.unref()
+                    state.copy(viewerChapters = newChapters)
+                }
+                flushReadTimer()
+                restartReadTimer()
+            }
+
             eventChannel.trySend(Event.NovelVisibleChapterChanged(readerChapter))
         }
         viewModelScope.launchIO { preload(readerChapter) }
