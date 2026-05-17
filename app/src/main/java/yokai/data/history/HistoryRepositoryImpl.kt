@@ -31,20 +31,22 @@ class HistoryRepositoryImpl(private val handler: DatabaseHandler) : HistoryRepos
         handler.awaitList { historyQueries.getByMangaId(mangaId, History::mapper) }
 
     override suspend fun getRecentsUngrouped(
+        tab: Long,
         filterScanlators: Boolean,
         search: String,
         limit: Long,
         offset: Long,
     ): List<MangaChapterHistory> =
-        handler.awaitList { historyQueries.getRecentsUngrouped(search, filterScanlators.toInt().toLong(), limit, offset, MangaChapterHistory::mapper) }
+        handler.awaitList { historyQueries.getRecentsUngrouped(tab, search, filterScanlators.toInt().toLong(), limit, offset, MangaChapterHistory::mapper) }
 
     override suspend fun getRecentsBySeries(
+        tab: Long,
         filterScanlators: Boolean,
         search: String,
         limit: Long,
         offset: Long,
     ): List<MangaChapterHistory> =
-        handler.awaitList { historyQueries.getRecentsBySeries(search, filterScanlators.toInt().toLong(), limit, offset, MangaChapterHistory::mapper) }
+        handler.awaitList { historyQueries.getRecentsBySeries(tab, search, filterScanlators.toInt().toLong(), limit, offset, MangaChapterHistory::mapper) }
 
     override suspend fun getRecentsAll(
         includeRead: Boolean,

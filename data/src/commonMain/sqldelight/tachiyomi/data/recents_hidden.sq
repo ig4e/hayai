@@ -1,0 +1,32 @@
+CREATE TABLE recents_hidden(
+    hidden_tab INTEGER NOT NULL,
+    hidden_chapter_id INTEGER NOT NULL,
+    hidden_manga_id INTEGER NOT NULL,
+    hidden_at INTEGER NOT NULL,
+    PRIMARY KEY (hidden_tab, hidden_chapter_id),
+    FOREIGN KEY (hidden_chapter_id) REFERENCES chapters (_id) ON DELETE CASCADE
+);
+
+CREATE INDEX recents_hidden_chapter_id_index ON recents_hidden(hidden_chapter_id);
+CREATE INDEX recents_hidden_manga_id_index ON recents_hidden(hidden_manga_id);
+
+insert:
+INSERT OR REPLACE INTO recents_hidden(hidden_tab, hidden_chapter_id, hidden_manga_id, hidden_at)
+VALUES (:tab, :chapterId, :mangaId, :hiddenAt);
+
+delete:
+DELETE FROM recents_hidden WHERE hidden_tab = :tab AND hidden_chapter_id = :chapterId;
+
+deleteAllForTab:
+DELETE FROM recents_hidden WHERE hidden_tab = :tab;
+
+isHidden:
+SELECT EXISTS(
+    SELECT 1 FROM recents_hidden
+    WHERE hidden_tab = :tab AND hidden_chapter_id = :chapterId
+);
+
+getHiddenForTab:
+SELECT * FROM recents_hidden
+WHERE hidden_tab = :tab
+ORDER BY hidden_at DESC;

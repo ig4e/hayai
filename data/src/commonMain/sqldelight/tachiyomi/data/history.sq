@@ -70,10 +70,14 @@ AND H.history_last_read > 0
 LEFT JOIN scanlators_view AS S
 ON C.manga_id = S.manga_id
 AND C.scanlator = S.name
+LEFT JOIN recents_hidden AS RH
+ON RH.hidden_chapter_id = C._id
+AND RH.hidden_tab = :tab
 WHERE lower(M.title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
+AND RH.hidden_chapter_id IS NULL
 ORDER BY H.history_last_read DESC
 LIMIT :limit OFFSET :offset;
 
@@ -102,10 +106,14 @@ AND max_last_read.history_last_read > 0
 LEFT JOIN scanlators_view AS S
 ON C.manga_id = S.manga_id
 AND C.scanlator = S.name
+LEFT JOIN recents_hidden AS RH
+ON RH.hidden_chapter_id = C._id
+AND RH.hidden_tab = :tab
 WHERE lower(M.title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
+AND RH.hidden_chapter_id IS NULL
 ORDER BY max_last_read.history_last_read DESC
 LIMIT :limit OFFSET :offset;
 
@@ -152,10 +160,14 @@ AND max_last_read.history_last_read > 0
 LEFT JOIN scanlators_view AS S
 ON C.manga_id = S.manga_id
 AND C.scanlator = S.name
+LEFT JOIN recents_hidden AS RH_HISTORY
+ON RH_HISTORY.hidden_chapter_id = C._id
+AND RH_HISTORY.hidden_tab = 1
 WHERE lower(title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
+AND RH_HISTORY.hidden_chapter_id IS NULL
 
 UNION  -- Newly fetched chapter
 
@@ -183,6 +195,9 @@ ON C.manga_id = newest_chapter.manga_id
 LEFT JOIN scanlators_view AS S
 ON C.manga_id = S.manga_id
 AND C.scanlator = S.name
+LEFT JOIN recents_hidden AS RH_UPDATES
+ON RH_UPDATES.hidden_chapter_id = C._id
+AND RH_UPDATES.hidden_tab = 2
 WHERE favorite = 1
 AND C._id = newest_chapter._id
 AND C.date_fetch > M.date_added
@@ -190,6 +205,7 @@ AND lower(title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
+AND RH_UPDATES.hidden_chapter_id IS NULL
 
 UNION  -- Newly added manga
 

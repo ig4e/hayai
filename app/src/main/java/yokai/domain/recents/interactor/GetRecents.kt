@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.database.models.MangaChapter
 import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
 import yokai.domain.chapter.ChapterRepository
 import yokai.domain.history.HistoryRepository
+import yokai.domain.recents.models.RecentsHidden
 import yokai.util.limitAndOffset
 
 class GetRecents(
@@ -18,7 +19,7 @@ class GetRecents(
     ): List<MangaChapter> {
         val (limit, actualOffset) = limitAndOffset(true, isResuming, offset)
 
-        return chapterRepository.getRecents(filterScanlators, search, limit, actualOffset)
+        return chapterRepository.getRecents(RecentsHidden.TAB_UPDATES.toLong(), filterScanlators, search, limit, actualOffset)
     }
 
     suspend fun awaitUngrouped(
@@ -29,7 +30,7 @@ class GetRecents(
     ): List<MangaChapterHistory> {
         val (limit, actualOffset) = limitAndOffset(true, isResuming, offset)
 
-        return historyRepository.getRecentsUngrouped(filterScanlators, search, limit, actualOffset)
+        return historyRepository.getRecentsUngrouped(RecentsHidden.TAB_HISTORY.toLong(), filterScanlators, search, limit, actualOffset)
     }
 
     suspend fun awaitBySeries(
@@ -40,7 +41,7 @@ class GetRecents(
     ): List<MangaChapterHistory> {
         val (limit, actualOffset) = limitAndOffset(true, isResuming, offset)
 
-        return historyRepository.getRecentsBySeries(filterScanlators, search, limit, actualOffset)
+        return historyRepository.getRecentsBySeries(RecentsHidden.TAB_HISTORY.toLong(), filterScanlators, search, limit, actualOffset)
     }
 
     suspend fun awaitAll(

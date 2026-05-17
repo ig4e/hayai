@@ -6,6 +6,7 @@ import yokai.data.chapter.ChapterRepositoryImpl
 import yokai.data.extension.repo.ExtensionRepoRepositoryImpl
 import yokai.data.history.HistoryRepositoryImpl
 import yokai.data.library.custom.CustomMangaRepositoryImpl
+import yokai.data.recents.RecentsHiddenRepositoryImpl
 import yokai.data.manga.EhFavoritesRepositoryImpl
 import yokai.data.manga.MangaRepositoryImpl
 import yokai.data.manga.MergedMangaRepositoryImpl
@@ -47,7 +48,11 @@ import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.GetMergedReferencesById
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
+import yokai.domain.recents.RecentsHiddenRepository
+import yokai.domain.recents.interactor.GetHiddenRecents
 import yokai.domain.recents.interactor.GetRecents
+import yokai.domain.recents.interactor.HideRecents
+import yokai.domain.recents.interactor.UnhideRecents
 import yokai.domain.source.browse.filter.FilterSerializer
 import yokai.domain.source.browse.filter.SavedSearchRepository
 import yokai.domain.source.browse.filter.interactor.DeleteSavedSearch
@@ -106,6 +111,11 @@ fun domainModule() = module {
     factory { UpsertHistory(get()) }
 
     factory { GetRecents(get(), get()) }
+
+    single<RecentsHiddenRepository> { RecentsHiddenRepositoryImpl(get()) }
+    factory { HideRecents(get()) }
+    factory { UnhideRecents(get()) }
+    factory { GetHiddenRecents(get()) }
 
     single<TrackRepository> { TrackRepositoryImpl(get()) }
     factory { DeleteTrack(get()) }

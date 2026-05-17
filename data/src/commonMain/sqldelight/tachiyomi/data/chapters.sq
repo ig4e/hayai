@@ -79,12 +79,16 @@ ON M._id = C.manga_id
 LEFT JOIN scanlators_view AS S
 ON C.manga_id = S.manga_id
 AND C.scanlator = S.name
+LEFT JOIN recents_hidden AS RH
+ON RH.hidden_chapter_id = C._id
+AND RH.hidden_tab = :tab
 WHERE M.favorite = 1
 AND C.date_fetch > M.date_added
 AND lower(M.title) LIKE '%' || :search || '%'
 AND (
     :apply_filter = 0 OR S.name IS NULL
 )
+AND RH.hidden_chapter_id IS NULL
 ORDER BY C.date_fetch DESC
 LIMIT :limit OFFSET :offset;
 
