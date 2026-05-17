@@ -261,18 +261,73 @@ private fun FiltersBody(
         return
     }
 
+    // Reorder for display only — source extensions like e-hentai/ex-hentai dump filters in an
+    // arbitrary order (text input mid-list, drill-down groups split across toggles). We rebuild
+    // a more legible order *per Header-bounded section*: primary search inputs first, then
+    // drill-downs, then toggles, then plain text fields. The original Filter instances are
+    // preserved by reference — only display order changes — so the in-place mutation contract
+    // BrowseSourceController.showFilters() depends on still holds.
+    val displayFilters = remember(filters, filterVersion) { organizeForDisplay(filters) }
+
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 12.dp),
     ) {
         itemsIndexed(
-            items = filters,
+            items = displayFilters,
             key = { index, _ -> "filter-$filterVersion-$index" },
         ) { _, filter ->
             FilterRow(filter, onDrillGroup)
         }
     }
+}
+
+/**
+ * Reorders `filters` for display. Header rows still anchor their section — every filter that
+ * was originally between two Headers stays in that section — but within a section, filters are
+ * sorted by type priority so the layout reads top-to-bottom: most important inputs first.
+ */
+private fun organizeForDisplay(filters: FilterList): List<Filter<*>> {
+    data class Section(val header: Filter.Header?, val items: MutableList<Filter<*>>)
+    val sections = mutableListOf<Section>()
+    var current = Section(null, mutableListOf())
+    filters.forEach { f ->
+        if (f is Filter.Header) {
+            if (current.header != null || current.items.isNotEmpty()) sections.add(current)
+            current = Section(f, mutableListOf())
+        } else {
+            current.items.add(f)
+        }
+    }
+    if (current.header != null || current.items.isNotEmpty()) sections.add(current)
+    return sections.flatMap { section ->
+        val sorted = section.items.sortedBy(::displayPriority)
+        listOfNotNull(section.header) + sorted
+    }
+}
+
+/**
+ * Lower value = rendered closer to the top of its section.
+ *  - Sort  : 10 — primary axis of the listing
+ *  - AutoComplete : 20 — main search input (tags, etc.)
+ *  - Select : 30
+ *  - Group  : 40 — drill-downs feel like sub-sections, lift above toggles
+ *  - TriState : 50
+ *  - CheckBox : 60 — boolean toggles bundle together
+ *  - Text : 70 — page/jump-style numeric inputs at the bottom
+ *  - Separator : 80
+ */
+private fun displayPriority(f: Filter<*>): Int = when (f) {
+    is Filter.Sort -> 10
+    is Filter.AutoComplete -> 20
+    is Filter.Select<*> -> 30
+    is Filter.Group<*> -> 40
+    is Filter.TriState -> 50
+    is Filter.CheckBox -> 60
+    is Filter.Text -> 70
+    is Filter.Separator -> 80
+    else -> 100
 }
 
 @Composable

@@ -165,7 +165,7 @@ private fun AutoCompleteTextField(
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
                 .fillMaxWidth(),
             singleLine = true,
-            shape = RoundedCornerShape(50),
+            shape = RoundedCornerShape(14.dp),
             textStyle = MaterialTheme.typography.bodyMedium,
             keyboardActions = KeyboardActions(onAny = { submit() }),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),

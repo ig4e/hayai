@@ -62,7 +62,7 @@ import yokai.i18n.MR
 // region Style tokens — mirror PreferenceCommon so the sheet reads as part of the same family.
 
 internal val FilterRowHorizontalPadding = 16.dp
-internal val FilterRowMinHeight = 48.dp
+internal val FilterRowMinHeight = 40.dp
 
 // endregion
 
@@ -79,12 +79,12 @@ private fun FilterPreferenceRow(
         .heightIn(min = FilterRowMinHeight)
     val rowMod = if (onClick != null) baseMod.clickable(onClick = onClick) else baseMod
     Row(
-        modifier = rowMod.padding(horizontal = FilterRowHorizontalPadding, vertical = 4.dp),
+        modifier = rowMod.padding(horizontal = FilterRowHorizontalPadding, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
@@ -430,13 +430,13 @@ internal fun FilterHeaderRow(filter: Filter.Header) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 14.dp, bottom = 6.dp, start = FilterRowHorizontalPadding, end = FilterRowHorizontalPadding),
+            .padding(top = 10.dp, bottom = 4.dp, start = FilterRowHorizontalPadding, end = FilterRowHorizontalPadding),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(
             text = filter.name,
             color = MaterialTheme.colorScheme.secondary,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.labelMedium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
