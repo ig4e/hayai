@@ -10,22 +10,33 @@ import yokai.i18n.MR
 import yokai.util.lang.getString
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.databinding.RecentsHeaderItemBinding
+import eu.kanade.tachiyomi.databinding.RecentsSourceHeaderItemBinding
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import eu.kanade.tachiyomi.ui.library.LibraryHeaderItem
 import eu.kanade.tachiyomi.util.view.setText
 
-class RecentMangaHeaderItem(val recentsType: Int) :
+class RecentMangaHeaderItem(
+    val recentsType: Int,
+    /** Source id when [recentsType] is [SOURCE]; null otherwise. */
+    val sourceId: String? = null,
+    /** Display name for the source header; null when not a source header. */
+    val sourceName: String? = null,
+) :
     AbstractHeaderItem<RecentMangaHeaderItem.Holder>() {
 
     override fun getLayoutRes(): Int {
-        return R.layout.recents_header_item
+        return if (recentsType == SOURCE) {
+            R.layout.recents_source_header_item
+        } else {
+            R.layout.recents_header_item
+        }
     }
 
     override fun createViewHolder(
         view: View,
         adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>,
     ): Holder {
-        return Holder(view, adapter as RecentMangaAdapter)
+        return Holder(view, adapter as RecentMangaAdapter, recentsType == SOURCE)
     }
 
     override fun bindViewHolder(
@@ -34,13 +45,19 @@ class RecentMangaHeaderItem(val recentsType: Int) :
         position: Int,
         payloads: MutableList<Any?>?,
     ) {
-        holder.bind(recentsType)
+        holder.bind(this)
     }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other is LibraryHeaderItem) {
             return recentsType == recentsType
+        }
+        if (other is RecentMangaHeaderItem) {
+            // Source headers are distinguished by the source id so the same
+            // source under History vs Updates collapses to one header per tab,
+            // while two different sources don't collide.
+            return recentsType == other.recentsType && sourceId == other.sourceId
         }
         return false
     }
@@ -54,19 +71,34 @@ class RecentMangaHeaderItem(val recentsType: Int) :
     }
 
     override fun hashCode(): Int {
-        return recentsType.hashCode()
+        var result = recentsType.hashCode()
+        if (sourceId != null) result = 31 * result + sourceId.hashCode()
+        return result
     }
 
-    class Holder(val view: View, adapter: RecentMangaAdapter) : BaseFlexibleViewHolder(
-        view,
-        adapter,
-        true,
-    ) {
+    class Holder(
+        val view: View,
+        private val adapter: RecentMangaAdapter,
+        private val isSourceHeader: Boolean,
+    ) : BaseFlexibleViewHolder(view, adapter, true) {
 
-        private val binding = RecentsHeaderItemBinding.bind(view)
+        private val defaultBinding by lazy(LazyThreadSafetyMode.NONE) {
+            RecentsHeaderItemBinding.bind(view)
+        }
+        private val sourceBinding by lazy(LazyThreadSafetyMode.NONE) {
+            RecentsSourceHeaderItemBinding.bind(view)
+        }
 
-        fun bind(recentsType: Int) {
-            binding.title.setText(
+        fun bind(item: RecentMangaHeaderItem) {
+            if (isSourceHeader) {
+                bindSource(item)
+            } else {
+                bindDefault(item.recentsType)
+            }
+        }
+
+        private fun bindDefault(recentsType: Int) {
+            defaultBinding.title.setText(
                 when (recentsType) {
                     CONTINUE_READING -> MR.strings.continue_reading
                     NEW_CHAPTERS -> MR.strings.new_chapters
@@ -74,6 +106,15 @@ class RecentMangaHeaderItem(val recentsType: Int) :
                     else -> MR.strings.continue_reading
                 },
             )
+        }
+
+        private fun bindSource(item: RecentMangaHeaderItem) {
+            val name = item.sourceName ?: view.context.getString(MR.strings.unknown)
+            sourceBinding.title.text = name
+            // Overflow click handler is wired in a follow-up commit (Wave 2B
+            // "source-level hide filter and overflow"). Leave the icon
+            // present so the layout stays stable across the two commits.
+            sourceBinding.overflow.setOnClickListener(null)
         }
 
         override fun onLongClick(view: View?): Boolean {
@@ -86,5 +127,6 @@ class RecentMangaHeaderItem(val recentsType: Int) :
         const val CONTINUE_READING = 0
         const val NEW_CHAPTERS = 1
         const val NEWLY_ADDED = 2
+        const val SOURCE = 3
     }
 }

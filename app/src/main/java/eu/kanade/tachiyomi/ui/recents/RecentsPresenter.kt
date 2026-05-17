@@ -46,6 +46,7 @@ import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.history.interactor.UpsertHistory
 import yokai.domain.recents.RecentsPreferences
+import yokai.domain.recents.UpdatesGroupType
 import yokai.domain.recents.interactor.GetRecents
 import yokai.domain.recents.interactor.HideRecents
 import yokai.domain.recents.interactor.UnhideRecents
@@ -79,6 +80,21 @@ class RecentsPresenter(
     private val newAdditionsHeader = RecentMangaHeaderItem(RecentMangaHeaderItem.NEWLY_ADDED)
     private val newChaptersHeader = RecentMangaHeaderItem(RecentMangaHeaderItem.NEW_CHAPTERS)
     private val continueReadingHeader = RecentMangaHeaderItem(RecentMangaHeaderItem.CONTINUE_READING)
+    // FlexibleAdapter dedups items by their header's equals/hashCode, so we
+    // memoize per-(sourceId,tab) to keep one stable header instance for the
+    // life of the current presenter. Cleared when the recent list resets.
+    private val sourceHeaders = mutableMapOf<String, RecentMangaHeaderItem>()
+
+    private fun sourceHeaderFor(sourceId: Long, sourceName: String): RecentMangaHeaderItem {
+        val key = "${viewType.mainValue}:$sourceId"
+        return sourceHeaders.getOrPut(key) {
+            RecentMangaHeaderItem(
+                recentsType = RecentMangaHeaderItem.SOURCE,
+                sourceId = sourceId.toString(),
+                sourceName = sourceName,
+            )
+        }
+    }
 
     var finished = false
     private var shouldMoveToTop = false
@@ -94,6 +110,7 @@ class RecentsPresenter(
         shouldMoveToTop = true
         pageOffset = 0
         expandedSectionsMap.clear()
+        sourceHeaders.clear()
     }
 
     private var pageOffset = 0
@@ -132,10 +149,15 @@ class RecentsPresenter(
             lastRecents = null
         }
         getRecents()
+        // Note: showHidden* and hiddenSources* observers are registered in a
+        // follow-up commit ("source-level hide filter and overflow"); this
+        // commit only adds BySource grouping which still re-renders via the
+        // existing groupChaptersHistory observer / explicit getRecents calls.
         listOf(
             preferences.groupChaptersHistory(),
             recentsPreferences.showReadInAllRecents(),
             preferences.sortFetchedTime(),
+            recentsPreferences.groupChaptersUpdates(),
         ).forEach {
             it.changes()
                 .drop(1)
@@ -196,6 +218,9 @@ class RecentsPresenter(
         val isCustom = customViewType != null
         val isEndless = isUngrouped && limit != 0
         var extraCount = 0
+        val showHiddenHistory = recentsPreferences.showHiddenInHistory().get()
+        val showHiddenUpdates = recentsPreferences.showHiddenInUpdates().get()
+        val groupChaptersUpdates = recentsPreferences.groupChaptersUpdates().get()
         val cReading: List<MangaChapterHistory> = when (viewType) {
             RecentsViewType.GroupedAll -> {
                 getRecents.awaitAll(
@@ -203,6 +228,8 @@ class RecentsPresenter(
                     true,
                     isEndless,
                     !updatePageCount && !isOnFirstPage,
+                    showHiddenHistory,
+                    showHiddenUpdates,
                     query,
                     (if (isCustom) ENDLESS_LIMIT else pageOffset).toLong(),
                 )
@@ -212,6 +239,7 @@ class RecentsPresenter(
                     getRecents.awaitBySeries(
                         true,
                         !updatePageCount && !isOnFirstPage,
+                        showHiddenHistory,
                         query,
                         (if (isCustom) ENDLESS_LIMIT else pageOffset).toLong(),
                     )
@@ -219,6 +247,7 @@ class RecentsPresenter(
                     getRecents.awaitUngrouped(
                         true,
                         !updatePageCount && !isOnFirstPage,
+                        showHiddenHistory,
                         query,
                         (if (isCustom) ENDLESS_LIMIT else pageOffset).toLong(),
                     )
@@ -263,6 +292,32 @@ class RecentsPresenter(
                                 it.extraChapters = sortedChapters
                             }
                         }
+                } else if (groupChaptersHistory == GroupType.BySource) {
+                    // Bucket by source so chapters from the same source under a manga
+                    // collapse together (mirrors the ByDay/ByWeek dedup path). The
+                    // header itself is attached later when newItems is built.
+                    items.groupBy { it.manga.id to it.manga.source.toString() }
+                        .mapNotNull { (key, mchs) ->
+                            val manga = mchs.first().manga
+                            val chapters = mchs.map { mch ->
+                                ChapterHistory(mch.chapter, mch.history)
+                            }
+                            extraCount += mchs.size - chapters.size
+                            if (chapters.isEmpty()) return@mapNotNull null
+                            val existingItem = recentItems.takeLast(ENDLESS_LIMIT).find {
+                                key == it.manga_id to it.mch.manga.source.toString()
+                            }?.takeIf { updatePageCount }
+                            val sort = Comparator<ChapterHistory> { c1, c2 ->
+                                c2.history!!.last_read.compareTo(c1.history!!.last_read)
+                            }
+                            val (sortedChapters, firstChapter, subCount) =
+                                setupExtraChapters(existingItem, chapters, sort)
+                            extraCount += subCount
+                            if (firstChapter == null) return@mapNotNull null
+                            mchs.find { firstChapter.id == it.chapter.id }?.also {
+                                it.extraChapters = sortedChapters
+                            }
+                        }
                 } else {
                     items
                 }
@@ -271,23 +326,41 @@ class RecentsPresenter(
                 dateFormat.applyPattern("yyyy-MM-dd")
                 dateFormat.calendar.firstDayOfWeek =
                     Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-                getRecents.awaitUpdates(
+                val rawUpdates = getRecents.awaitUpdates(
                     true,
                     !updatePageCount && !isOnFirstPage,
+                    showHiddenUpdates,
                     query,
                     (if (isCustom) ENDLESS_LIMIT else pageOffset).toLong(),
-                ).groupBy {
-                    val date = it.chapter.date_fetch
-                    it.manga.id to if (date <= 0L) "-1" else dateFormat.format(Date(date))
-                }
+                )
+                // BySource collapses extraChapters by source instead of by day. The
+                // grouping key (manga.id to <bucket>) is the same shape used by the
+                // ByDay path so setupExtraChapters / the existingItem lookup stay
+                // unchanged.
+                val groupKey: (eu.kanade.tachiyomi.data.database.models.MangaChapter) -> Pair<Long?, String> =
+                    if (groupChaptersUpdates == UpdatesGroupType.BySource) {
+                        { it.manga.id to it.manga.source.toString() }
+                    } else {
+                        {
+                            val date = it.chapter.date_fetch
+                            it.manga.id to if (date <= 0L) "-1" else dateFormat.format(Date(date))
+                        }
+                    }
+                rawUpdates.groupBy(groupKey)
                     .mapNotNull { (key, mcs) ->
                         val manga = mcs.first().manga
                         val chapters = mcs.map { ChapterHistory(it.chapter) }
                         extraCount += mcs.size - chapters.size
                         if (chapters.isEmpty()) return@mapNotNull null
                         val existingItem = recentItems.takeLast(ENDLESS_LIMIT).find {
-                            val date = Date(it.chapter.date_fetch)
-                            key == it.manga_id to dateFormat.format(date)
+                            val itemKey: Pair<Long?, String> =
+                                if (groupChaptersUpdates == UpdatesGroupType.BySource) {
+                                    it.manga_id to it.mch.manga.source.toString()
+                                } else {
+                                    val date = Date(it.chapter.date_fetch)
+                                    it.manga_id to dateFormat.format(date)
+                                }
+                            key == itemKey
                         }?.takeIf { updatePageCount }
                         val sort: Comparator<ChapterHistory> =
                             ChapterSort(manga, chapterFilter, preferences)
@@ -406,7 +479,28 @@ class RecentsPresenter(
                 it.firstOrNull()?.mch?.history?.last_read ?: 0L
             }.flatten()
         } else {
-            if (viewType.isUpdates) {
+            // BySource grouping (History tab or Updates tab) injects a source
+            // header per source, items sorted within source by last_read DESC.
+            val useSourceHeaders = (
+                viewType.isHistory && groupChaptersHistory == GroupType.BySource
+                ) || (viewType.isUpdates && groupChaptersUpdates == UpdatesGroupType.BySource)
+            if (useSourceHeaders) {
+                val sourceManager = Injekt.get<SourceManager>()
+                pairs.groupBy { it.first.manga.source }
+                    .toList()
+                    .sortedBy { (sourceId, _) ->
+                        sourceManager.getOrStub(sourceId).name.lowercase(Locale.getDefault())
+                    }
+                    .flatMap { (sourceId, sourcePairs) ->
+                        val name = sourceManager.getOrStub(sourceId).name
+                        val header = sourceHeaderFor(sourceId, name)
+                        sourcePairs
+                            .sortedByDescending {
+                                if (viewType.isUpdates) it.second.date_fetch else it.first.history.last_read
+                            }
+                            .map { RecentMangaItem(it.first, it.second, header) }
+                    }
+            } else if (viewType.isUpdates) {
                 val map =
                     TreeMap<Date, MutableList<Pair<MangaChapterHistory, Chapter>>> { d1, d2 ->
                         d2.compareTo(d1)

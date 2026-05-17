@@ -421,7 +421,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 }
                 BasePreferences.LongTapRecents.LAST_READ -> {
                     lifecycleScope.launchUI {
-                        val lastReadChapter = getRecents.awaitUngrouped(true, true, "", 0).maxByOrNull { it.history.last_read }
+                        val lastReadChapter = getRecents.awaitUngrouped(
+                            filterScanlators = true,
+                            isResuming = true,
+                            search = "",
+                            offset = 0,
+                        ).maxByOrNull { it.history.last_read }
                         lastReadChapter ?: return@launchUI
 
                         val manga = lastReadChapter.manga
@@ -1030,8 +1035,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             BasePreferences.DoubleTapRecents.DEFAULT -> Unit
             BasePreferences.DoubleTapRecents.LAST_READ -> {
                 lifecycleScope.launchUI {
-                    val lastReadChapter = getRecents.awaitUngrouped(true, true, "", 0)
-                        .maxByOrNull { it.history.last_read }
+                    val lastReadChapter = getRecents.awaitUngrouped(
+                        filterScanlators = true,
+                        isResuming = true,
+                        search = "",
+                        offset = 0,
+                    ).maxByOrNull { it.history.last_read }
                     lastReadChapter ?: return@launchUI
 
                     val manga = lastReadChapter.manga
