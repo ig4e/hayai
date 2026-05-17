@@ -644,10 +644,12 @@ open class LibraryController(
             applyTabbedAppBarMode(enabled = false)
         } else {
             // Controller is leaving the screen. Don't reflow the views — swapping visibility flashes
-            // the continuous-mode recycler underneath during the push animation. Just reset the
-            // shared activity tab strip so the next controller can rebind it cleanly, and release
-            // the appbar y-lock so the next controller's scroll listeners can move the bar.
-            activityBinding?.mainTabs?.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
+            // the continuous-mode recycler underneath during the push animation. Just release the
+            // appbar y-lock so the next controller's scroll listeners can move the bar.
+            // NOTE: don't change mainTabs.tabMode here. Switching MODE_SCROLLABLE → MODE_FIXED
+            // forces TabLayout to re-measure tabs from variable widths to equal-fixed widths
+            // visibly during the push fade, producing scatter. showTabBar's doOnEnd calls
+            // removeAllTabs() anyway, and the next controller sets its own tab mode on entry.
             activityBinding?.appBar?.lockYPos = false
         }
     }
@@ -1479,6 +1481,10 @@ open class LibraryController(
             // sets its own toolbar state via syncActivityViewWithController.
             if (isTabbedMode) teardownTabbedView(restoreAppBar = false)
             if (!nextOwnsTabs && activityBinding?.tabsFrameLayout?.isVisible == true) {
+                // Keep the alpha fade. animate=false collapses tabsFrameLayout's height
+                // instantly, which visibly shrinks the appbar before the Conductor crossfade
+                // even starts. The fade itself is fine now that the tabMode re-measure in
+                // teardownTabbedView's leaving branch is gone (that was the real scatter cause).
                 (activity as? MainActivity)?.showTabBar(show = false, animate = true)
             }
         }

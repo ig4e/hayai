@@ -403,6 +403,9 @@ fun Controller.scrollViewWith(
             ) {
                 super.onChangeEnd(controller, changeHandler, changeType)
                 if (changeType.isEnter) {
+                    // Reposition the appbar now that the transition is done — moved from
+                    // onChangeStart so it doesn't snap mid-fade.
+                    activityBinding?.appBar?.updateAppBarAfterY(recycler)
                     if (fakeToolbarView?.parent != null) {
                         val parent = fakeToolbarView?.parent as? ViewGroup ?: return
                         parent.removeView(fakeToolbarView)
@@ -432,7 +435,11 @@ fun Controller.scrollViewWith(
                     activityBinding?.appBar?.useTabsInPreLayout = includeTabView()
                     colorToolbar(isToolbarColor)
                     lastY = 0f
-                    activityBinding?.appBar?.updateAppBarAfterY(recycler)
+                    // Don't reposition the activity appbar Y here — that snaps the bar from
+                    // the outgoing controller's scroll position to the incoming controller's
+                    // fresh-scroll position instantly at the start of the Conductor crossfade,
+                    // which the user reads as "topbar snaps to the top without animating".
+                    // Deferred to onChangeEnd so the swap is masked by the fade completion.
                     activityBinding?.toolbar?.tag = randomTag
                     activityBinding?.toolbar?.setOnClickListener {
                         if (recycler is RecyclerView) {

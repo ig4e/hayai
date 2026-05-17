@@ -249,18 +249,130 @@ each being the single layout pass that materialises the new tab's rows from
 Neither shipped — current state is acceptable (97.66 % non-jank, 99.22 %
 non-stutter). Flagged for follow-up if user revisits.
 
+## Library → MangaDetails push — chain of fixes
+
+User-reported sequence on this push: "library tabbed-mode tabs scatter and splatter
+under the top bar that is being created as if it's trying to animate to the top,
+then everything freezes then the manga page appears in one frame, then the first two
+chapters jump then go down." Yokai (parent repo) doesn't have any of this. Each
+distinct symptom maps to a different file. Diagnosed in parallel via four explorer
+agents; one combined commit ships all fixes.
+
+### 1. Tabs scatter — `LibraryController.teardownTabbedView` leaving branch
+
+`teardownTabbedView(restoreAppBar = false)` was setting
+`activityBinding?.mainTabs?.tabMode = MODE_FIXED` immediately on push-out, mid-frame
+with the alpha-fade. `TabLayout` responds to a `tabMode` change by invalidating its
+layout and re-measuring every tab — tabs visibly snap from variable scrollable widths
+to equal fixed widths in one layout pass while the bar is still fully opaque. This
+re-measure is what the user reads as "scatter/splatter".
+
+**Fix:** `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryController.kt` —
+delete the `tabMode = MODE_FIXED` line in the leaving branch of `teardownTabbedView`.
+`showTabBar`'s `doOnEnd` already calls `removeAllTabs()`; the next controller that
+binds tabs sets its own mode. No regression. Keep `lockYPos = false` (harmless state
+release that doesn't trigger re-measurement).
+
+### 2. Freeze — three synchronous Compose first-compositions in `MangaHeaderHolder.bind()`
+
+The transition is `CrossFadeChangeHandler` (200 ms alpha + 20 % translateX), NOT a
+`MaterialContainerTransform`. So the freeze isn't shared-element setup — it's pure
+Compose composition cost paid synchronously on the main thread before the animator's
+first frame can render.
+
+Hayai added three ComposeViews to the header layout that Yokai didn't have:
+
+- `buttonGroupCompose` (`MangaContinueReadingButton`)
+- `metadataCompose` (`MangaMetadataSection` — EH metadata, empty for non-EH)
+- `mangaGenresTags` (`GenreTagsSection` / `NamespaceGenreTagsSection`)
+
+Each pays Compose runtime startup + `YokaiTheme` (MaterialExpressiveTheme)
+composition + slot table + measure synchronously during `bind()`, which is called
+from RecyclerView's first layout pass — which is on the same frame the push
+animation starts. With 3 first-compositions stacked, the animator's frame budget
+is starved and the user sees a freeze.
+
+`pagePreviewCompose` was already deferred via `postOnAnimation` (good for the
+freeze, but caused a separate shift — see #4).
+
+**Fix:** `app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaHeaderHolder.kt` —
+wrap the three `setContent` calls in `postOnAnimation { ... }` so they compose on
+the next animation frame, off the push critical path. Layout space is reserved by
+`android:minHeight` on each ComposeView so when content lands there's no shift:
+
+- `button_group_compose`: `minHeight="56dp"` (Material Button)
+- `manga_genres_tags`: `minHeight="40dp"` (typical 1-row chip strip)
+- `metadata_compose`: no minHeight needed (typically 0 for non-EH)
+
+### 3. Freeze (palette fast-path) — `setItemColors` on Coil's `onSuccess`
+
+`MangaDetailsController.setPaletteColor` has a cache-hit fast-path that fires
+`setAccentColorValue` + `setHeaderColorValue` + `setItemColors()` synchronously
+inside Coil's `onSuccess` callback. Coil delivers `onSuccess` on the main
+dispatcher; `setItemColors()` iterates every visible `ChapterHolder` calling
+`notifyStatus()` — all mid-frame. Yokai always defers via
+`Palette.from(bitmap).generate { launchUI { ... } }`.
+
+**Fix:** wrap the fast-path body in `launchUI { ... }` so the palette application
+happens on the next UI tick instead of synchronously during the push frame.
+
+### 4. Chapter rows jump after landing — `pagePreviewCompose` skeleton
+
+`PagePreviewInlineSection` renders a 150 dp shimmer skeleton in its `Loading`
+state. For sources that don't implement `PagePreviewSource`, the `LaunchedEffect`
+hits `Unavailable` 1–3 frames later and collapses back to 0 dp. Result for
+non-EH manga (most users, most of the time): chapter rows shift **down 150 dp
+then back up** as the page-preview view loads then disappears.
+
+**Fix:** in `MangaHeaderHolder.bind()`, do a synchronous
+`presenter.source.getMainSource<PagePreviewSource>()` check before
+`setContent`. If the source doesn't implement `PagePreviewSource`, set
+`isVisible = false` on the ComposeView and skip `setContent` entirely. Only
+EH/NHentai/Lanraragi etc. inflate the Compose subtree.
+
+### 5. Top-bar appbar Y snap — `scrollViewWith` push-enter
+
+`scrollViewWith`'s `onChangeStart` enter branch (line 435 of
+`ControllerExtensions.kt`) called `updateAppBarAfterY(recycler)` immediately,
+snapping the activity-level appBar Y from the outgoing controller's position
+(could be collapsed if the user had scrolled) to the incoming controller's fresh
+scroll position (Y=0) before the crossfade even started. The user reads this as
+"topbar snaps to the top without animating".
+
+**Fix:** moved the `updateAppBarAfterY(recycler)` call from `onChangeStart` to
+`onChangeEnd`. The appbar now stays at the outgoing controller's position during
+the 200 ms fade and only repositions once the transition completes. There's still
+a small visible snap at the end (the appbar can't be in two positions at once
+without an animator, which would be a bigger refactor) but it's masked by the
+controller having already faded into place.
+
+### Side effect — Library view "text/icon splatter" closed
+
+The user-reported Library view splatter (task #14, baseline 5.03 %) turned out to
+be the same root causes as fixes 1 + 2 (tabs re-measure + Compose first-compositions
+firing mid-transition). Once those landed, the splatter went away. Task closed
+without a dedicated fix.
+
+### Known residual (left for follow-up)
+
+- The appbar snap-at-end (#5) is still slightly visible. A truly clean fix would
+  animate the appbar Y change over 200 ms in sync with the Conductor crossfade.
+  User opted to accept the residual ("if it doesn't cost performance just leave
+  it as that") rather than ship the bigger animation refactor.
+- `setupSearchTBMenu` full menu rebuild on every controller change (Agent D's
+  Patch D) — left untouched. Coalescing the 3 separate `ValueAnimator`s
+  (`tabAnimation`, `searchBarAnimation`, `toolbarColorAnim`) into a single
+  `AnimatorSet` would also help, deferred.
+
 ## Remaining problem flows (untouched)
 
 | Flow | Baseline jank | Likely culprits |
 |------|--------------:|------------------|
 | Library ↔ Recents (tabbed) "text splatter" | 5.03 % | Cross-controller race: `LibraryController.onChangeStarted` calls `showTabBar(false, animate=true)` while `RecentsController.onChangeStarted` calls `mainTabs.bindStringTabs(...)` then `showTabBar(true)`. Library category labels get **overwritten in-place** by Recents labels mid-fade; TabLayout re-measures during the alpha animation. Surgical fix to `MainActivity.showTabBar` + the two controllers' `onChangeStarted`. |
-| Library → Manga ×5 | 12.79 % | Likely `MaterialContainerTransform` shared element + heavy `MangaDetailsController.onCreateView` + Library teardown (`saveStaggeredState`, `closeTip`, filter-sheet hide, tab teardown) all synchronous. |
 | Animator pile-up on root nav switch | n/a | `MainActivity.onChangeStarted` + `syncActivityViewWithController` fire 4–6 concurrent ValueAnimators (Conductor fade, tab fade, cardFrame fade, nav fade) plus full menu rebuilds via `setupSearchTBMenu`. All synchronous on the main thread. |
-| Library view — internal splatter | n/a | Category chip strip / filter sheet / grid items shift/redraw on entry. Trace required. |
 | Sources sheet — novel ↔ manga swap | n/a | Source-list re-bind per toggle; possibly per-source ComposeViews. Trace required. |
 | Browse hub — first entry | n/a | Sources hub entry cost (extension repo/lang reads, bottom sheet pre-warm). Trace required. |
-| Recents item open (history → reader/manga) | n/a | Shares MaterialContainerTransform with #5? Confirm. |
-| Manga view — chapters list initial render | n/a | Chapters list initial animation janky, items jump. Probably `DefaultItemAnimator` first batch + post-layout shift. Same family of fix as source-browse #6 (drop item animator, possibly fix initial layout). |
+| Recents item open (history → reader/manga) | n/a | Confirm whether it shares the same push cost as Library → Manga (now mostly fixed). |
 
 ### Profiling workflow
 

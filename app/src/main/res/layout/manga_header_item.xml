@@ -336,10 +336,13 @@
         android:layout_height="wrap_content"
         app:constraint_referenced_ids="manga_summary,manga_summary_label,sub_button_scroll" />
 
+    <!-- minHeight reserves space for typical 1-row chip layout so the deferred ComposeView
+         setContent doesn't push everything below it down once composition completes. -->
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/manga_genres_tags"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:minHeight="40dp"
         android:layout_marginTop="8dp"
         android:visibility="visible"
         app:layout_constrainedHeight="true"
@@ -369,10 +372,15 @@
         app:rippleColor="@null"
         tools:visibility="visible" />
 
+    <!-- minHeight reserves space for MangaContinueReadingButton (~56dp Material Button) so the
+         ComposeView doesn't grow from 0 to button-height on first composition, which pushed
+         chapter rows down two slots on initial render. Yokai used a plain MaterialButton View
+         here (measured synchronously); Hayai's compose version needs this stability hint. -->
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/button_group_compose"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:minHeight="56dp"
         android:layout_marginTop="12dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

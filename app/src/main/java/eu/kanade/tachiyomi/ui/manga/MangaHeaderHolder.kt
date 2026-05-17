@@ -77,8 +77,10 @@ import androidx.compose.ui.unit.dp
 import yokai.i18n.MR
 import yokai.util.coil.loadManga
 import yokai.util.lang.getString
+import eu.kanade.tachiyomi.source.PagePreviewSource
 import exh.source.EH_SOURCE_ID
 import exh.source.EXH_SOURCE_ID
+import exh.source.getMainSource
 import android.R as AR
 
 @SuppressLint("ClickableViewAccessibility")
@@ -445,46 +447,68 @@ class MangaHeaderHolder(
             } else {
                 itemView.context.getString(MR.strings.all_chapters_read)
             }
-            binding?.buttonGroupCompose?.setContent {
-                yokai.presentation.theme.YokaiTheme {
-                    MangaContinueReadingButton(
-                        readButtonText = readText,
-                        readEnabled = readEnabled,
-                        showButton = showButtons,
-                        accentColorInt = accentColorState.value,
-                        onReadClick = { adapter.delegate.readNextChapter(binding?.buttonGroupCompose ?: itemView) },
-                    )
+            // Defer first composition to the next animation frame so the push transition isn't
+            // charged for Compose runtime startup + first-composition cost. Layout space is
+            // reserved by android:minHeight=56dp on the ComposeView so no shift on landing.
+            binding?.buttonGroupCompose?.apply {
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+                postOnAnimation {
+                    setContent {
+                        yokai.presentation.theme.YokaiTheme {
+                            MangaContinueReadingButton(
+                                readButtonText = readText,
+                                readEnabled = readEnabled,
+                                showButton = showButtons,
+                                accentColorInt = accentColorState.value,
+                                onReadClick = { adapter.delegate.readNextChapter(binding?.buttonGroupCompose ?: itemView) },
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // Metadata section (EH info, etc.)
-        binding?.metadataCompose?.setContent {
-            yokai.presentation.theme.YokaiTheme {
-                MangaMetadataSection(
-                    mangaId = manga.id ?: -1L,
-                    sourceId = manga.source,
-                    isExpanded = descriptionExpandedState.value,
-                    openMetadataViewer = { adapter.delegate.openMetadataViewer() },
-                    onSearch = { query -> adapter.delegate.searchFromMetadata(query) },
-                )
-            }
-        }
-
-        // Page preview strip (above chapters)
-        // Defer setContent to the next animation frame so the push transition isn't charged
-        // for the ComposeView setup + PagePreviewInlineSection's LaunchedEffect lookup.
-        binding?.pagePreviewCompose?.apply {
+        // Metadata section (EH info, etc.) — for non-EH sources MangaMetadataSection emits
+        // nothing, so the ComposeView stays 0-height permanently. Either way, defer
+        // setContent so it doesn't charge the push frame.
+        binding?.metadataCompose?.apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
             postOnAnimation {
                 setContent {
                     yokai.presentation.theme.YokaiTheme {
-                        exh.ui.pagepreview.components.PagePreviewInlineSection(
+                        MangaMetadataSection(
                             mangaId = manga.id ?: -1L,
                             sourceId = manga.source,
-                            onOpenPagePreview = { adapter.delegate.openPagePreview() },
-                            onOpenReaderAtPage = { page -> adapter.delegate.openReaderAtPage(page) },
+                            isExpanded = descriptionExpandedState.value,
+                            openMetadataViewer = { adapter.delegate.openMetadataViewer() },
+                            onSearch = { query -> adapter.delegate.searchFromMetadata(query) },
                         )
+                    }
+                }
+            }
+        }
+
+        // Page preview strip — only inflate Compose if the source actually implements
+        // PagePreviewSource. Otherwise PagePreviewInlineSection would render a 150dp
+        // shimmer skeleton for 1-2 frames, then collapse to 0 when its LaunchedEffect
+        // resolves Unavailable — visibly shifting chapter rows down then back up.
+        binding?.pagePreviewCompose?.apply {
+            val previewSource = presenter.source.getMainSource<PagePreviewSource>()
+            if (previewSource == null) {
+                isVisible = false
+            } else {
+                isVisible = true
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+                postOnAnimation {
+                    setContent {
+                        yokai.presentation.theme.YokaiTheme {
+                            exh.ui.pagepreview.components.PagePreviewInlineSection(
+                                mangaId = manga.id ?: -1L,
+                                sourceId = manga.source,
+                                onOpenPagePreview = { adapter.delegate.openPagePreview() },
+                                onOpenReaderAtPage = { page -> adapter.delegate.openReaderAtPage(page) },
+                            )
+                        }
                     }
                 }
             }
@@ -577,26 +601,30 @@ class MangaHeaderHolder(
         )
         val isEH = manga.source == EH_SOURCE_ID || manga.source == EXH_SOURCE_ID
         binding.mangaGenresTags.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-        binding.mangaGenresTags.setContent {
-            yokai.presentation.theme.YokaiTheme {
-                if (isEH) {
-                    NamespaceGenreTagsSection(
-                        genres = genres,
-                        containerColor = ComposeColor(containerColorInt),
-                        labelColor = ComposeColor(labelColorInt),
-                        isExpanded = descriptionExpandedState.value,
-                        onTagClick = { genre -> delegate.searchFromMetadata(genre) },
-                        onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
-                    )
-                } else {
-                    GenreTagsSection(
-                        genres = genres,
-                        containerColor = ComposeColor(containerColorInt),
-                        labelColor = ComposeColor(labelColorInt),
-                        isExpanded = descriptionExpandedState.value,
-                        onTagClick = { genre -> delegate.searchFromMetadata(genre) },
-                        onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
-                    )
+        // Defer like buttonGroupCompose / metadataCompose so first composition doesn't stall
+        // the push animation frame. minHeight on the ComposeView reserves space.
+        binding.mangaGenresTags.postOnAnimation {
+            binding.mangaGenresTags.setContent {
+                yokai.presentation.theme.YokaiTheme {
+                    if (isEH) {
+                        NamespaceGenreTagsSection(
+                            genres = genres,
+                            containerColor = ComposeColor(containerColorInt),
+                            labelColor = ComposeColor(labelColorInt),
+                            isExpanded = descriptionExpandedState.value,
+                            onTagClick = { genre -> delegate.searchFromMetadata(genre) },
+                            onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
+                        )
+                    } else {
+                        GenreTagsSection(
+                            genres = genres,
+                            containerColor = ComposeColor(containerColorInt),
+                            labelColor = ComposeColor(labelColorInt),
+                            isExpanded = descriptionExpandedState.value,
+                            onTagClick = { genre -> delegate.searchFromMetadata(genre) },
+                            onTagLongClick = { genre -> delegate.copyContentToClipboard(genre, genre) },
+                        )
+                    }
                 }
             }
         }

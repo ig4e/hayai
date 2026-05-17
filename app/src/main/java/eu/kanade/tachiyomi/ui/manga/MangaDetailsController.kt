@@ -506,6 +506,8 @@ class MangaDetailsController :
             MangaDetailsDivider(view.context),
         )
         binding.recycler.setHasFixedSize(true)
+        binding.recycler.setItemViewCacheSize(8)
+        binding.recycler.itemAnimator = null
         val appbarHeight = activityBinding?.appBar?.attrToolbarHeight ?: 0
         val offset = 10.dpToPx
         binding.swipeRefresh.setDistanceToTriggerSync(70.dpToPx)
@@ -670,9 +672,15 @@ class MangaDetailsController :
                     val cachedVibrant = manga?.vibrantCoverColor
                     if (bitmap != null) {
                         if (cachedVibrant != null && presenter.preferences.themeMangaDetails().get()) {
-                            setAccentColorValue(cachedVibrant)
-                            setHeaderColorValue(cachedVibrant)
-                            setItemColors()
+                            // Defer one frame so the palette-application work (color blends +
+                            // setItemColors iterating every visible ChapterHolder) doesn't run
+                            // mid-push inside Coil's main-thread onSuccess callback, stalling
+                            // the push animator's frame budget.
+                            launchUI {
+                                setAccentColorValue(cachedVibrant)
+                                setHeaderColorValue(cachedVibrant)
+                                setItemColors()
+                            }
                         } else {
                             Palette.from(bitmap).generate { palette ->
                                 if (presenter.preferences.themeMangaDetails().get()) {
@@ -754,14 +762,11 @@ class MangaDetailsController :
         returningFromReader = false
         // DB await off Main so reader-back transition isn't blocked for up to 1s.
         viewScope.launch {
-            val itemAnimator = binding.recycler.itemAnimator
             val chapters = withTimeoutOrNull(1000) { presenter.getChaptersNow() } ?: return@launch
-            binding.recycler.itemAnimator = null
             tabletAdapter?.notifyItemChanged(0)
-            adapter?.setChapters(chapters)
             addMangaHeader()
+            adapter?.setChapters(chapters)
             updateFab()
-            binding.recycler.itemAnimator = itemAnimator
         }
     }
 
@@ -905,9 +910,12 @@ class MangaDetailsController :
 
     fun updateHeader() {
         binding.swipeRefresh.isRefreshing = presenter.isLoading
-        adapter?.setChapters(presenter.chapters)
         tabletAdapter?.notifyItemChanged(0)
+        // addMangaHeader before setChapters so the header is in place before chapter rows
+        // fill in; otherwise the header insert shifts every chapter row down ("jump from
+        // their place"). addMangaHeader is a no-op when the header is already present.
         addMangaHeader()
+        adapter?.setChapters(presenter.chapters)
         updateMenuVisibility(activityBinding?.toolbar?.menu)
     }
 
@@ -932,8 +940,8 @@ class MangaDetailsController :
         view ?: return
         binding.swipeRefresh.isRefreshing = presenter.isLoading
         tabletAdapter?.notifyItemChanged(0)
-        adapter?.setChapters(presenter.chapters)
         addMangaHeader()
+        adapter?.setChapters(presenter.chapters)
         updateFab()
         colorToolbar(binding.recycler.canScrollVertically(-1))
         updateMenuVisibility(activityBinding?.toolbar?.menu)
