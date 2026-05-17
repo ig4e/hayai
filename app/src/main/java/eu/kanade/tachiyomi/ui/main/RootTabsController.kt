@@ -101,12 +101,16 @@ class RootTabsController : Controller() {
      * Make [tabId] the visible tab. Lazy-creates the tab's child router and root
      * controller on first selection. Idempotent — no-op when already on [tabId].
      *
-     * Sequence on a real tab swap:
-     *  1. Notify the outgoing tab's top controller via [RootTabContent.onTabDeactivated].
+     * Sequence:
+     *  1. Notify the outgoing tab's top controller via [RootTabContent.onTabDeactivated] (if any).
      *  2. Hide the outgoing container, show the incoming.
-     *  3. Materialise the incoming child router (first selection only).
-     *  4. Notify the incoming tab's top controller via [RootTabContent.onTabActivated].
-     *  5. Ask [MainActivity] to resync the shared chrome (toolbar, menu, title).
+     *  3. Materialise the incoming child router (first selection only — Conductor's
+     *     PUSH_ENTER fires synchronously here on the controller).
+     *  4. Notify the incoming controller via [RootTabContent.onTabActivated]. The controller
+     *     calls [MainActivity.chromeBinder].bind to set up the activity chrome — this fires
+     *     for both initial creation AND tab swap, since the chrome state has to be applied
+     *     either way.
+     *  5. Ask [MainActivity] to resync any remaining cross-cutting state (title, etc.).
      */
     fun selectTab(tabId: Int) {
         if (!containers.containsKey(tabId)) return
@@ -117,17 +121,12 @@ class RootTabsController : Controller() {
             ensureChildRoot(tabId)
             return
         }
-        // A "tab swap" is when the user actually moved from one realised tab to another.
-        // First-time tab selection (prev == -1) and restore-into-saved-tab (prev == tabId
-        // but isVisible == false) shouldn't fire activation: Conductor's natural ENTER
-        // (from ensureChildRoot's setRoot on the child router) wires things on first
-        // creation, and restore preserves the already-wired state.
-        val isTabSwap = (prev != -1 && prev != tabId)
-
-        if (isTabSwap) {
-            val outgoing = childRouterFor(prev)?.backstack?.lastOrNull()?.controller
-            (outgoing as? RootTabContent)?.onTabDeactivated()
+        val outgoing = if (prev != -1 && prev != tabId) {
+            childRouterFor(prev)?.backstack?.lastOrNull()?.controller
+        } else {
+            null
         }
+        (outgoing as? RootTabContent)?.onTabDeactivated()
 
         if (prev != -1) containers[prev]?.isVisible = false
         val target = containers[tabId] ?: return
@@ -135,10 +134,8 @@ class RootTabsController : Controller() {
         currentTabId = tabId
         ensureChildRoot(tabId)
 
-        if (isTabSwap) {
-            val incoming = childRouterFor(tabId)?.backstack?.lastOrNull()?.controller
-            (incoming as? RootTabContent)?.onTabActivated()
-        }
+        val incoming = childRouterFor(tabId)?.backstack?.lastOrNull()?.controller
+        (incoming as? RootTabContent)?.onTabActivated()
 
         (activity as? MainActivity)?.onActiveTabChanged(prev, tabId)
     }

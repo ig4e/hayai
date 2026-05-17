@@ -61,6 +61,7 @@ class SourcePresenter(
         }
 
         maybeMigrateLegacyPinned()
+        maybeMigrateLegacyLastUsed()
         observeSources()
         loadSources()
     }
@@ -73,15 +74,21 @@ class SourcePresenter(
         loadSources()
     }
 
-    private fun pinnedPrefFor(type: BrowseSourceType) = when (type) {
-        BrowseSourceType.Manga -> preferences.pinnedMangaCatalogues()
-        BrowseSourceType.Novel -> preferences.pinnedNovelCatalogues()
+    /**
+     * Synchronously re-read the per-type lastUsed pref and push the result to the
+     * controller. Called from [BrowseController.onTabActivated] so the row is correct
+     * after a tab swap (the [loadLastUsedSource] flow collector is hooked once per
+     * [loadSources] call and can lose the update if the view was destroyed mid-emit,
+     * e.g. when BrowseSourceController was pushed on top of Browse).
+     */
+    fun refreshLastUsed() {
+        val item = getLastUsedSource(lastUsedPrefFor(currentType).get())
+        lastUsedItem = item
+        controller.setLastUsedSource(item)
     }
 
-    private fun lastUsedPrefFor(type: BrowseSourceType) = when (type) {
-        BrowseSourceType.Manga -> preferences.lastUsedMangaSource()
-        BrowseSourceType.Novel -> preferences.lastUsedNovelSource()
-    }
+    private fun pinnedPrefFor(type: BrowseSourceType) = preferences.pinnedCataloguesFor(type)
+    private fun lastUsedPrefFor(type: BrowseSourceType) = preferences.lastUsedSourceFor(type)
 
     /**
      * One-shot split of the legacy [PreferencesHelper.pinnedCatalogues] set into the
@@ -109,6 +116,25 @@ class SourcePresenter(
         }
         if (newManga.isNotEmpty()) preferences.pinnedMangaCatalogues().set(newManga)
         if (newNovel.isNotEmpty()) preferences.pinnedNovelCatalogues().set(newNovel)
+    }
+
+    /**
+     * One-shot split of the legacy [PreferencesHelper.lastUsedCatalogueSource] id into the
+     * per-type lastUsed pref. Only runs when BOTH per-type prefs are still at the -1
+     * sentinel — once the user has opened a source under the new code path, the per-type
+     * pref is authoritative and we never overwrite it with the legacy value.
+     */
+    private fun maybeMigrateLegacyLastUsed() {
+        val mangaLast = preferences.lastUsedMangaSource().get()
+        val novelLast = preferences.lastUsedNovelSource().get()
+        if (mangaLast != -1L || novelLast != -1L) return
+        val legacy = preferences.lastUsedCatalogueSource().get()
+        if (legacy == -1L) return
+        val src = sourceManager.get(legacy) as? CatalogueSource ?: return
+        when (src.browseType) {
+            BrowseSourceType.Manga -> preferences.lastUsedMangaSource().set(legacy)
+            BrowseSourceType.Novel -> preferences.lastUsedNovelSource().set(legacy)
+        }
     }
 
     /**
@@ -168,16 +194,9 @@ class SourcePresenter(
 
     private fun getLastUsedSource(value: Long): SourceItem? {
         return (sourceManager.get(value) as? CatalogueSource)?.let { source ->
-            // Only surface the last-used row if its type matches the active tab AND it's
-            // not already in the pinned section (which would duplicate the entry).
             if (source.browseType != currentType) return@let null
-            val pinnedCatalogues = pinnedPrefFor(currentType).get()
-            val isPinned = source.id.toString() in pinnedCatalogues
-            if (isPinned) {
-                null
-            } else {
-                SourceItem(source, LangItem(LAST_USED_KEY), isPinned)
-            }
+            val isPinned = source.id.toString() in pinnedPrefFor(currentType).get()
+            SourceItem(source, LangItem(LAST_USED_KEY), isPinned)
         }
     }
 

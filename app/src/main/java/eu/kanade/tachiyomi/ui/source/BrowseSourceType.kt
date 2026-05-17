@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.ui.source
 
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.core.preference.Preference
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.CatalogueSource
 import hayai.novel.source.NovelSource
 import yokai.i18n.MR
@@ -27,3 +29,21 @@ enum class BrowseSourceType(val stringRes: StringResource) {
 /** Classifies a [CatalogueSource] into one of the [BrowseSourceType] tabs. */
 val CatalogueSource.browseType: BrowseSourceType
     get() = if (this is NovelSource) BrowseSourceType.Novel else BrowseSourceType.Manga
+
+/**
+ * Per-type pinned catalogues preference selector. Avoids open-coding the same
+ * `when (type)` switch in every read/write site (Browse list, openCatalogue, pinCatalogue,
+ * SourcePresenter).
+ */
+fun PreferencesHelper.pinnedCataloguesFor(type: BrowseSourceType): Preference<Set<String>> =
+    when (type) {
+        BrowseSourceType.Manga -> pinnedMangaCatalogues()
+        BrowseSourceType.Novel -> pinnedNovelCatalogues()
+    }
+
+/** Per-type last-used source-id preference selector. */
+fun PreferencesHelper.lastUsedSourceFor(type: BrowseSourceType): Preference<Long> =
+    when (type) {
+        BrowseSourceType.Manga -> lastUsedMangaSource()
+        BrowseSourceType.Novel -> lastUsedNovelSource()
+    }

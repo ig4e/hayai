@@ -56,6 +56,10 @@ import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import eu.kanade.tachiyomi.ui.main.TabbedInterface
+import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
+import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
+import eu.kanade.tachiyomi.ui.main.chrome.TabMode
+import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.recents.options.TabbedRecentsOptionsSheet
@@ -121,6 +125,7 @@ class RecentsController(bundle: Bundle? = null) :
     FloatingSearchInterface,
     BottomSheetController,
     MainActivityTabsOwner,
+    ChromeAware,
     eu.kanade.tachiyomi.ui.main.RootTabContent,
     ActionMode.Callback {
 
@@ -985,36 +990,29 @@ class RecentsController(bundle: Bundle? = null) :
         )
         try {
             super.onChangeStarted(handler, type)
-            if (type.isEnter) {
-                if (type == ControllerChangeType.POP_ENTER) presenter.onCreate()
-                binding.downloadBottomSheet.dlBottomSheet.dismiss()
-                if (isControllerVisible) {
-                    activityBinding?.mainTabs?.let { tabs ->
-                        val selectedTab = presenter.viewType
-                        val labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() }
-                        android.os.Trace.beginSection("Hayai/Recents.bindStringTabs")
-                        // History/Updates is a fixed 2-3 tab set — fill the width evenly.
-                        // Required after Library sets MODE_SCROLLABLE for its category tabs;
-                        // bindStringTabs inherits whatever mode/gravity is on the view.
-                        tabs.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
-                        tabs.tabGravity = com.google.android.material.tabs.TabLayout.GRAVITY_FILL
-                        tabs.bindStringTabs(
-                            labels = labels,
-                            selectedIndex = selectedTab.mainValue,
-                            onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
-                            onReselected = { binding.recycler.smoothScrollToTop() },
-                        )
-                        android.os.Trace.endSection()
-                        (activity as? MainActivity)?.showTabBar(true)
+            when (type) {
+                ControllerChangeType.PUSH_ENTER -> {
+                    // Initial creation. selectTab will follow up with onTabActivated
+                    // which does chrome bind + UI setup — we don't duplicate it here.
+                }
+                ControllerChangeType.POP_ENTER -> {
+                    // Returning from a pushed controller (e.g. MangaDetails). The presenter
+                    // needs to refresh, then activation rebinds the chrome the pushed
+                    // controller had taken over.
+                    presenter.onCreate()
+                    onTabActivated()
+                }
+                ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> {
+                    // Drop out of Conductor's menu dispatch while something is on top.
+                    setOptionsMenuHidden(true)
+                    snack?.dismiss()
+                    val lastController = router.backstack.lastOrNull()?.controller
+                    val nextOwnsTabs = (lastController as? MainActivityTabsOwner)?.ownsActivityTabs == true
+                    if (lastController !is DialogController && !nextOwnsTabs) {
+                        (activity as? MainActivity)?.showTabBar(show = false, animate = false)
                     }
                 }
-            } else {
-                val lastController = router.backstack.lastOrNull()?.controller
-                val nextOwnsTabs = (lastController as? MainActivityTabsOwner)?.ownsActivityTabs == true
-                if (lastController !is DialogController && !nextOwnsTabs) {
-                    (activity as? MainActivity)?.showTabBar(show = false, animate = lastController !is SmallToolbarInterface)
-                }
-                snack?.dismiss()
+                else -> Unit
             }
             setBottomPadding()
         } finally {
@@ -1040,48 +1038,35 @@ class RecentsController(bundle: Bundle? = null) :
      */
     override fun onTabActivated() {
         if (!isBindingInitialized) return
-        setOptionsMenuHidden(false)
         binding.downloadBottomSheet.dlBottomSheet.dismiss()
-        val recycler = binding.recycler
-        activityBinding?.appBar?.apply {
-            lockYPos = false
-            hideBigView(this@RecentsController is eu.kanade.tachiyomi.ui.base.SmallToolbarInterface)
-            setToolbarModeBy(this@RecentsController)
-            useTabsInPreLayout = ownsActivityTabs
-            y = 0f
-            updateAppBarAfterY(recycler)
-        }
-        activityBinding?.mainTabs?.let { tabs ->
-            val selectedTab = presenter.viewType
-            val labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() }
-            // History/Updates is a fixed 2-3 tab set — fill the width evenly. Required
-            // after Library sets MODE_SCROLLABLE for its category tabs; bindStringTabs
-            // inherits whatever mode/gravity is left on the shared view.
-            tabs.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
-            tabs.tabGravity = com.google.android.material.tabs.TabLayout.GRAVITY_FILL
-            tabs.bindStringTabs(
-                labels = labels,
-                selectedIndex = selectedTab.mainValue,
-                onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
-                onReselected = { binding.recycler.smoothScrollToTop() },
-            )
-            (activity as? MainActivity)?.showTabBar(true)
-        }
+        (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
         setBottomPadding()
         updateTitleAndMenu()
     }
 
     /**
-     * Called when the user swaps away from the Recents tab. Drop the activity tab strip
-     * — the incoming tab will rebuild it (or leave it hidden) on its own activation.
+     * Called when the user swaps away from the Recents tab. The incoming tab's
+     * [ChromeBinder.bind] in its own activation will reset our chrome contributions —
+     * we just need to dismiss any per-tab UI state (snackbars).
      */
     override fun onTabDeactivated() {
         if (!isBindingInitialized) return
-        setOptionsMenuHidden(true)
         snack?.dismiss()
-        (activity as? MainActivity)?.showTabBar(show = false, animate = true)
         setBottomPadding()
     }
+
+    override fun describeChrome(): ChromeSpec = ChromeSpec(
+        appBarVisible = true,
+        includeTabsInLayout = ownsActivityTabs,
+        scrollSource = binding.recycler,
+        tabs = TabsSpec(
+            labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() },
+            selectedIndex = presenter.viewType.mainValue,
+            mode = TabMode.Fixed,
+            onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
+            onReselected = { binding.recycler.smoothScrollToTop() },
+        ),
+    )
 
     fun hasQueue() = presenter.downloadManager.hasQueue()
 

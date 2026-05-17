@@ -63,7 +63,7 @@ class SettingsGeneralController : SettingsLegacyController() {
                 MR.strings.browse,
             )
             entryValues = (0 downTo -3).toList()
-            defaultValue = 0
+            defaultValue = -1
             customSelectedValue = when (val value = preferences.startingTab().get()) {
                 in -3..-1 -> value
                 else -> 0

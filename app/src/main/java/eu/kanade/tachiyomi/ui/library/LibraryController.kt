@@ -92,6 +92,10 @@ import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
+import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
+import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
+import eu.kanade.tachiyomi.ui.main.chrome.TabMode
+import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -167,6 +171,7 @@ open class LibraryController(
     RootSearchInterface,
     FloatingSearchInterface,
     MainActivityTabsOwner,
+    ChromeAware,
     eu.kanade.tachiyomi.ui.main.RootTabContent,
     eu.kanade.tachiyomi.ui.main.TabbedInterface {
 
@@ -1472,42 +1477,37 @@ open class LibraryController(
 
     private fun onChangeStartedInner(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
-        if (type.isEnter) {
-            binding.filterBottomSheet.filterBottomSheet.isVisible = true
-            if (type == ControllerChangeType.POP_ENTER) {
+        when (type) {
+            ControllerChangeType.PUSH_ENTER -> {
+                // Initial creation; selectTab follows up with onTabActivated → chrome bind.
+            }
+            ControllerChangeType.POP_ENTER -> {
+                // Pop back from MangaDetails etc. Refresh library data, then rebind chrome
+                // that the pushed controller had taken over.
                 presenter.updateLibrary()
                 isPoppingIn = true
+                onTabActivated()
             }
-            binding.recyclerCover.isClickable = false
-            binding.recyclerCover.isFocusable = false
-            singleCategory = presenter.categories.size <= 1
-
-            if (binding.libraryGridRecycler.recycler.manager is StaggeredGridLayoutManager && staggeredBundle != null) {
-                binding.libraryGridRecycler.recycler.manager.onRestoreInstanceState(staggeredBundle)
-                staggeredBundle = null
+            ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> {
+                // Pushed-over: drop out of Conductor's menu dispatch so our items don't
+                // stack on top of the pushed controller's. Re-included on POP_ENTER via
+                // onTabActivated → chromeBinder.bind → applyMenuOwnership.
+                setOptionsMenuHidden(true)
+                saveStaggeredState()
+                updateFilterSheetY()
+                closeTip()
+                if (binding.filterBottomSheet.filterBottomSheet.sheetBehavior.isHidden()) {
+                    binding.filterBottomSheet.filterBottomSheet.isInvisible = true
+                }
+                activityBinding?.searchToolbar?.setOnLongClickListener(null)
+                val nextController = router.backstack.lastOrNull()?.controller
+                val nextOwnsTabs = (nextController as? MainActivityTabsOwner)?.ownsActivityTabs == true
+                if (isTabbedMode) teardownTabbedView(restoreAppBar = false)
+                if (!nextOwnsTabs && activityBinding?.tabsFrameLayout?.isVisible == true) {
+                    (activity as? MainActivity)?.showTabBar(show = false, animate = false)
+                }
             }
-            applyDisplayMode()
-        } else {
-            saveStaggeredState()
-            updateFilterSheetY()
-            closeTip()
-            if (binding.filterBottomSheet.filterBottomSheet.sheetBehavior.isHidden()) {
-                binding.filterBottomSheet.filterBottomSheet.isInvisible = true
-            }
-            activityBinding?.searchToolbar?.setOnLongClickListener(null)
-            val nextController = router.backstack.lastOrNull()?.controller
-            val nextOwnsTabs = (nextController as? MainActivityTabsOwner)?.ownsActivityTabs == true
-            // Always release our hold on the activity tabs when leaving, so the next controller (recents)
-            // gets a clean TabLayout to bind its own tabs to. Skip the appbar restore — the next controller
-            // sets its own toolbar state via syncActivityViewWithController.
-            if (isTabbedMode) teardownTabbedView(restoreAppBar = false)
-            if (!nextOwnsTabs && activityBinding?.tabsFrameLayout?.isVisible == true) {
-                // Keep the alpha fade. animate=false collapses tabsFrameLayout's height
-                // instantly, which visibly shrinks the appbar before the Conductor crossfade
-                // even starts. The fade itself is fine now that the tabMode re-measure in
-                // teardownTabbedView's leaving branch is gone (that was the real scatter cause).
-                (activity as? MainActivity)?.showTabBar(show = false, animate = true)
-            }
+            else -> Unit
         }
     }
 
@@ -1534,9 +1534,6 @@ open class LibraryController(
      */
     override fun onTabActivated() {
         if (!isBindingInitialized) return
-        // Re-enter Conductor's menu dispatch so this controller's onCreateOptionsMenu runs
-        // on the next invalidateOptionsMenu (fired by MainActivity.onActiveTabChanged).
-        setOptionsMenuHidden(false)
         binding.filterBottomSheet.filterBottomSheet.isVisible = true
         binding.recyclerCover.isClickable = false
         binding.recyclerCover.isFocusable = false
@@ -1545,18 +1542,11 @@ open class LibraryController(
             binding.libraryGridRecycler.recycler.manager.onRestoreInstanceState(staggeredBundle)
             staggeredBundle = null
         }
-        // Rewire the activity AppBar to this controller. scrollViewWith's onChangeStart
-        // lifecycle listener does the same on a Conductor PUSH_ENTER; tab swap doesn't
-        // fire one, so we replay the wiring directly.
-        val recycler = binding.libraryGridRecycler.recycler
-        activityBinding?.appBar?.apply {
-            lockYPos = false
-            hideBigView(this@LibraryController is eu.kanade.tachiyomi.ui.base.SmallToolbarInterface)
-            setToolbarModeBy(this@LibraryController)
-            useTabsInPreLayout = showActivityTabs
-            y = 0f
-            updateAppBarAfterY(recycler)
-        }
+        (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        // applyDisplayMode handles its own tab strip wiring via setupTabbedView (which uses
+        // custom views for category names + count badges, so it can't go through ChromeBinder's
+        // string-only tab API). ChromeBinder above intentionally leaves tabs cleared; this
+        // call refills them when Library is in tabbed display mode.
         applyDisplayMode()
     }
 
@@ -1573,9 +1563,6 @@ open class LibraryController(
      */
     override fun onTabDeactivated() {
         if (!isBindingInitialized) return
-        // Drop out of Conductor's menu dispatch so a dormant tab's items don't get added on
-        // top of the active tab's menu on the next invalidate.
-        setOptionsMenuHidden(true)
         saveStaggeredState()
         updateFilterSheetY()
         closeTip()
@@ -1584,10 +1571,20 @@ open class LibraryController(
         }
         activityBinding?.searchToolbar?.setOnLongClickListener(null)
         if (isTabbedMode) teardownTabbedView(restoreAppBar = false)
-        if (activityBinding?.tabsFrameLayout?.isVisible == true) {
-            (activity as? MainActivity)?.showTabBar(show = false, animate = true)
-        }
+        // The incoming tab's ChromeBinder.bind in its own activation resets the chrome;
+        // nothing for us to tear down beyond our own Library-internal state.
     }
+
+    override fun describeChrome(): ChromeSpec = ChromeSpec(
+        appBarVisible = true,
+        // Library declares its tabs externally (custom views with category-count
+        // badges via setupTabbedView). includeTabsInLayout is true in tabbed mode so
+        // the AppBar reserves room; the actual tab strip is populated by
+        // setupTabbedView outside the binder.
+        includeTabsInLayout = showActivityTabs,
+        scrollSource = binding.libraryGridRecycler.recycler,
+        tabs = null,
+    )
 
     override fun onActivityResumed(activity: Activity) {
         super.onActivityResumed(activity)

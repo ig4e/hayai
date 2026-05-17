@@ -60,7 +60,7 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     fun getStringPref(key: String, default: String = "") = preferenceStore.getString(key, default)
     fun getStringSet(key: String, default: Set<String>) = preferenceStore.getStringSet(key, default)
 
-    fun startingTab() = preferenceStore.getInt(Keys.startingTab, 0)
+    fun startingTab() = preferenceStore.getInt(Keys.startingTab, -1)
     fun backReturnsToStart() = preferenceStore.getBoolean(Keys.backToStart, true)
 
     fun hasShownNotifPermission() = preferenceStore.getBoolean("has_shown_notification_permission", false)

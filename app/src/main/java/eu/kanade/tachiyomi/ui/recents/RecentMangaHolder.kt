@@ -10,7 +10,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import androidx.asynclayoutinflater.view.AsyncLayoutInflater
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.children
@@ -351,24 +350,24 @@ class RecentMangaHolder(
 
         if (deficit == 0) return
 
-        // For missing rows, inflate off the main thread. Each callback attaches its
-        // view at the right slot and configures it. RecyclerView holders are reused,
-        // so on subsequent binds these views persist and the deficit becomes 0.
-        val asyncInflater = adapter.getAsyncInflater(context)
+        // Inflate missing rows synchronously on the UI thread. AsyncLayoutInflater is
+        // unsafe for recent_sub_chapter_item because the nested DownloadButton owns an
+        // Animator, and AnimatorInflater throws "Animators may only be run on Looper
+        // threads" off the main thread — the row would silently fail to render, making
+        // Recents look empty after a tab swap. RecyclerView pools these holders across
+        // every Recents re-entry (persistentRecentsPool), so the inflate cost is paid
+        // once on first bind and never again.
+        val layoutInflater = LayoutInflater.from(context)
         for (offset in 0 until deficit) {
             val targetIdx = currentChildren + offset
             val chapter = targetChapters.getOrNull(targetIdx) ?: break
-            val callback = AsyncLayoutInflater.OnInflateFinishedListener { view, _, parent ->
-                if (generation != bindGeneration || parent == null) return@OnInflateFinishedListener
-                if (view.parent != null) return@OnInflateFinishedListener
-                parent.addView(view)
-                val subBinding = RecentSubChapterItemBinding.bind(view)
-                subBinding.configureView(chapter, item)
-                if (isUpdates && !subBinding.subtitle.text.isNullOrBlank()) {
-                    showScanlatorInBody(true, item)
-                }
+            val view = layoutInflater.inflate(R.layout.recent_sub_chapter_item, binding.moreChaptersLayout, false)
+            binding.moreChaptersLayout.addView(view)
+            val subBinding = RecentSubChapterItemBinding.bind(view)
+            subBinding.configureView(chapter, item)
+            if (isUpdates && !subBinding.subtitle.text.isNullOrBlank()) {
+                showScanlatorInBody(true, item)
             }
-            asyncInflater.inflate(R.layout.recent_sub_chapter_item, binding.moreChaptersLayout, callback)
         }
     }
 

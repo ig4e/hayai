@@ -184,6 +184,15 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             return rootTabsController?.activeChildRouter() ?: topRouter
         }
 
+    /**
+     * Sole owner of the shared activity chrome (AppBar visual state, mainTabs, menu
+     * participation). Created lazily on first access — needs [binding] to be inflated.
+     * See [eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder] for the design rationale.
+     */
+    val chromeBinder: eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder by lazy {
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder(binding)
+    }
+
     /** The [RootTabsController] hosting the bottom-nav tabs, if installed. */
     protected val rootTabsController: RootTabsController?
         get() = if (this::topRouter.isInitialized) {
@@ -1450,11 +1459,13 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
      */
     fun onActiveTabChanged(@Suppress("UNUSED_PARAMETER") fromTabId: Int, @Suppress("UNUSED_PARAMETER") toTabId: Int) {
         val active = activeRootController
-        // Reset decorative AppBar state the previous tab may have mutated (Browse hides the
-        // app bar when its extension sheet is expanded; without this the next tab would
-        // inherit the invisible/dimmed bar).
-        binding.appBar.alpha = 1f
-        binding.appBar.isInvisible = false
+        // NOTE: do NOT reset binding.appBar.isInvisible here — the active controller (e.g.
+        // Browse with its extensions sheet expanded) may legitimately have set it after
+        // claimActivityChrome ran. The claim/release protocol owns AppBar visibility:
+        // claimActivityChrome resets to defaults; the controller then layers its desired
+        // state (Browse's updateTitleAndMenu sets isInvisible=true when the sheet is open).
+        // Resetting here unconditionally would override that intent and reveal a stale
+        // "snapshot" of the previous tab's chrome above the still-expanded sheet.
         syncActivityViewWithController(active)
         setFloatingToolbar(canShowFloatingToolbar(active), changeBG = false)
         // Rebuild the toolbar menu from scratch against the new active controller only —
@@ -1744,39 +1755,24 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         }
     }
 
-    fun showTabBar(show: Boolean, animate: Boolean = true) {
-        val previous = tabAnimation
+    /**
+     * Show or hide the activity tab strip. Always instant — per user feedback, the
+     * AppBar should stay still rather than animating on every tab swap.
+     *
+     * Idempotent: a no-op when the tabs are already in the desired state. Tabs are
+     * cleared from [R.id.main_tabs] only when hiding (so the next caller starts from
+     * an empty strip rather than inheriting stale labels).
+     */
+    fun showTabBar(show: Boolean, @Suppress("UNUSED_PARAMETER") animate: Boolean = true) {
+        tabAnimation?.cancel()
         tabAnimation = null
-        previous?.cancel()
-        if (animate) {
-            if (show && !binding.tabsFrameLayout.isVisible) {
-                binding.tabsFrameLayout.alpha = 0f
-                binding.tabsFrameLayout.isVisible = true
-            }
-            val tA = ValueAnimator.ofFloat(
-                binding.tabsFrameLayout.alpha,
-                if (show) 1f else 0f,
-            )
-            tA.addUpdateListener { valueAnimator ->
-                binding.tabsFrameLayout.alpha = valueAnimator.animatedValue as Float
-            }
-            tA.doOnEnd {
-                if (tabAnimation !== tA) return@doOnEnd
-                binding.tabsFrameLayout.isVisible = show
-                if (!show) {
-                    binding.mainTabs.clearOnTabSelectedListeners()
-                    binding.mainTabs.removeAllTabs()
-                }
-            }
-            tA.duration = 100
-            tabAnimation = tA
-            tA.start()
-        } else {
-            binding.tabsFrameLayout.isVisible = show
-            if (!show) {
-                binding.mainTabs.clearOnTabSelectedListeners()
-                binding.mainTabs.removeAllTabs()
-            }
+        val tabsFrame = binding.tabsFrameLayout
+        if (tabsFrame.isVisible == show && tabsFrame.alpha == (if (show) 1f else 0f)) return
+        tabsFrame.alpha = if (show) 1f else 0f
+        tabsFrame.isVisible = show
+        if (!show) {
+            binding.mainTabs.clearOnTabSelectedListeners()
+            binding.mainTabs.removeAllTabs()
         }
     }
 
@@ -1880,6 +1876,14 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
         private const val SWIPE_THRESHOLD = 100
         private const val SWIPE_VELOCITY_THRESHOLD = 100
+
+        /**
+         * Duration for the tab-strip show/hide animation. Matches Conductor's default
+         * fade duration so that when a push triggers `showTabBar(false)`, the tab
+         * collapse settles on the same frame as the controller crossfade ends — no
+         * residual tab text visible after the new controller has fully entered.
+         */
+        private const val TAB_BAR_ANIM_MS = 200L
 
         // Shortcut actions
         const val SHORTCUT_LIBRARY = "eu.kanade.tachiyomi.SHOW_LIBRARY"

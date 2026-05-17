@@ -39,6 +39,10 @@ import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
+import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
+import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
+import eu.kanade.tachiyomi.ui.main.chrome.TabMode
+import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsBrowseController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsSourcesController
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController
@@ -94,6 +98,7 @@ class BrowseController :
     eu.kanade.tachiyomi.ui.main.RootTabContent,
     eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner,
     eu.kanade.tachiyomi.ui.main.TabbedInterface,
+    ChromeAware,
     BottomSheetController {
 
     override val ownsActivityTabs: Boolean = true
@@ -407,8 +412,14 @@ class BrowseController :
     fun updateTitleAndMenu() {
         if (isControllerVisible) {
             val activity = (activity as? MainActivity) ?: return
-            activityBinding?.appBar?.isInvisible = showingExtensions
-            (activity as? MainActivity)?.setStatusBarColorTransparent(showingExtensions)
+            // AppBar visibility is owned by ChromeBinder. updateAppBarVisibility is a
+            // lightweight update path (alpha + isInvisible only) — full rebind isn't
+            // needed because the sheet expand doesn't change tabs / menu / scroll source.
+            activity.chromeBinder.updateAppBarVisibility(
+                appBarAlpha = 1f,
+                appBarVisible = !showingExtensions,
+            )
+            activity.setStatusBarColorTransparent(showingExtensions)
             updateSheetMenu()
         }
     }
@@ -428,7 +439,14 @@ class BrowseController :
         binding.bottomSheet.pill.alpha = (1 - progress) * 0.25f
         binding.bottomSheet.sheetToolbar.alpha = progress
         if (isControllerVisible) {
-            activityBinding?.appBar?.alpha = (1 - progress * 3) + 0.5f
+            // Sheet-drag fade: AppBar dims as the sheet expands. Goes through
+            // ChromeBinder so the alpha is owned by the same source of truth as the
+            // baseline visibility — when the user lifts their finger, updateTitleAndMenu
+            // overwrites with the final on/off state.
+            (activity as? MainActivity)?.chromeBinder?.updateAppBarVisibility(
+                appBarAlpha = (1 - progress * 3) + 0.5f,
+                appBarVisible = true,
+            )
         }
 
         binding.bottomSheet.root.updateGradiantBGRadius(
@@ -563,34 +581,31 @@ class BrowseController :
         )
         try {
             super.onChangeStarted(handler, type)
-            // The four presenter refreshes below were the dominant source of root nav jank
-            // (~250–700ms RV OnLayouts driven by ~15 inflate-per-frame of extension_card_item /
-            // manga_grid_item, triggered by their updateDataSet calls). Defer to onChangeEnded
-            // so they run after the Conductor crossfade settles, on an idle frame.
-            if (!type.isEnter) {
-                binding.bottomSheet.root.canExpand = false
-                activityBinding?.appBar?.alpha = 1f
-                activityBinding?.appBar?.isInvisible = router.isCompose
-                binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
-                    val searchView = searchItem.actionView as SearchView
-                    searchView.clearFocus()
+            when (type) {
+                ControllerChangeType.PUSH_ENTER -> {
+                    // Initial creation; selectTab follows up with onTabActivated → chrome bind.
                 }
-                // Push (something opened on top of Browse, e.g. BrowseSourceController) — release
-                // our claim on the activity tab strip unless the next controller owns it.
-                val nextController = router.backstack.lastOrNull()?.controller
-                val nextOwnsTabs = (nextController as? eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner)?.ownsActivityTabs == true
-                if (nextController !is DialogController &&
-                    !nextOwnsTabs &&
-                    activityBinding?.tabsFrameLayout?.isVisible == true
-                ) {
-                    (activity as? MainActivity)?.showTabBar(show = false, animate = true)
+                ControllerChangeType.POP_ENTER -> {
+                    // Pop back from BrowseSourceController etc.; rebind chrome since the
+                    // pushed controller had taken over.
+                    if (isControllerVisible) rebindChrome()
                 }
-            } else if (isControllerVisible) {
-                activityBinding?.appBar?.doOnNextLayout {
-                    activityBinding?.appBar?.y = 0f
-                    activityBinding?.appBar?.updateAppBarAfterY(binding.sourceRecycler)
+                ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> {
+                    setOptionsMenuHidden(true)
+                    binding.bottomSheet.root.canExpand = false
+                    binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
+                        (searchItem.actionView as? SearchView)?.clearFocus()
+                    }
+                    val nextController = router.backstack.lastOrNull()?.controller
+                    val nextOwnsTabs = (nextController as? eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner)?.ownsActivityTabs == true
+                    if (nextController !is DialogController &&
+                        !nextOwnsTabs &&
+                        activityBinding?.tabsFrameLayout?.isVisible == true
+                    ) {
+                        (activity as? MainActivity)?.showTabBar(show = false, animate = false)
+                    }
                 }
-                bindBrowseTypeTabs()
+                else -> Unit
             }
             setBottomPadding()
         } finally {
@@ -599,25 +614,29 @@ class BrowseController :
     }
 
     /**
-     * (Re)binds the Novel/Manga activity tab strip. Called both on real Conductor enter
-     * and on tab swap into Browse — bindStringTabs is idempotent (it clears the previous
-     * tabs first), so it's safe to call repeatedly.
+     * Rebinds the activity chrome through [ChromeBinder]. Called both on real Conductor
+     * enter (PUSH_ENTER) and on tab swap into Browse — the binder is idempotent and
+     * resets to baseline before applying, so it's safe to call repeatedly.
      */
-    private fun bindBrowseTypeTabs() {
-        val tabs = activityBinding?.mainTabs ?: return
-        val labels = BrowseSourceType.entries.map { activity?.getString(it.stringRes).orEmpty() }
-        // Two fixed tabs — fill the bar width evenly. Required because Library may have
-        // left MODE_SCROLLABLE on the shared strip for its category tabs.
-        tabs.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
-        tabs.tabGravity = com.google.android.material.tabs.TabLayout.GRAVITY_FILL
-        tabs.bindStringTabs(
-            labels = labels,
+    private fun rebindChrome() {
+        (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
+    }
+
+    override fun describeChrome(): ChromeSpec = ChromeSpec(
+        // When Browse's extension sheet is expanded, the sheet itself owns the top of
+        // the screen — hide the activity AppBar so it doesn't render over the sheet
+        // content. Tracked dynamically via [updateTitleAndMenu] for sheet expand/collapse.
+        appBarVisible = !showingExtensions,
+        includeTabsInLayout = showActivityTabs,
+        scrollSource = binding.sourceRecycler,
+        tabs = TabsSpec(
+            labels = BrowseSourceType.entries.map { activity?.getString(it.stringRes).orEmpty() },
             selectedIndex = presenter.currentType.ordinal,
+            mode = TabMode.Fixed,
             onSelected = { idx -> presenter.setCurrentType(BrowseSourceType.fromOrdinal(idx)) },
             onReselected = { binding.sourceRecycler.smoothScrollToTop() },
-        )
-        (activity as? MainActivity)?.showTabBar(true)
-    }
+        ),
+    )
 
     /**
      * Called when the user swaps to the Browse tab via the bottom nav. Persistent tabs
@@ -628,37 +647,22 @@ class BrowseController :
      */
     override fun onTabActivated() {
         if (!isBindingInitialized) return
-        setOptionsMenuHidden(false)
-        val recycler = binding.sourceRecycler
-        activityBinding?.appBar?.apply {
-            lockYPos = false
-            hideBigView(this@BrowseController is eu.kanade.tachiyomi.ui.base.SmallToolbarInterface)
-            setToolbarModeBy(this@BrowseController)
-            useTabsInPreLayout = showActivityTabs
-            y = 0f
-            updateAppBarAfterY(recycler)
-        }
+        rebindChrome()
         binding.bottomSheet.root.canExpand = true
         setBottomPadding()
-        bindBrowseTypeTabs()
-        updateTitleAndMenu()
+        // The lastUsed flow collector started in SourcePresenter.loadLastUsedSource can miss
+        // an update if the user opened a source (writing the pref) while Browse's view was
+        // detached for a push — re-read synchronously on activation so the row is current.
+        presenter.refreshLastUsed()
     }
 
     /**
-     * Called when the user swaps away from the Browse tab. Collapse the sheet machinery,
-     * dismiss any in-progress search, and release the activity tab strip — the incoming
-     * tab rebuilds whatever it needs on its own activation. Also restore the shared
-     * app bar's visual state: [updateTitleAndMenu] hides the bar when the extensions
-     * sheet is expanded, so without this the next tab would inherit an invisible bar.
+     * Called when the user swaps away from the Browse tab. The incoming tab's
+     * [ChromeBinder.bind] in its own activation will reset our chrome contributions —
+     * we just collapse our own internal state (sheet, in-progress search).
      */
     override fun onTabDeactivated() {
         if (!isBindingInitialized) return
-        setOptionsMenuHidden(true)
-        activityBinding?.appBar?.apply {
-            alpha = 1f
-            isInvisible = false
-        }
-        (activity as? MainActivity)?.showTabBar(show = false, animate = true)
         binding.bottomSheet.root.canExpand = false
         binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
             (searchItem.actionView as? SearchView)?.clearFocus()
@@ -743,19 +747,12 @@ class BrowseController :
 
     private fun pinCatalogue(source: Source, isPinned: Boolean) {
         // Pin against the source's own type bucket, regardless of which Browse tab is
-        // currently visible. (A novel source's pin should land in pinnedNovelCatalogues
-        // even if the user is somehow looking at it via legacy state.)
-        val pref = when ((source as? CatalogueSource)?.browseType ?: BrowseSourceType.Manga) {
-            BrowseSourceType.Manga -> preferences.pinnedMangaCatalogues()
-            BrowseSourceType.Novel -> preferences.pinnedNovelCatalogues()
-        }
-        val current = pref.get()
-        if (isPinned) {
-            pref.set(current - source.id.toString())
-        } else {
-            pref.set(current + source.id.toString())
-        }
-
+        // currently visible. (A novel source's pin lands in pinnedNovelCatalogues even
+        // if the user got to it via search / migration / a stale legacy entry.)
+        val type = (source as? CatalogueSource)?.browseType ?: BrowseSourceType.Manga
+        val pref = preferences.pinnedCataloguesFor(type)
+        val id = source.id.toString()
+        pref.set(if (isPinned) pref.get() - id else pref.get() + id)
         presenter.updateSources()
     }
 
@@ -782,14 +779,11 @@ class BrowseController :
      */
     private fun openCatalogue(source: CatalogueSource, controller: BrowseSourceController) {
         if (!preferences.incognitoMode().get()) {
-            // Write both the legacy cross-type pref (read by GlobalSearch / cold MangaDetails
-            // re-opens / migration tools) AND the per-type pref so each Browse tab remembers
-            // its own last-opened source.
+            // Mirror the write to both prefs: the legacy cross-type one is still read by
+            // GlobalSearch / migration / cold MangaDetails re-opens, and the per-type one
+            // drives Browse's tab-specific last-used row.
             preferences.lastUsedCatalogueSource().set(source.id)
-            when (source.browseType) {
-                BrowseSourceType.Manga -> preferences.lastUsedMangaSource().set(source.id)
-                BrowseSourceType.Novel -> preferences.lastUsedNovelSource().set(source.id)
-            }
+            preferences.lastUsedSourceFor(source.browseType).set(source.id)
             if (source !is LocalSource) {
                 val list = preferences.lastUsedSources().get().toMutableSet()
                 list.removeAll { it.startsWith("${source.id}:") }

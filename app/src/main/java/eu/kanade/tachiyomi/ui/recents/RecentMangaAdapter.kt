@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.ui.recents
 
 import android.content.Context
 import android.view.View
-import androidx.asynclayoutinflater.view.AsyncLayoutInflater
 import androidx.recyclerview.widget.ItemTouchHelper
 import eu.davidea.flexibleadapter.SelectableAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
@@ -57,13 +56,6 @@ class RecentMangaAdapter(val delegate: RecentsInterface) :
             .apply { decimalSeparator = '.' },
     )
     val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-
-    // Off-main-thread inflater used by RecentMangaHolder for sub-chapter rows.
-    // Themed context is required so ?attr/ values inside recent_sub_chapter_item resolve.
-    private var asyncInflaterCache: AsyncLayoutInflater? = null
-    fun getAsyncInflater(context: Context): AsyncLayoutInflater {
-        return asyncInflaterCache ?: AsyncLayoutInflater(context).also { asyncInflaterCache = it }
-    }
 
     init {
         setDisplayHeadersAtStartUp(true)
