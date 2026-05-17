@@ -9,12 +9,11 @@ import dev.icerock.moko.resources.compose.stringResource
 
 enum class RecentsViewType(val mainValue: Int, val stringRes: StringResource) {
     GroupedAll(0, MR.strings.grouped),
-    UngroupedAll(1, MR.strings.all),
-    History(2, MR.strings.history),
-    Updates(3, MR.strings.updates),
+    History(1, MR.strings.history),
+    Updates(2, MR.strings.updates),
     ;
 
-    val isAll get() = this == GroupedAll || this == UngroupedAll
+    val isAll get() = this == GroupedAll
     val isHistory get() = this == History
     val isUpdates get() = this == Updates
 

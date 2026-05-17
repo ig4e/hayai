@@ -17,4 +17,5 @@ val migrations: ImmutableList<Migration> = persistentListOf(
     RepoJsonMigration(),
     ThePurgeMigration(),
     NovelReaderPrefsMigration(),
+    RecentsViewTypeMigration(),
 )

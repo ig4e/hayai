@@ -195,7 +195,7 @@ class RecentsPresenter(
         val isEndless = isUngrouped && limit != 0
         var extraCount = 0
         val cReading: List<MangaChapterHistory> = when (viewType) {
-            RecentsViewType.GroupedAll, RecentsViewType.UngroupedAll -> {
+            RecentsViewType.GroupedAll -> {
                 getRecents.awaitAll(
                     showRead,
                     true,
@@ -746,7 +746,7 @@ class RecentsPresenter(
 
         suspend fun getRecentManga(includeRead: Boolean = false, customAmount: Int = 0): List<Pair<Manga, Long>> {
             val presenter = RecentsPresenter()
-            presenter.viewType = RecentsViewType.UngroupedAll
+            presenter.viewType = RecentsViewType.History
             SHORT_LIMIT = when {
                 customAmount > 0 -> (customAmount * 1.5).roundToInt()
                 includeRead -> 50

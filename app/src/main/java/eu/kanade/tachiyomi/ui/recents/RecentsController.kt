@@ -993,7 +993,7 @@ class RecentsController(bundle: Bundle? = null) :
             R.id.display_options -> {
                 displaySheet = TabbedRecentsOptionsSheet(
                     this,
-                    (presenter.viewType.mainValue - 1).coerceIn(0, 2),
+                    presenter.viewType.mainValue.coerceIn(0, 2),
                 )
                 displaySheet?.show()
             }
