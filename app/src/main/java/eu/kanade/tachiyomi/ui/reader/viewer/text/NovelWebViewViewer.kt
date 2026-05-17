@@ -211,6 +211,20 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                 if (isEditingMode) return false
 
+                // While TTS is running (or paused) and the user has tap-to-start enabled,
+                // let taps fall through to the WebView so the JS click handler installed in
+                // `installSentenceClickHandler` can catch the paragraph and call
+                // `Android.startTtsAtParagraph(chapId, paraIdx)`. Without this gate, the
+                // navigator's MENU region (which covers the centre stripe — exactly where
+                // the reading text lives) consumed every tap as `toggleMenu`, so the JS
+                // handler never fired and tap-to-jump silently did nothing. The JS handler
+                // is itself gated on `__novelTtsClickEnabled`, which only flips true once
+                // TTS is actually speaking — so a casual tap when TTS is off still toggles
+                // the menu as before.
+                if (preferences.novelTtsTapToStart.get() && (isTtsSpeaking() || isTtsPaused())) {
+                    return false
+                }
+
                 val pos = android.graphics.PointF(
                     e.x / container.width.toFloat(),
                     e.y / container.height.toFloat(),
@@ -359,6 +373,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
 
     /**
      * Applies visual highlighting to the chunk currently being read by TTS using JavaScript.
+     *
+     * When [currentTtsChapterId] is known (tap-to-start, or any chapter-scoped entry), the
+     * JS lookup is anchored to that chapter's `data-chapter-id` wrapper and queries the
+     * matching `data-paragraph-index` directly. Without this scoping, the previous
+     * `document.querySelectorAll('p, li, ...')[paragraphIndex]` lookup walked ALL chapters
+     * currently in the WebView (infinite-scroll loads multiple at once), so a tap on
+     * chapter A's paragraph 5 — which correctly plays A's paragraph 5 of audio — would
+     * highlight whichever paragraph happened to sit at DOM position 5 (often a previous
+     * chapter's content). That's what users saw as "TTS reads sentences other than the
+     * selected": audio and highlight pointed at different chapters.
      */
     private fun applyTtsHighlight(chunkIndex: Int) {
         if (chunkIndex < 0 || chunkIndex >= ttsChunks.size) return
@@ -368,6 +392,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         val highlightTextColor = String.format("#%06X", 0xFFFFFF and preferences.novelTtsHighlightTextColor.get())
         val highlightStyle = preferences.novelTtsHighlightStyle.get()
         val keepInView = preferences.novelTtsKeepHighlightInView.get()
+        // null when the active playback isn't chapter-scoped (e.g. classic startTts which
+        // speaks body.innerText across all loaded chapters). null falls back to the legacy
+        // global-position lookup, which is correct for that flow.
+        val chapterIdLiteral = currentTtsChapterId?.let { "'$it'" } ?: "null"
 
         val jsCode = """
             (function() {
@@ -385,22 +413,35 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 document.documentElement.style.setProperty('--td-tts-highlight-bg', '$highlightColor');
                 document.documentElement.style.setProperty('--td-tts-highlight-text', '$highlightTextColor');
 
-                var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
-                var paragraphs = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
-                    return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                });
-                if (!paragraphs.length) {
-                    paragraphs = Array.from(document.body.children).filter(function(el) {
+                var target = null;
+                var scopedChapterId = $chapterIdLiteral;
+                if (scopedChapterId !== null) {
+                    // Direct attribute match within the chapter that's currently being read.
+                    // The tagger sets data-paragraph-index per chapter (numbering restarts),
+                    // so the index Kotlin holds and the DOM attribute share a coordinate
+                    // system — no DOM-order counting needed.
+                    target = document.querySelector(
+                        '[data-chapter-id="' + scopedChapterId + '"] [data-paragraph-index="$paragraphIndex"]'
+                    );
+                }
+                if (!target) {
+                    var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
+                    var paragraphs = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
                         return !!el && !!el.innerText && el.innerText.trim().length > 0;
                     });
+                    if (!paragraphs.length) {
+                        paragraphs = Array.from(document.body.children).filter(function(el) {
+                            return !!el && !!el.innerText && el.innerText.trim().length > 0;
+                        });
+                    }
+                    var targetIndex = Math.min(Math.max($paragraphIndex, 0), Math.max(paragraphs.length - 1, 0));
+                    target = paragraphs[targetIndex];
                 }
 
                 if (state.currentEl) {
                     state.currentEl.classList.remove('td-tts-highlight-bg', 'td-tts-highlight-underline', 'td-tts-highlight-outline');
                 }
 
-                var targetIndex = Math.min(Math.max($paragraphIndex, 0), Math.max(paragraphs.length - 1, 0));
-                var target = paragraphs[targetIndex];
                 if (!target) {
                     state.currentEl = null;
                     return;
@@ -1222,7 +1263,13 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
      */
     fun refreshSentenceTapToTtsState() {
         val prefOn = preferences.novelTtsTapToStart.get()
-        val ttsActive = isTtsSpeaking() || isTtsPaused()
+        // `ttsChunks.isNotEmpty()` covers the window between `speak()` queueing utterances
+        // and the engine's first `onStart` callback firing — without it, a fast user tap
+        // arrives at the JS handler before `__novelTtsClickEnabled` flipped true and the
+        // tap is silently dropped. The chunk array is populated synchronously inside
+        // `speak()` and cleared by `stopTts()`, so it's an accurate "playback session is
+        // live" signal.
+        val ttsActive = isTtsSpeaking() || isTtsPaused() || ttsChunks.isNotEmpty()
         setSentenceTapToTtsEnabled(prefOn && ttsActive)
     }
 
@@ -3838,17 +3885,32 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         // Extract paragraph info for highlighting support
         ttsCurrentParagraphs = NovelViewerTextUtils.findParagraphs(text)
 
-        // Check if we should resume from saved progress
-        val savedChunkIndex = restoreTtsProgress()
+        // Always start from the chunk the caller asked for (viewport / tapped paragraph),
+        // or from the very beginning. The previous logic restored a per-chapter "last read
+        // chunk" from `restoreTtsProgress()` whenever the user pressed the TTS button —
+        // and because `saveTtsProgress` writes the index on every onDone, that saved value
+        // converged to the LAST chunk of the chapter. Result: tapping play "resumed" at
+        // the final chunk, one utterance fired, `onDone` reported the last chunk, and
+        // `loadNextChapterForTts()` advanced past the chapter the user actually wanted to
+        // hear. The progress map is still maintained by `saveTtsProgress` for future
+        // explicit-resume use, but it no longer biases fresh playback starts.
         ttsCurrentChunkIndex = 0
         val startIndex = if (hasViewportStartOverride) {
-            // If launched from viewport, convert paragraph index into nearest chunk.
+            // If launched from viewport / tapped paragraph, convert the paragraph index
+            // into the nearest chunk.
             val viewportChunkIndex = ttsChunkParagraphIndexes.indexOfFirst { it >= ttsViewportParagraphIndex }
-            if (viewportChunkIndex >= 0) viewportChunkIndex else savedChunkIndex
+            if (viewportChunkIndex >= 0) viewportChunkIndex else 0
         } else {
-            savedChunkIndex
+            0
         }
         hasViewportStartOverride = false
+
+        // Flip the sentence-tap JS gate to TRUE before queueing utterances. Otherwise the
+        // gate only opens from the first `onStart` callback, leaving a sub-second window
+        // where a user tap on a paragraph reaches the JS handler but is rejected because
+        // the gate is still false — which is the "selecting a paragraph doesn't work"
+        // symptom users hit when they tapped quickly after pressing the TTS button.
+        refreshSentenceTapToTtsState()
 
         speakChunksFrom(startIndex.coerceIn(0, (ttsChunks.size - 1).coerceAtLeast(0)))
     }

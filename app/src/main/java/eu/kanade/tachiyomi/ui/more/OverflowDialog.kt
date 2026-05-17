@@ -44,7 +44,7 @@ class OverflowDialog(
 
         binding.overflowCardView.backgroundTintList = ColorStateList.valueOf(
             ColorUtils.blendARGB(
-                activity.getResourceColor(android.R.attr.background),
+                activity.getResourceColor(R.attr.background),
                 activity.getResourceColor(materialR.attr.colorSecondary),
                 0.075f,
             ),

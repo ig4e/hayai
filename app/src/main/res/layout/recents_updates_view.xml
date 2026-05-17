@@ -57,11 +57,11 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/hidden_sources"
-            style="@style/Theme.Widget.Button.TextButton"
+            style="@style/Widget.Material3.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="start|center_vertical"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp"
             android:text="@string/recents_hidden_sources" />
     </LinearLayout>
 </eu.kanade.tachiyomi.ui.recents.options.RecentsUpdatesView>

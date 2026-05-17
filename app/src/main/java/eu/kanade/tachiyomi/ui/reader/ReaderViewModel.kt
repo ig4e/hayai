@@ -180,11 +180,10 @@ class ReaderViewModel(
         if (!::chapterList.isInitialized) return false
         val activeId = novelActiveChapterId
         if (activeId <= 0L) return false
-        val curr = state.value.viewerChapters?.currChapter
-        if (curr?.chapter?.id == activeId) return false
-        val target = chapterList.firstOrNull { it.chapter.id == activeId } ?: return false
-        val pos = chapterList.indexOf(target)
+        if (state.value.viewerChapters?.currChapter?.chapter?.id == activeId) return false
+        val pos = chapterList.indexOfFirst { it.chapter.id == activeId }
         if (pos < 0) return false
+        val target = chapterList[pos]
         val newChapters = ViewerChapters(
             target,
             chapterList.getOrNull(pos - 1),
@@ -664,11 +663,12 @@ class ReaderViewModel(
         chapter ?: return
         if (!::chapterList.isInitialized) return
         val newChapterId = chapter.id ?: return
-        val readerChapter = chapterList.firstOrNull { it.chapter.id == newChapterId } ?: return
+        val newIndex = chapterList.indexOfFirst { it.chapter.id == newChapterId }
+        if (newIndex < 0) return
+        val readerChapter = chapterList[newIndex]
         if (chapterId != newChapterId) {
             val previousChapterId = chapterId
             val oldIndex = chapterList.indexOfFirst { it.chapter.id == previousChapterId }
-            val newIndex = chapterList.indexOfFirst { it.chapter.id == newChapterId }
             if (oldIndex in 0 until newIndex) {
                 val leftBehind = chapterList[oldIndex]
                 if (
@@ -683,21 +683,18 @@ class ReaderViewModel(
             sessionReachedThreshold.remove(previousChapterId)
             chapterId = newChapterId
 
-            val pos = chapterList.indexOf(readerChapter)
-            if (pos >= 0) {
-                val newChapters = ViewerChapters(
-                    readerChapter,
-                    chapterList.getOrNull(pos - 1),
-                    chapterList.getOrNull(pos + 1),
-                )
-                mutableState.update { state ->
-                    newChapters.ref()
-                    state.viewerChapters?.unref()
-                    state.copy(viewerChapters = newChapters)
-                }
-                flushReadTimer()
-                restartReadTimer()
+            val newChapters = ViewerChapters(
+                readerChapter,
+                chapterList.getOrNull(newIndex - 1),
+                chapterList.getOrNull(newIndex + 1),
+            )
+            mutableState.update { state ->
+                newChapters.ref()
+                state.viewerChapters?.unref()
+                state.copy(viewerChapters = newChapters)
             }
+            flushReadTimer()
+            restartReadTimer()
 
             eventChannel.trySend(Event.NovelVisibleChapterChanged(readerChapter))
         }

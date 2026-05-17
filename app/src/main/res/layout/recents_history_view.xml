@@ -37,20 +37,28 @@
             android:text="@string/recents_show_hidden"
             android:textColor="?attr/colorOnBackground" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/hidden_sources"
-            style="@style/Theme.Widget.Button.TextButton"
+        <com.google.android.material.button.MaterialButtonGroup
+            android:id="@+id/history_actions_group"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="start|center_vertical"
-            android:text="@string/recents_hidden_sources" />
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/clear_history"
-            style="@style/Theme.Widget.Button.TextButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/clear_history" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/hidden_sources"
+                style="@style/Widget.Material3.Button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/recents_hidden_sources" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clear_history"
+                style="@style/Widget.Material3.Button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/clear_history" />
+        </com.google.android.material.button.MaterialButtonGroup>
     </LinearLayout>
 </eu.kanade.tachiyomi.ui.recents.options.RecentsHistoryView>

@@ -66,9 +66,7 @@ import eu.kanade.tachiyomi.util.system.notification
 import eu.kanade.tachiyomi.util.system.setToDefault
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import java.security.Security
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -141,27 +139,6 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         // MainActivity later calls into them. See AppModule.initExpensiveComponents.
         initExpensiveComponents(this)
 
-        // Trigger NovelPluginManager init now so QuickJS metadata extraction happens during
-        // app launch, not at the first reader-open (where ReaderViewModel.init awaits the
-        // source up to SOURCE_AWAIT_TIMEOUT_MS = 5 s).
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try {
-                GlobalContext.get().get<hayai.novel.plugin.NovelPluginManager>()
-            } catch (e: Throwable) {
-                Logger.w(e) { "App: pre-warming NovelPluginManager failed" }
-            }
-        }
-
-        // Pre-load WebView native libs so the first novel chapter doesn't pay the WebView
-        // class-init cost (200–500 ms cold) on the UI thread inside NovelWebViewViewer.
-        android.os.Handler(Looper.getMainLooper()).post {
-            try {
-                WebView(this).destroy()
-            } catch (e: Throwable) {
-                Logger.w(e) { "App: pre-warming WebView failed" }
-            }
-        }
-
         // EXH -->
         // Schedule EHentai gallery update worker if enabled
         // This will be wired when EHentaiUpdateWorkerConstants is available:
@@ -177,6 +154,26 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         // ── 4. One-shot side effects ──────────────────────────────────────────────────────
         // NotificationManager APIs are thread-safe and idempotent; defer off Main.
         scope.launchIO { setupNotificationChannels() }
+
+        // Trigger NovelPluginManager init now so QuickJS metadata extraction happens at
+        // app launch, not at first reader-open (where init awaits the source up to 5s).
+        scope.launchIO {
+            try {
+                GlobalContext.get().get<hayai.novel.plugin.NovelPluginManager>()
+            } catch (e: Throwable) {
+                Logger.w(e) { "App: pre-warming NovelPluginManager failed" }
+            }
+        }
+
+        // Pre-load WebView native libs so the first novel chapter doesn't pay the
+        // WebView class-init cost (200–500 ms cold) on the UI thread.
+        scope.launch {
+            try {
+                WebView(this@App).destroy()
+            } catch (e: Throwable) {
+                Logger.w(e) { "App: pre-warming WebView failed" }
+            }
+        }
 
         // Cover ratio/colour cache: heavy SharedPreferences read on first access; on IO so it
         // can't block the main thread. MangaCoverMetadata.load() merges into the existing
