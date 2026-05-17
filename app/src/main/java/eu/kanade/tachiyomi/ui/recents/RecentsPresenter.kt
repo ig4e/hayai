@@ -717,6 +717,16 @@ class RecentsPresenter(
     )
 
     /**
+     * Snapshot used to restore a history row after a bulk erase undo.
+     */
+    data class HistorySnapshot(
+        val historyId: Long,
+        val chapterId: Long,
+        val lastRead: Long,
+        val timeRead: Long,
+    )
+
+    /**
      * Capture the current read state for every selected chapter so an undo
      * snackbar can restore them in one shot.
      */
@@ -724,6 +734,19 @@ class RecentsPresenter(
         return chapterIds.mapNotNull { id ->
             val ch = findChapterById(id) ?: return@mapNotNull null
             MarkReadSnapshot(id, ch.read, ch.last_page_read, ch.pages_left)
+        }
+    }
+
+    /**
+     * Capture (history_id, last_read, time_read) for each history row so a
+     * bulk erase can be undone.
+     */
+    fun snapshotHistory(historyIds: List<Long>): List<HistorySnapshot> {
+        return historyIds.mapNotNull { id ->
+            val h = recentItems.firstNotNullOfOrNull { item ->
+                item.mch.history.takeIf { it.id == id }
+            } ?: return@mapNotNull null
+            HistorySnapshot(id, h.chapter_id, h.last_read, h.time_read)
         }
     }
 
@@ -787,6 +810,39 @@ class RecentsPresenter(
     fun unhideItems(tab: Int, chapterIds: List<Long>) {
         presenterScope.launchNonCancellableIO {
             unhideRecents.await(tab, chapterIds)
+            getRecents()
+        }
+    }
+
+    /**
+     * Reset last_read/time_read on every history id in [historyIds]. Mirrors
+     * [removeFromHistory] but operates in bulk.
+     */
+    fun bulkRemoveHistory(historyIds: List<Long>) {
+        presenterScope.launchNonCancellableIO {
+            val histories = historyIds.mapNotNull { id ->
+                recentItems.find { it.mch.history.id == id }?.mch?.history?.apply {
+                    last_read = 0L
+                    time_read = 0L
+                }
+            }
+            if (histories.isNotEmpty()) {
+                upsertHistory.awaitBulk(histories)
+                getRecents()
+            }
+        }
+    }
+
+    /**
+     * Restore (last_read, time_read) for previously-erased history rows. The
+     * presenter doesn't keep references to the snapshotted History entities,
+     * so we look them up via the active getHistory interactor by id.
+     */
+    fun restoreHistory(snapshots: List<HistorySnapshot>) {
+        presenterScope.launchNonCancellableIO {
+            snapshots.forEach { snap ->
+                upsertHistory.await(snap.chapterId, snap.lastRead, snap.timeRead)
+            }
             getRecents()
         }
     }

@@ -22,4 +22,11 @@
         android:title="@string/recents_hide"
         app:iconTint="?colorOnSurface"
         app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_erase_history"
+        android:icon="@drawable/ic_delete_24dp"
+        android:title="@string/reset"
+        app:iconTint="?colorOnSurface"
+        app:showAsAction="ifRoom" />
 </menu>

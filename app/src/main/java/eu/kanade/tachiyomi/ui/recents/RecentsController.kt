@@ -1178,6 +1178,8 @@ class RecentsController(bundle: Bundle? = null) :
             return false
         }
         mode.title = view?.context?.getString(MR.strings.selected_, count)
+        // Erase (history reset) only makes sense on the History tab.
+        menu.findItem(R.id.action_erase_history)?.isVisible = presenter.viewType.isHistory
         return true
     }
 
@@ -1193,6 +1195,10 @@ class RecentsController(bundle: Bundle? = null) :
             }
             R.id.action_hide -> {
                 bulkHide()
+                true
+            }
+            R.id.action_erase_history -> {
+                confirmBulkEraseHistory()
                 true
             }
             else -> false
@@ -1311,5 +1317,52 @@ class RecentsController(bundle: Bundle? = null) :
         (activity as? MainActivity)?.setUndoSnackBar(snack)
     }
 
+    /**
+     * Show the existing reset-confirmation dialog before kicking off a bulk
+     * history erase. On confirm, snapshot each row so undo can restore them.
+     */
+    private fun confirmBulkEraseHistory() {
+        val activity = activity ?: return
+        val items = adapter.selectedRecentItems()
+        if (items.isEmpty()) return
+        // Reuse the existing single-item confirmation copy; substitute either
+        // the lone chapter name (1 item) or a "N selected items" summary so
+        // the dialog reads naturally for both.
+        val summary = if (items.size == 1) {
+            items.first().chapter.name
+        } else {
+            activity.getString(MR.strings.selected_, items.size)
+        }
+        activity.materialAlertDialog()
+            .setCustomTitleAndMessage(
+                MR.strings.reset_chapter_question,
+                activity.getString(
+                    MR.strings.this_will_remove_the_read_date_for_x_question,
+                    summary,
+                ),
+            )
+            .setNegativeButton(AR.string.cancel, null)
+            .setPositiveButton(MR.strings.reset) { _, _ ->
+                performBulkEraseHistory(items)
+            }
+            .show()
+    }
+
+    private fun performBulkEraseHistory(items: List<RecentMangaItem>) {
+        val view = view ?: return
+        val historyIds = items.mapNotNull { it.mch.history.id }
+        if (historyIds.isEmpty()) return
+        val snapshot = presenter.snapshotHistory(historyIds)
+        presenter.bulkRemoveHistory(historyIds)
+        destroyActionModeIfNeeded()
+        snack?.dismiss()
+        snack = view.snack(MR.strings.marked_as_unread, Snackbar.LENGTH_LONG) {
+            anchorView = activityBinding?.bottomNav
+            setAction(MR.strings.undo) {
+                presenter.restoreHistory(snapshot)
+            }
+        }
+        (activity as? MainActivity)?.setUndoSnackBar(snack)
+    }
     // endregion
 }
