@@ -183,6 +183,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     private val isUpdaterEnabled = BuildConfig.INCLUDE_UPDATER
     private var tabAnimation: ValueAnimator? = null
     private var searchBarAnimation: ValueAnimator? = null
+    private var searchTBLongClickSet = false
     private var overflowDialog: Dialog? = null
     var currentToolbar: Toolbar? = null
     var ogWidth: Int = Int.MAX_VALUE
@@ -783,7 +784,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             binding.toolbar
         }
         binding.toolbar.isVisible = !(onSmallerController && onSearchController)
-        setSearchTBLongClick()
+        // setSearchTBLongClick re-attaches the SAME listener on every controller change;
+        // attach once and skip thereafter.
+        if (!searchTBLongClickSet) {
+            setSearchTBLongClick()
+            searchTBLongClickSet = true
+        }
         val showSearchBar = (show || showSearchAnyway) && onSearchController
         val isAppBarVisible = binding.appBar.isVisible
         val needsAnim = if (showSearchBar) {
@@ -819,7 +825,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 if (show && !solidBG) Color.TRANSPARENT else getResourceColor(materialR.attr.colorSurface),
             )
         }
-        setupSearchTBMenu(binding.toolbar.menu)
+        // Defer the menu rebuild past the current frame so it doesn't run mid-fade.
+        // setupSearchTBMenu diffs the current toolbar menu against the new controller's
+        // menu, addOrUpdates/removes items, and may trigger requestLayout on actionMenuView.
+        // Doing this synchronously during onChangeStarted blocks the Conductor crossfade
+        // (200ms) and was a major source of the 250–700ms frames during root nav swaps.
+        binding.toolbar.post { setupSearchTBMenu(binding.toolbar.menu) }
         if (currentToolbar != binding.searchToolbar) {
             binding.searchToolbar.menu?.children?.toList()?.forEach {
                 it.isVisible = false
@@ -1523,28 +1534,38 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             updateControllersWithSideNavChanges(from)
             nav.alpha = 1f
         } else {
-            animationSet?.cancel()
-            animationSet = AnimatorSet()
-            val alphaAnimation = ValueAnimator.ofFloat(
-                nav.alpha,
-                if (hideBottomNav) 0f else 1f,
-            )
-            alphaAnimation.addUpdateListener { valueAnimator ->
-                nav.alpha = valueAnimator.animatedValue as Float
-            }
-            alphaAnimation.doOnEnd {
+            val targetAlpha = if (hideBottomNav) 0f else 1f
+            // Skip the 150ms ValueAnimator entirely when nav alpha won't change. Common
+            // path for root <-> root swaps (Library/Recents/Browse) where both keep the
+            // bottom nav visible — the animation was 150ms of wasted per-frame invalidates.
+            if (nav.alpha == targetAlpha) {
                 nav.isVisible = !hideBottomNav
-                binding.bottomView?.visibility =
-                    if (hideBottomNav) {
-                        View.GONE
-                    } else {
-                        binding.bottomView?.visibility
-                            ?: View.GONE
-                    }
+                binding.bottomView?.visibility = if (hideBottomNav) {
+                    View.GONE
+                } else {
+                    binding.bottomView?.visibility ?: View.GONE
+                }
+            } else {
+                animationSet?.cancel()
+                animationSet = AnimatorSet()
+                val alphaAnimation = ValueAnimator.ofFloat(nav.alpha, targetAlpha)
+                alphaAnimation.addUpdateListener { valueAnimator ->
+                    nav.alpha = valueAnimator.animatedValue as Float
+                }
+                alphaAnimation.doOnEnd {
+                    nav.isVisible = !hideBottomNav
+                    binding.bottomView?.visibility =
+                        if (hideBottomNav) {
+                            View.GONE
+                        } else {
+                            binding.bottomView?.visibility
+                                ?: View.GONE
+                        }
+                }
+                alphaAnimation.duration = 150
+                animationSet?.playTogether(alphaAnimation)
+                animationSet?.start()
             }
-            alphaAnimation.duration = 150
-            animationSet?.playTogether(alphaAnimation)
-            animationSet?.start()
         }
     }
 
