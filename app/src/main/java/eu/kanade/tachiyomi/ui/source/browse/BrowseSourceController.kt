@@ -592,9 +592,7 @@ open class BrowseSourceController(bundle: Bundle) :
 
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
-        if (type.isEnter && isControllerVisible) {
-            (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
-        }
+        // BaseController.onChangeStarted already rebound the chrome from describeChrome().
         if (type == ControllerChangeType.POP_ENTER && lastPosition > -1) {
             adapter?.notifyItemChanged(lastPosition, false)
             lastPosition = -1
@@ -604,7 +602,6 @@ open class BrowseSourceController(bundle: Bundle) :
     override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
         eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
             appBarVisible = true,
-            includeTabsInLayout = false,
             scrollSource = recycler,
             useSmallToolbar = false,
             tabs = null,

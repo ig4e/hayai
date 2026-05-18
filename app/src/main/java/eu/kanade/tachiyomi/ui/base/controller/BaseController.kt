@@ -14,6 +14,8 @@ import com.bluelinelabs.conductor.Controller
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
 import eu.kanade.tachiyomi.util.view.BackHandlerControllerInterface
 import eu.kanade.tachiyomi.util.view.activityBinding
 import eu.kanade.tachiyomi.util.view.isControllerVisible
@@ -71,6 +73,17 @@ abstract class BaseController(bundle: Bundle? = null) :
             removeQueryListener()
         }
         setHasOptionsMenu(type.isEnter && isControllerVisible)
+        // Hoisted chrome bind: every ChromeAware controller's PUSH_ENTER / POP_ENTER
+        // rebinds the shared activity chrome from its declared spec. Leaf controllers
+        // no longer need to call chromeBinder.bind manually — the only remaining
+        // direct caller pattern is RootTabContent.onTabActivated, which fires outside
+        // Conductor's lifecycle.
+        if (type.isEnter && isControllerVisible) {
+            val chromeAware = this as? ChromeAware
+            if (chromeAware != null) {
+                (activity as? MainActivity)?.chromeBinder?.bind(this, chromeAware.describeChrome())
+            }
+        }
         super.onChangeStarted(handler, type)
     }
 

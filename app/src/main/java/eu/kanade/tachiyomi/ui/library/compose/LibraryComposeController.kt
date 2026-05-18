@@ -35,7 +35,20 @@ class LibraryComposeController(
 ) : BaseCoroutineController<LibraryControllerBinding, LibraryComposePresenter>(bundle) ,
     BottomSheetController,
     RootSearchInterface,
-    FloatingSearchInterface {
+    FloatingSearchInterface,
+    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
+
+    /**
+     * The Compose library variant currently owns its own top bar via the Compose tree
+     * — the activity tab strip is not used. Returning `tabs = null` ensures any strip
+     * left by a previous root controller is cleared by [ChromeBinder.resetToBaseline].
+     */
+    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
+        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
+            appBarVisible = true,
+            scrollSource = null,
+            tabs = null,
+        )
 
     override fun getTitle(): String? {
         return view?.context?.getString(MR.strings.library)
@@ -92,3 +105,4 @@ class LibraryComposeController(
     override fun toggleSheet() {
     }
 }
+

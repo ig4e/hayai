@@ -86,16 +86,16 @@ import eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_TRACK_STATUS
 import eu.kanade.tachiyomi.ui.library.LibraryGroup.UNGROUPED
 import eu.kanade.tachiyomi.ui.library.display.TabbedLibraryDisplaySheet
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
-import androidx.viewpager.widget.ViewPager
-import eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner
 import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
 import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
+import eu.kanade.tachiyomi.ui.main.chrome.TabItem
 import eu.kanade.tachiyomi.ui.main.chrome.TabMode
 import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
+import eu.kanade.tachiyomi.ui.main.chrome.TabsPagerSync
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -115,7 +115,6 @@ import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.view.activityBinding
-import eu.kanade.tachiyomi.util.view.bindStringTabs
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.util.view.expand
@@ -170,13 +169,9 @@ open class LibraryController(
     BottomSheetController,
     RootSearchInterface,
     FloatingSearchInterface,
-    MainActivityTabsOwner,
     ChromeAware,
     eu.kanade.tachiyomi.ui.main.RootTabContent,
     eu.kanade.tachiyomi.ui.main.TabbedInterface {
-
-    override val ownsActivityTabs: Boolean
-        get() = isTabbedMode
 
     /** Library only owns the activity tab bar when the user picked tabbed display mode. */
     override val showActivityTabs: Boolean
@@ -205,7 +200,6 @@ open class LibraryController(
     val libraryLayoutValue: Int get() = libraryLayout
 
     private var pagerAdapter: LibraryPagerAdapter? = null
-    private var pageChangeListener: ViewPager.OnPageChangeListener? = null
 
     private val isTabbedMode: Boolean
         get() = preferences.libraryDisplayMode().get() == LibraryItem.DISPLAY_MODE_TABBED
@@ -533,35 +527,37 @@ open class LibraryController(
         }
     }
 
+    /**
+     * Library has two display modes: continuous (single scrolling RecyclerView for all
+     * categories) and tabbed (a ViewPager with one RecyclerView per category and the
+     * activity tab strip as the pill bar). This switches the view tree between the two
+     * and rebinds the activity chrome — the tab strip itself is declared in
+     * [describeChrome] and applied by the [eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder].
+     */
     private fun applyDisplayMode() {
         if (!isControllerVisible) return
-        if (isTabbedMode) {
-            setupTabbedView()
-        } else {
-            teardownTabbedView()
-            if (activityBinding?.tabsFrameLayout?.isVisible == true) {
-                (activity as? MainActivity)?.showTabBar(show = false)
-            }
-        }
+        val showStrip = isTabbedMode &&
+            visibleTabCategories().size > 1 &&
+            !presenter.forceShowAllCategories
+        if (showStrip) applyTabbedViewTree() else applyContinuousViewTree()
+        rebindChrome()
         showMiniBar()
     }
 
-    private fun setupTabbedView() {
-        if (!isControllerVisible) return
-        val tabs = activityBinding?.mainTabs ?: return
+    /**
+     * Bring the per-category pager into view, push the continuous recycler off-screen,
+     * and reset the appbar to the active page's scroll offset. All tab-strip state is
+     * applied later through [rebindChrome] — this method only manipulates Library's
+     * own view subtree and the appbar Y position.
+     */
+    private fun applyTabbedViewTree() {
         val visibleCats = visibleTabCategories()
-        if (visibleCats.size <= 1 || presenter.forceShowAllCategories) {
-            teardownTabbedView()
-            (activity as? MainActivity)?.showTabBar(show = false)
-            return
-        }
-
         binding.libraryGridRecycler.recycler.isVisible = false
         binding.libraryPager.isVisible = true
-        // Empty the continuous-mode adapter immediately. Even though its recycler is GONE, the next
-        // library update would otherwise re-populate it before the check in onNextLibraryUpdate
-        // takes effect — leaving stale categories+headers ready to render if the view is briefly
-        // measured during a transition.
+        // Empty the continuous-mode adapter immediately. Even though its recycler is GONE,
+        // the next library update would otherwise re-populate it before the guard in
+        // onNextLibraryUpdate takes effect — leaving stale categories+headers ready to
+        // render if the view is briefly measured during a transition.
         mAdapter?.setItems(emptyList())
 
         val adapter = pagerAdapter ?: LibraryPagerAdapter(this).also { pagerAdapter = it }
@@ -578,161 +574,72 @@ open class LibraryController(
             binding.libraryPager.setCurrentItem(selectedIdx, false)
         }
 
-        tabs.tabMode = com.google.android.material.tabs.TabLayout.MODE_SCROLLABLE
-        tabs.bindStringTabs(
-            labels = visibleCats.map { it.name },
-            selectedIndex = selectedIdx,
-            onSelected = { idx ->
-                if (binding.libraryPager.currentItem != idx) {
-                    binding.libraryPager.setCurrentItem(idx, true)
-                }
-            },
-            onReselected = {
-                pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)?.smoothScrollToTop()
-            },
-        )
-        applyCategoryTabBadges(tabs, visibleCats)
-
-        pageChangeListener?.let { binding.libraryPager.removeOnPageChangeListener(it) }
-        val listener = object : ViewPager.SimpleOnPageChangeListener() {
-            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
-                tabs.setScrollPosition(position, positionOffset, /* updateSelectedTabView = */ false)
-            }
-
-            override fun onPageSelected(position: Int) {
-                if (tabs.selectedTabPosition != position) {
-                    tabs.getTabAt(position)?.select()
-                }
-                val target = visibleCats.getOrNull(position) ?: return
-                if (target.order != activeCategory) {
-                    activeCategory = target.order
-                    setActiveCategory()
-                    if (!isSubClass) preferences.lastUsedCategory().set(target.order)
-                }
-                val pageAdapter = pagerAdapter?.adapterForPosition(position)
-                pageAdapter?.let(::applySelectionStateTo)
-                // Each tab opens at the top of its own content (not the previous tab's scroll offset),
-                // and the appbar snaps fully expanded since the new page's offset is 0.
-                pagerAdapter?.recyclerForPosition(position)?.let { pageRecycler ->
-                    pageRecycler.stopScroll()
-                    pageRecycler.scrollToPosition(0)
-                    activityBinding?.appBar?.let { appBar ->
-                        appBar.y = 0f
-                        appBar.updateAppBarAfterY(pageRecycler)
-                    }
-                    setPageToolbarElevated(false)
-                }
-            }
-        }
-        binding.libraryPager.addOnPageChangeListener(listener)
-        pageChangeListener = listener
-
-        (activity as? MainActivity)?.showTabBar(show = true)
-        applyTabbedAppBarMode(enabled = true)
-    }
-
-    private fun teardownTabbedView(restoreAppBar: Boolean = true) {
-        if (restoreAppBar) {
-            // Switching to a non-tabbed display mode while the controller is still visible: detach
-            // the pager and bring the continuous recycler back.
-            pageChangeListener?.let { binding.libraryPager.removeOnPageChangeListener(it) }
-            pageChangeListener = null
-            activityBinding?.mainTabs?.tabMode = com.google.android.material.tabs.TabLayout.MODE_FIXED
-            binding.libraryPager.adapter = null
-            binding.libraryPager.isVisible = false
-            binding.libraryGridRecycler.recycler.isVisible = true
-            // Repopulate mAdapter — it was emptied while tabbed view was active. Without this, code
-            // paths that toggle teardown without firing a fresh onNextLibraryUpdate (e.g. flatten on
-            // search-across-tabs) would leave the now-visible continuous recycler empty.
-            if (mAdapter?.itemCount == 0) {
-                mAdapter?.setItems(presenter.libraryItemsToDisplay)
-            }
-            applyTabbedAppBarMode(enabled = false)
-        } else {
-            // Controller is leaving the screen. Don't reflow the views — swapping visibility flashes
-            // the continuous-mode recycler underneath during the push animation. Just release the
-            // appbar y-lock so the next controller's scroll listeners can move the bar.
-            // NOTE: don't change mainTabs.tabMode here. Switching MODE_SCROLLABLE → MODE_FIXED
-            // forces TabLayout to re-measure tabs from variable widths to equal-fixed widths
-            // visibly during the push fade, producing scatter. showTabBar's doOnEnd calls
-            // removeAllTabs() anyway, and the next controller sets its own tab mode on entry.
-            activityBinding?.appBar?.lockYPos = false
-        }
-    }
-
-    private fun applyTabLabels(tabs: com.google.android.material.tabs.TabLayout, visibleCats: List<Category>) {
-        applyCategoryTabBadges(tabs, visibleCats)
-    }
-
-    /**
-     * Replaces each tab's default text with a custom view containing the category name and a circular
-     * count badge, then keeps it in sync on data refresh. Reuses an already-installed custom view if
-     * one is present so we only re-set the text fields.
-     */
-    private fun applyCategoryTabBadges(
-        tabs: com.google.android.material.tabs.TabLayout,
-        visibleCats: List<Category>,
-    ) {
-        val inflater = LayoutInflater.from(tabs.context)
-        visibleCats.forEachIndexed { idx, cat ->
-            val tab = tabs.getTabAt(idx) ?: return@forEachIndexed
-            val customView = tab.customView
-                ?: inflater.inflate(R.layout.library_tab_with_count, tabs, false).also {
-                    tab.customView = it
-                }
-            customView.findViewById<android.widget.TextView>(R.id.tab_label).text = cat.name
-            val countView = customView.findViewById<android.widget.TextView>(R.id.tab_count)
-            val count = cat.id?.let { presenter.getItemCountInCategories(it) } ?: 0
-            countView.text = count.toString()
-        }
-    }
-
-    /**
-     * Re-applies the appbar layout when the tabbed display mode toggles. We keep the floating search
-     * card visible in both modes (filter/settings buttons live in it), but [showActivityTabs] flips so
-     * the bar reserves room for the tab strip and [colorToolbar] uses the recents-style solid bg
-     * animation instead of the floating-search transparency. The bar is left unlocked so per-tab
-     * scroll can collapse it like the regular library.
-     */
-    private fun applyTabbedAppBarMode(enabled: Boolean) {
-        val appBar = activityBinding?.appBar ?: return
-        appBar.useTabsInPreLayout = enabled
-        appBar.requestLayout()
-        // The category overlay's topMargin is normally maintained by the scrollViewWith
-        // afterInsets callback, but inset events don't fire just because the tabs strip
-        // appeared/disappeared. Recompute the margin synchronously here so toggling
-        // tabbed mode while the overlay is open (or about to open) lands the overlay at
-        // the right Y instead of being clipped behind the new tabs strip.
+        // Category overlay margin tracks the tab strip height — recompute now that the
+        // strip is about to appear, since inset events don't fire just for our addition.
         view?.post {
             val systemTop = activityBinding?.appBar?.rootWindowInsetsCompat
                 ?.getInsets(systemBars())?.top ?: 0
-            val tabsHeight = if (enabled) 48.dpToPx else 0
             binding.categoryRecycler.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                 topMargin = systemTop +
                     (activityBinding?.searchToolbar?.height ?: 0) +
-                    tabsHeight +
+                    48.dpToPx + // tab strip height
                     12.dpToPx
             }
         }
-        if (enabled) {
-            val pageRecycler = pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
-            // Sync the bar to the active page's scroll offset so it lands collapsed/expanded to match.
+
+        val pageRecycler = pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
+        activityBinding?.appBar?.let { appBar ->
             appBar.lockYPos = false
             appBar.updateAppBarAfterY(pageRecycler)
-            // Direct bg apply bypasses the colorToolbar animator so there's no fade from a stale color.
-            val notAtTop = pageRecycler?.canScrollVertically(-1) == true
-            setAppBarBG(if (notAtTop) 1f else 0f, includeTabView = true)
-            // Seed the gate to match what we just painted, so the first scroll only fires the
-            // animator when the elevated state genuinely flips.
-            isPageToolbarElevated = notAtTop
-        } else {
-            appBar.lockYPos = false
-            if (::elevateAppBar.isInitialized) {
-                elevateAppBar(binding.libraryGridRecycler.recycler.canScrollVertically(-1))
-            }
-            // Reset the tabbed-mode gate; it'll be reseeded the next time tabs are enabled.
-            isPageToolbarElevated = false
         }
+        // Direct bg apply bypasses the colorToolbar animator so there's no fade from a stale color.
+        val notAtTop = pageRecycler?.canScrollVertically(-1) == true
+        setAppBarBG(if (notAtTop) 1f else 0f, includeTabView = true)
+        // Seed the elevated gate to match what we just painted so the first scroll only
+        // fires the animator when the state genuinely flips.
+        isPageToolbarElevated = notAtTop
+    }
+
+    /**
+     * Detach the pager and bring the continuous recycler back into view. Called when
+     * Library leaves tabbed mode, or when the tabbed-eligible category set drops to ≤1
+     * (single category, or flatten-on-search). All tab-strip state is cleared later
+     * through [rebindChrome].
+     */
+    private fun applyContinuousViewTree() {
+        binding.libraryPager.adapter = null
+        binding.libraryPager.isVisible = false
+        binding.libraryGridRecycler.recycler.isVisible = true
+        // Repopulate mAdapter — it was emptied while tabbed view was active. Without
+        // this, code paths that toggle without firing a fresh onNextLibraryUpdate
+        // (e.g. flatten on search-across-tabs) would leave the recycler empty.
+        if (mAdapter?.itemCount == 0) {
+            mAdapter?.setItems(presenter.libraryItemsToDisplay)
+        }
+        view?.post {
+            val systemTop = activityBinding?.appBar?.rootWindowInsetsCompat
+                ?.getInsets(systemBars())?.top ?: 0
+            binding.categoryRecycler.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                topMargin = systemTop +
+                    (activityBinding?.searchToolbar?.height ?: 0) +
+                    12.dpToPx
+            }
+        }
+        activityBinding?.appBar?.lockYPos = false
+        if (::elevateAppBar.isInitialized) {
+            elevateAppBar(binding.libraryGridRecycler.recycler.canScrollVertically(-1))
+        }
+        // Reset the tabbed-mode gate; reseeded the next time tabs are enabled.
+        isPageToolbarElevated = false
+    }
+
+    /**
+     * Re-applies the activity chrome from this controller's current state. Called when
+     * Library is the visible owner and its declared chrome changes — display-mode
+     * toggle, category list update, flatten-on-search transition. Idempotent.
+     */
+    private fun rebindChrome() {
+        (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
     }
 
     fun pageRecyclerTopPadding(): Int {
@@ -818,15 +725,15 @@ open class LibraryController(
     private fun visibleTabCategories(): List<Category> =
         presenter.categories.filter { !it.isHidden }
 
+    /**
+     * Flatten-on-search transition: with `forceShowAllCategories` enabled, a non-blank
+     * query merges every category into one flat result list, so the tab strip needs to
+     * disappear. Replays the full display-mode logic — the spec returned by
+     * [describeChrome] handles the strip visibility declaratively.
+     */
     private fun applyTabbedSearchVisibility() {
         if (!isTabbedMode) return
-        val flatten = presenter.forceShowAllCategories && query.isNotBlank()
-        if (flatten) {
-            teardownTabbedView()
-            (activity as? MainActivity)?.showTabBar(show = false)
-        } else {
-            setupTabbedView()
-        }
+        applyDisplayMode()
     }
 
     fun showMiniBar() {
@@ -1492,6 +1399,12 @@ open class LibraryController(
                 // Pushed-over: drop out of Conductor's menu dispatch so our items don't
                 // stack on top of the pushed controller's. Re-included on POP_ENTER via
                 // onTabActivated → chromeBinder.bind → applyMenuOwnership.
+                //
+                // We deliberately do NOT touch the tab strip here. The pushed controller's
+                // PUSH_ENTER chromeBinder.bind (hoisted into BaseController.onChangeStarted)
+                // is the sole source of truth — it resets the chrome to baseline (clearing
+                // our strip) and then applies its own spec. Anticipating its intent from
+                // here was the source of every "tabs fumbled mid-push" symptom.
                 setOptionsMenuHidden(true)
                 saveStaggeredState()
                 updateFilterSheetY()
@@ -1500,12 +1413,6 @@ open class LibraryController(
                     binding.filterBottomSheet.filterBottomSheet.isInvisible = true
                 }
                 activityBinding?.searchToolbar?.setOnLongClickListener(null)
-                val nextController = router.backstack.lastOrNull()?.controller
-                val nextOwnsTabs = (nextController as? MainActivityTabsOwner)?.ownsActivityTabs == true
-                if (isTabbedMode) teardownTabbedView(restoreAppBar = false)
-                if (!nextOwnsTabs && activityBinding?.tabsFrameLayout?.isVisible == true) {
-                    (activity as? MainActivity)?.showTabBar(show = false, animate = false)
-                }
             }
             else -> Unit
         }
@@ -1525,8 +1432,8 @@ open class LibraryController(
 
     /**
      * Called when the user swaps to the Library tab via the bottom nav. Re-acquire
-     * ownership of the shared activity chrome: filter sheet, display mode, app-bar mode,
-     * scroll Y, and the activity tab strip if Library is in tabbed mode.
+     * ownership of the shared activity chrome via [applyDisplayMode] (which rebinds the
+     * chrome from [describeChrome] and flips the view tree to match the display mode).
      *
      * This mirrors what `onChangeStarted(PUSH_ENTER)` does on a real Conductor push, but
      * runs without a Conductor lifecycle event because the controller view stays attached
@@ -1542,24 +1449,14 @@ open class LibraryController(
             binding.libraryGridRecycler.recycler.manager.onRestoreInstanceState(staggeredBundle)
             staggeredBundle = null
         }
-        (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
-        // applyDisplayMode handles its own tab strip wiring via setupTabbedView (which uses
-        // custom views for category names + count badges, so it can't go through ChromeBinder's
-        // string-only tab API). ChromeBinder above intentionally leaves tabs cleared; this
-        // call refills them when Library is in tabbed display mode.
         applyDisplayMode()
     }
 
     /**
-     * Called when the user swaps away from the Library tab. Release ownership of the
-     * activity chrome we may have grabbed: save staggered scroll state, hide the filter
-     * sheet, tear down the tabbed pager view if it was running, and drop the activity
-     * tab strip. The incoming tab's `onTabActivated` will rebuild whatever it needs.
-     *
-     * Unlike `onChangeStarted(PUSH_EXIT)` (which handles in-tab pushes like MangaDetails
-     * and has to consider the next controller's `ownsActivityTabs`), this is a tab swap:
-     * the next root is in a different child router and always sets its own chrome state,
-     * so we tear down unconditionally.
+     * Called when the user swaps away from the Library tab. Release Library-internal
+     * state (filter sheet, staggered scroll, search toolbar long-press). The incoming
+     * tab's [ChromeBinder.bind] resets the shared chrome from its own spec — there is
+     * nothing for us to undo there.
      */
     override fun onTabDeactivated() {
         if (!isBindingInitialized) return
@@ -1570,21 +1467,74 @@ open class LibraryController(
             binding.filterBottomSheet.filterBottomSheet.isInvisible = true
         }
         activityBinding?.searchToolbar?.setOnLongClickListener(null)
-        if (isTabbedMode) teardownTabbedView(restoreAppBar = false)
-        // The incoming tab's ChromeBinder.bind in its own activation resets the chrome;
-        // nothing for us to tear down beyond our own Library-internal state.
     }
 
-    override fun describeChrome(): ChromeSpec = ChromeSpec(
-        appBarVisible = true,
-        // Library declares its tabs externally (custom views with category-count
-        // badges via setupTabbedView). includeTabsInLayout is true in tabbed mode so
-        // the AppBar reserves room; the actual tab strip is populated by
-        // setupTabbedView outside the binder.
-        includeTabsInLayout = showActivityTabs,
-        scrollSource = binding.libraryGridRecycler.recycler,
-        tabs = null,
-    )
+    override fun describeChrome(): ChromeSpec {
+        val visibleCats = if (isTabbedMode) visibleTabCategories() else emptyList()
+        val showStrip = isTabbedMode &&
+            visibleCats.size > 1 &&
+            !presenter.forceShowAllCategories
+        val tabsSpec = if (!showStrip) {
+            null
+        } else {
+            val selectedIdx = visibleCats.indexOfFirst { it.order == activeCategory }
+                .takeIf { it >= 0 } ?: 0
+            TabsSpec(
+                items = visibleCats.map { cat ->
+                    TabItem.Badged(
+                        text = cat.name,
+                        count = cat.id?.let { presenter.getItemCountInCategories(it) } ?: 0,
+                    )
+                },
+                selectedIndex = selectedIdx,
+                mode = TabMode.Scrollable,
+                onSelected = { idx ->
+                    if (binding.libraryPager.currentItem != idx) {
+                        binding.libraryPager.setCurrentItem(idx, true)
+                    }
+                },
+                onReselected = {
+                    pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
+                        ?.smoothScrollToTop()
+                },
+                pagerSync = TabsPagerSync(
+                    pager = binding.libraryPager,
+                    onPageSelected = { position ->
+                        onLibraryPageSelected(position, visibleCats)
+                    },
+                ),
+            )
+        }
+        return ChromeSpec(
+            appBarVisible = true,
+            scrollSource = binding.libraryGridRecycler.recycler,
+            tabs = tabsSpec,
+        )
+    }
+
+    /**
+     * Pager-page-settle callback for tabbed mode. Updates the active category, records
+     * the last-used category preference, and snaps the appbar to the new page's scroll
+     * offset so the user lands at the top of the freshly-selected tab.
+     */
+    private fun onLibraryPageSelected(position: Int, visibleCats: List<Category>) {
+        val target = visibleCats.getOrNull(position) ?: return
+        if (target.order != activeCategory) {
+            activeCategory = target.order
+            setActiveCategory()
+            if (!isSubClass) preferences.lastUsedCategory().set(target.order)
+        }
+        pagerAdapter?.adapterForPosition(position)?.let(::applySelectionStateTo)
+        pagerAdapter?.recyclerForPosition(position)?.let { pageRecycler ->
+            pageRecycler.stopScroll()
+            pageRecycler.scrollToPosition(0)
+            activityBinding?.appBar?.let { appBar ->
+                appBar.y = 0f
+                appBar.updateAppBarAfterY(pageRecycler)
+            }
+            setPageToolbarElevated(false)
+        }
+    }
 
     override fun onActivityResumed(activity: Activity) {
         super.onActivityResumed(activity)
@@ -1606,10 +1556,10 @@ open class LibraryController(
         if (isBindingInitialized) {
             binding.libraryGridRecycler.recycler.removeOnScrollListener(scrollListener)
             binding.fastScroller.controller = null
-            pageChangeListener?.let { binding.libraryPager.removeOnPageChangeListener(it) }
+            // ChromeBinder owns any pager listener it installed (via TabsPagerSync) and
+            // detaches it on its next bind; no manual detach needed here.
             binding.libraryPager.adapter = null
         }
-        pageChangeListener = null
         pagerAdapter = null
         displaySheet?.dismiss()
         displaySheet = null
@@ -1727,17 +1677,17 @@ open class LibraryController(
         binding.categoryHopperFrame.isVisible = !singleCategory && !preferences.hideHopper().get() && !isTabbedMode
         if (isTabbedMode) {
             val visibleCats = visibleTabCategories()
-            val tabs = activityBinding?.mainTabs
-            // Compare ids so reorder/add/remove forces a full rebuild — refreshAll does NOT update
-            // pagerAdapter.categories or rebuild pageChangeListener, so its captured visibleCats would
-            // map page indices to the wrong categories.
+            // Compare ids so reorder/add/remove forces a full view-tree rebuild — refreshAll
+            // does NOT update pagerAdapter.categories, so its captured indices would map to the
+            // wrong categories after a reorder.
             val currentCats = pagerAdapter?.categories.orEmpty()
             val categoriesChanged = currentCats.map { it.id } != visibleCats.map { it.id }
-            if (visibleCats.size <= 1 || presenter.forceShowAllCategories || tabs == null || categoriesChanged) {
-                setupTabbedView()
+            if (visibleCats.size <= 1 || presenter.forceShowAllCategories || categoriesChanged) {
+                applyDisplayMode()
             } else {
                 pagerAdapter?.refreshAll()
-                applyTabLabels(tabs, visibleCats)
+                // Refresh the tab strip so labels + count badges reflect the new data.
+                rebindChrome()
             }
         }
         adapter.isLongPressDragEnabled = canDrag()

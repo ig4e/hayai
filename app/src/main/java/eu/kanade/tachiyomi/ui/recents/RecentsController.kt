@@ -47,10 +47,8 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.databinding.RecentsControllerBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
-import eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
 import eu.kanade.tachiyomi.ui.base.controller.BaseCoroutineController
-import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -58,6 +56,7 @@ import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import eu.kanade.tachiyomi.ui.main.TabbedInterface
 import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
 import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
+import eu.kanade.tachiyomi.ui.main.chrome.TabItem
 import eu.kanade.tachiyomi.ui.main.chrome.TabMode
 import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
@@ -80,7 +79,6 @@ import eu.kanade.tachiyomi.util.system.setCustomTitleAndMessage
 import eu.kanade.tachiyomi.util.system.spToPx
 import eu.kanade.tachiyomi.util.system.toInt
 import eu.kanade.tachiyomi.util.view.activityBinding
-import eu.kanade.tachiyomi.util.view.bindStringTabs
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.fullAppBarHeight
@@ -124,12 +122,9 @@ class RecentsController(bundle: Bundle? = null) :
     RootSearchInterface,
     FloatingSearchInterface,
     BottomSheetController,
-    MainActivityTabsOwner,
     ChromeAware,
     eu.kanade.tachiyomi.ui.main.RootTabContent,
     ActionMode.Callback {
-
-    override val ownsActivityTabs: Boolean = true
 
     init {
         setHasOptionsMenu(true)
@@ -1004,13 +999,10 @@ class RecentsController(bundle: Bundle? = null) :
                 }
                 ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> {
                     // Drop out of Conductor's menu dispatch while something is on top.
+                    // The pushed controller's PUSH_ENTER chrome bind is the sole source
+                    // of truth for the tab strip — we don't anticipate its spec here.
                     setOptionsMenuHidden(true)
                     snack?.dismiss()
-                    val lastController = router.backstack.lastOrNull()?.controller
-                    val nextOwnsTabs = (lastController as? MainActivityTabsOwner)?.ownsActivityTabs == true
-                    if (lastController !is DialogController && !nextOwnsTabs) {
-                        (activity as? MainActivity)?.showTabBar(show = false, animate = false)
-                    }
                 }
                 else -> Unit
             }
@@ -1039,6 +1031,8 @@ class RecentsController(bundle: Bundle? = null) :
     override fun onTabActivated() {
         if (!isBindingInitialized) return
         binding.downloadBottomSheet.dlBottomSheet.dismiss()
+        // Tab swap is not a Conductor event, so the base-controller hoist of
+        // chromeBinder.bind doesn't fire here — bind explicitly.
         (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
         setBottomPadding()
         updateTitleAndMenu()
@@ -1057,10 +1051,9 @@ class RecentsController(bundle: Bundle? = null) :
 
     override fun describeChrome(): ChromeSpec = ChromeSpec(
         appBarVisible = true,
-        includeTabsInLayout = ownsActivityTabs,
         scrollSource = binding.recycler,
         tabs = TabsSpec(
-            labels = RecentsViewType.entries.map { activity?.getString(it.stringRes).orEmpty() },
+            items = RecentsViewType.entries.map { TabItem.Label(activity?.getString(it.stringRes).orEmpty()) },
             selectedIndex = presenter.viewType.mainValue,
             mode = TabMode.Fixed,
             onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },

@@ -22,8 +22,6 @@ import androidx.preference.SwitchPreferenceCompat
 import androidx.recyclerview.widget.ConcatAdapter
 import co.touchlab.kermit.Logger
 import androidx.preference.R as preferenceR
-import com.bluelinelabs.conductor.ControllerChangeHandler
-import com.bluelinelabs.conductor.ControllerChangeType
 import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.preference.minusAssign
@@ -44,7 +42,6 @@ import eu.kanade.tachiyomi.ui.setting.defaultValue
 import eu.kanade.tachiyomi.ui.setting.onChange
 import eu.kanade.tachiyomi.ui.setting.switchPreference
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.openInBrowser
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.util.view.setAction
@@ -369,17 +366,10 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
         return preferenceScreen!!.getPreference(lastOpenPreferencePosition) as T
     }
 
-    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
-        super.onChangeStarted(handler, type)
-        if (type.isEnter && isControllerVisible) {
-            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
-        }
-    }
 
     override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
         eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
             appBarVisible = true,
-            includeTabsInLayout = false,
             scrollSource = binding.extensionPrefsRecycler,
             useSmallToolbar = false,
             tabs = null,

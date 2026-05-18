@@ -114,18 +114,15 @@ abstract class SettingsLegacyController : PreferenceController(), SettingsContro
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         if (type.isEnter && isControllerVisible) {
             setTitle()
-            (activity as? eu.kanade.tachiyomi.ui.main.MainActivity)?.chromeBinder?.bind(this, describeChrome())
-        } else if (type.isEnter) {
-            view?.alpha = 0f
         }
-        setHasOptionsMenu(type.isEnter && isControllerVisible)
+        // super.onChangeStarted (BaseController) handles the chrome bind via the hoisted
+        // ChromeAware path, as well as setHasOptionsMenu + alpha gating for off-screen entries.
         super.onChangeStarted(handler, type)
     }
 
     override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
         eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
             appBarVisible = true,
-            includeTabsInLayout = false,
             scrollSource = if (view != null) listView else null,
             useSmallToolbar = true,
             tabs = null,

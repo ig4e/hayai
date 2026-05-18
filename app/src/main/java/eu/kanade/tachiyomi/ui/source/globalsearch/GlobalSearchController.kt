@@ -208,7 +208,7 @@ open class GlobalSearchController(
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
         if (type.isEnter && isControllerVisible) {
-            (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
+            // BaseController.onChangeStarted already rebound the chrome from describeChrome().
             val searchView = activityBinding?.searchToolbar?.searchView ?: return
             val searchItem = activityBinding?.searchToolbar?.searchItem ?: return
             searchItem.expandActionView()
@@ -227,7 +227,6 @@ open class GlobalSearchController(
     override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
         eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
             appBarVisible = true,
-            includeTabsInLayout = false,
             scrollSource = binding.recycler,
             useSmallToolbar = false,
             tabs = null,

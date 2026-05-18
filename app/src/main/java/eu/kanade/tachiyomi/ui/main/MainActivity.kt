@@ -235,7 +235,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
     private val updateChecker by lazy { AppUpdateChecker() }
     private val isUpdaterEnabled = BuildConfig.INCLUDE_UPDATER
-    private var tabAnimation: ValueAnimator? = null
     private var searchBarAnimation: ValueAnimator? = null
     private var searchTBLongClickSet = false
     private var overflowDialog: Dialog? = null
@@ -1796,27 +1795,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         }
     }
 
-    /**
-     * Show or hide the activity tab strip. Always instant — per user feedback, the
-     * AppBar should stay still rather than animating on every tab swap.
-     *
-     * Idempotent: a no-op when the tabs are already in the desired state. Tabs are
-     * cleared from [R.id.main_tabs] only when hiding (so the next caller starts from
-     * an empty strip rather than inheriting stale labels).
-     */
-    fun showTabBar(show: Boolean, @Suppress("UNUSED_PARAMETER") animate: Boolean = true) {
-        tabAnimation?.cancel()
-        tabAnimation = null
-        val tabsFrame = binding.tabsFrameLayout
-        if (tabsFrame.isVisible == show && tabsFrame.alpha == (if (show) 1f else 0f)) return
-        tabsFrame.alpha = if (show) 1f else 0f
-        tabsFrame.isVisible = show
-        if (!show) {
-            binding.mainTabs.clearOnTabSelectedListeners()
-            binding.mainTabs.removeAllTabs()
-        }
-    }
-
     private fun BadgeDrawable.updateQueueSize(queueSize: Int) {
         number = queueSize
     }
@@ -1917,14 +1895,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
         private const val SWIPE_THRESHOLD = 100
         private const val SWIPE_VELOCITY_THRESHOLD = 100
-
-        /**
-         * Duration for the tab-strip show/hide animation. Matches Conductor's default
-         * fade duration so that when a push triggers `showTabBar(false)`, the tab
-         * collapse settles on the same frame as the controller crossfade ends — no
-         * residual tab text visible after the new controller has fully entered.
-         */
-        private const val TAB_BAR_ANIM_MS = 200L
 
         // Shortcut actions
         const val SHORTCUT_LIBRARY = "eu.kanade.tachiyomi.SHOW_LIBRARY"

@@ -268,7 +268,8 @@ fun <T> Controller.liftAppbarWith(
                         setTitleAlpha = this@liftAppbarWith !is MangaDetailsController,
                     )
                     activityBinding?.appBar?.setToolbarModeBy(this@liftAppbarWith)
-                    activityBinding?.appBar?.useTabsInPreLayout = false
+                    // useTabsInPreLayout is owned by ChromeBinder — applied from the
+                    // controller's describeChrome() spec on PUSH_ENTER. Don't write here.
                     colorToolbar(isToolbarColored)
                     activityBinding?.appBar?.updateAppBarAfterY(recycler)
                 }
@@ -296,7 +297,8 @@ fun Controller.scrollViewWith(
     val includeTabView: () -> Boolean = {
         (this@scrollViewWith as? TabbedInterface)?.showActivityTabs == true
     }
-    activityBinding?.appBar?.useTabsInPreLayout = includeTabView()
+    // useTabsInPreLayout is owned by ChromeBinder — applied from the controller's
+    // describeChrome() spec on PUSH_ENTER. Don't write here.
     activityBinding?.appBar?.setToolbarModeBy(this@scrollViewWith)
     var appBarHeight = (
         if ((fullAppBarHeight ?: 0) > 0) {
@@ -432,7 +434,8 @@ fun Controller.scrollViewWith(
                         setTitleAlpha = this@scrollViewWith !is MangaDetailsController,
                     )
                     activityBinding?.appBar?.setToolbarModeBy(this@scrollViewWith)
-                    activityBinding?.appBar?.useTabsInPreLayout = includeTabView()
+                    // useTabsInPreLayout is owned by ChromeBinder — applied from the
+                    // controller's describeChrome() spec on PUSH_ENTER. Don't write here.
                     colorToolbar(isToolbarColor)
                     lastY = 0f
                     // Don't reposition the activity appbar Y here — that snaps the bar from

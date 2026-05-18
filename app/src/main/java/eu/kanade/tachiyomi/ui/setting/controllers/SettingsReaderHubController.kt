@@ -6,7 +6,6 @@ import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import androidx.preference.PreferenceScreen
 import androidx.preference.R as preferenceR
-import eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -19,9 +18,9 @@ import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
  *
  * Tab binding is fully declarative: [describeChrome] returns a `TabsSpec` and
  * [eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder] applies it on every
- * activation (push, pop-back, tab swap). No manual `bindStringTabs` /
- * `showTabBar` calls — those would compete with the binder for ownership of the
- * shared activity tab strip.
+ * activation. The bind itself is hoisted into
+ * [eu.kanade.tachiyomi.ui.base.controller.BaseController.onChangeStarted], so this
+ * controller does not call the binder directly.
  *
  * The actual preference DSL lives in [SettingsMangaReaderController] /
  * [SettingsNovelReaderController] (and their `populateManga…` /
@@ -31,9 +30,7 @@ import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
  * Every preference key is preserved; switching tabs only rebuilds the visible
  * preference screen — no migration, no recreate-the-controller dance.
  */
-class SettingsReaderHubController : SettingsLegacyController(), MainActivityTabsOwner {
-
-    override val ownsActivityTabs: Boolean = true
+class SettingsReaderHubController : SettingsLegacyController() {
 
     private enum class ReaderTab { MANGA, NOVEL }
 
@@ -70,11 +67,10 @@ class SettingsReaderHubController : SettingsLegacyController(), MainActivityTabs
         }
         return eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
             appBarVisible = true,
-            includeTabsInLayout = true,
             scrollSource = if (view != null) listView else null,
             useSmallToolbar = true,
             tabs = eu.kanade.tachiyomi.ui.main.chrome.TabsSpec(
-                labels = labels,
+                items = labels.map { eu.kanade.tachiyomi.ui.main.chrome.TabItem.Label(it) },
                 selectedIndex = selectedTab.ordinal,
                 mode = eu.kanade.tachiyomi.ui.main.chrome.TabMode.Fixed,
                 onSelected = { idx ->

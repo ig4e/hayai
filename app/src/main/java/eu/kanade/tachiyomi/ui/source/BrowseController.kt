@@ -33,7 +33,6 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.controller.BaseLegacyController
-import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.ui.extension.ExtensionFilterController
 import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
@@ -41,6 +40,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
 import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
+import eu.kanade.tachiyomi.ui.main.chrome.TabItem
 import eu.kanade.tachiyomi.ui.main.chrome.TabMode
 import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsBrowseController
@@ -54,7 +54,6 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.system.spToPx
 import eu.kanade.tachiyomi.util.view.activityBinding
-import eu.kanade.tachiyomi.util.view.bindStringTabs
 import eu.kanade.tachiyomi.util.view.checkHeightThen
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.expand
@@ -96,12 +95,10 @@ class BrowseController :
     RootSearchInterface,
     FloatingSearchInterface,
     eu.kanade.tachiyomi.ui.main.RootTabContent,
-    eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner,
     eu.kanade.tachiyomi.ui.main.TabbedInterface,
     ChromeAware,
     BottomSheetController {
 
-    override val ownsActivityTabs: Boolean = true
     override val showActivityTabs: Boolean = true
 
     private val basePreferences: BasePreferences by injectLazy()
@@ -665,23 +662,16 @@ class BrowseController :
                     // Initial creation; selectTab follows up with onTabActivated → chrome bind.
                 }
                 ControllerChangeType.POP_ENTER -> {
-                    // Pop back from BrowseSourceController etc.; rebind chrome since the
-                    // pushed controller had taken over.
-                    if (isControllerVisible) rebindChrome()
+                    // Base controller's hoisted chromeBinder.bind rebinds the chrome
+                    // from describeChrome() — nothing extra to do here.
                 }
                 ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> {
+                    // The pushed controller's PUSH_ENTER chrome bind is the sole source
+                    // of truth for the tab strip — we don't anticipate its spec here.
                     setOptionsMenuHidden(true)
                     binding.bottomSheet.root.canExpand = false
                     binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
                         (searchItem.actionView as? SearchView)?.clearFocus()
-                    }
-                    val nextController = router.backstack.lastOrNull()?.controller
-                    val nextOwnsTabs = (nextController as? eu.kanade.tachiyomi.ui.base.MainActivityTabsOwner)?.ownsActivityTabs == true
-                    if (nextController !is DialogController &&
-                        !nextOwnsTabs &&
-                        activityBinding?.tabsFrameLayout?.isVisible == true
-                    ) {
-                        (activity as? MainActivity)?.showTabBar(show = false, animate = false)
                     }
                 }
                 else -> Unit
@@ -706,10 +696,9 @@ class BrowseController :
         // the screen — hide the activity AppBar so it doesn't render over the sheet
         // content. Tracked dynamically via [updateTitleAndMenu] for sheet expand/collapse.
         appBarVisible = !showingExtensions,
-        includeTabsInLayout = showActivityTabs,
         scrollSource = binding.sourceRecycler,
         tabs = TabsSpec(
-            labels = BrowseSourceType.entries.map { activity?.getString(it.stringRes).orEmpty() },
+            items = BrowseSourceType.entries.map { TabItem.Label(activity?.getString(it.stringRes).orEmpty()) },
             selectedIndex = presenter.currentType.ordinal,
             mode = TabMode.Fixed,
             onSelected = { idx -> presenter.setCurrentType(BrowseSourceType.fromOrdinal(idx)) },
@@ -746,9 +735,8 @@ class BrowseController :
         binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
             (searchItem.actionView as? SearchView)?.clearFocus()
         }
-        if (activityBinding?.tabsFrameLayout?.isVisible == true) {
-            (activity as? MainActivity)?.showTabBar(show = false, animate = true)
-        }
+        // The incoming tab's chromeBinder.bind in its own activation will reset the
+        // tab strip — nothing for us to do here.
     }
 
     override fun onChangeEnded(handler: ControllerChangeHandler, type: ControllerChangeType) {

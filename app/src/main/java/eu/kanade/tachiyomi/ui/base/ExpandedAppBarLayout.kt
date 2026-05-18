@@ -461,7 +461,3 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
 }
 
 interface SmallToolbarInterface
-
-interface MainActivityTabsOwner {
-    val ownsActivityTabs: Boolean
-}

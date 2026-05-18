@@ -780,11 +780,9 @@ class MangaDetailsController :
         isPushing = true
         if (type.isEnter) {
             if (isControllerVisible) {
-                // Take over the activity chrome from whatever was previously visible
-                // (root tab or another pushed controller). ChromeBinder.applyMenuOwnership
-                // takes care of swapping setOptionsMenuHidden so this controller's menu
-                // items appear and the previous owner's don't.
-                (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
+                // BaseController.onChangeStarted (super call above) already rebound the
+                // shared chrome from describeChrome() — we only need to apply the
+                // MangaDetails-specific window/toolbar tint state on top.
                 updateToolbarTitleAlpha(0f)
                 setStatusBarAndToolbar()
             }
@@ -814,7 +812,6 @@ class MangaDetailsController :
     override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
         eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
             appBarVisible = true,
-            includeTabsInLayout = false,
             scrollSource = binding.recycler,
             useSmallToolbar = true,
             tabs = null,
