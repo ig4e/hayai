@@ -497,24 +497,26 @@ class RecentsPresenter(
             }.flatten()
         } else {
             // BySource grouping (History tab or Updates tab) injects a source
-            // header per source, items sorted within source by last_read DESC.
+            // header per source. Groups are ordered by their most-recent item;
+            // items within a group are sorted DESC by the same timestamp.
             val useSourceHeaders = (
                 viewType.isHistory && groupChaptersHistory == GroupType.BySource
                 ) || (viewType.isUpdates && groupChaptersUpdates == UpdatesGroupType.BySource)
             if (useSourceHeaders) {
                 val sourceManager = Injekt.get<SourceManager>()
+                val recencyOf: (Pair<MangaChapterHistory, Chapter>) -> Long = {
+                    if (viewType.isUpdates) it.second.date_fetch else it.first.history.last_read
+                }
                 pairs.groupBy { it.first.manga.source }
                     .toList()
-                    .sortedBy { (sourceId, _) ->
-                        sourceManager.getOrStub(sourceId).name.lowercase(Locale.getDefault())
+                    .sortedByDescending { (_, sourcePairs) ->
+                        sourcePairs.maxOfOrNull(recencyOf) ?: 0L
                     }
                     .flatMap { (sourceId, sourcePairs) ->
                         val name = sourceManager.getOrStub(sourceId).name
                         val header = sourceHeaderFor(sourceId, name)
                         sourcePairs
-                            .sortedByDescending {
-                                if (viewType.isUpdates) it.second.date_fetch else it.first.history.last_read
-                            }
+                            .sortedByDescending(recencyOf)
                             .map { RecentMangaItem(it.first, it.second, header) }
                     }
             } else if (viewType.isUpdates) {
