@@ -144,6 +144,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.random.nextInt
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
@@ -318,6 +319,10 @@ open class LibraryController(
      * Library search query.
      */
     private var query = ""
+
+    // Coalesces rapid keystrokes into one filter pass and cancels in-flight fuzzy work
+    // so the main thread doesn't get hammered with serial updateDataSet calls.
+    private var filterJob: Job? = null
 
     val isSubClass: Boolean
         get() = this is FilteredLibraryController
@@ -2011,7 +2016,8 @@ open class LibraryController(
         }
         adapter.setFilter(query)
         if (presenter.currentLibraryItems.isEmpty()) return true
-        viewScope.launchUI {
+        filterJob?.cancel()
+        filterJob = viewScope.launchUI {
             adapter.performFilterAsync()
         }
         return true

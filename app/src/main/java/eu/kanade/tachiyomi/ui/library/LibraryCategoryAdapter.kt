@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import eu.kanade.tachiyomi.util.system.withDefContext
+import kotlinx.coroutines.ensureActive
 import java.util.*
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
@@ -189,7 +190,12 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
             }
             updateDataSet(mangas)
         } else {
-            val filteredManga = withDefContext { mangas.filter { it.filter(s) } }
+            val filteredManga = withDefContext {
+                mangas.filter {
+                    ensureActive()
+                    it.filter(s)
+                }
+            }
             if (filteredManga.isEmpty() && controller?.presenter?.showAllCategories == false) {
                 val catId = (mangas.firstOrNull() as? LibraryMangaItem)?.let { it.header?.catId ?: it.manga.category }
                 val blankItem = catId?.let { controller.presenter.blankItem(it) }
