@@ -64,7 +64,6 @@ import yokai.util.lang.getString
 class ExtensionDetailsController(bundle: Bundle? = null) :
     BaseCoroutineController<ExtensionDetailControllerBinding, ExtensionDetailsPresenter>(bundle),
     PreferenceManager.OnDisplayPreferenceDialogListener,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     DialogPreference.TargetFragment {
 
     private var lastOpenPreferencePosition: Int = 0
@@ -366,14 +365,6 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
         return preferenceScreen!!.getPreference(lastOpenPreferencePosition) as T
     }
 
-
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.extensionPrefsRecycler,
-            useSmallToolbar = false,
-            tabs = null,
-        )
 
     private companion object {
         const val PKGNAME_KEY = "pkg_name"

@@ -26,9 +26,9 @@ import eu.kanade.tachiyomi.ui.setting.preference
 import eu.kanade.tachiyomi.ui.setting.preferenceLongClickable
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.toast
-import eu.kanade.tachiyomi.util.view.activityBinding
 import eu.kanade.tachiyomi.util.view.fadeTransactionHandler
 import eu.kanade.tachiyomi.util.view.openInBrowser
+import eu.kanade.tachiyomi.util.view.searchToolbar
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -154,7 +154,7 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         inflater.inflate(R.menu.settings_main, menu)
         // Change hint to show global search.
-        activityBinding?.searchToolbar?.searchQueryHint = applicationContext?.getString(MR.strings.search_settings)
+        searchToolbar()?.searchQueryHint = applicationContext?.getString(MR.strings.search_settings)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

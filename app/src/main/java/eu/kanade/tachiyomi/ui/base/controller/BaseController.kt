@@ -7,6 +7,7 @@ import android.view.MenuItem
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.forEach
+import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import co.touchlab.kermit.Logger
@@ -15,11 +16,10 @@ import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
 import eu.kanade.tachiyomi.util.view.BackHandlerControllerInterface
-import eu.kanade.tachiyomi.util.view.activityBinding
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.removeQueryListener
+import eu.kanade.tachiyomi.util.view.searchToolbar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -28,6 +28,26 @@ abstract class BaseController(bundle: Bundle? = null) :
     Controller(bundle), BackHandlerControllerInterface, BaseControllerPreferenceControllerCommonInterface {
 
     abstract val shouldHideLegacyAppBar: Boolean
+
+    /**
+     * Controllers that host their own [eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout]
+     * inside their layout (implementing [eu.kanade.tachiyomi.ui.base.LocalAppBarOwner]
+     * so `appBar()` routes to that local instance) override this to `true`. When true:
+     *   - [onChangeStarted] calls [onSetupLocalChrome] for chrome configuration.
+     *   - The activity hides its (legacy / detail-screen) appBar while this controller
+     *     is visible, see [eu.kanade.tachiyomi.ui.main.MainActivity.syncActivityAppBarVisibility].
+     *   - [setHasOptionsMenu] is forced to false — menu inflation lives on the local
+     *     toolbar via `Toolbar.inflateMenu` inside [onSetupLocalChrome].
+     */
+    open val hostsOwnAppBar: Boolean = false
+
+    /**
+     * Override to configure the controller-local appBar on each `PUSH_ENTER` /
+     * `POP_ENTER`. Apply toolbar mode, tabs, alpha, menu state directly on
+     * `binding.appBar`. Idempotent — runs on every enter; menu inflation should
+     * be gated on `toolbar.menu.size() == 0`.
+     */
+    open fun onSetupLocalChrome() { }
 
     lateinit var viewScope: CoroutineScope
     var isDragging = false
@@ -72,19 +92,154 @@ abstract class BaseController(bundle: Bundle? = null) :
         } else {
             removeQueryListener()
         }
-        setHasOptionsMenu(type.isEnter && isControllerVisible)
-        // Hoisted chrome bind: every ChromeAware controller's PUSH_ENTER / POP_ENTER
-        // rebinds the shared activity chrome from its declared spec. Leaf controllers
-        // no longer need to call chromeBinder.bind manually — the only remaining
-        // direct caller pattern is RootTabContent.onTabActivated, which fires outside
-        // Conductor's lifecycle.
+        // Controllers that host their own appBar inflate their menu onto a local
+        // CenteredToolbar via Toolbar.inflateMenu — skip the activity's setHasOptionsMenu
+        // plumbing, which would otherwise inflate a redundant menu onto the (now hidden)
+        // activity-global toolbar.
+        setHasOptionsMenu(type.isEnter && isControllerVisible && !hostsOwnAppBar)
+        // Hoisted chrome setup on PUSH_ENTER / POP_ENTER for controllers that host
+        // their own appBar.
         if (type.isEnter && isControllerVisible) {
-            val chromeAware = this as? ChromeAware
-            if (chromeAware != null) {
-                (activity as? MainActivity)?.chromeBinder?.bind(this, chromeAware.describeChrome())
+            if (hostsOwnAppBar) {
+                // Wire the local appBar's defaults BEFORE the controller's own setup —
+                // so per-controller overrides in [onSetupLocalChrome] win if they set
+                // anything custom. Previously these were driven by the activity-global
+                // toolbar which is now hidden behind ported controllers.
+                wireDefaultLocalChrome()
+                onSetupLocalChrome()
             }
+            // Tell the activity to hide its (now-vestigial) appBar when the visible
+            // controller hosts its own — otherwise chrome stacks above the local one.
+            (activity as? MainActivity)?.syncActivityAppBarVisibility(this)
         }
         super.onChangeStarted(handler, type)
+    }
+
+    /**
+     * Defaults applied to a `hostsOwnAppBar` controller's local appBar before its own
+     * [onSetupLocalChrome] runs:
+     *  - **Back arrow + click**: shown when this controller is not the router root, or
+     *    when hosted by [eu.kanade.tachiyomi.ui.main.SearchActivity]. Routes taps
+     *    through the activity's back-pressed dispatcher.
+     *  - **Title**: copied from the activity's `title` (which Conductor's
+     *    [Controller.setTitle] / [getTitle] mechanism keeps in sync) onto the local
+     *    `CenteredToolbar`. Without this, ported controllers' titles would be invisible
+     *    because the activity action bar (the original title host) is hidden.
+     *  - **Floating search pill**: hidden unless the controller implements
+     *    [eu.kanade.tachiyomi.ui.main.FloatingSearchInterface] — non-search screens
+     *    (manga details, settings, info) would otherwise show an empty pill overlaying
+     *    the main toolbar, intercepting its menu-item clicks.
+     *  - **Incognito badge**: applied from the incognito preference so the local
+     *    toolbars match the activity's incognito visual state. Previously this only
+     *    fired on the activity-global toolbars via [MainActivity]'s preference observer.
+     *
+     * Controllers that need custom behavior can override any of these in their own
+     * [onSetupLocalChrome] — it runs after this method.
+     */
+    private fun wireDefaultLocalChrome() {
+        val act = activity as? MainActivity ?: return
+        val appBar = (this as? eu.kanade.tachiyomi.ui.base.LocalAppBarOwner)
+            ?.localAppBar() ?: return
+        val toolbar = appBar.mainToolbar ?: return
+
+        // Defensive reset: the local appBar may have been left scrolled-off or invisible
+        // by a previous tab activation. Snap back to fully-visible baseline so the
+        // controller-specific [onSetupLocalChrome] (which runs immediately after this)
+        // starts from a known-good state.
+        appBar.alpha = 1f
+        appBar.isInvisible = false
+        appBar.lockYPos = false
+        appBar.translationY = 0f
+        appBar.y = 0f
+
+        val onRoot = router.backstackSize == 1 && act !is eu.kanade.tachiyomi.ui.main.SearchActivity
+        if (onRoot) {
+            toolbar.navigationIcon = null
+            toolbar.setNavigationOnClickListener(null)
+        } else {
+            toolbar.navigationIcon = androidx.core.content.ContextCompat.getDrawable(
+                act,
+                R.drawable.ic_arrow_back_24dp,
+            )
+            toolbar.setNavigationOnClickListener { act.onBackPressedDispatcher.onBackPressed() }
+        }
+
+        // Title (both the big_title view and the small toolbar.title). Conductor's
+        // setTitle drives activity.title; relay that onto BOTH the local big title and
+        // the small toolbar.title so it shows in expanded AND collapsed modes.
+        // Without setBigTitle=true, the big_title TextView stays empty and the user
+        // sees "no title" in the expanded state.
+        appBar.setTitle(act.title, setBigTitle = true)
+
+        // Search pill: only show for FloatingSearchInterface controllers. The card_view
+        // is also given a sensible default title (placeholder) so the pill isn't empty
+        // until the controller's own setupToolbarMenu runs.
+        val floatingSearch = this as? eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
+        val wantsFloatingSearch = floatingSearch?.showFloatingBar() == true
+        appBar.cardFrame?.isVisible = wantsFloatingSearch
+        if (wantsFloatingSearch) {
+            appBar.searchToolbar?.let { pill ->
+                pill.title = (this as? eu.kanade.tachiyomi.ui.base.controller.BaseLegacyController<*>)
+                    ?.getSearchTitle()
+                    ?: act.searchTitle
+                    ?: act.title
+                wireLocalSearchToolbar(pill, act)
+            }
+        }
+
+        // Incognito state: BaseToolbar.setIncognitoMode updates the toolbar's
+        // compound-drawable badge (CenteredToolbar) or the pill's incog ImageView
+        // (FloatingToolbar). Read from the activity's current value.
+        val incognito = act.preferences.incognitoMode().get()
+        toolbar.setIncognitoMode(incognito)
+        appBar.searchToolbar?.setIncognitoMode(incognito)
+    }
+
+    /**
+     * Wire the controller-local [eu.kanade.tachiyomi.ui.base.FloatingToolbar] (search pill)
+     * with the click/expand/menu-item handlers that previously lived only on the activity-
+     * global pill in [MainActivity.onCreate]. Without this:
+     *   - Tapping the pill does nothing (no expand-action-view trigger).
+     *   - The navigation icon doesn't open search.
+     *   - Items installed via the controller's [setupToolbarMenu] don't dispatch back
+     *     into [onOptionsItemSelected].
+     *
+     * Idempotent — listeners overwrite, not stack. Safe to call repeatedly on each
+     * controller re-entry.
+     */
+    private fun wireLocalSearchToolbar(
+        pill: eu.kanade.tachiyomi.ui.base.FloatingToolbar,
+        act: MainActivity,
+    ) {
+        // Tap anywhere on the pill body → expand the SearchView action.
+        pill.setOnClickListener {
+            pill.menu.findItem(R.id.action_search)?.expandActionView()
+        }
+
+        // Pill's navigation icon (magnifying glass when collapsed, back-arrow when
+        // expanded). For RootSearchInterface controllers it expands search; otherwise
+        // it triggers the back stack so users can dismiss search-on-detail screens.
+        pill.setNavigationOnClickListener {
+            val isRootSearch = this@BaseController is eu.kanade.tachiyomi.ui.main.RootSearchInterface
+            if (isRootSearch && pill.menu.findItem(R.id.action_search)?.isActionViewExpanded != true) {
+                pill.menu.findItem(R.id.action_search)?.expandActionView()
+            } else {
+                act.onBackPressedDispatcher.onBackPressed()
+            }
+        }
+
+        // Forward menu-item taps to the controller's onOptionsItemSelected. Falls back
+        // to the activity's own handler for items the controller doesn't claim (e.g.
+        // R.id.action_search itself, which the activity owns the expand state for).
+        pill.setOnMenuItemClickListener { item ->
+            this@BaseController.onOptionsItemSelected(item) || act.onOptionsItemSelected(item)
+        }
+
+        // Hide non-search items while the SearchView is expanded — see
+        // [eu.kanade.tachiyomi.util.view.wirePillSearchExpandListener]. The same
+        // helper is re-called by [installLocalMenu] after a menu rebuild because
+        // [Menu.clear] discards per-item listeners.
+        eu.kanade.tachiyomi.util.view.wirePillSearchExpandListener(pill)
     }
 
     open fun canStillGoBack(): Boolean { return false }
@@ -111,7 +266,7 @@ abstract class BaseController(bundle: Bundle? = null) :
         setOnActionExpandListener(
             object : MenuItem.OnActionExpandListener {
                 override fun onMenuItemActionExpand(item: MenuItem): Boolean {
-                    hideItemsIfExpanded(item, activityBinding?.searchToolbar?.menu, true)
+                    hideItemsIfExpanded(item, searchToolbar()?.menu, true)
                     return onExpand?.invoke(item) ?: true
                 }
 

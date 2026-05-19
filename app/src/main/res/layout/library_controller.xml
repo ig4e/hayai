@@ -144,6 +144,16 @@
         android:layout_height="match_parent"
         app:fastScrollerBubbleEnabled="true" />
 
+    <eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout
+        android:id="@+id/app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:elevation="0dp"
+        android:stateListAnimator="@null">
+
+        <include layout="@layout/hayai_app_bar_contents" />
+    </eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout>
+
     <!-- Adding bottom sheet after main content -->
     <include layout="@layout/filter_bottom_sheet"
         android:id="@+id/filter_bottom_sheet"/>

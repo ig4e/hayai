@@ -20,7 +20,7 @@ import eu.kanade.tachiyomi.util.view.scrollViewWith
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.merge
 
-class WorkerInfoController : BaseCoroutineController<SubDebugControllerBinding, WorkerInfoPresenter>(), eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
+class WorkerInfoController : BaseCoroutineController<SubDebugControllerBinding, WorkerInfoPresenter>() {
 
     companion object {
         const val title = "Worker info"
@@ -72,11 +72,4 @@ class WorkerInfoController : BaseCoroutineController<SubDebugControllerBinding, 
     }
 
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.recycler,
-            useSmallToolbar = false,
-            tabs = null,
-        )
 }

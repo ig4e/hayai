@@ -12,7 +12,7 @@ import eu.kanade.tachiyomi.ui.main.BottomNavBarInterface
 import eu.kanade.tachiyomi.ui.migration.manga.process.MigrationListController
 import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchCardAdapter
 import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
-import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.searchToolbar
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
 import kotlinx.coroutines.runBlocking
 import uy.kohesive.injekt.Injekt
@@ -80,7 +80,7 @@ class SearchController(
         // Inflate menu.
         inflater.inflate(R.menu.catalogue_new_list, menu)
 
-        setOnQueryTextChangeListener(activityBinding?.searchToolbar?.searchView, onlyOnSubmit = true, hideKbOnSubmit = true) {
+        setOnQueryTextChangeListener(searchToolbar()?.searchView, onlyOnSubmit = true, hideKbOnSubmit = true) {
             presenter.search(it ?: "")
             setTitle() // Update toolbar title
             true

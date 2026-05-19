@@ -27,7 +27,7 @@ import eu.kanade.tachiyomi.ui.base.controller.BaseCoroutineController
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.system.setCustomTitleAndMessage
-import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import eu.kanade.tachiyomi.util.view.fullAppBarHeight
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.util.view.snack
@@ -40,7 +40,6 @@ import android.R as AR
 class ClearDatabaseController :
     BaseCoroutineController<ClearDatabaseControllerBinding, ClearDatabasePresenter>(),
     FlexibleAdapter.OnItemClickListener,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     FlexibleAdapter.OnUpdateListener {
 
     private var adapter: FlexibleAdapter<ClearDatabaseSourceItem>? = null
@@ -86,7 +85,7 @@ class ClearDatabaseController :
                     bottomMargin = insets.getInsets(systemBars()).bottom
                 }
                 binding.emptyView.updatePadding(
-                    top = (fullAppBarHeight ?: 0) + (activityBinding?.appBar?.paddingTop ?: 0),
+                    top = (fullAppBarHeight ?: 0) + (appBar()?.paddingTop ?: 0),
                     bottom = insets.getInsets(systemBars()).bottom,
                 )
             },
@@ -95,12 +94,11 @@ class ClearDatabaseController :
             object : RecyclerView.OnScrollListener() {
                 fun updateFastScrollMargins() {
                     if (binding.fastScroller.isFastScrolling) return
-                    val activityBinding = activityBinding ?: return
                     val bigToolbarHeight = fullAppBarHeight ?: return
                     val value = max(
                         0,
-                        bigToolbarHeight + activityBinding.appBar.y.roundToInt(),
-                    ) + activityBinding.appBar.paddingTop
+                        bigToolbarHeight + appBar()!!.y.roundToInt(),
+                    ) + appBar()!!.paddingTop
                     if (value != binding.fastScroller.marginTop) {
                         binding.fastScroller.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                             topMargin = value
@@ -255,11 +253,4 @@ class ClearDatabaseController :
     }
 
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.recycler,
-            useSmallToolbar = false,
-            tabs = null,
-        )
 }

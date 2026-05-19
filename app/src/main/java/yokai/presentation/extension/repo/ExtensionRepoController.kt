@@ -10,8 +10,9 @@ import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import yokai.i18n.MR
 
 class ExtensionRepoController(private val repoUrl: String? = null) :
-    BaseComposeController(),
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
+    BaseComposeController() {
+
+    override val hostsOwnAppBar: Boolean = true
 
     @Composable
     override fun ScreenContent() {
@@ -26,13 +27,4 @@ class ExtensionRepoController(private val repoUrl: String? = null) :
             },
         )
     }
-
-
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = null,
-            useSmallToolbar = true,
-            tabs = null,
-        )
 }

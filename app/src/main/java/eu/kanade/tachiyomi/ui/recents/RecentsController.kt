@@ -6,7 +6,6 @@ import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
-import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.RoundedCorner
 import android.view.View
@@ -54,11 +53,8 @@ import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import eu.kanade.tachiyomi.ui.main.TabbedInterface
-import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
-import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
-import eu.kanade.tachiyomi.ui.main.chrome.TabItem
-import eu.kanade.tachiyomi.ui.main.chrome.TabMode
-import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
+import eu.kanade.tachiyomi.ui.base.TabItem
+import eu.kanade.tachiyomi.ui.base.TabMode
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.recents.options.TabbedRecentsOptionsSheet
@@ -79,10 +75,12 @@ import eu.kanade.tachiyomi.util.system.setCustomTitleAndMessage
 import eu.kanade.tachiyomi.util.system.spToPx
 import eu.kanade.tachiyomi.util.system.toInt
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.fullAppBarHeight
 import eu.kanade.tachiyomi.util.view.hide
+import eu.kanade.tachiyomi.util.view.installLocalMenu
 import eu.kanade.tachiyomi.util.view.isCollapsed
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.isExpanded
@@ -90,6 +88,7 @@ import eu.kanade.tachiyomi.util.view.isHidden
 import eu.kanade.tachiyomi.util.view.moveRecyclerViewUp
 import eu.kanade.tachiyomi.util.view.onAnimationsFinished
 import eu.kanade.tachiyomi.util.view.scrollViewWith
+import eu.kanade.tachiyomi.util.view.searchToolbar
 import eu.kanade.tachiyomi.util.view.setAction
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
 import eu.kanade.tachiyomi.util.view.setPositiveButton
@@ -122,12 +121,63 @@ class RecentsController(bundle: Bundle? = null) :
     RootSearchInterface,
     FloatingSearchInterface,
     BottomSheetController,
-    ChromeAware,
+    eu.kanade.tachiyomi.ui.base.LocalAppBarOwner,
     eu.kanade.tachiyomi.ui.main.RootTabContent,
     ActionMode.Callback {
 
+    override val hostsOwnAppBar: Boolean = true
+
+    override fun localAppBar(): eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout? =
+        if (isBindingInitialized) binding.appBar else null
+
+    override fun onSetupLocalChrome() {
+        val appBar = binding.appBar ?: return
+        appBar.alpha = 1f
+        appBar.isInvisible = false
+        appBar.lockYPos = false
+        appBar.hideBigView(useSmall = false)
+        appBar.setToolbarModeBy(this)
+        appBar.applyTabs(
+            items = RecentsViewType.entries.map {
+                TabItem.Label(activity?.getString(it.stringRes).orEmpty())
+            },
+            selectedIndex = presenter.viewType.mainValue,
+            mode = TabMode.Fixed,
+            onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
+            onReselected = { binding.recycler.smoothScrollToTop() },
+            pagerSync = null,
+        )
+        appBar.y = 0f
+        appBar.updateAppBarAfterY(binding.recycler)
+        setupToolbarMenu()
+    }
+
+    /**
+     * Install the recents overflow menu onto the local appBar (both main toolbar and
+     * search pill — see [eu.kanade.tachiyomi.util.view.installLocalMenu]) and bind the
+     * search-pill's query listener + placeholder text.
+     */
+    private fun setupToolbarMenu() {
+        installLocalMenu(R.menu.recents)
+
+        val pill = searchToolbar() ?: return
+        pill.setQueryHint(view?.context?.getString(MR.strings.search_recents), !isSearching())
+        if (isSearching()) {
+            pill.searchItem?.expandActionView()
+            pill.searchView?.setQuery(query, true)
+            pill.searchView?.clearFocus()
+        }
+        setOnQueryTextChangeListener(pill.searchView) {
+            if (query != it) {
+                query = it ?: return@setOnQueryTextChangeListener false
+                resetProgressItem()
+                refresh()
+            }
+            true
+        }
+    }
+
     init {
-        setHasOptionsMenu(true)
         retainViewMode = RetainViewMode.RETAIN_DETACH
     }
 
@@ -221,7 +271,7 @@ class RecentsController(bundle: Bundle? = null) :
             swipeRefreshLayout = binding.swipeRefresh,
             ignoreInsetVisibility = true,
             afterInsets = {
-                val appBarHeight = activityBinding?.appBar?.attrToolbarHeight ?: 0
+                val appBarHeight = appBar()?.attrToolbarHeight ?: 0
                 val systemInsets = it.ignoredSystemInsets
                 headerHeight = systemInsets.top + appBarHeight + 48.dpToPx
                 binding.recycler.updatePaddingRelative(
@@ -257,9 +307,9 @@ class RecentsController(bundle: Bundle? = null) :
         )
 
         if (!isReturning && adapter.itemCount == 0) {
-            activityBinding?.appBar?.y = 0f
-            activityBinding?.appBar?.updateAppBarAfterY(binding.recycler)
-            activityBinding?.appBar?.lockYPos = true
+            appBar()?.y = 0f
+            appBar()?.updateAppBarAfterY(binding.recycler)
+            appBar()?.lockYPos = true
         }
         viewScope.launchUI {
             val height =
@@ -336,7 +386,7 @@ class RecentsController(bundle: Bundle? = null) :
                         }
                     }
                     if (isControllerVisible) {
-                        activityBinding?.appBar?.alpha = (1 - progress * 3) + 0.5f
+                        appBar()?.alpha = (1 - progress * 3) + 0.5f
                     }
                     binding.downloadBottomSheet.root.updateGradiantBGRadius(
                         ogRadius,
@@ -476,7 +526,7 @@ class RecentsController(bundle: Bundle? = null) :
     fun updateTitleAndMenu() {
         if (isControllerVisible) {
             val activity = (activity as? MainActivity) ?: return
-            activityBinding?.appBar?.isInvisible = showingDownloads
+            appBar()?.isInvisible = showingDownloads
             (activity as? MainActivity)?.setStatusBarColorTransparent(showingDownloads)
             setTitle()
         }
@@ -623,7 +673,7 @@ class RecentsController(bundle: Bundle? = null) :
         adapter.updateDataSet(recents)
         adapter.onLoadMoreComplete(null)
         if (isControllerVisible) {
-            activityBinding?.appBar?.lockYPos = false
+            appBar()?.lockYPos = false
         }
         if (!hasNewItems || presenter.viewType == RecentsViewType.GroupedAll ||
             recents.isEmpty()
@@ -652,7 +702,7 @@ class RecentsController(bundle: Bundle? = null) :
         } else {
             binding.recentsEmptyView.hide()
         }
-        val isSearchExpanded = activityBinding?.searchToolbar?.isSearchExpanded == true
+        val isSearchExpanded = searchToolbar()?.isSearchExpanded == true
         if (shouldMoveToTop) {
             if (isSearchExpanded) {
                 moveRecyclerViewUp(scrollUpAnyway = true)
@@ -957,27 +1007,6 @@ class RecentsController(bundle: Bundle? = null) :
     override fun alwaysExpanded() =
         query.isNotEmpty() || (presenter.viewType.isHistory && !presenter.groupHistory.isByTime)
 
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        inflater.inflate(R.menu.recents, menu)
-
-        val searchItem = activityBinding?.searchToolbar?.searchItem
-        val searchView = activityBinding?.searchToolbar?.searchView
-        activityBinding?.searchToolbar?.setQueryHint(view?.context?.getString(MR.strings.search_recents), !isSearching())
-        if (isSearching()) {
-            searchItem?.expandActionView()
-            searchView?.setQuery(query, true)
-            searchView?.clearFocus()
-        }
-        setOnQueryTextChangeListener(activityBinding?.searchToolbar?.searchView) {
-            if (query != it) {
-                query = it ?: return@setOnQueryTextChangeListener false
-                resetProgressItem()
-                refresh()
-            }
-            true
-        }
-    }
-
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         android.os.Trace.beginSection(
             if (type.isEnter) "Hayai/RecentsController.onChangeStarted.enter"
@@ -987,20 +1016,17 @@ class RecentsController(bundle: Bundle? = null) :
             super.onChangeStarted(handler, type)
             when (type) {
                 ControllerChangeType.PUSH_ENTER -> {
-                    // Initial creation. selectTab will follow up with onTabActivated
-                    // which does chrome bind + UI setup — we don't duplicate it here.
+                    // Initial creation. selectTab will follow up with onTabActivated which
+                    // calls onSetupLocalChrome + UI setup — we don't duplicate it here.
                 }
                 ControllerChangeType.POP_ENTER -> {
-                    // Returning from a pushed controller (e.g. MangaDetails). The presenter
-                    // needs to refresh, then activation rebinds the chrome the pushed
-                    // controller had taken over.
+                    // Returning from a pushed controller (e.g. MangaDetails). Refresh the
+                    // presenter, then activation re-wires the local chrome.
                     presenter.onCreate()
                     onTabActivated()
                 }
                 ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> {
                     // Drop out of Conductor's menu dispatch while something is on top.
-                    // The pushed controller's PUSH_ENTER chrome bind is the sole source
-                    // of truth for the tab strip — we don't anticipate its spec here.
                     setOptionsMenuHidden(true)
                     snack?.dismiss()
                 }
@@ -1032,34 +1058,22 @@ class RecentsController(bundle: Bundle? = null) :
         if (!isBindingInitialized) return
         binding.downloadBottomSheet.dlBottomSheet.dismiss()
         // Tab swap is not a Conductor event, so the base-controller hoist of
-        // chromeBinder.bind doesn't fire here — bind explicitly.
-        (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        // onSetupLocalChrome doesn't fire here — wire chrome explicitly.
+        onSetupLocalChrome()
         setBottomPadding()
         updateTitleAndMenu()
     }
 
     /**
-     * Called when the user swaps away from the Recents tab. The incoming tab's
-     * [ChromeBinder.bind] in its own activation will reset our chrome contributions —
-     * we just need to dismiss any per-tab UI state (snackbars).
+     * Called when the user swaps away from the Recents tab. The incoming tab's own
+     * onSetupLocalChrome wires its appBar — we just dismiss any per-tab UI state
+     * (snackbars).
      */
     override fun onTabDeactivated() {
         if (!isBindingInitialized) return
         snack?.dismiss()
         setBottomPadding()
     }
-
-    override fun describeChrome(): ChromeSpec = ChromeSpec(
-        appBarVisible = true,
-        scrollSource = binding.recycler,
-        tabs = TabsSpec(
-            items = RecentsViewType.entries.map { TabItem.Label(activity?.getString(it.stringRes).orEmpty()) },
-            selectedIndex = presenter.viewType.mainValue,
-            mode = TabMode.Fixed,
-            onSelected = { idx -> setViewType(RecentsViewType.valueOf(idx)) },
-            onReselected = { binding.recycler.smoothScrollToTop() },
-        ),
-    )
 
     fun hasQueue() = presenter.downloadManager.hasQueue()
 
@@ -1091,7 +1105,7 @@ class RecentsController(bundle: Bundle? = null) :
         if (showingDownloads) {
             binding.downloadBottomSheet.dlBottomSheet.dismiss()
         } else {
-            activityBinding?.searchToolbar?.menu?.findItem(R.id.action_search)?.expandActionView()
+            searchToolbar()?.menu?.findItem(R.id.action_search)?.expandActionView()
         }
     }
 

@@ -5,6 +5,7 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sign
@@ -26,7 +27,7 @@ class LibraryCategoryGestureDetector(private val controller: LibraryController?)
             controller.activityBinding?.bottomNav,
             controller.binding.filterBottomSheet.root,
             controller.binding.categoryHopperFrame,
-            controller.activityBinding?.appBar,
+            controller.appBar(),
             controller.visibleHeaderHolder()?.itemView,
         ).none {
             it ?: return false

@@ -29,6 +29,7 @@ import eu.kanade.tachiyomi.util.system.isInNightMode
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.setAppIcon
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import eu.kanade.tachiyomi.util.view.moveRecyclerViewUp
 import kotlin.math.max
 import kotlinx.coroutines.flow.launchIn
@@ -138,18 +139,18 @@ class SettingsAppearanceController : SettingsLegacyController() {
 
                 onChange {
                     val useLarge = it as Boolean
-                    activityBinding?.appBar?.setToolbarModeBy(this@SettingsAppearanceController, !useLarge)
-                    activityBinding?.appBar?.hideBigView(!useLarge, !useLarge)
+                    appBar()?.setToolbarModeBy(this@SettingsAppearanceController, !useLarge)
+                    appBar()?.hideBigView(!useLarge, !useLarge)
                     activityBinding?.toolbar?.alpha = 1f
                     activityBinding?.toolbar?.translationY = 0f
                     activityBinding?.toolbar?.isVisible = true
-                    activityBinding?.appBar?.doOnNextLayout {
+                    appBar()?.doOnNextLayout {
                         listView.requestApplyInsets()
                         listView.post {
                             if (useLarge) {
                                 moveRecyclerViewUp(true)
                             } else {
-                                activityBinding?.appBar?.updateAppBarAfterY(listView)
+                                appBar()?.updateAppBarAfterY(listView)
                             }
                         }
                     }

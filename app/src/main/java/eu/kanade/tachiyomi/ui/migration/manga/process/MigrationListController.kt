@@ -44,6 +44,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.view.RecyclerWindowInsetsListener
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.liftAppbarWith
 import eu.kanade.tachiyomi.util.view.setPositiveButton
@@ -75,7 +76,6 @@ class MigrationListController(bundle: Bundle? = null) :
     MigrationProcessAdapter.MigrationProcessInterface,
     BottomNavBarInterface,
     SmallToolbarInterface,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     CoroutineScope {
 
     init {
@@ -111,7 +111,7 @@ class MigrationListController(bundle: Bundle? = null) :
     override fun onViewCreated(view: View) {
         super.onViewCreated(view)
         liftAppbarWith(binding.recycler)
-        val toolbarTextView = activityBinding?.toolbar?.toolbarTitle
+        val toolbarTextView = appBar()?.mainToolbar?.toolbarTitle
         toolbarTextView?.setTextColorAlpha(255)
         val config = this.config ?: return
 
@@ -572,14 +572,6 @@ class MigrationListController(bundle: Bundle? = null) :
         }
     }
 
-
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.recycler,
-            useSmallToolbar = true,
-            tabs = null,
-        )
 
     companion object {
         const val CONFIG_EXTRA = "config_extra"

@@ -1,17 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:background="?background"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="match_parent"
+    android:background="?background">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:clipToPadding="false"
         android:paddingTop="4dp"
         android:paddingBottom="4dp"
         tools:listitem="@layout/source_global_search_controller_card" />
 
+    <eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout
+        android:id="@+id/app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:elevation="0dp"
+        android:stateListAnimator="@null">
+
+        <include layout="@layout/hayai_app_bar_contents" />
+    </eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout>
 </FrameLayout>

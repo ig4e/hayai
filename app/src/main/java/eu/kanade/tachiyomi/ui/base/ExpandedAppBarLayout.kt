@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.base
 import android.content.Context
 import android.content.res.Configuration
 import android.util.AttributeSet
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewPropertyAnimator
 import android.widget.FrameLayout
@@ -10,20 +11,24 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.math.MathUtils
 import androidx.core.view.ScrollingView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.marginTop
 import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.core.widget.TextViewCompat
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager.widget.ViewPager
 import com.bluelinelabs.conductor.Controller
 import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.tabs.TabLayout
 import com.google.android.material.R as materialR
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.isTablet
@@ -41,8 +46,29 @@ import android.R as AR
 class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
     AppBarLayout(context, attrs) {
 
+    init {
+        // Self-consume the top system inset as padding so this widget can be hosted by
+        // any layout (activity root or per-controller layout) without the host having
+        // to dispatch insets manually. The activity used to set this on `binding.appBar`
+        // directly; per-controller appBars need their own copy of the same behavior.
+        ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(top = systemBars.top)
+            insets
+        }
+    }
+
     var searchToolbar: FloatingToolbar? = null
     var cardFrame: FrameLayout? = null
+    /**
+     * The [com.google.android.material.card.MaterialCardView] inside [cardFrame] that
+     * actually carries the search-pill's rounded background. [setAppBarBG] (in
+     * ControllerExtensions) animates this color on scroll; for controllers hosting
+     * their own appBar, this is the local instance — for the activity-global appBar,
+     * it's the one inside `main_activity.xml`. Both forms expose the same id so the
+     * lookup in [onFinishInflate] is uniform.
+     */
+    var cardView: com.google.android.material.card.MaterialCardView? = null
     var mainToolbar: CenteredToolbar? = null
     var bigTitleView: TextView? = null
     val preferences: PreferencesHelper by injectLazy()
@@ -50,7 +76,18 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
     var imageView: ImageView? = null
     var imageLayout: FrameLayout? = null
     private var tabsFrameLayout: FrameLayout? = null
-    var mainActivity: MainActivity? = null
+    private var mainTabs: TabLayout? = null
+    private var tabSelectedListener: TabLayout.OnTabSelectedListener? = null
+    private var boundPager: ViewPager? = null
+    private var pagerListener: ViewPager.OnPageChangeListener? = null
+
+    /**
+     * Which of [mainToolbar] / [searchToolbar] is the active "menu host" for this
+     * appBar instance — tracked locally so the appBar can decide its own visual
+     * state without reaching into [MainActivity.currentToolbar]. Set by
+     * [useSearchToolbarForMenu] as the user scrolls / opens the search pill.
+     */
+    private var currentActiveToolbar: BaseToolbar? = null
     private var isExtraSmall = false
     val useLargeToolbar: Boolean
         get() = preferences.useLargeToolbar().get() && !isExtraSmall
@@ -190,10 +227,111 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
         mainToolbar = findViewById(R.id.toolbar)
         bigView = findViewById(R.id.big_toolbar)
         cardFrame = findViewById(R.id.card_frame)
+        cardView = findViewById(R.id.card_view)
         tabsFrameLayout = findViewById(R.id.tabs_frame_layout)
+        mainTabs = findViewById(R.id.main_tabs)
         imageView = findViewById(R.id.big_icon)
         imageLayout = findViewById(R.id.big_icon_layout)
         shrinkAppBarIfNeeded(resources.configuration)
+    }
+
+    /**
+     * Populate the tab strip with [items], selecting [selectedIndex] without firing
+     * the [onSelected] callback. [onReselected] fires when the user taps the already-
+     * selected tab. If [pagerSync] is non-null, a two-way listener pair is installed
+     * so the [TabLayout] and the [ViewPager] stay in lockstep.
+     *
+     * Detaches any previously-installed listeners before re-populating, so this is
+     * safe to call repeatedly without leaking the prior owner's callbacks.
+     */
+    fun applyTabs(
+        items: List<TabItem>,
+        selectedIndex: Int,
+        mode: TabMode = TabMode.Fixed,
+        onSelected: (Int) -> Unit,
+        onReselected: ((Int) -> Unit)? = null,
+        pagerSync: TabsPagerSync? = null,
+    ) {
+        clearTabs()
+        if (items.isEmpty()) return
+        val tabLayout = mainTabs ?: return
+        val tabsFrame = tabsFrameLayout ?: return
+        tabLayout.tabMode = mode.tabLayoutMode
+        tabLayout.tabGravity = TabLayout.GRAVITY_FILL
+        val safeIndex = selectedIndex.coerceIn(0, items.lastIndex)
+        val inflater = LayoutInflater.from(tabLayout.context)
+        items.forEachIndexed { index, item ->
+            val tab = tabLayout.newTab()
+            when (item) {
+                is TabItem.Label -> tab.setText(item.text)
+                is TabItem.Badged -> {
+                    val view = inflater.inflate(R.layout.chrome_tab_with_count, tabLayout, false)
+                    view.findViewById<TextView>(R.id.tab_label).text = item.text
+                    view.findViewById<TextView>(R.id.tab_count).text = item.count.toString()
+                    tab.customView = view
+                }
+            }
+            tabLayout.addTab(tab, index == safeIndex)
+        }
+        val tabListener = object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                tab ?: return
+                onSelected(tab.position)
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {
+                tab ?: return
+                onReselected?.invoke(tab.position)
+            }
+        }
+        tabLayout.addOnTabSelectedListener(tabListener)
+        tabSelectedListener = tabListener
+        pagerSync?.let { sync ->
+            val pager = sync.pager
+            val listener = object : ViewPager.SimpleOnPageChangeListener() {
+                override fun onPageScrolled(
+                    position: Int,
+                    positionOffset: Float,
+                    positionOffsetPixels: Int,
+                ) {
+                    tabLayout.setScrollPosition(position, positionOffset, /* updateSelectedTabView = */ false)
+                }
+                override fun onPageSelected(position: Int) {
+                    if (tabLayout.selectedTabPosition != position) {
+                        tabLayout.getTabAt(position)?.select()
+                    }
+                    sync.onPageSelected(position)
+                }
+            }
+            pager.addOnPageChangeListener(listener)
+            boundPager = pager
+            pagerListener = listener
+        }
+        useTabsInPreLayout = true
+        tabsFrame.alpha = 1f
+        tabsFrame.isVisible = true
+    }
+
+    /**
+     * Detach tab + pager listeners and clear the strip. Symmetric counterpart to
+     * [applyTabs]; safe to call repeatedly.
+     */
+    fun clearTabs() {
+        boundPager?.let { pager -> pagerListener?.let(pager::removeOnPageChangeListener) }
+        boundPager = null
+        pagerListener = null
+        val tabLayout = mainTabs
+        val tabsFrame = tabsFrameLayout
+        if (tabLayout != null) {
+            tabSelectedListener?.let(tabLayout::removeOnTabSelectedListener)
+            tabSelectedListener = null
+            tabLayout.removeAllTabs()
+        }
+        if (tabsFrame != null && tabsFrame.isVisible) {
+            tabsFrame.isVisible = false
+            tabsFrame.alpha = 0f
+        }
+        useTabsInPreLayout = false
     }
 
     fun setTitle(title: CharSequence?, setBigTitle: Boolean) {
@@ -363,7 +501,6 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
             0f,
             1f,
         )
-        val mainActivity = mainActivity ?: return
         val useSearchToolbar = mainToolbar.alpha <= 0.025f
         val idle = RecyclerView.SCROLL_STATE_IDLE
         val state = when (scrollView) {
@@ -374,7 +511,7 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
         if (if (useSearchToolbar) {
             -y >= height || (state <= idle) || context.isTablet()
         } else {
-                mainActivity.currentToolbar == searchToolbar
+                currentActiveToolbar == searchToolbar
             }
         ) {
             useSearchToolbarForMenu(useSearchToolbar)
@@ -428,33 +565,34 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
         }
     }
 
+    /**
+     * Swap the appBar's "active toolbar" — either [mainToolbar] or [searchToolbar].
+     * Driven by scroll position and search-pill state; the appBar updates its own
+     * visibility/background per the chosen toolbar. State is local to this instance;
+     * there is no longer an activity-level [currentToolbar] coordinator.
+     */
     fun useSearchToolbarForMenu(showCardTB: Boolean) {
-        val mainActivity = mainActivity ?: return
         if (lockYPos) return
-        if ((showCardTB || toolbarMode == ToolbarState.SEARCH_ONLY) && cardFrame?.isVisible == true) {
-            if (mainActivity.currentToolbar != searchToolbar) {
-                mainActivity.setFloatingToolbar(true, showSearchAnyway = true)
-            } else {
-                mainActivity.setSearchTBMenuIfInvalid()
-            }
-            if (mainActivity.currentToolbar == searchToolbar) {
-                if (toolbarMode == ToolbarState.EXPANDED) {
-                    mainToolbar?.isInvisible = true
-                }
-                mainToolbar?.backgroundColor = null
-                cardFrame?.backgroundColor = null
-            }
-        } else {
-            if (mainActivity.currentToolbar != mainToolbar) {
-                mainActivity.setFloatingToolbar(false, showSearchAnyway = true)
-            }
+        val main = mainToolbar
+        val search = searchToolbar
+        val card = cardFrame
+        val wantSearchTB = (showCardTB || toolbarMode == ToolbarState.SEARCH_ONLY) && card?.isVisible == true
+        if (wantSearchTB && search != null) {
+            currentActiveToolbar = search
             if (toolbarMode == ToolbarState.EXPANDED) {
-                mainToolbar?.isInvisible = false
+                main?.isInvisible = true
             }
-            if (tabsFrameLayout?.isVisible == false) {
-                cardFrame?.backgroundColor = mainActivity.getResourceColor(materialR.attr.colorSurface)
+            main?.backgroundColor = null
+            card?.backgroundColor = null
+        } else {
+            currentActiveToolbar = main
+            if (toolbarMode == ToolbarState.EXPANDED) {
+                main?.isInvisible = false
+            }
+            card?.backgroundColor = if (tabsFrameLayout?.isVisible == false) {
+                context.getResourceColor(materialR.attr.colorSurface)
             } else {
-                cardFrame?.backgroundColor = null
+                null
             }
         }
     }

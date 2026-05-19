@@ -164,7 +164,6 @@ class MangaDetailsController :
     MangaDetailsAdapter.MangaDetailsInterface,
     SmallToolbarInterface,
     HingeSupportedController,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     FlexibleAdapter.OnItemMoveListener {
 
     constructor(
@@ -780,9 +779,8 @@ class MangaDetailsController :
         isPushing = true
         if (type.isEnter) {
             if (isControllerVisible) {
-                // BaseController.onChangeStarted (super call above) already rebound the
-                // shared chrome from describeChrome() — we only need to apply the
-                // MangaDetails-specific window/toolbar tint state on top.
+                // Apply MangaDetails-specific window/toolbar tint state on top of the
+                // activity's chrome.
                 updateToolbarTitleAlpha(0f)
                 setStatusBarAndToolbar()
             }
@@ -809,13 +807,6 @@ class MangaDetailsController :
         }
     }
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.recycler,
-            useSmallToolbar = true,
-            tabs = null,
-        )
 
     override fun onChangeEnded(
         changeHandler: ControllerChangeHandler,

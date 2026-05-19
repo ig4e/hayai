@@ -50,7 +50,6 @@ class PreMigrationController(bundle: Bundle? = null) :
     BaseLegacyController<PreMigrationControllerBinding>(bundle),
     FlexibleAdapter.OnItemClickListener,
     SmallToolbarInterface,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     StartMigrationListener {
     private val sourceManager: SourceManager by injectLazy()
     private val prefs: PreferencesHelper by injectLazy()
@@ -270,11 +269,4 @@ class PreMigrationController(bundle: Bundle? = null) :
     }
 
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.recycler,
-            useSmallToolbar = true,
-            tabs = null,
-        )
 }

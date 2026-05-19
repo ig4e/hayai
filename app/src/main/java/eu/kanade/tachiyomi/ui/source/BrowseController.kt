@@ -4,8 +4,6 @@ import android.app.Activity
 import android.os.Build
 import android.os.Parcelable
 import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.RoundedCorner
 import android.view.View
@@ -38,11 +36,8 @@ import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
-import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
-import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
-import eu.kanade.tachiyomi.ui.main.chrome.TabItem
-import eu.kanade.tachiyomi.ui.main.chrome.TabMode
-import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
+import eu.kanade.tachiyomi.ui.base.TabItem
+import eu.kanade.tachiyomi.ui.base.TabMode
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsBrowseController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsSourcesController
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController
@@ -54,14 +49,17 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.system.spToPx
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import eu.kanade.tachiyomi.util.view.checkHeightThen
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.isCollapsed
+import eu.kanade.tachiyomi.util.view.installLocalMenu
 import eu.kanade.tachiyomi.util.view.isCompose
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.onAnimationsFinished
 import eu.kanade.tachiyomi.util.view.scrollViewWith
+import eu.kanade.tachiyomi.util.view.searchToolbar
 import eu.kanade.tachiyomi.util.view.setAction
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
 import eu.kanade.tachiyomi.util.view.smoothScrollToTop
@@ -96,8 +94,50 @@ class BrowseController :
     FloatingSearchInterface,
     eu.kanade.tachiyomi.ui.main.RootTabContent,
     eu.kanade.tachiyomi.ui.main.TabbedInterface,
-    ChromeAware,
+    eu.kanade.tachiyomi.ui.base.LocalAppBarOwner,
     BottomSheetController {
+
+    override val hostsOwnAppBar: Boolean = true
+
+    override fun localAppBar(): eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout? =
+        if (isBindingInitialized) binding.appBar else null
+
+    override fun onSetupLocalChrome() {
+        val appBar = binding.appBar ?: return
+        // When Browse's extension sheet is expanded, the sheet owns the top of the
+        // screen — hide the appBar so it doesn't render over the sheet content.
+        // Sheet expand/collapse mutates these properties directly via updateTitleAndMenu
+        // and setBottomSheetTabs (the per-frame drag fade).
+        appBar.alpha = 1f
+        appBar.isInvisible = showingExtensions
+        appBar.lockYPos = false
+        appBar.hideBigView(useSmall = false)
+        appBar.setToolbarModeBy(this)
+        appBar.applyTabs(
+            items = BrowseSourceType.entries.map {
+                TabItem.Label(activity?.getString(it.stringRes).orEmpty())
+            },
+            selectedIndex = presenter.currentType.ordinal,
+            mode = TabMode.Fixed,
+            onSelected = { idx -> presenter.setCurrentType(BrowseSourceType.fromOrdinal(idx)) },
+            onReselected = { binding.sourceRecycler.smoothScrollToTop() },
+            pagerSync = null,
+        )
+        appBar.y = 0f
+        appBar.updateAppBarAfterY(binding.sourceRecycler)
+        setupToolbarMenu()
+    }
+
+    private fun setupToolbarMenu() {
+        installLocalMenu(R.menu.catalogue_main)
+
+        val pill = searchToolbar() ?: return
+        pill.searchQueryHint = view?.context?.getString(MR.strings.global_search)
+        setOnQueryTextChangeListener(pill.searchView, true) {
+            if (!it.isNullOrBlank()) performGlobalSearch(it)
+            true
+        }
+    }
 
     override val showActivityTabs: Boolean = true
 
@@ -128,13 +168,6 @@ class BrowseController :
 
     override val mainRecycler: RecyclerView
         get() = binding.sourceRecycler
-
-    /**
-     * Called when controller is initialized.
-     */
-    init {
-        setHasOptionsMenu(true)
-    }
 
     override fun getTitle(): String? = view?.context?.getString(MR.strings.browse)
 
@@ -193,7 +226,7 @@ class BrowseController :
             },
         )
         if (!isReturning) {
-            activityBinding?.appBar?.lockYPos = true
+            appBar()?.lockYPos = true
         }
         // Grab the BottomSheetBehavior reference now even though full sheet wiring is
         // deferred — setBottomSheetTabs reads it for the initial pill alpha. The
@@ -471,13 +504,12 @@ class BrowseController :
     fun updateTitleAndMenu() {
         if (isControllerVisible) {
             val activity = (activity as? MainActivity) ?: return
-            // AppBar visibility is owned by ChromeBinder. updateAppBarVisibility is a
-            // lightweight update path (alpha + isInvisible only) — full rebind isn't
-            // needed because the sheet expand doesn't change tabs / menu / scroll source.
-            activity.chromeBinder.updateAppBarVisibility(
-                appBarAlpha = 1f,
-                appBarVisible = !showingExtensions,
-            )
+            // Sheet expand/collapse changes only appBar visibility — apply directly on
+            // the local appBar so the tab strip / scroll source aren't torn down.
+            appBar()?.let {
+                it.alpha = 1f
+                it.isInvisible = showingExtensions
+            }
             activity.setStatusBarColorTransparent(showingExtensions)
             // Skip the sheet menu rebuild before the deferred init wires the ViewPager
             // tabs — pre-init `tabs.selectedTabPosition` returns -1 (no selection) and
@@ -494,7 +526,7 @@ class BrowseController :
         binding.bottomSheet.tabs.updateLayoutParams<ViewGroup.MarginLayoutParams> {
             topMargin = (
                 (
-                    activityBinding?.appBar?.paddingTop
+                    appBar()?.paddingTop
                         ?.minus(9f.dpToPx)
                         ?.plus(toolbarHeight ?: 0) ?: 0f
                     ) * halfStepProgress
@@ -503,14 +535,13 @@ class BrowseController :
         binding.bottomSheet.pill.alpha = (1 - progress) * 0.25f
         binding.bottomSheet.sheetToolbar.alpha = progress
         if (isControllerVisible) {
-            // Sheet-drag fade: AppBar dims as the sheet expands. Goes through
-            // ChromeBinder so the alpha is owned by the same source of truth as the
-            // baseline visibility — when the user lifts their finger, updateTitleAndMenu
+            // Sheet-drag fade: AppBar dims as the sheet expands. Mutate the local
+            // appBar directly — when the user lifts their finger, updateTitleAndMenu
             // overwrites with the final on/off state.
-            (activity as? MainActivity)?.chromeBinder?.updateAppBarVisibility(
-                appBarAlpha = (1 - progress * 3) + 0.5f,
-                appBarVisible = true,
-            )
+            appBar()?.let {
+                it.alpha = (1 - progress * 3) + 0.5f
+                it.isInvisible = false
+            }
         }
 
         binding.bottomSheet.root.updateGradiantBGRadius(
@@ -659,15 +690,13 @@ class BrowseController :
             super.onChangeStarted(handler, type)
             when (type) {
                 ControllerChangeType.PUSH_ENTER -> {
-                    // Initial creation; selectTab follows up with onTabActivated → chrome bind.
+                    // Initial creation; selectTab follows up with onTabActivated → onSetupLocalChrome.
                 }
                 ControllerChangeType.POP_ENTER -> {
-                    // Base controller's hoisted chromeBinder.bind rebinds the chrome
-                    // from describeChrome() — nothing extra to do here.
+                    // BaseController hoist already called onSetupLocalChrome — nothing extra here.
                 }
                 ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> {
-                    // The pushed controller's PUSH_ENTER chrome bind is the sole source
-                    // of truth for the tab strip — we don't anticipate its spec here.
+                    // Drop out of Conductor's menu dispatch while something is on top.
                     setOptionsMenuHidden(true)
                     binding.bottomSheet.root.canExpand = false
                     binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
@@ -683,30 +712,6 @@ class BrowseController :
     }
 
     /**
-     * Rebinds the activity chrome through [ChromeBinder]. Called both on real Conductor
-     * enter (PUSH_ENTER) and on tab swap into Browse — the binder is idempotent and
-     * resets to baseline before applying, so it's safe to call repeatedly.
-     */
-    private fun rebindChrome() {
-        (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
-    }
-
-    override fun describeChrome(): ChromeSpec = ChromeSpec(
-        // When Browse's extension sheet is expanded, the sheet itself owns the top of
-        // the screen — hide the activity AppBar so it doesn't render over the sheet
-        // content. Tracked dynamically via [updateTitleAndMenu] for sheet expand/collapse.
-        appBarVisible = !showingExtensions,
-        scrollSource = binding.sourceRecycler,
-        tabs = TabsSpec(
-            items = BrowseSourceType.entries.map { TabItem.Label(activity?.getString(it.stringRes).orEmpty()) },
-            selectedIndex = presenter.currentType.ordinal,
-            mode = TabMode.Fixed,
-            onSelected = { idx -> presenter.setCurrentType(BrowseSourceType.fromOrdinal(idx)) },
-            onReselected = { binding.sourceRecycler.smoothScrollToTop() },
-        ),
-    )
-
-    /**
      * Called when the user swaps to the Browse tab via the bottom nav. Persistent tabs
      * mean the source list / extension sheet content is already in memory — we deliberately
      * do NOT trigger presenter refreshes here. The expensive `updateSources` /
@@ -715,7 +720,8 @@ class BrowseController :
      */
     override fun onTabActivated() {
         if (!isBindingInitialized) return
-        rebindChrome()
+        // Tab swap is not a Conductor event; rewire the local chrome explicitly.
+        onSetupLocalChrome()
         binding.bottomSheet.root.canExpand = true
         setBottomPadding()
         // The lastUsed flow collector started in SourcePresenter.loadLastUsedSource can miss
@@ -725,9 +731,8 @@ class BrowseController :
     }
 
     /**
-     * Called when the user swaps away from the Browse tab. The incoming tab's
-     * [ChromeBinder.bind] in its own activation will reset our chrome contributions —
-     * we just collapse our own internal state (sheet, in-progress search).
+     * Called when the user swaps away from the Browse tab. The incoming tab owns its
+     * own local appBar / tab strip — we just collapse our internal sheet state.
      */
     override fun onTabDeactivated() {
         if (!isBindingInitialized) return
@@ -735,8 +740,6 @@ class BrowseController :
         binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.let { searchItem ->
             (searchItem.actionView as? SearchView)?.clearFocus()
         }
-        // The incoming tab's chromeBinder.bind in its own activation will reset the
-        // tab strip — nothing for us to do here.
     }
 
     override fun onChangeEnded(handler: ControllerChangeHandler, type: ControllerChangeType) {
@@ -894,30 +897,7 @@ class BrowseController :
         if (showingExtensions) {
             binding.bottomSheet.root.sheetBehavior?.collapse()
         } else {
-            activityBinding?.searchToolbar?.menu?.findItem(R.id.action_search)?.expandActionView()
-        }
-    }
-
-    /**
-     * Adds items to the options menu.
-     *
-     * @param menu menu containing options.
-     * @param inflater used to load the menu xml.
-     */
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        // Inflate menu
-        inflater.inflate(R.menu.catalogue_main, menu)
-
-        // Initialize search option.
-        val searchView = activityBinding?.searchToolbar?.searchView
-
-        // Change hint to show global search.
-        activityBinding?.searchToolbar?.searchQueryHint = view?.context?.getString(MR.strings.global_search)
-
-        // Create query listener which opens the global search view.
-        setOnQueryTextChangeListener(searchView, true) {
-            if (!it.isNullOrBlank()) performGlobalSearch(it)
-            true
+            searchToolbar()?.menu?.findItem(R.id.action_search)?.expandActionView()
         }
     }
 
@@ -955,7 +935,7 @@ class BrowseController :
         adapter?.updateDataSet(sources, false)
         setLastUsedSource(lastUsed)
         if (isControllerVisible) {
-            activityBinding?.appBar?.lockYPos = false
+            appBar()?.lockYPos = false
         }
     }
 

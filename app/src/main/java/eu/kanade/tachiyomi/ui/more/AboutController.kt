@@ -25,7 +25,9 @@ import yokai.i18n.MR
 import yokai.presentation.settings.screen.about.AboutScreen
 import android.R as AR
 
-class AboutController : BaseComposeController(), eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
+class AboutController : BaseComposeController() {
+
+    override val hostsOwnAppBar: Boolean = true
 
     @Composable
     override fun ScreenContent() {
@@ -37,15 +39,6 @@ class AboutController : BaseComposeController(), eu.kanade.tachiyomi.ui.main.chr
             },
         )
     }
-
-
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = null,
-            useSmallToolbar = true,
-            tabs = null,
-        )
 
     @Deprecated("Use [DialogHostState.showNewUpdateDialog] instead", ReplaceWith("DialogHostState.showNewUpdateDialog()"))
     class NewUpdateDialogController(bundle: Bundle? = null) : DialogController(bundle) {

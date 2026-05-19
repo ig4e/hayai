@@ -76,7 +76,6 @@ import android.R as AR
 class StatsDetailsController :
     BaseCoroutineController<StatsDetailsControllerBinding, StatsDetailsPresenter>(),
     SmallToolbarInterface,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     StatsDetailsChartLayout.StatDetailsHeaderListener {
 
     override val presenter = StatsDetailsPresenter()
@@ -863,11 +862,4 @@ class StatsDetailsController :
     }
 
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.statsRecyclerView,
-            useSmallToolbar = true,
-            tabs = null,
-        )
 }

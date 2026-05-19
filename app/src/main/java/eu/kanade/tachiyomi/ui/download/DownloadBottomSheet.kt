@@ -86,7 +86,7 @@ class DownloadBottomSheet @JvmOverloads constructor(
         updateDLTitle()
 
         val headerHeight = (activity as? MainActivity)?.toolbarHeight ?: 0
-        binding.recyclerLayout.doOnApplyWindowInsetsCompat { v, windowInsets, _ ->
+        binding.dlRecyclerLayout.doOnApplyWindowInsetsCompat { v, windowInsets, _ ->
             v.updateLayoutParams<MarginLayoutParams> {
                 topMargin = windowInsets.getInsets(systemBars()).top +
                     (controller.toolbarHeight ?: headerHeight) -

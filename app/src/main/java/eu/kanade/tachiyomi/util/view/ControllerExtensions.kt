@@ -31,6 +31,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsCompat.Type.ime
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.core.view.doOnLayout
+import androidx.core.view.forEach
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -52,6 +53,9 @@ import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.MainActivityBinding
+import eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout
+import eu.kanade.tachiyomi.ui.base.FloatingToolbar
+import eu.kanade.tachiyomi.ui.base.LocalAppBarOwner
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import eu.kanade.tachiyomi.ui.base.controller.BaseController
@@ -116,25 +120,105 @@ fun Controller.setOnQueryTextChangeListener(
     )
 }
 
-fun Controller.removeQueryListener(includeSearchTB: Boolean = true) {
-    val searchView =
-        activityBinding?.searchToolbar?.menu?.findItem(R.id.action_search)?.actionView as? SearchView
-    val searchView2 =
-        activityBinding?.toolbar?.menu?.findItem(R.id.action_search)?.actionView as? SearchView
-    if (includeSearchTB) {
-        searchView?.setOnQueryTextListener(
-            object : SearchView.OnQueryTextListener {
-                override fun onQueryTextSubmit(query: String?) = true
-                override fun onQueryTextChange(newText: String?) = true
-            },
-        )
+/**
+ * Inflate [menuRes] onto the controller's local [appBar]'s main toolbar AND its
+ * search pill, wiring both to dispatch into the controller's [Controller.onOptionsItemSelected].
+ *
+ * Why both: when the user scrolls and [ExpandedAppBarLayout.useSearchToolbarForMenu]
+ * collapses the bar, the main toolbar is set to `isInvisible=true` and only the search
+ * pill remains tappable. If the overflow items are only on the main toolbar, the
+ * 3-dot menu disappears from the user's reach until they scroll back up. Installing
+ * the menu on both means the items stay accessible in either visual state.
+ *
+ * Idempotent — each toolbar's `menu.size() == 0` gate prevents duplicate inflation.
+ * The search-action item from the pill's pre-inflated [R.menu.search] is preserved
+ * because Android merges menu inflations.
+ */
+fun Controller.installLocalMenu(menuRes: Int) {
+    val appBar = appBar() ?: return
+    val main = appBar.mainToolbar
+    val pill = appBar.searchToolbar
+
+    if (main != null && main.menu.size() == 0) {
+        main.inflateMenu(menuRes)
     }
-    searchView2?.setOnQueryTextListener(
-        object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?) = true
-            override fun onQueryTextChange(newText: String?) = true
+    // Fall back to the activity's handler for items the controller doesn't claim.
+    // R.id.action_more in particular is owned by [MainActivity.onOptionsItemSelected]
+    // — it walks the active controller first and then shows the global overflow
+    // dialog. Without this fallback, tapping the 3-dot does nothing on ported screens.
+    main?.setOnMenuItemClickListener { item ->
+        onOptionsItemSelected(item) || (activity as? MainActivity)?.onOptionsItemSelected(item) == true
+    }
+
+    if (pill != null) {
+        // The pill pre-inflates R.menu.search in its onFinishInflate (which adds the
+        // SearchView action_search). Every controller menu also declares its own
+        // action_search with the same id and actionViewClass — so naively calling
+        // inflateMenu(menuRes) leaves the pill with TWO action_search items, both
+        // visible as duplicate magnifying-glass icons. Clear-and-rebuild gives a
+        // single canonical action_search alongside the controller's overflow items.
+        val installed = pill.getTag(R.id.search_toolbar) as? Int
+        if (installed != menuRes) {
+            pill.menu.clear()
+            pill.inflateMenu(menuRes)
+            pill.setTag(R.id.search_toolbar, menuRes)
+            // Re-attach the per-action listener — wireLocalSearchToolbar wired the
+            // pre-clear instance which is now gone. The listener is needed so that
+            // tapping the pill (or its navigation icon) hides the other action items
+            // while the SearchView is expanded.
+            wirePillSearchExpandListener(pill)
+        }
+        // The pill's persistent click + menu-item listeners (installed by
+        // BaseController.wireLocalSearchToolbar) survive menu.clear() — they're set
+        // on the toolbar, not on individual items.
+    }
+}
+
+/**
+ * Re-bind the action-expand listener on the pill's [R.id.action_search] item — used
+ * both by [BaseController.wireLocalSearchToolbar] (initial wiring after layout) and
+ * by [installLocalMenu] (after [Menu.clear] discards the pre-existing listener).
+ *
+ * On expand: hide other items so the SearchView gets the full width.
+ * On collapse: restore other items to their XML-default visibility (we can't
+ * blindly set all to visible because action_search itself has `android:visible=false`
+ * by default).
+ */
+internal fun wirePillSearchExpandListener(pill: eu.kanade.tachiyomi.ui.base.FloatingToolbar) {
+    val searchItem = pill.menu.findItem(R.id.action_search) ?: return
+    searchItem.setOnActionExpandListener(
+        object : android.view.MenuItem.OnActionExpandListener {
+            override fun onMenuItemActionExpand(item: android.view.MenuItem): Boolean {
+                pill.menu.forEach { if (it.itemId != R.id.action_search) it.isVisible = false }
+                return true
+            }
+            override fun onMenuItemActionCollapse(item: android.view.MenuItem): Boolean {
+                pill.menu.forEach {
+                    // Only flip non-search items back. action_search is collapseActionView
+                    // so its visibility is managed by AppCompat as it transitions.
+                    if (it.itemId != R.id.action_search) it.isVisible = true
+                }
+                return true
+            }
         },
     )
+}
+
+fun Controller.removeQueryListener(includeSearchTB: Boolean = true) {
+    val noop = object : SearchView.OnQueryTextListener {
+        override fun onQueryTextSubmit(query: String?) = true
+        override fun onQueryTextChange(newText: String?) = true
+    }
+    val pillSearch = searchToolbar()?.menu?.findItem(R.id.action_search)?.actionView as? SearchView
+    // Controllers that host their own appBar inflate their menu onto appBar.mainToolbar;
+    // clear that listener too so a swiped-away controller can't keep receiving query events.
+    val mainSearch = appBar()?.mainToolbar?.menu?.findItem(R.id.action_search)?.actionView as? SearchView
+    val activitySearch = activityBinding?.toolbar?.menu?.findItem(R.id.action_search)?.actionView as? SearchView
+    if (includeSearchTB) {
+        pillSearch?.setOnQueryTextListener(noop)
+    }
+    mainSearch?.setOnQueryTextListener(noop)
+    activitySearch?.setOnQueryTextListener(noop)
 }
 
 fun <T> Controller.liftAppbarWith(
@@ -149,22 +233,23 @@ fun <T> Controller.liftAppbarWith(
             if ((fullAppBarHeight ?: 0) > 0) {
                 fullAppBarHeight!!
             } else {
-                activityBinding?.appBar?.attrToolbarHeight ?: 0
+                appBar()?.attrToolbarHeight ?: 0
             }
             )
-        activityBinding!!.toolbar.post {
+        appBar()?.mainToolbar?.post {
             if (fullAppBarHeight!! > 0) {
                 appBarHeight = fullAppBarHeight!!
                 recycler.requestApplyInsets()
             }
         }
+        val initialToolbarY = appBar()?.mainToolbar?.y?.toInt() ?: 0
         recycler.updatePaddingRelative(
-            top = if (changeMarginsInstead) 0 else activityBinding!!.toolbar.y.toInt() + appBarHeight,
+            top = if (changeMarginsInstead) 0 else initialToolbarY + appBarHeight,
             bottom = recycler.rootWindowInsetsCompat?.getInsets(systemBars())?.bottom ?: 0,
         )
         if (changeMarginsInstead) {
             recycler.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                topMargin = activityBinding!!.toolbar.y.toInt() + appBarHeight
+                topMargin = initialToolbarY + appBarHeight
             }
         }
         recycler.applyBottomAnimatedInsets(setPadding = true) { view, insets ->
@@ -192,7 +277,7 @@ fun <T> Controller.liftAppbarWith(
             }
         }
     } else {
-        view?.applyWindowInsetsForController(activityBinding?.appBar?.attrToolbarHeight ?: 0)
+        view?.applyWindowInsetsForController(appBar()?.attrToolbarHeight ?: 0)
         recycler.setOnApplyWindowInsetsListener(RecyclerWindowInsetsListener)
     }
 
@@ -206,7 +291,7 @@ fun <T> Controller.liftAppbarWith(
         val floatingBar =
             !(activityBinding?.toolbar?.isVisible == true || activityBinding?.tabsFrameLayout?.isVisible == true)
         val percent = ImageUtil.getPercentOfColor(
-            activityBinding!!.appBar.backgroundColor ?: Color.TRANSPARENT,
+            appBar()!!.backgroundColor ?: Color.TRANSPARENT,
             activity!!.getResourceColor(materialR.attr.colorSurface),
             activity!!.getResourceColor(materialR.attr.colorPrimaryVariant),
         )
@@ -227,10 +312,10 @@ fun <T> Controller.liftAppbarWith(
         setAppBarBG(0f)
     }
 
-    activityBinding?.appBar?.setToolbarModeBy(this)
-    activityBinding?.appBar?.hideBigView(true)
-    activityBinding?.appBar?.y = 0f
-    activityBinding?.appBar?.updateAppBarAfterY(recycler)
+    appBar()?.setToolbarModeBy(this)
+    appBar()?.hideBigView(true)
+    appBar()?.y = 0f
+    appBar()?.updateAppBarAfterY(recycler)
 
     setAppBarBG(0f)
     (recycler as? NestedScrollView)?.setOnScrollChangeListener { _, _, _, _, _ ->
@@ -263,15 +348,14 @@ fun <T> Controller.liftAppbarWith(
             ) {
                 super.onChangeStart(controller, changeHandler, changeType)
                 if (changeType.isEnter) {
-                    activityBinding?.appBar?.hideBigView(
+                    appBar()?.hideBigView(
                         true,
                         setTitleAlpha = this@liftAppbarWith !is MangaDetailsController,
                     )
-                    activityBinding?.appBar?.setToolbarModeBy(this@liftAppbarWith)
-                    // useTabsInPreLayout is owned by ChromeBinder — applied from the
-                    // controller's describeChrome() spec on PUSH_ENTER. Don't write here.
+                    appBar()?.setToolbarModeBy(this@liftAppbarWith)
+                    // useTabsInPreLayout is owned by the controller's onSetupLocalChrome.
                     colorToolbar(isToolbarColored)
-                    activityBinding?.appBar?.updateAppBarAfterY(recycler)
+                    appBar()?.updateAppBarAfterY(recycler)
                 }
             }
         },
@@ -292,24 +376,23 @@ fun Controller.scrollViewWith(
     if (recycler !is View) return { _ -> }
     var statusBarHeight = -1
     val tabBarHeight = 48.dpToPx
-    activityBinding?.appBar?.lockYPos = false
-    activityBinding?.appBar?.y = 0f
+    appBar()?.lockYPos = false
+    appBar()?.y = 0f
     val includeTabView: () -> Boolean = {
         (this@scrollViewWith as? TabbedInterface)?.showActivityTabs == true
     }
-    // useTabsInPreLayout is owned by ChromeBinder — applied from the controller's
-    // describeChrome() spec on PUSH_ENTER. Don't write here.
-    activityBinding?.appBar?.setToolbarModeBy(this@scrollViewWith)
+    // useTabsInPreLayout is owned by the controller's onSetupLocalChrome.
+    appBar()?.setToolbarModeBy(this@scrollViewWith)
     var appBarHeight = (
         if ((fullAppBarHeight ?: 0) > 0) {
             fullAppBarHeight!!
         } else {
-            activityBinding?.appBar?.preLayoutHeight ?: 0
+            appBar()?.preLayoutHeight ?: 0
         }
         )
     swipeRefreshLayout?.setDistanceToTriggerSync(150.dpToPx)
     val swipeCircle = swipeRefreshLayout?.findChild<ImageView>()
-    activityBinding!!.appBar.doOnLayout {
+    appBar()!!.doOnLayout {
         if ((fullAppBarHeight ?: 0) > 0 && isControllerVisible) {
             appBarHeight = fullAppBarHeight!!
             recycler.requestApplyInsets()
@@ -339,12 +422,12 @@ fun Controller.scrollViewWith(
         )
     }
     val atTopOfRecyclerView: () -> Boolean = f@{
-        if (this is SmallToolbarInterface || activityBinding?.appBar?.useLargeToolbar == false) {
+        if (this is SmallToolbarInterface || appBar()?.useLargeToolbar == false) {
             return@f !recycler.canScrollVertically(-1)
         }
         val activityBinding = activityBinding ?: return@f true
         return@f recycler.computeVerticalScrollOffset() - recycler.paddingTop <=
-            0 - activityBinding.appBar.paddingTop -
+            0 - appBar()!!.paddingTop -
             activityBinding.toolbar.height - if (includeTabView()) tabBarHeight else 0
     }
     recycler.doOnApplyWindowInsetsCompat { view, insets, _ ->
@@ -382,7 +465,7 @@ fun Controller.scrollViewWith(
                 return@f
             }
             val percent = ImageUtil.getPercentOfColor(
-                activityBinding!!.appBar.backgroundColor ?: Color.TRANSPARENT,
+                appBar()!!.backgroundColor ?: Color.TRANSPARENT,
                 activity!!.getResourceColor(materialR.attr.colorSurface),
                 activity!!.getResourceColor(materialR.attr.colorPrimaryVariant),
             )
@@ -407,7 +490,7 @@ fun Controller.scrollViewWith(
                 if (changeType.isEnter) {
                     // Reposition the appbar now that the transition is done — moved from
                     // onChangeStart so it doesn't snap mid-fade.
-                    activityBinding?.appBar?.updateAppBarAfterY(recycler)
+                    appBar()?.updateAppBarAfterY(recycler)
                     if (fakeToolbarView?.parent != null) {
                         val parent = fakeToolbarView?.parent as? ViewGroup ?: return
                         parent.removeView(fakeToolbarView)
@@ -429,13 +512,12 @@ fun Controller.scrollViewWith(
                 super.onChangeStart(controller, changeHandler, changeType)
                 isInView = changeType.isEnter
                 if (changeType.isEnter) {
-                    activityBinding?.appBar?.hideBigView(
+                    appBar()?.hideBigView(
                         this@scrollViewWith is SmallToolbarInterface,
                         setTitleAlpha = this@scrollViewWith !is MangaDetailsController,
                     )
-                    activityBinding?.appBar?.setToolbarModeBy(this@scrollViewWith)
-                    // useTabsInPreLayout is owned by ChromeBinder — applied from the
-                    // controller's describeChrome() spec on PUSH_ENTER. Don't write here.
+                    appBar()?.setToolbarModeBy(this@scrollViewWith)
+                    // useTabsInPreLayout is owned by the controller's onSetupLocalChrome.
                     colorToolbar(isToolbarColor)
                     lastY = 0f
                     // Don't reposition the activity appbar Y here — that snaps the bar from
@@ -498,7 +580,7 @@ fun Controller.scrollViewWith(
 
     recycler.post {
         if (isControllerVisible) {
-            activityBinding?.appBar?.updateAppBarAfterY(recycler)
+            appBar()?.updateAppBarAfterY(recycler)
             colorToolbar(!atTopOfRecyclerView())
         }
     }
@@ -506,15 +588,15 @@ fun Controller.scrollViewWith(
     fun onScrolled(dy: Int) {
         if (isControllerVisible && statusBarHeight > -1 &&
             (this@scrollViewWith as? BaseLegacyController<*>)?.isDragging != true &&
-            activity != null && (activityBinding?.appBar?.height ?: 0) > 0 &&
+            activity != null && (appBar()?.height ?: 0) > 0 &&
             recycler.translationY == 0f
         ) {
             if (!recycler.canScrollVertically(-1)) {
                 val shortAnimationDuration = resources?.getInteger(
                     AR.integer.config_shortAnimTime,
                 ) ?: 0
-                activityBinding?.appBar?.y = 0f
-                activityBinding?.appBar?.updateAppBarAfterY(recycler)
+                appBar()?.y = 0f
+                appBar()?.updateAppBarAfterY(recycler)
                 if (router.backstackSize == 1 && isInView) {
                     activityBinding!!.bottomNav?.let {
                         val animator = it.animate()?.translationY(0f)
@@ -528,8 +610,8 @@ fun Controller.scrollViewWith(
                 lastY = 0f
                 if (isToolbarColor) colorToolbar(false)
             } else {
-                activityBinding?.appBar?.let { it.y -= dy }
-                activityBinding?.appBar?.updateAppBarAfterY(recycler)
+                appBar()?.let { it.y -= dy }
+                appBar()?.updateAppBarAfterY(recycler)
                 activityBinding?.bottomNav?.let { bottomNav ->
                     if (bottomNav.isVisible && isInView) {
                         if (preferences.hideBottomNavOnScroll().get()) {
@@ -549,16 +631,16 @@ fun Controller.scrollViewWith(
 
                 if (!isToolbarColor && (
                     dy == 0 ||
-                        activityBinding?.appBar?.let { it.y <= -it.height.toFloat() } == true
+                        appBar()?.let { it.y <= -it.height.toFloat() } == true
                     )
                 ) {
                     colorToolbar(true)
                 }
                 val notAtTop = !atTopOfRecyclerView()
                 if (notAtTop != isToolbarColor) colorToolbar(notAtTop)
-                lastY = activityBinding!!.appBar.y
+                lastY = appBar()!!.y
             }
-            activityBinding?.appBar?.let {
+            appBar()?.let {
                 swipeCircle?.translationY = max(it.y, -it.height + it.paddingTop.toFloat())
             }
         }
@@ -567,14 +649,14 @@ fun Controller.scrollViewWith(
     fun onScrollIdle() {
         val activityBinding = activityBinding ?: return
         if (isControllerVisible && statusBarHeight > -1 &&
-            activity != null && activityBinding.appBar.height > 0 &&
+            activity != null && appBar()!!.height > 0 &&
             recycler.translationY == 0f
         ) {
-            val halfWay = activityBinding.appBar.height.toFloat() / 2
+            val halfWay = appBar()!!.height.toFloat() / 2
             val shortAnimationDuration = resources?.getInteger(
                 AR.integer.config_shortAnimTime,
             ) ?: 0
-            val closerToTop = abs(activityBinding.appBar.y) > halfWay
+            val closerToTop = abs(appBar()!!.y) > halfWay
             val halfWayBottom = (activityBinding.bottomNav?.height?.toFloat() ?: 0f) / 2
             val closerToBottom = (activityBinding.bottomNav?.translationY ?: 0f) > halfWayBottom
             val atTop = !recycler.canScrollVertically(-1)
@@ -586,8 +668,8 @@ fun Controller.scrollViewWith(
                 } else {
                     closerToTop
                 }
-            lastY = activityBinding.appBar.snapAppBarY(this@scrollViewWith, recycler) {
-                val appBar = this.activityBinding?.appBar ?: return@snapAppBarY
+            lastY = appBar()!!.snapAppBarY(this@scrollViewWith, recycler) {
+                val appBar = this.appBar() ?: return@snapAppBarY
                 swipeCircle?.translationY = max(
                     appBar.y,
                     -appBar.height + appBar.paddingTop.toFloat(),
@@ -657,7 +739,7 @@ fun Controller.setItemAnimatorForAppBar(recycler: RecyclerView) {
             itemAppBarAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
                 addUpdateListener {
                     if (isControllerVisible) {
-                        activityBinding?.appBar?.updateAppBarAfterY(recycler)
+                        appBar()?.updateAppBarAfterY(recycler)
                     }
                 }
             }
@@ -680,7 +762,7 @@ fun Controller.setItemAnimatorForAppBar(recycler: RecyclerView) {
 
         override fun onAnimationFinished(viewHolder: RecyclerView.ViewHolder) {
             if (isControllerVisible) {
-                activityBinding?.appBar?.updateAppBarAfterY(recycler)
+                appBar()?.updateAppBarAfterY(recycler)
             }
             super.onAnimationFinished(viewHolder)
         }
@@ -715,27 +797,26 @@ val Controller.mainRecyclerView: RecyclerView?
 fun Controller.moveRecyclerViewUp(allTheWayUp: Boolean = false, scrollUpAnyway: Boolean = false) {
     if (activityBinding?.bigToolbar?.isVisible == false) return
     val recycler = mainRecyclerView ?: return
-    val activityBinding = activityBinding ?: return
-    val appBarOffset = activityBinding.appBar.toolbarDistanceToTop
+    val appBarOffset = appBar()!!.toolbarDistanceToTop
     if (allTheWayUp && recycler.computeVerticalScrollOffset() - recycler.paddingTop <=
-        (fullAppBarHeight ?: activityBinding.appBar.preLayoutHeight)
+        (fullAppBarHeight ?: appBar()!!.preLayoutHeight)
     ) {
         (recycler.layoutManager as? LinearLayoutManager)?.scrollToPosition(0)
         (recycler.layoutManager as? StaggeredGridLayoutManager)?.scrollToPosition(0)
         recycler.post {
-            activityBinding.appBar.updateAppBarAfterY(recycler)
-            activityBinding.appBar.useSearchToolbarForMenu(false)
+            appBar()!!.updateAppBarAfterY(recycler)
+            appBar()!!.useSearchToolbarForMenu(false)
         }
         return
     }
     if (scrollUpAnyway || recycler.computeVerticalScrollOffset() - recycler.paddingTop <= 0 - appBarOffset) {
         (recycler.layoutManager as? LinearLayoutManager)
-            ?.scrollToPositionWithOffset(0, activityBinding.appBar.yNeededForSmallToolbar)
+            ?.scrollToPositionWithOffset(0, appBar()!!.yNeededForSmallToolbar)
         (recycler.layoutManager as? StaggeredGridLayoutManager)
-            ?.scrollToPositionWithOffset(0, activityBinding.appBar.yNeededForSmallToolbar)
+            ?.scrollToPositionWithOffset(0, appBar()!!.yNeededForSmallToolbar)
         recycler.post {
-            activityBinding.appBar.updateAppBarAfterY(recycler)
-            activityBinding.appBar.useSearchToolbarForMenu(recycler.computeVerticalScrollOffset() != 0)
+            appBar()!!.updateAppBarAfterY(recycler)
+            appBar()!!.useSearchToolbarForMenu(recycler.computeVerticalScrollOffset() != 0)
         }
     }
 }
@@ -746,9 +827,9 @@ fun Controller.setAppBarBG(value: Float, includeTabView: Boolean = false) {
         (this as? FloatingSearchInterface)?.showFloatingBar() == true && !includeTabView
     if (!isControllerVisible) return
     if (floatingBar) {
-        (activityBinding?.cardView as? CardView)?.setCardBackgroundColor(context.getResourceColor(materialR.attr.colorPrimaryVariant))
-        if (this !is SmallToolbarInterface && activityBinding?.appBar?.useLargeToolbar == true &&
-            activityBinding?.appBar?.compactSearchMode != true
+        (appBar()?.cardView as? CardView)?.setCardBackgroundColor(context.getResourceColor(materialR.attr.colorPrimaryVariant))
+        if (this !is SmallToolbarInterface && appBar()?.useLargeToolbar == true &&
+            appBar()?.compactSearchMode != true
         ) {
             val colorSurface = context.getResourceColor(materialR.attr.colorSurface)
             val color = ColorUtils.blendARGB(
@@ -756,11 +837,11 @@ fun Controller.setAppBarBG(value: Float, includeTabView: Boolean = false) {
                 ColorUtils.setAlphaComponent(colorSurface, 0),
                 value,
             )
-            activityBinding?.appBar?.backgroundColor = color
+            appBar()?.backgroundColor = color
         } else {
-            activityBinding?.appBar?.backgroundColor = Color.TRANSPARENT
+            appBar()?.backgroundColor = Color.TRANSPARENT
         }
-        if (activityBinding?.appBar?.isInvisible != true) {
+        if (appBar()?.isInvisible != true) {
             activity?.window?.statusBarColor =
                 context.getResourceColor(AR.attr.statusBarColor)
         }
@@ -770,8 +851,8 @@ fun Controller.setAppBarBG(value: Float, includeTabView: Boolean = false) {
             context.getResourceColor(materialR.attr.colorPrimaryVariant),
             value,
         )
-        activityBinding?.appBar?.setBackgroundColor(color)
-        if (activityBinding?.appBar?.isInvisible != true) {
+        appBar()?.setBackgroundColor(color)
+        if (appBar()?.isInvisible != true) {
             activity?.window?.statusBarColor =
                 ColorUtils.setAlphaComponent(color, (0.87f * 255).roundToInt())
         }
@@ -781,7 +862,7 @@ fun Controller.setAppBarBG(value: Float, includeTabView: Boolean = false) {
                 context.getResourceColor(materialR.attr.colorPrimaryVariant),
                 1 - value,
             )
-            (activityBinding?.cardView as? CardView)?.setCardBackgroundColor(
+            (appBar()?.cardView as? CardView)?.setCardBackgroundColor(
                 ColorStateList.valueOf(
                     invColor,
                 ),
@@ -860,16 +941,43 @@ fun Controller.copyToClipboard(content: String, label: String?, useToast: Boolea
 val Controller.activityBinding: MainActivityBinding?
     get() = (activity as? MainActivity)?.binding
 
+/**
+ * The [ExpandedAppBarLayout] this controller currently uses for its chrome. By
+ * default routes to the activity-global appBar in [MainActivity.binding.appBar].
+ * Controllers that host their own layout-local appBar implement [LocalAppBarOwner]
+ * to redirect this — anything that scrolls, mutates alpha, or queries the appBar
+ * for its layout metrics should go through this single accessor so the routing is
+ * correct in both cases.
+ */
+fun Controller.appBar(): ExpandedAppBarLayout? =
+    (this as? LocalAppBarOwner)?.localAppBar() ?: activityBinding?.appBar
+
+/**
+ * The [FloatingToolbar] pill search owned by this controller's [appBar]. Same routing
+ * contract as [appBar].
+ */
+fun Controller.searchToolbar(): FloatingToolbar? = appBar()?.searchToolbar
+
 val Controller.toolbarHeight: Int?
     get() = (activity as? MainActivity)?.toolbarHeight
 
-/** Returns the expected height of the app bar - top insets, based on what the controller needs */
+/**
+ * Returns the expected height of the app bar - top insets, based on what the controller
+ * needs. Routes through [appBar] so controllers that host their own get accurate metrics
+ * for their local instance rather than the (hidden) activity-global one.
+ */
 val Controller.fullAppBarHeight: Int?
-    get() = (activity as? MainActivity)?.bigToolbarHeight(
-        (this as? FloatingSearchInterface)?.showFloatingBar() == true,
-        (this as? TabbedInterface)?.showActivityTabs == true,
-        this !is SmallToolbarInterface,
-    )
+    get() {
+        val local = appBar() ?: return null
+        val includeSearchToolbar = (this as? FloatingSearchInterface)?.showFloatingBar() == true
+        val includeTabs = (this as? TabbedInterface)?.showActivityTabs == true
+        val includeLargeToolbar = this !is SmallToolbarInterface
+        return if (!includeLargeToolbar || !local.useLargeToolbar) {
+            local.attrToolbarHeight + if (includeTabs) 48.dpToPx else 0
+        } else {
+            local.getEstimatedLayout(includeSearchToolbar, includeTabs, includeLargeToolbar)
+        }
+    }
 
 /**
  * True iff this controller currently owns the shared activity chrome (toolbar, app bar,

@@ -28,7 +28,8 @@ import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.onChange
 import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
+import eu.kanade.tachiyomi.util.view.searchToolbar
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
 import eu.kanade.tachiyomi.widget.preference.SwitchPreferenceCategory
 // NOVEL -->
@@ -237,12 +238,12 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
 
         val useSearchTB = showFloatingBar()
         val searchItem = if (useSearchTB) {
-            activityBinding?.searchToolbar?.searchItem
+            searchToolbar()?.searchItem
         } else {
             (menu.findItem(R.id.action_search))
         }
         val searchView = if (useSearchTB) {
-            activityBinding?.searchToolbar?.searchView
+            searchToolbar()?.searchView
         } else {
             searchItem?.actionView as? SearchView
         }
@@ -250,7 +251,7 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
             searchView?.maxWidth = Int.MAX_VALUE
         }
 
-        activityBinding?.searchToolbar?.setQueryHint(getSearchTitle(), query.isEmpty())
+        searchToolbar()?.setQueryHint(getSearchTitle(), query.isEmpty())
 
         if (query.isNotEmpty()) {
             searchItem?.expandActionView()
@@ -258,7 +259,7 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
             searchView?.clearFocus()
         }
 
-        setOnQueryTextChangeListener(activityBinding?.searchToolbar?.searchView) {
+        setOnQueryTextChangeListener(searchToolbar()?.searchView) {
             query = it ?: ""
             drawSources()
             true
@@ -276,7 +277,7 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
         }
     }
 
-    override fun showFloatingBar() = activityBinding?.appBar?.useLargeToolbar == true
+    override fun showFloatingBar() = appBar()?.useLargeToolbar == true
 
     var expandActionViewFromInteraction = false
     private fun MenuItem.fixExpand(onExpand: ((MenuItem) -> Boolean)? = null, onCollapse: ((MenuItem) -> Boolean)? = null) {

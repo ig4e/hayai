@@ -4,31 +4,27 @@ import android.content.Context
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
+import android.view.View
 import androidx.preference.PreferenceScreen
 import androidx.preference.R as preferenceR
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
+import eu.kanade.tachiyomi.ui.base.TabItem
+import eu.kanade.tachiyomi.ui.base.TabMode
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
+import eu.kanade.tachiyomi.util.view.activityBinding
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 
 /**
- * Reader settings hub. Hosts the Manga reader and Novel reader preference
- * screens behind real tabs — mirroring the activity-level `mainTabs` pattern
- * used by [eu.kanade.tachiyomi.ui.recents.RecentsController].
+ * Reader settings hub. Delegates its preference screen to either
+ * [SettingsMangaReaderController] or [SettingsNovelReaderController] based on
+ * [selectedTab]. Preference keys are preserved across switches — no migration.
  *
- * Tab binding is fully declarative: [describeChrome] returns a `TabsSpec` and
- * [eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder] applies it on every
- * activation. The bind itself is hoisted into
- * [eu.kanade.tachiyomi.ui.base.controller.BaseController.onChangeStarted], so this
- * controller does not call the binder directly.
- *
- * The actual preference DSL lives in [SettingsMangaReaderController] /
- * [SettingsNovelReaderController] (and their `populateManga…` /
- * `populateNovel…` file-level extension functions). This controller delegates
- * its preference screen to whichever sub-controller matches the selected tab.
- *
- * Every preference key is preserved; switching tabs only rebuilds the visible
- * preference screen — no migration, no recreate-the-controller dance.
+ * The Manga/Novel tab strip is rendered on the activity-global appBar (this
+ * controller doesn't host its own appBar, so we drive [activityBinding.appBar]
+ * directly). Tabs are applied on entry and cleared on exit so they don't leak.
  */
 class SettingsReaderHubController : SettingsLegacyController() {
 
@@ -58,30 +54,35 @@ class SettingsReaderHubController : SettingsLegacyController() {
         return ContextThemeWrapper(activity, tv.resourceId)
     }
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec {
-        val act = activity
-        val labels = if (act != null) {
-            listOf(act.getString(MR.strings.manga), act.getString(MR.strings.novel))
-        } else {
-            listOf("", "")
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        when (type) {
+            ControllerChangeType.PUSH_ENTER, ControllerChangeType.POP_ENTER -> applyTabs()
+            ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> activityBinding?.appBar?.clearTabs()
+            else -> Unit
         }
-        return eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = if (view != null) listView else null,
-            useSmallToolbar = true,
-            tabs = eu.kanade.tachiyomi.ui.main.chrome.TabsSpec(
-                items = labels.map { eu.kanade.tachiyomi.ui.main.chrome.TabItem.Label(it) },
-                selectedIndex = selectedTab.ordinal,
-                mode = eu.kanade.tachiyomi.ui.main.chrome.TabMode.Fixed,
-                onSelected = { idx ->
-                    val target = ReaderTab.entries[idx]
-                    if (target != selectedTab) {
-                        selectedTab = target
-                        rebuildPreferenceScreen()
-                    }
-                },
-                onReselected = { if (view != null) listView.scrollToPosition(0) },
-            ),
+    }
+
+    override fun onDestroyView(view: View) {
+        activityBinding?.appBar?.clearTabs()
+        super.onDestroyView(view)
+    }
+
+    private fun applyTabs() {
+        val act = activity ?: return
+        val labels = listOf(act.getString(MR.strings.manga), act.getString(MR.strings.novel))
+        activityBinding?.appBar?.applyTabs(
+            items = labels.map { TabItem.Label(it) },
+            selectedIndex = selectedTab.ordinal,
+            mode = TabMode.Fixed,
+            onSelected = { idx ->
+                val target = ReaderTab.entries[idx]
+                if (target != selectedTab) {
+                    selectedTab = target
+                    rebuildPreferenceScreen()
+                }
+            },
+            onReselected = { if (view != null) listView.scrollToPosition(0) },
         )
     }
 

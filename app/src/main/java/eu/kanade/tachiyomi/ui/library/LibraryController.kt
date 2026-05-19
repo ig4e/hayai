@@ -90,12 +90,9 @@ import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
-import eu.kanade.tachiyomi.ui.main.chrome.ChromeAware
-import eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec
-import eu.kanade.tachiyomi.ui.main.chrome.TabItem
-import eu.kanade.tachiyomi.ui.main.chrome.TabMode
-import eu.kanade.tachiyomi.ui.main.chrome.TabsSpec
-import eu.kanade.tachiyomi.ui.main.chrome.TabsPagerSync
+import eu.kanade.tachiyomi.ui.base.TabItem
+import eu.kanade.tachiyomi.ui.base.TabMode
+import eu.kanade.tachiyomi.ui.base.TabsPagerSync
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -115,6 +112,7 @@ import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.util.view.expand
@@ -123,9 +121,11 @@ import eu.kanade.tachiyomi.util.view.getItemView
 import eu.kanade.tachiyomi.util.view.hide
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.isExpanded
+import eu.kanade.tachiyomi.util.view.installLocalMenu
 import eu.kanade.tachiyomi.util.view.isHidden
 import eu.kanade.tachiyomi.util.view.isSettling
 import eu.kanade.tachiyomi.util.view.scrollViewWith
+import eu.kanade.tachiyomi.util.view.searchToolbar
 import eu.kanade.tachiyomi.util.view.setAppBarBG
 import eu.kanade.tachiyomi.util.view.setAction
 import eu.kanade.tachiyomi.util.view.setMessage
@@ -169,16 +169,118 @@ open class LibraryController(
     BottomSheetController,
     RootSearchInterface,
     FloatingSearchInterface,
-    ChromeAware,
+    eu.kanade.tachiyomi.ui.base.LocalAppBarOwner,
     eu.kanade.tachiyomi.ui.main.RootTabContent,
     eu.kanade.tachiyomi.ui.main.TabbedInterface {
+
+    override val hostsOwnAppBar: Boolean = true
+
+    override fun localAppBar(): eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout? =
+        if (isBindingInitialized) binding.appBar else null
+
+    override fun onSetupLocalChrome() {
+        val appBar = binding.appBar ?: return
+        appBar.alpha = 1f
+        appBar.isInvisible = false
+        appBar.lockYPos = false
+        appBar.hideBigView(useSmall = false)
+        appBar.setToolbarModeBy(this)
+        // Tabs (badged categories) — null when not in tabbed mode or only one visible category.
+        val visibleCats = if (isTabbedMode) visibleTabCategories() else emptyList()
+        val showStrip = isTabbedMode && visibleCats.size > 1 && !presenter.forceShowAllCategories
+        if (showStrip) {
+            val selectedIdx = visibleCats.indexOfFirst { it.order == activeCategory }
+                .takeIf { it >= 0 } ?: 0
+            appBar.applyTabs(
+                items = visibleCats.map { cat ->
+                    TabItem.Badged(
+                        text = cat.name,
+                        count = cat.id?.let { presenter.getItemCountInCategories(it) } ?: 0,
+                    )
+                },
+                selectedIndex = selectedIdx,
+                mode = TabMode.Scrollable,
+                onSelected = { idx ->
+                    if (binding.libraryPager.currentItem != idx) {
+                        binding.libraryPager.setCurrentItem(idx, true)
+                    }
+                },
+                onReselected = {
+                    pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
+                        ?.smoothScrollToTop()
+                },
+                pagerSync = TabsPagerSync(
+                    pager = binding.libraryPager,
+                    onPageSelected = { position ->
+                        onLibraryPageSelected(position, visibleCats)
+                    },
+                ),
+            )
+        } else {
+            appBar.clearTabs()
+        }
+        appBar.y = 0f
+        appBar.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
+        setupToolbarMenu()
+    }
+
+    /**
+     * Inflate the library menu onto the local CenteredToolbar and wire the search-pill
+     * setup that previously lived in the activity-action-bar `onCreateOptionsMenu` path.
+     * Safe to call repeatedly — menu inflation is gated on size==0.
+     */
+    private fun setupToolbarMenu() {
+        installLocalMenu(R.menu.library)
+
+        val pill = searchToolbar() ?: return
+        val searchItem = pill.searchItem
+        val searchView = pill.searchView
+        pill.setQueryHint(view?.context?.getString(MR.strings.library_search_hint), query.isEmpty())
+
+        showAllCategoriesView = showAllCategoriesView ?: (searchView as? MiniSearchView)?.addSearchModifierIcon { context ->
+            ImageView(context).apply {
+                isSelected = presenter.forceShowAllCategories
+                isGone = true
+                setOnClickListener {
+                    presenter.forceShowAllCategories = !presenter.forceShowAllCategories
+                    presenter.updateLibrary()
+                    isSelected = presenter.forceShowAllCategories
+                }
+                val pad = 12.dpToPx
+                setPadding(pad, 0, pad, 0)
+                setImageResource(R.drawable.ic_show_all_categories_24dp)
+                background = context.getResourceDrawable(android.R.attr.selectableItemBackgroundBorderless)
+                imageTintList = ColorStateList.valueOf(context.getResourceColor(R.attr.actionBarTintColor))
+                compatToolTipText = view?.context?.getString(MR.strings.show_all_categories)
+            }
+        }
+
+        if (query.isNotEmpty()) {
+            if (searchToolbar()?.isSearchExpanded != true) {
+                searchItem?.expandActionView()
+                searchView?.setQuery(query, true)
+                searchView?.clearFocus()
+            } else {
+                searchView?.setQuery(query, false)
+            }
+            search(query)
+        } else if (searchToolbar()?.isSearchExpanded == true) {
+            searchItem?.collapseActionView()
+        }
+
+        setOnQueryTextChangeListener(searchToolbar()?.searchView) {
+            if (!it.isNullOrEmpty() && binding.recyclerCover.isClickable) {
+                showCategories(false)
+            }
+            search(it)
+        }
+    }
 
     /** Library only owns the activity tab bar when the user picked tabbed display mode. */
     override val showActivityTabs: Boolean
         get() = isTabbedMode
 
     init {
-        setHasOptionsMenu(true)
         retainViewMode = RetainViewMode.RETAIN_DETACH
     }
 
@@ -530,9 +632,8 @@ open class LibraryController(
     /**
      * Library has two display modes: continuous (single scrolling RecyclerView for all
      * categories) and tabbed (a ViewPager with one RecyclerView per category and the
-     * activity tab strip as the pill bar). This switches the view tree between the two
-     * and rebinds the activity chrome — the tab strip itself is declared in
-     * [describeChrome] and applied by the [eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder].
+     * activity tab strip as the pill bar). Switches the view tree between the two
+     * and rebinds the local appBar via [onSetupLocalChrome].
      */
     private fun applyDisplayMode() {
         if (!isControllerVisible) return
@@ -577,18 +678,18 @@ open class LibraryController(
         // Category overlay margin tracks the tab strip height — recompute now that the
         // strip is about to appear, since inset events don't fire just for our addition.
         view?.post {
-            val systemTop = activityBinding?.appBar?.rootWindowInsetsCompat
+            val systemTop = appBar()?.rootWindowInsetsCompat
                 ?.getInsets(systemBars())?.top ?: 0
             binding.categoryRecycler.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                 topMargin = systemTop +
-                    (activityBinding?.searchToolbar?.height ?: 0) +
+                    (searchToolbar()?.height ?: 0) +
                     48.dpToPx + // tab strip height
                     12.dpToPx
             }
         }
 
         val pageRecycler = pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
-        activityBinding?.appBar?.let { appBar ->
+        appBar()?.let { appBar ->
             appBar.lockYPos = false
             appBar.updateAppBarAfterY(pageRecycler)
         }
@@ -617,15 +718,15 @@ open class LibraryController(
             mAdapter?.setItems(presenter.libraryItemsToDisplay)
         }
         view?.post {
-            val systemTop = activityBinding?.appBar?.rootWindowInsetsCompat
+            val systemTop = appBar()?.rootWindowInsetsCompat
                 ?.getInsets(systemBars())?.top ?: 0
             binding.categoryRecycler.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                 topMargin = systemTop +
-                    (activityBinding?.searchToolbar?.height ?: 0) +
+                    (searchToolbar()?.height ?: 0) +
                     12.dpToPx
             }
         }
-        activityBinding?.appBar?.lockYPos = false
+        appBar()?.lockYPos = false
         if (::elevateAppBar.isInitialized) {
             elevateAppBar(binding.libraryGridRecycler.recycler.canScrollVertically(-1))
         }
@@ -639,14 +740,14 @@ open class LibraryController(
      * toggle, category list update, flatten-on-search transition. Idempotent.
      */
     private fun rebindChrome() {
-        (activity as? MainActivity)?.chromeBinder?.bind(this, describeChrome())
+        if (isBindingInitialized) onSetupLocalChrome()
     }
 
     fun pageRecyclerTopPadding(): Int {
-        val systemTop = activityBinding?.appBar?.rootWindowInsets
+        val systemTop = appBar()?.rootWindowInsets
             ?.getInsets(android.view.WindowInsets.Type.systemBars())?.top ?: 0
         // fullAppBarHeight already accounts for the tab strip when [showActivityTabs] is true.
-        val appBarHeight = fullAppBarHeight ?: (activityBinding?.appBar?.attrToolbarHeight ?: 0)
+        val appBarHeight = fullAppBarHeight ?: (appBar()?.attrToolbarHeight ?: 0)
         return systemTop + appBarHeight
     }
 
@@ -656,9 +757,9 @@ open class LibraryController(
      */
     private fun atTopOfPageRecycler(recycler: RecyclerView): Boolean {
         val ab = activityBinding ?: return true
-        if (ab.appBar.useLargeToolbar == false) return !recycler.canScrollVertically(-1)
+        if (appBar()!!.useLargeToolbar == false) return !recycler.canScrollVertically(-1)
         return recycler.computeVerticalScrollOffset() - recycler.paddingTop <=
-            0 - ab.appBar.paddingTop - ab.toolbar.height - 48.dpToPx
+            0 - appBar()!!.paddingTop - ab.toolbar.height - 48.dpToPx
     }
 
     /** Gated wrapper around [elevateAppBar] so the underlying ValueAnimator only restarts on flips. */
@@ -678,7 +779,7 @@ open class LibraryController(
      */
     fun onPageRecyclerScrolled(recycler: RecyclerView, dy: Int) {
         if (!isControllerVisible) return
-        val appBar = activityBinding?.appBar ?: return
+        val appBar = appBar() ?: return
         if (appBar.height <= 0) return
         if (!recycler.canScrollVertically(-1)) {
             appBar.y = 0f
@@ -711,7 +812,7 @@ open class LibraryController(
 
     fun onPageRecyclerScrollIdle(recycler: RecyclerView) {
         if (!isControllerVisible) return
-        val appBar = activityBinding?.appBar ?: return
+        val appBar = appBar() ?: return
         if (appBar.height <= 0) return
         appBar.snapAppBarY(this, recycler, callback = null)
         setPageToolbarElevated(!atTopOfPageRecycler(recycler))
@@ -728,8 +829,8 @@ open class LibraryController(
     /**
      * Flatten-on-search transition: with `forceShowAllCategories` enabled, a non-blank
      * query merges every category into one flat result list, so the tab strip needs to
-     * disappear. Replays the full display-mode logic — the spec returned by
-     * [describeChrome] handles the strip visibility declaratively.
+     * disappear. Replays the full display-mode logic — [onSetupLocalChrome] handles
+     * the strip visibility declaratively.
      */
     private fun applyTabbedSearchVisibility() {
         if (!isTabbedMode) return
@@ -746,9 +847,9 @@ open class LibraryController(
             !binding.headerTitle.text.isNullOrBlank() && !binding.recyclerCover.isClickable &&
             isControllerVisible
         ) {
-            activityBinding?.searchToolbar?.subtitle = binding.headerTitle.text.toString()
+            searchToolbar()?.subtitle = binding.headerTitle.text.toString()
         } else {
-            activityBinding?.searchToolbar?.subtitle = null
+            searchToolbar()?.subtitle = null
         }
     }
 
@@ -889,7 +990,7 @@ open class LibraryController(
             scrollToHeader(it)
         }
         binding.categoryRecycler.setOnTouchListener { _, _ ->
-            val searchView = activityBinding?.searchToolbar?.menu?.findItem(R.id.action_search)?.actionView
+            val searchView = searchToolbar()?.menu?.findItem(R.id.action_search)?.actionView
                 ?: return@setOnTouchListener false
             val imm = activity?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm!!.hideSoftInputFromWindow(searchView.windowToken, 0)
@@ -928,7 +1029,7 @@ open class LibraryController(
                     }
                     binding.categoryRecycler.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                         topMargin = systemInsets.top +
-                            (activityBinding?.searchToolbar?.height ?: 0) +
+                            (searchToolbar()?.height ?: 0) +
                             tabsHeight +
                             12.dpToPx
                     }
@@ -964,11 +1065,11 @@ open class LibraryController(
                 val activityBinding = activityBinding ?: return
                 val bigToolbarHeight = fullAppBarHeight ?: return
                 if (lastUsedCategory > 0) {
-                    activityBinding.appBar.y =
+                    appBar()!!.y =
                         -bigToolbarHeight + activityBinding.cardFrame.height.toFloat()
-                    activityBinding.appBar.useSearchToolbarForMenu(true)
+                    appBar()!!.useSearchToolbarForMenu(true)
                 }
-                activityBinding.appBar.lockYPos = true
+                appBar()!!.lockYPos = true
             }
         } else {
             binding.recyclerLayout.alpha = 0f
@@ -976,22 +1077,21 @@ open class LibraryController(
     }
 
     private fun updateSmallerViewsTopMargins() {
-        val activityBinding = activityBinding ?: return
         val bigToolbarHeight = fullAppBarHeight ?: return
         val value = max(
             0,
-            bigToolbarHeight + activityBinding.appBar.y.roundToInt(),
-        ) + activityBinding.appBar.paddingTop
+            bigToolbarHeight + appBar()!!.y.roundToInt(),
+        ) + appBar()!!.paddingTop
         if (value != binding.fastScroller.marginTop) {
             binding.fastScroller.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                 topMargin = value
             }
             binding.emptyView.updatePadding(
-                top = bigToolbarHeight + activityBinding.appBar.paddingTop,
+                top = bigToolbarHeight + appBar()!!.paddingTop,
                 bottom = binding.libraryGridRecycler.recycler.paddingBottom,
             )
             binding.progress.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                topMargin = (bigToolbarHeight + activityBinding.appBar.paddingTop) / 2
+                topMargin = (bigToolbarHeight + appBar()!!.paddingTop) / 2
             }
         }
     }
@@ -1089,7 +1189,7 @@ open class LibraryController(
                 2 -> showDisplayOptions()
                 1 -> if (canCollapseOrExpandCategory() != null) presenter.toggleAllCategoryVisibility()
                 else -> if (!isSubClass) {
-                    activityBinding?.searchToolbar?.menu?.performIdentifierAction(
+                    searchToolbar()?.menu?.performIdentifierAction(
                         R.id.action_search,
                         0,
                     )
@@ -1386,25 +1486,19 @@ open class LibraryController(
         super.onChangeStarted(handler, type)
         when (type) {
             ControllerChangeType.PUSH_ENTER -> {
-                // Initial creation; selectTab follows up with onTabActivated → chrome bind.
+                // Initial creation; selectTab follows up with onTabActivated → onSetupLocalChrome.
             }
             ControllerChangeType.POP_ENTER -> {
-                // Pop back from MangaDetails etc. Refresh library data, then rebind chrome
-                // that the pushed controller had taken over.
+                // Pop back from MangaDetails etc. Refresh library data, then re-wire the
+                // local chrome via onTabActivated.
                 presenter.updateLibrary()
                 isPoppingIn = true
                 onTabActivated()
             }
             ControllerChangeType.PUSH_EXIT, ControllerChangeType.POP_EXIT -> {
-                // Pushed-over: drop out of Conductor's menu dispatch so our items don't
-                // stack on top of the pushed controller's. Re-included on POP_ENTER via
-                // onTabActivated → chromeBinder.bind → applyMenuOwnership.
-                //
-                // We deliberately do NOT touch the tab strip here. The pushed controller's
-                // PUSH_ENTER chromeBinder.bind (hoisted into BaseController.onChangeStarted)
-                // is the sole source of truth — it resets the chrome to baseline (clearing
-                // our strip) and then applies its own spec. Anticipating its intent from
-                // here was the source of every "tabs fumbled mid-push" symptom.
+                // Pushed-over: drop out of menu dispatch so our items don't stack on top of
+                // the pushed controller's. Each ported controller wires its own local
+                // appBar via onSetupLocalChrome; we don't touch chrome here.
                 setOptionsMenuHidden(true)
                 saveStaggeredState()
                 updateFilterSheetY()
@@ -1412,7 +1506,7 @@ open class LibraryController(
                 if (binding.filterBottomSheet.filterBottomSheet.sheetBehavior.isHidden()) {
                     binding.filterBottomSheet.filterBottomSheet.isInvisible = true
                 }
-                activityBinding?.searchToolbar?.setOnLongClickListener(null)
+                searchToolbar()?.setOnLongClickListener(null)
             }
             else -> Unit
         }
@@ -1431,13 +1525,10 @@ open class LibraryController(
     }
 
     /**
-     * Called when the user swaps to the Library tab via the bottom nav. Re-acquire
-     * ownership of the shared activity chrome via [applyDisplayMode] (which rebinds the
-     * chrome from [describeChrome] and flips the view tree to match the display mode).
-     *
-     * This mirrors what `onChangeStarted(PUSH_ENTER)` does on a real Conductor push, but
-     * runs without a Conductor lifecycle event because the controller view stays attached
-     * across tab swaps.
+     * Called when the user swaps to the Library tab via the bottom nav. Wires up the
+     * local appBar via [onSetupLocalChrome] and flips the view tree to match the display
+     * mode. Mirrors `onChangeStarted(PUSH_ENTER)` for tab swaps, which bypass Conductor's
+     * lifecycle because the controller view stays attached across swaps.
      */
     override fun onTabActivated() {
         if (!isBindingInitialized) return
@@ -1450,13 +1541,16 @@ open class LibraryController(
             staggeredBundle = null
         }
         applyDisplayMode()
+        // BaseController.onChangeStarted fires onSetupLocalChrome on push/pop, but tab
+        // swaps go through RootTabsController.selectTab → onTabActivated and bypass
+        // Conductor's lifecycle. Wire chrome explicitly here.
+        onSetupLocalChrome()
     }
 
     /**
      * Called when the user swaps away from the Library tab. Release Library-internal
      * state (filter sheet, staggered scroll, search toolbar long-press). The incoming
-     * tab's [ChromeBinder.bind] resets the shared chrome from its own spec — there is
-     * nothing for us to undo there.
+     * tab's [onSetupLocalChrome] sets up its own appBar — nothing for us to undo.
      */
     override fun onTabDeactivated() {
         if (!isBindingInitialized) return
@@ -1466,50 +1560,7 @@ open class LibraryController(
         if (binding.filterBottomSheet.filterBottomSheet.sheetBehavior.isHidden()) {
             binding.filterBottomSheet.filterBottomSheet.isInvisible = true
         }
-        activityBinding?.searchToolbar?.setOnLongClickListener(null)
-    }
-
-    override fun describeChrome(): ChromeSpec {
-        val visibleCats = if (isTabbedMode) visibleTabCategories() else emptyList()
-        val showStrip = isTabbedMode &&
-            visibleCats.size > 1 &&
-            !presenter.forceShowAllCategories
-        val tabsSpec = if (!showStrip) {
-            null
-        } else {
-            val selectedIdx = visibleCats.indexOfFirst { it.order == activeCategory }
-                .takeIf { it >= 0 } ?: 0
-            TabsSpec(
-                items = visibleCats.map { cat ->
-                    TabItem.Badged(
-                        text = cat.name,
-                        count = cat.id?.let { presenter.getItemCountInCategories(it) } ?: 0,
-                    )
-                },
-                selectedIndex = selectedIdx,
-                mode = TabMode.Scrollable,
-                onSelected = { idx ->
-                    if (binding.libraryPager.currentItem != idx) {
-                        binding.libraryPager.setCurrentItem(idx, true)
-                    }
-                },
-                onReselected = {
-                    pagerAdapter?.recyclerForPosition(binding.libraryPager.currentItem)
-                        ?.smoothScrollToTop()
-                },
-                pagerSync = TabsPagerSync(
-                    pager = binding.libraryPager,
-                    onPageSelected = { position ->
-                        onLibraryPageSelected(position, visibleCats)
-                    },
-                ),
-            )
-        }
-        return ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.libraryGridRecycler.recycler,
-            tabs = tabsSpec,
-        )
+        searchToolbar()?.setOnLongClickListener(null)
     }
 
     /**
@@ -1528,7 +1579,7 @@ open class LibraryController(
         pagerAdapter?.recyclerForPosition(position)?.let { pageRecycler ->
             pageRecycler.stopScroll()
             pageRecycler.scrollToPosition(0)
-            activityBinding?.appBar?.let { appBar ->
+            appBar()?.let { appBar ->
                 appBar.y = 0f
                 appBar.updateAppBarAfterY(pageRecycler)
             }
@@ -1556,8 +1607,8 @@ open class LibraryController(
         if (isBindingInitialized) {
             binding.libraryGridRecycler.recycler.removeOnScrollListener(scrollListener)
             binding.fastScroller.controller = null
-            // ChromeBinder owns any pager listener it installed (via TabsPagerSync) and
-            // detaches it on its next bind; no manual detach needed here.
+            // appBar owns the pager listener installed via applyTabs and detaches it on
+            // clearTabs / next applyTabs; no manual detach needed here.
             binding.libraryPager.adapter = null
         }
         pagerAdapter = null
@@ -1567,7 +1618,7 @@ open class LibraryController(
         saveStaggeredState()
 
         showAllCategoriesView?.let {
-            (activityBinding?.searchToolbar?.searchView as? MiniSearchView)?.removeSearchModifierIcon(it)
+            (searchToolbar()?.searchView as? MiniSearchView)?.removeSearchModifierIcon(it)
         }
         super.onDestroyView(view)
     }
@@ -1635,10 +1686,10 @@ open class LibraryController(
             scrollToHeader(activeCategory)
             binding.libraryGridRecycler.recycler.post {
                 if (isControllerVisible) {
-                    activityBinding?.appBar?.y = 0f
-                    activityBinding?.appBar?.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
+                    appBar()?.y = 0f
+                    appBar()?.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
                     if (activeC > 0) {
-                        activityBinding?.appBar?.useSearchToolbarForMenu(true)
+                        appBar()?.useSearchToolbarForMenu(true)
                     }
                 }
             }
@@ -1648,10 +1699,10 @@ open class LibraryController(
                     binding.libraryGridRecycler.recycler.postOnAnimation {
                         if (!isControllerVisible) return@postOnAnimation
                         scrollToHeader(activeC, false)
-                        activityBinding?.appBar?.y = 0f
-                        activityBinding?.appBar?.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
+                        appBar()?.y = 0f
+                        appBar()?.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
                         if (activeC > 0) {
-                            activityBinding?.appBar?.useSearchToolbarForMenu(true)
+                            appBar()?.useSearchToolbarForMenu(true)
                         }
                     }
                 }
@@ -1661,13 +1712,13 @@ open class LibraryController(
                     removeStaggeredObserver()
                     if (!isControllerVisible) return@launchUI
                     if (activeC > 0) {
-                        activityBinding?.appBar?.useSearchToolbarForMenu(true)
+                        appBar()?.useSearchToolbarForMenu(true)
                     }
                 }
             }
         }
         if (isControllerVisible) {
-            activityBinding?.appBar?.lockYPos = false
+            appBar()?.lockYPos = false
         }
         binding.libraryGridRecycler.recycler.post {
             elevateAppBar(binding.libraryGridRecycler.recycler.canScrollVertically(-1))
@@ -1781,31 +1832,32 @@ open class LibraryController(
     open fun showCategories(show: Boolean, closeSearch: Boolean = false, category: Int = -1) {
         binding.recyclerCover.isClickable = show
         binding.recyclerCover.isFocusable = show
-        (activity as? MainActivity)?.apply {
-            reEnableBackPressedCallBack()
-            if (show && !binding.appBar.compactSearchMode && binding.appBar.useLargeToolbar) {
-                binding.appBar.compactSearchMode = binding.appBar.useLargeToolbar && show
-                if (binding.appBar.compactSearchMode) {
-                    setFloatingToolbar(true)
+        // Operate on this controller's own local appBar.
+        val localAppBar = binding.appBar
+        if (localAppBar != null) {
+            (activity as? MainActivity)?.reEnableBackPressedCallBack()
+            if (show && !localAppBar.compactSearchMode && localAppBar.useLargeToolbar) {
+                localAppBar.compactSearchMode = localAppBar.useLargeToolbar && show
+                if (localAppBar.compactSearchMode) {
                     mainRecycler.requestApplyInsets()
-                    binding.appBar.y = 0f
-                    binding.appBar.updateAppBarAfterY(mainRecycler)
+                    localAppBar.y = 0f
+                    localAppBar.updateAppBarAfterY(mainRecycler)
                 }
-            } else if (!show && binding.appBar.compactSearchMode && binding.appBar.useLargeToolbar &&
-                resources.configuration.screenHeightDp >= 600
+            } else if (!show && localAppBar.compactSearchMode && localAppBar.useLargeToolbar &&
+                (resources?.configuration?.screenHeightDp ?: 0) >= 600
             ) {
-                binding.appBar.compactSearchMode = false
+                localAppBar.compactSearchMode = false
                 mainRecycler.requestApplyInsets()
             }
         }
         if (closeSearch) {
-            activityBinding?.searchToolbar?.searchItem?.collapseActionView()
+            searchToolbar()?.searchItem?.collapseActionView()
         }
         val full = binding.categoryRecycler.height.toFloat() + binding.categoryRecycler.marginTop
         val translateY = if (show) full else 0f
         binding.libraryGridRecycler.recycler.animate().translationY(translateY).apply {
             setUpdateListener {
-                activityBinding?.appBar?.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
+                appBar()?.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
                 updateHopperY()
             }
         }.start()
@@ -1821,7 +1873,7 @@ open class LibraryController(
         binding.recyclerShadow.animate().translationY(translateY - 8.dpToPx).start()
         binding.recyclerCover.animate().translationY(translateY).start()
         binding.recyclerCover.animate().alpha(if (show) 0.75f else 0f).start()
-        activityBinding?.appBar?.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
+        appBar()?.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
         binding.swipeRefresh.isEnabled = !show
         setSubtitle()
         binding.categoryRecycler.isInvisible = !show
@@ -1885,8 +1937,8 @@ open class LibraryController(
             }
             binding.libraryGridRecycler.recycler.post {
                 if (isControllerVisible) {
-                    activityBinding.appBar.y = 0f
-                    activityBinding.appBar.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
+                    appBar()!!.y = 0f
+                    appBar()!!.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
                 }
             }
         }
@@ -2397,52 +2449,6 @@ open class LibraryController(
     //endregion
 
     //region Toolbar options methods
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        inflater.inflate(R.menu.library, menu)
-
-        val searchItem = activityBinding?.searchToolbar?.searchItem
-        val searchView = activityBinding?.searchToolbar?.searchView
-        activityBinding?.searchToolbar?.setQueryHint(view?.context?.getString(MR.strings.library_search_hint), query.isEmpty())
-
-        showAllCategoriesView = showAllCategoriesView ?: (searchView as? MiniSearchView)?.addSearchModifierIcon { context ->
-            ImageView(context).apply {
-                isSelected = presenter.forceShowAllCategories
-                isGone = true
-                setOnClickListener {
-                    presenter.forceShowAllCategories = !presenter.forceShowAllCategories
-                    presenter.updateLibrary()
-                    isSelected = presenter.forceShowAllCategories
-                }
-                val pad = 12.dpToPx
-                setPadding(pad, 0, pad, 0)
-                setImageResource(R.drawable.ic_show_all_categories_24dp)
-                background = context.getResourceDrawable(android.R.attr.selectableItemBackgroundBorderless)
-                imageTintList = ColorStateList.valueOf(context.getResourceColor(R.attr.actionBarTintColor))
-                compatToolTipText = view?.context?.getString(MR.strings.show_all_categories)
-            }
-        }!!
-
-        if (query.isNotEmpty()) {
-            if (activityBinding?.searchToolbar?.isSearchExpanded != true) {
-                searchItem?.expandActionView()
-                searchView?.setQuery(query, true)
-                searchView?.clearFocus()
-            } else {
-                searchView?.setQuery(query, false)
-            }
-            search(query)
-        } else if (activityBinding?.searchToolbar?.isSearchExpanded == true) {
-            searchItem?.collapseActionView()
-        }
-
-        setOnQueryTextChangeListener(activityBinding?.searchToolbar?.searchView) {
-            if (!it.isNullOrEmpty() && binding.recyclerCover.isClickable) {
-                showCategories(false)
-            }
-            search(it)
-        }
-    }
-
     override fun onActionViewExpand(item: MenuItem?) {
         if (!isTabbedMode && !binding.recyclerCover.isClickable && query.isBlank() &&
             !singleCategory && presenter.showAllCategories

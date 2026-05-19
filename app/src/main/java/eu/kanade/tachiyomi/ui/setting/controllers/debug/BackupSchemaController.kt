@@ -16,7 +16,7 @@ import eu.kanade.tachiyomi.util.view.copyToClipboard
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import kotlinx.serialization.protobuf.schema.ProtoBufSchemaGenerator
 
-class BackupSchemaController : BaseLegacyController<SubDebugControllerBinding>(), eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
+class BackupSchemaController : BaseLegacyController<SubDebugControllerBinding>() {
 
     companion object {
         const val title = "Backup file schema"
@@ -51,11 +51,4 @@ class BackupSchemaController : BaseLegacyController<SubDebugControllerBinding>()
     }
 
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.recycler,
-            useSmallToolbar = false,
-            tabs = null,
-        )
 }

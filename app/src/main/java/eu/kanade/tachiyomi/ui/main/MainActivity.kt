@@ -88,6 +88,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.base.MaterialMenuSheet
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
+import eu.kanade.tachiyomi.ui.base.controller.BaseController
 import eu.kanade.tachiyomi.ui.base.controller.BaseLegacyController
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.ui.library.LibraryController
@@ -184,15 +185,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             return rootTabsController?.activeChildRouter() ?: topRouter
         }
 
-    /**
-     * Sole owner of the shared activity chrome (AppBar visual state, mainTabs, menu
-     * participation). Created lazily on first access — needs [binding] to be inflated.
-     * See [eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder] for the design rationale.
-     */
-    val chromeBinder: eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder by lazy {
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeBinder(binding)
-    }
-
     /** The [RootTabsController] hosting the bottom-nav tabs, if installed. */
     protected val rootTabsController: RootTabsController?
         get() = if (this::topRouter.isInitialized) {
@@ -230,8 +222,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
     private val hideBottomNav
         get() = router.backstackSize > 1 && router.backstack[1].controller !is DialogController
-    private val hideAppBar
-        get() = router.isCompose
 
     private val updateChecker by lazy { AppUpdateChecker() }
     private val isUpdaterEnabled = BuildConfig.INCLUDE_UPDATER
@@ -304,14 +294,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     private val backCallback = {
         pressingBack()
         reEnableBackPressedCallBack()
-    }
-
-    fun bigToolbarHeight(includeSearchToolbar: Boolean, includeTabs: Boolean, includeLargeToolbar: Boolean): Int {
-        return if (!includeLargeToolbar || !binding.appBar.useLargeToolbar) {
-            toolbarHeight + if (includeTabs) 48.dpToPx else 0
-        } else {
-            binding.appBar.getEstimatedLayout(includeSearchToolbar, includeTabs, includeLargeToolbar)
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -505,7 +487,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         supportActionBar?.setDisplayShowCustomEnabled(true)
 
         setNavBarColor(content.rootWindowInsetsCompat)
-        binding.appBar.mainActivity = this
         nav.isVisible = false
         content.doOnApplyWindowInsetsCompat { v, insets, _ ->
             setNavBarColor(insets)
@@ -521,9 +502,10 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 left = systemInsets.left,
                 right = systemInsets.right,
             )
-            binding.appBar.updatePadding(
-                top = systemInsets.top,
-            )
+            // Top inset for binding.appBar is consumed inside ExpandedAppBarLayout's own
+            // OnApplyWindowInsetsListener (see ExpandedAppBarLayout.init) so the widget
+            // works identically whether it's the activity-global instance or a
+            // controller-local one.
             binding.bottomNav?.updatePadding(
                 bottom = systemInsets.bottom,
             )
@@ -775,6 +757,17 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         binding.searchToolbar.title = searchTitle
         val onExpandedController = if (this::topRouter.isInitialized) router.backstack.lastOrNull()?.controller !is SmallToolbarInterface else false
         binding.appBar.setTitle(title, onExpandedController)
+        // Also forward the title to the active controller's local appBar — Conductor's
+        // setTitle drives activity.title which fires this callback, but the activity-
+        // global appBar is hidden when a LocalAppBarOwner is active so the user never
+        // sees that update. Without this, the big_title view of the local appBar stays
+        // empty after every controller swap.
+        val active = activeRootController ?: router.backstack.lastOrNull()?.controller
+        val localAppBar = (active as? eu.kanade.tachiyomi.ui.base.LocalAppBarOwner)?.localAppBar()
+        if (localAppBar != null) {
+            localAppBar.setTitle(title, onExpandedController)
+            localAppBar.searchToolbar?.title = searchTitle
+        }
     }
 
     var searchTitle: String?
@@ -788,6 +781,11 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         }
         set(title) {
             binding.searchToolbar.title = title
+            // Mirror onto the active LocalAppBarOwner's pill so the placeholder text
+            // tracks for ported controllers too.
+            val active = activeRootController ?: router.backstack.lastOrNull()?.controller
+            (active as? eu.kanade.tachiyomi.ui.base.LocalAppBarOwner)?.localAppBar()
+                ?.searchToolbar?.title = title
         }
 
     open fun setFloatingToolbar(show: Boolean, solidBG: Boolean = false, changeBG: Boolean = true, showSearchAnyway: Boolean = false) {
@@ -1263,7 +1261,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         overflowDialog?.dismiss()
         overflowDialog = null
         if (isBindingInitialized) {
-            binding.appBar.mainActivity = null
             binding.toolbar.setNavigationOnClickListener(null)
             binding.searchToolbar.setNavigationOnClickListener(null)
         }
@@ -1403,7 +1400,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 Trace.beginSection("Hayai/syncActivityViewWithController")
                 syncActivityViewWithController(to, from, isPush)
                 Trace.endSection()
-                binding.appBar.isVisible = !hideAppBar
+                syncActivityAppBarVisibility(to)
                 binding.appBar.alpha = 1f
                 if (binding.backShadow.isVisible && !isPush) {
                     val bA = ObjectAnimator.ofFloat(binding.backShadow, View.ALPHA, 0f)
@@ -1489,24 +1486,17 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
      * Called by [RootTabsController] after a tab swap. By the time we get here the outgoing
      * tab's controller has been notified via [RootTabContent.onTabDeactivated] and the
      * incoming via [RootTabContent.onTabActivated] — both have already wired/unwired their
-     * app-bar contributions and toggled their [Controller.setOptionsMenuHidden] participation.
+     * own local appBars and toggled their [Controller.setOptionsMenuHidden] participation.
      *
-     * Our job here is to (a) reset the shared chrome to a clean baseline so any decorative
-     * state the previous tab left behind (appBar alpha, isInvisible) doesn't bleed across,
-     * and (b) trigger a fresh menu walk via [invalidateOptionsMenu] so the toolbar shows
-     * only the new active controller's items — without this, Conductor would otherwise
-     * leave the previous tab's items stuck in place.
+     * Our job here is to sync the activity-global appBar visibility (hidden when the
+     * incoming tab hosts its own) and trigger a fresh menu walk via [invalidateOptionsMenu]
+     * so the activity-global toolbar (used by un-ported detail screens) shows only the
+     * new active controller's items.
      */
     fun onActiveTabChanged(@Suppress("UNUSED_PARAMETER") fromTabId: Int, @Suppress("UNUSED_PARAMETER") toTabId: Int) {
         val active = activeRootController
-        // NOTE: do NOT reset binding.appBar.isInvisible here — the active controller (e.g.
-        // Browse with its extensions sheet expanded) may legitimately have set it after
-        // claimActivityChrome ran. The claim/release protocol owns AppBar visibility:
-        // claimActivityChrome resets to defaults; the controller then layers its desired
-        // state (Browse's updateTitleAndMenu sets isInvisible=true when the sheet is open).
-        // Resetting here unconditionally would override that intent and reveal a stale
-        // "snapshot" of the previous tab's chrome above the still-expanded sheet.
         syncActivityViewWithController(active)
+        syncActivityAppBarVisibility(active)
         setFloatingToolbar(canShowFloatingToolbar(active), changeBG = false)
         // Rebuild the toolbar menu from scratch against the new active controller only —
         // dormant tabs have setOptionsMenuHidden(true) so Conductor's menu dispatch skips
@@ -1515,6 +1505,19 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         binding.searchToolbar.title = searchTitle
         (active as? BaseLegacyController<*>)?.setTitle()
         (active as? SettingsLegacyController)?.setTitle()
+    }
+
+    /**
+     * Show/hide the activity-global [binding.appBar] based on the visible controller.
+     * Pass the actual [Controller] (not [router.backstack.lastOrNull]) to avoid a race
+     * during PUSH_ENTER when the backstack hasn't yet been mutated. Called by
+     * [BaseController.onChangeStarted] on every push/pop enter, by [onActiveTabChanged]
+     * on every tab swap, and by the activity-level Conductor change listener.
+     */
+    fun syncActivityAppBarVisibility(active: Controller?) {
+        val hostsOwn = (active as? BaseController)?.hostsOwnAppBar == true
+        val composeRoute = active is eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
+        binding.appBar.isVisible = !(hostsOwn || composeRoute)
     }
 
     override fun onPreparePanel(featureId: Int, view: View?, menu: Menu): Boolean {

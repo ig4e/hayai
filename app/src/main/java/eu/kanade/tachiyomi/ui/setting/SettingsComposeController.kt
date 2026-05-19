@@ -8,7 +8,11 @@ import yokai.presentation.theme.LocalReducedMotion
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import yokai.presentation.settings.ComposableSettings
 
-abstract class SettingsComposeController: BaseComposeController(), SettingsControllerInterface, eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
+abstract class SettingsComposeController: BaseComposeController(), SettingsControllerInterface {
+    // The Compose body renders its own top bar via YokaiScaffold inside the Voyager
+    // Navigator screen tree; the activity-global appBar must stay hidden behind it.
+    override val hostsOwnAppBar: Boolean = true
+
     override fun getTitle(): String? = __getTitle()
     override fun getSearchTitle(): String? = __getTitle()
 
@@ -26,13 +30,4 @@ abstract class SettingsComposeController: BaseComposeController(), SettingsContr
             },
         )
     }
-
-
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = null,
-            useSmallToolbar = true,
-            tabs = null,
-        )
 }

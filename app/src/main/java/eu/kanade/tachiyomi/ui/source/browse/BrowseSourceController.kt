@@ -91,7 +91,6 @@ open class BrowseSourceController(bundle: Bundle) :
     FlexibleAdapter.OnItemClickListener,
     FlexibleAdapter.OnItemLongClickListener,
     FloatingSearchInterface,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     FlexibleAdapter.EndlessScrollListener {
 
     constructor(
@@ -592,20 +591,12 @@ open class BrowseSourceController(bundle: Bundle) :
 
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
-        // BaseController.onChangeStarted already rebound the chrome from describeChrome().
         if (type == ControllerChangeType.POP_ENTER && lastPosition > -1) {
             adapter?.notifyItemChanged(lastPosition, false)
             lastPosition = -1
         }
     }
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = recycler,
-            useSmallToolbar = false,
-            tabs = null,
-        )
 
     /**
      * Restarts the request with a new query.

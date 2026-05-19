@@ -33,7 +33,6 @@ class CategoryController(bundle: Bundle? = null) :
     FlexibleAdapter.OnItemClickListener,
     FlexibleAdapter.OnItemMoveListener,
     SmallToolbarInterface,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     CategoryAdapter.CategoryItemListener {
 
     /**
@@ -100,14 +99,6 @@ class CategoryController(bundle: Bundle? = null) :
         return super.handleBack()
     }
 
-
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.recycler,
-            useSmallToolbar = true,
-            tabs = null,
-        )
 
     /**
      * Called from the presenter when the categories are updated.

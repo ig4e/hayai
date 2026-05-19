@@ -27,7 +27,6 @@ import eu.kanade.tachiyomi.util.view.withFadeTransaction
 class SettingsSearchController :
     BaseLegacyController<SettingsSearchControllerBinding>(),
     SearchControllerInterface,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     SettingsSearchAdapter.OnTitleClickListener {
 
     /**
@@ -150,11 +149,4 @@ class SettingsSearchController :
     }
 
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = if (isBindingInitialized) binding.recycler else null,
-            useSmallToolbar = false,
-            tabs = null,
-        )
 }

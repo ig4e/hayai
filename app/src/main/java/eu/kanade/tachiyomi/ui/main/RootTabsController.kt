@@ -111,7 +111,7 @@ class RootTabsController : Controller() {
      *  3. Materialise the incoming child router (first selection only — Conductor's
      *     PUSH_ENTER fires synchronously here on the controller).
      *  4. Notify the incoming controller via [RootTabContent.onTabActivated]. The controller
-     *     calls [MainActivity.chromeBinder].bind to set up the activity chrome — this fires
+     *     calls its own [BaseController.onSetupLocalChrome] to wire its local appBar — this fires
      *     for both initial creation AND tab swap, since the chrome state has to be applied
      *     either way.
      *  5. Ask [MainActivity] to resync any remaining cross-cutting state (title, etc.).

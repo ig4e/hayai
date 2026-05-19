@@ -17,7 +17,7 @@ import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.source.BrowseController
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.openInBrowser
-import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.widget.LinearLayoutManagerAccurateOffset
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +32,6 @@ class MigrationController :
     BaseCoroutineController<MigrationControllerBinding, MigrationPresenter>(),
     FlexibleAdapter.OnItemClickListener,
     SourceAdapter.OnAllClickListener,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
     BaseMigrationInterface {
 
     private var adapter: FlexibleAdapter<IFlexible<*>>? = null
@@ -146,7 +145,7 @@ class MigrationController :
             binding.migrationRecycler.adapter = adapter
         }
         adapter?.updateDataSet(manga, true)
-        activityBinding?.appBar?.doOnNextLayout {
+        appBar()?.doOnNextLayout {
             binding.migrationRecycler.requestApplyInsets()
         }
     }
@@ -161,11 +160,4 @@ class MigrationController :
     }
 
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.migrationRecycler,
-            useSmallToolbar = false,
-            tabs = null,
-        )
 }

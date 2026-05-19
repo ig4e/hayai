@@ -8,6 +8,7 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
+import androidx.core.view.isInvisible
 import androidx.core.view.updatePaddingRelative
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
@@ -17,6 +18,8 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.SourceGlobalSearchControllerBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.ui.base.ExpandedAppBarLayout
+import eu.kanade.tachiyomi.ui.base.LocalAppBarOwner
 import eu.kanade.tachiyomi.ui.base.controller.BaseCoroutineController
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.SearchActivity
@@ -29,7 +32,9 @@ import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.system.withUIContext
 import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.appBar
 import eu.kanade.tachiyomi.util.view.isControllerVisible
+import eu.kanade.tachiyomi.util.view.searchToolbar
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
 import eu.kanade.tachiyomi.util.view.snack
@@ -51,8 +56,53 @@ open class GlobalSearchController(
 ) : BaseCoroutineController<SourceGlobalSearchControllerBinding, GlobalSearchPresenter>(bundle),
     SearchControllerInterface,
     GlobalSearchAdapter.OnTitleClickListener,
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware,
+    LocalAppBarOwner,
     GlobalSearchCardAdapter.OnMangaClickListener {
+
+    override val hostsOwnAppBar: Boolean = true
+
+    override fun localAppBar(): ExpandedAppBarLayout? = if (isAttached) binding.appBar else null
+
+    override fun onSetupLocalChrome() {
+        // appBarVisible=true, useSmallToolbar=false, no tabs — same intent as the
+        // Configure the layout-local appBar.
+        val appBar = binding.appBar
+        appBar.alpha = 1f
+        appBar.isInvisible = false
+        appBar.lockYPos = false
+        appBar.hideBigView(useSmall = false)
+        appBar.setToolbarModeBy(this)
+        appBar.clearTabs()
+        // Scroll-source sync — snap appBar Y to current recycler offset on each enter.
+        appBar.y = 0f
+        appBar.updateAppBarAfterY(binding.recycler)
+        // Menu inflation lives on the local CenteredToolbar; the activity action bar
+        // is no longer this controller's host.
+        val toolbar = appBar.mainToolbar ?: return
+        if (toolbar.menu.size() == 0) {
+            toolbar.inflateMenu(R.menu.catalogue_new_list)
+        }
+        toolbar.setOnMenuItemClickListener { item -> onOptionsItemSelected(item) }
+        wireSearchToolbar()
+    }
+
+    private fun wireSearchToolbar() {
+        val search = binding.appBar.searchToolbar ?: return
+        search.setQueryHint(view?.context?.getString(MR.strings.global_search), false)
+        search.searchItem?.expandActionView()
+        search.searchView?.setQuery(presenter.query, false)
+        if (presenter.query.isBlank()) {
+            search.searchView?.requestFocus()
+        }
+        setOnQueryTextChangeListener(search.searchView, onlyOnSubmit = true, hideKbOnSubmit = true) {
+            applicationContext?.extensionIntentForText(it ?: "")?.let { intent ->
+                safeStartActivity(intent)
+            }
+            presenter.search(it ?: "")
+            setTitle()
+            true
+        }
+    }
 
     /**
      * Start activity in a safe way: post to view and use activity context.
@@ -87,13 +137,6 @@ open class GlobalSearchController(
      */
     private var snack: Snackbar? = null
     private var lastPosition: Int = -1
-
-    /**
-     * Called when controller is initialized.
-     */
-    init {
-        setHasOptionsMenu(true)
-    }
 
     override fun createBinding(inflater: LayoutInflater) = SourceGlobalSearchControllerBinding.inflate(inflater)
 
@@ -175,42 +218,12 @@ open class GlobalSearchController(
             customTitle == null ||
             extensionFilter == null
 
-    /**
-     * Adds items to the options menu.
-     *
-     * @param menu menu containing options.
-     * @param inflater used to load the menu xml.
-     */
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        // Inflate menu.
-        inflater.inflate(R.menu.catalogue_new_list, menu)
-
-        // Initialize search menu
-        activityBinding?.searchToolbar?.setQueryHint(view?.context?.getString(MR.strings.global_search), false)
-        activityBinding?.searchToolbar?.searchItem?.expandActionView()
-        activityBinding?.searchToolbar?.searchView?.setQuery(presenter.query, false)
-
-        if (presenter.query.isBlank()) {
-            activityBinding?.searchToolbar?.searchView?.requestFocus()
-        }
-
-        setOnQueryTextChangeListener(activityBinding?.searchToolbar?.searchView, onlyOnSubmit = true, hideKbOnSubmit = true) {
-            // try to handle the query as a manga URL
-            applicationContext?.extensionIntentForText(it ?: "")?.let { intent ->
-                safeStartActivity(intent)
-            }
-            presenter.search(it ?: "")
-            setTitle() // Update toolbar title
-            true
-        }
-    }
-
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
         if (type.isEnter && isControllerVisible) {
-            // BaseController.onChangeStarted already rebound the chrome from describeChrome().
-            val searchView = activityBinding?.searchToolbar?.searchView ?: return
-            val searchItem = activityBinding?.searchToolbar?.searchItem ?: return
+            // BaseController.onChangeStarted already called onSetupLocalChrome.
+            val searchView = searchToolbar()?.searchView ?: return
+            val searchItem = searchToolbar()?.searchItem ?: return
             searchItem.expandActionView()
             searchView.setQuery(presenter.query, false)
             if (presenter.query.isNotBlank()) {
@@ -224,16 +237,8 @@ open class GlobalSearchController(
         }
     }
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.recycler,
-            useSmallToolbar = false,
-            tabs = null,
-        )
-
     override fun onActionViewExpand(item: MenuItem?) {
-        val searchView = activityBinding?.searchToolbar?.searchView ?: return
+        val searchView = searchToolbar()?.searchView ?: return
         searchView.setQuery(presenter.query, false)
     }
 
@@ -331,7 +336,7 @@ open class GlobalSearchController(
                 customTitle = null
                 setTitle()
                 activity?.invalidateOptionsMenu()
-                activityBinding?.appBar?.updateAppBarAfterY(binding.recycler)
+                appBar()?.updateAppBarAfterY(binding.recycler)
             }
         }
         adapter?.updateDataSet(searchResult)

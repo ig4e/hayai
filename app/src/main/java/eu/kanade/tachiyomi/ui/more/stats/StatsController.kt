@@ -36,8 +36,7 @@ import yokai.util.lang.getString
 import android.R as AR
 
 class StatsController :
-    BaseLegacyController<StatsControllerBinding>(),
-    eu.kanade.tachiyomi.ui.main.chrome.ChromeAware {
+    BaseLegacyController<StatsControllerBinding>() {
 
     val presenter = StatsPresenter()
 
@@ -197,13 +196,6 @@ class StatsController :
     }
 
 
-    override fun describeChrome(): eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec =
-        eu.kanade.tachiyomi.ui.main.chrome.ChromeSpec(
-            appBarVisible = true,
-            scrollSource = binding.statsScrollView,
-            useSmallToolbar = false,
-            tabs = null,
-        )
 
     class StatusDistributionItem(
         val status: String,
