@@ -1028,24 +1028,32 @@ class ReaderViewModel(
         val default = preferences.defaultReadingMode().get()
         val manga = manga ?: return default
 
+        // viewer_flags == -1 is the "never opened" sentinel; with all bits set, masked
+        // accessors return their MASK (orientationType → REVERSE_LANDSCAPE), so normalise
+        // before any early-return.
+        val firstOpen = manga.viewer_flags == -1
+        if (firstOpen) {
+            manga.viewer_flags = 0
+        }
+
         // NOVEL -->
         // Auto-detect novel sources and force novel reading mode
         val source = sourceManager.get(manga.source)
         if (source is hayai.novel.source.TextSource) {
+            if (firstOpen) {
+                viewModelScope.launchIO { updateManga.await(MangaUpdate(manga.id!!, viewerFlags = manga.viewer_flags)) }
+            }
             return ReadingModeType.NOVEL.flagValue
         }
         // NOVEL <--
 
         val readerType = manga.defaultReaderType()
-        if (manga.viewer_flags == -1) {
+        if (firstOpen) {
             val cantSwitchToLTR =
                 (
                     readerType == ReadingModeType.LEFT_TO_RIGHT.flagValue &&
                         default != ReadingModeType.RIGHT_TO_LEFT.flagValue
                     )
-            if (manga.viewer_flags == -1) {
-                manga.viewer_flags = 0
-            }
             manga.readingModeType = if (cantSwitchToLTR) 0 else readerType
             viewModelScope.launchIO { updateManga.await(MangaUpdate(manga.id!!, viewerFlags = manga.viewer_flags)) }
         }

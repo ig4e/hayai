@@ -153,9 +153,9 @@ class LibraryMangaItem(
 
     private fun containsGenre(tag: String, genres: List<String>?): Boolean {
         if (tag.trim().isEmpty()) return true
-        context ?: return false
+        val ctx = context ?: return false
 
-        val seriesType by lazy { manga.manga.seriesType(context, sourceManager) }
+        val seriesType by lazy { manga.manga.seriesType(ctx, sourceManager) }
         return if (tag.startsWith("-")) {
             val realTag = tag.substringAfter("-")
             genres?.find {

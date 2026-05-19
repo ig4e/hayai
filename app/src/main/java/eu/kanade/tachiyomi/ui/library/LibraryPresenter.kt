@@ -198,6 +198,13 @@ class LibraryPresenter(
         val isSubController = controllerIsSubClass
         super.onDestroy()
         if (!isSubController) {
+            // Items hold viewContext (= the Activity). Swap to applicationContext before
+            // stashing into the static cache so a destroyed MainActivity isn't retained
+            // until the next library open.
+            val appCtx = context.applicationContext
+            libraryToDisplay.values.forEach { items ->
+                items.forEach { it.context = appCtx }
+            }
             lastDisplayedLibrary = libraryToDisplay
             lastCategories = categories
             lastLibrary = currentLibrary

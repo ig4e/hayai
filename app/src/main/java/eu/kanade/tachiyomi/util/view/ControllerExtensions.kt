@@ -11,6 +11,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Build
 import android.view.Gravity
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -121,87 +122,41 @@ fun Controller.setOnQueryTextChangeListener(
 }
 
 /**
- * Inflate [menuRes] onto the controller's local [appBar]'s main toolbar AND its
- * search pill, wiring both to dispatch into the controller's [Controller.onOptionsItemSelected].
+ * Install [menuRes] on the controller's local [appBar]. The controller's overflow
+ * items (filter / 3-dot / etc.) are inflated onto the **main toolbar only** — the
+ * search pill's menu is kept lean with just its intrinsic [R.id.action_search]
+ * (the SearchView action item).
  *
- * Why both: when the user scrolls and [ExpandedAppBarLayout.useSearchToolbarForMenu]
- * collapses the bar, the main toolbar is set to `isInvisible=true` and only the search
- * pill remains tappable. If the overflow items are only on the main toolbar, the
- * 3-dot menu disappears from the user's reach until they scroll back up. Installing
- * the menu on both means the items stay accessible in either visual state.
+ * When the user scrolls and [ExpandedAppBarLayout.useSearchToolbarForMenu] collapses
+ * the bar to compact mode, the same menu items are lifted onto the pill so they
+ * stay reachable while the main toolbar is hidden. This mirrors the activity-global
+ * pattern in [MainActivity.setupSearchTBMenu] and is the difference between "actions
+ * appear once in the right place" and "actions appear twice stacked on top of each
+ * other" (the second was a regression that briefly shipped).
  *
- * Idempotent — each toolbar's `menu.size() == 0` gate prevents duplicate inflation.
- * The search-action item from the pill's pre-inflated [R.menu.search] is preserved
- * because Android merges menu inflations.
+ * Click dispatch is wired toolbar-level (so it survives menu rebuilds): the controller's
+ * own [Controller.onOptionsItemSelected] gets the first crack, with a fallback to
+ * [MainActivity.onOptionsItemSelected] for items the controller doesn't claim
+ * (notably [R.id.action_more], which the activity owns the global overflow dialog for).
  */
 fun Controller.installLocalMenu(menuRes: Int) {
     val appBar = appBar() ?: return
-    val main = appBar.mainToolbar
-    val pill = appBar.searchToolbar
+    val main = appBar.mainToolbar ?: return
 
-    if (main != null && main.menu.size() == 0) {
+    if (main.menu.size() == 0) {
         main.inflateMenu(menuRes)
     }
-    // Fall back to the activity's handler for items the controller doesn't claim.
-    // R.id.action_more in particular is owned by [MainActivity.onOptionsItemSelected]
-    // — it walks the active controller first and then shows the global overflow
-    // dialog. Without this fallback, tapping the 3-dot does nothing on ported screens.
-    main?.setOnMenuItemClickListener { item ->
+    val dispatch: (MenuItem) -> Boolean = { item ->
         onOptionsItemSelected(item) || (activity as? MainActivity)?.onOptionsItemSelected(item) == true
     }
-
-    if (pill != null) {
-        // The pill pre-inflates R.menu.search in its onFinishInflate (which adds the
-        // SearchView action_search). Every controller menu also declares its own
-        // action_search with the same id and actionViewClass — so naively calling
-        // inflateMenu(menuRes) leaves the pill with TWO action_search items, both
-        // visible as duplicate magnifying-glass icons. Clear-and-rebuild gives a
-        // single canonical action_search alongside the controller's overflow items.
-        val installed = pill.getTag(R.id.search_toolbar) as? Int
-        if (installed != menuRes) {
-            pill.menu.clear()
-            pill.inflateMenu(menuRes)
-            pill.setTag(R.id.search_toolbar, menuRes)
-            // Re-attach the per-action listener — wireLocalSearchToolbar wired the
-            // pre-clear instance which is now gone. The listener is needed so that
-            // tapping the pill (or its navigation icon) hides the other action items
-            // while the SearchView is expanded.
-            wirePillSearchExpandListener(pill)
-        }
-        // The pill's persistent click + menu-item listeners (installed by
-        // BaseController.wireLocalSearchToolbar) survive menu.clear() — they're set
-        // on the toolbar, not on individual items.
-    }
-}
-
-/**
- * Re-bind the action-expand listener on the pill's [R.id.action_search] item — used
- * both by [BaseController.wireLocalSearchToolbar] (initial wiring after layout) and
- * by [installLocalMenu] (after [Menu.clear] discards the pre-existing listener).
- *
- * On expand: hide other items so the SearchView gets the full width.
- * On collapse: restore other items to their XML-default visibility (we can't
- * blindly set all to visible because action_search itself has `android:visible=false`
- * by default).
- */
-internal fun wirePillSearchExpandListener(pill: eu.kanade.tachiyomi.ui.base.FloatingToolbar) {
-    val searchItem = pill.menu.findItem(R.id.action_search) ?: return
-    searchItem.setOnActionExpandListener(
-        object : android.view.MenuItem.OnActionExpandListener {
-            override fun onMenuItemActionExpand(item: android.view.MenuItem): Boolean {
-                pill.menu.forEach { if (it.itemId != R.id.action_search) it.isVisible = false }
-                return true
-            }
-            override fun onMenuItemActionCollapse(item: android.view.MenuItem): Boolean {
-                pill.menu.forEach {
-                    // Only flip non-search items back. action_search is collapseActionView
-                    // so its visibility is managed by AppCompat as it transitions.
-                    if (it.itemId != R.id.action_search) it.isVisible = true
-                }
-                return true
-            }
-        },
-    )
+    main.setOnMenuItemClickListener(dispatch)
+    // Pre-wire the pill's dispatch too. The pill receives its menu items dynamically
+    // from [ExpandedAppBarLayout.useSearchToolbarForMenu] on scroll-collapse; this
+    // listener has to be in place ahead of time so taps work the moment items appear.
+    // BaseController.wireLocalSearchToolbar sets the toolbar-level click handler;
+    // re-set it here to guarantee ordering (wireDefaultLocalChrome runs before
+    // controller's onSetupLocalChrome which calls installLocalMenu).
+    appBar.searchToolbar?.setOnMenuItemClickListener(dispatch)
 }
 
 fun Controller.removeQueryListener(includeSearchTB: Boolean = true) {

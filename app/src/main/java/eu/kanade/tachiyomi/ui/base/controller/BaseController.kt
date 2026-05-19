@@ -228,18 +228,14 @@ abstract class BaseController(bundle: Bundle? = null) :
             }
         }
 
-        // Forward menu-item taps to the controller's onOptionsItemSelected. Falls back
-        // to the activity's own handler for items the controller doesn't claim (e.g.
-        // R.id.action_search itself, which the activity owns the expand state for).
-        pill.setOnMenuItemClickListener { item ->
-            this@BaseController.onOptionsItemSelected(item) || act.onOptionsItemSelected(item)
-        }
+        // Menu-item dispatch on the pill is set by [installLocalMenu] (which fires
+        // *after* this method during onSetupLocalChrome). We deliberately don't wire
+        // a placeholder listener here — it'd just be overwritten anyway.
 
-        // Hide non-search items while the SearchView is expanded — see
-        // [eu.kanade.tachiyomi.util.view.wirePillSearchExpandListener]. The same
-        // helper is re-called by [installLocalMenu] after a menu rebuild because
-        // [Menu.clear] discards per-item listeners.
-        eu.kanade.tachiyomi.util.view.wirePillSearchExpandListener(pill)
+        // Pill action-item visibility is owned by [ExpandedAppBarLayout.useSearchToolbarForMenu]
+        // (it lifts items from the main toolbar when the bar collapses to compact mode
+        // and hides them otherwise). No per-item expand listener needed here — when the
+        // SearchView expands, AppCompat handles the layout reshape automatically.
     }
 
     open fun canStillGoBack(): Boolean { return false }

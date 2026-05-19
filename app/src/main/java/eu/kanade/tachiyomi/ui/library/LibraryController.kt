@@ -1580,8 +1580,16 @@ open class LibraryController(
             pageRecycler.stopScroll()
             pageRecycler.scrollToPosition(0)
             appBar()?.let { appBar ->
+                // Snap the appBar to fully-expanded immediately so the user sees the
+                // swap as instant. updateAppBarAfterY then re-reads the (now zero) scroll
+                // offset and confirms — but RecyclerView.computeVerticalScrollOffset()
+                // doesn't return 0 until after the next layout pass, so we defer it via
+                // post(). Without this defer, the appBar reads the *old* tab's scroll
+                // offset and stays half-collapsed; the user only sees it snap to the
+                // correct position once they nudge the new tab's recycler.
                 appBar.y = 0f
                 appBar.updateAppBarAfterY(pageRecycler)
+                pageRecycler.post { appBar.updateAppBarAfterY(pageRecycler) }
             }
             setPageToolbarElevated(false)
         }

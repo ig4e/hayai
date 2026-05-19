@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <provider
+            android:name="eu.kanade.tachiyomi.debug.LeakCanaryConfigProvider"
+            android:authorities="${applicationId}.leakcanary-config"
+            android:exported="false"
+            android:initOrder="1"
+            tools:ignore="MissingClass" />
+    </application>
+</manifest>

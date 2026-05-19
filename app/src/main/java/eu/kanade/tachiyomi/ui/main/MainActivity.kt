@@ -713,6 +713,13 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             .changesIn(lifecycleScope) {
                 binding.toolbar.setIncognitoMode(it)
                 binding.searchToolbar.setIncognitoMode(it)
+                // Also push into the active LocalAppBarOwner's toolbars — the activity-
+                // global toolbars are hidden when a ported controller is visible, so this
+                // observer used to silently no-op for Library / Recents / Browse.
+                val active = activeRootController ?: router.backstack.lastOrNull()?.controller
+                val localAppBar = (active as? eu.kanade.tachiyomi.ui.base.LocalAppBarOwner)?.localAppBar()
+                localAppBar?.mainToolbar?.setIncognitoMode(it)
+                localAppBar?.searchToolbar?.setIncognitoMode(it)
                 SecureActivityDelegate.setSecure(this)
             }
         preferences.sideNavIconAlignment()

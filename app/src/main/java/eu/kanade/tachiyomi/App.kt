@@ -152,8 +152,11 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         val scope = ProcessLifecycleOwner.get().lifecycleScope
 
         // ── 4. One-shot side effects ──────────────────────────────────────────────────────
-        // NotificationManager APIs are thread-safe and idempotent; defer off Main.
-        scope.launchIO { setupNotificationChannels() }
+        // WebView init transiently rewrites the application context's package identity to
+        // the WebView provider (com.android.chrome). Any system-service call from another
+        // thread during that window hits checkCallerIsSameApp with a mismatched package
+        // and throws SecurityException. Channels are created before WebView is touched.
+        val channelsJob = scope.launchIO { setupNotificationChannels() }
 
         // Trigger NovelPluginManager init now so QuickJS metadata extraction happens at
         // app launch, not at first reader-open (where init awaits the source up to 5s).
@@ -168,6 +171,7 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         // Pre-load WebView native libs so the first novel chapter doesn't pay the
         // WebView class-init cost (200–500 ms cold) on the UI thread.
         scope.launch {
+            channelsJob.join()
             try {
                 WebView(this@App).destroy()
             } catch (e: Throwable) {

@@ -132,7 +132,11 @@ class WebtoonPageHolder(
                     is Page.State.LoadPage -> setLoading()
                     is Page.State.DownloadImage -> {
                         setDownloading()
-                        scope.launch {
+                        // Launch on the supervisorScope receiver so this collector is a child
+                        // of loadJob and dies with it on recycle(). Using the class-level
+                        // MainScope here would orphan the collector, keeping the OkHttp
+                        // progress listener alive and retaining the holder → ReaderActivity.
+                        launch {
                             page.progressFlow.collectLatest { value ->
                                 progressIndicator.setProgress(value)
                             }

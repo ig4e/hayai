@@ -15,7 +15,7 @@ import yokai.domain.ui.UiPreferences
 
 abstract class LibraryItem(
     header: LibraryHeaderItem,
-    internal val context: Context?,
+    internal var context: Context?,
 ) : AbstractSectionableItem<LibraryHolder, LibraryHeaderItem>(header), IFilterable<String> {
 
     var filter = ""

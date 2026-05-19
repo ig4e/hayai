@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.util.AttributeSet
 import android.view.LayoutInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewPropertyAnimator
 import android.widget.FrameLayout
@@ -568,8 +569,10 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
     /**
      * Swap the appBar's "active toolbar" — either [mainToolbar] or [searchToolbar].
      * Driven by scroll position and search-pill state; the appBar updates its own
-     * visibility/background per the chosen toolbar. State is local to this instance;
-     * there is no longer an activity-level [currentToolbar] coordinator.
+     * visibility/background per the chosen toolbar and lifts the main toolbar's
+     * action items onto the pill (or drops them) so they're reachable in whichever
+     * mode is active. State is local to this instance; there is no longer an
+     * activity-level `currentToolbar` coordinator.
      */
     fun useSearchToolbarForMenu(showCardTB: Boolean) {
         if (lockYPos) return
@@ -584,6 +587,7 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
             }
             main?.backgroundColor = null
             card?.backgroundColor = null
+            liftMenuToPill()
         } else {
             currentActiveToolbar = main
             if (toolbarMode == ToolbarState.EXPANDED) {
@@ -594,7 +598,54 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
             } else {
                 null
             }
+            dropLiftedPillMenu()
         }
+    }
+
+    /**
+     * Mirror the [mainToolbar]'s non-search action items onto the [searchToolbar]
+     * (the pill). Called when the appBar collapses to compact mode so the controller's
+     * filter / overflow / etc. stay reachable while the main toolbar is hidden.
+     *
+     * Skips [R.id.action_search] — the pill already has its own from
+     * [FloatingToolbar.onFinishInflate], and that one carries the SearchView action view.
+     *
+     * Idempotent: items already present (matched by itemId) are left alone, so calling
+     * this repeatedly during scroll won't churn the menu state.
+     */
+    private fun liftMenuToPill() {
+        val source = mainToolbar?.menu ?: return
+        val dest = searchToolbar?.menu ?: return
+        var i = 0
+        val sourceCount = source.size()
+        while (i < sourceCount) {
+            val item = source.getItem(i)
+            i++
+            if (item.itemId == R.id.action_search) continue
+            if (dest.findItem(item.itemId) != null) continue
+            val added = dest.add(item.groupId, item.itemId, item.order, item.title)
+            added.icon = item.icon
+            added.isVisible = item.isVisible
+            added.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        }
+    }
+
+    /**
+     * Inverse of [liftMenuToPill] — removes the lifted action items from the pill so
+     * they don't double-up with the now-visible [mainToolbar] in expanded mode.
+     * Leaves [R.id.action_search] in place (intrinsic to the pill).
+     */
+    private fun dropLiftedPillMenu() {
+        val menu = searchToolbar?.menu ?: return
+        val toRemove = mutableListOf<Int>()
+        var i = 0
+        val count = menu.size()
+        while (i < count) {
+            val id = menu.getItem(i).itemId
+            if (id != R.id.action_search) toRemove.add(id)
+            i++
+        }
+        toRemove.forEach { menu.removeItem(it) }
     }
 }
 
