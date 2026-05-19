@@ -1055,6 +1055,32 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         setExtensionsBadge()
         showDLQueueTutorial()
         reEnableBackPressedCallBack()
+        // Restore visibility for the active controller after returning from another
+        // Activity (e.g. ReaderActivity). The Conductor change-listener hack at
+        // [onChangeCompleted] sets the outgoing controller's view alpha to 0 — but if
+        // an Activity launch interrupted the next transition's animator, that alpha-0
+        // can stick and the page renders blank. Hard-reset the active root controller
+        // (and the top of the visible router) so the next user-visible frame is correct.
+        if (isBindingInitialized && this::topRouter.isInitialized) {
+            val active = activeRootController ?: router.backstack.lastOrNull()?.controller
+            active?.view?.alpha = 1f
+            // Re-sync chrome visibility in case the activity-global appBar got into a
+            // stale state across the activity transition.
+            syncActivityAppBarVisibility(active)
+            // Also defensively snap the local appBar of any LocalAppBarOwner back to a
+            // visible baseline — the same defensive reset wireDefaultLocalChrome does on
+            // every controller enter. Activity resume doesn't fire a Conductor change,
+            // so without this nudge the local appBar can stay at translationY = -height
+            // (off-screen) from before the pause.
+            val localAppBar = (active as? eu.kanade.tachiyomi.ui.base.LocalAppBarOwner)?.localAppBar()
+            localAppBar?.let { bar ->
+                bar.alpha = 1f
+                bar.isInvisible = false
+                bar.lockYPos = false
+                bar.translationY = 0f
+                bar.y = 0f
+            }
+        }
     }
 
     private fun showDLQueueTutorial() {

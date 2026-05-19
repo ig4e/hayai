@@ -92,6 +92,15 @@ abstract class BaseController(bundle: Bundle? = null) :
         } else {
             removeQueryListener()
         }
+        // When re-entering, snap the view to fully-opaque immediately. The change handler
+        // would normally animate alpha 0→1, but that animator can be cancelled mid-flight
+        // if the user launched another Activity (e.g., ReaderActivity) and came back —
+        // leaving this controller's view stuck at alpha=0 ("blank screen") on the next
+        // pop. Forcing alpha=1 at start of Enter guarantees visibility regardless of
+        // whether the animator survives.
+        if (type.isEnter && isControllerVisible) {
+            view?.alpha = 1f
+        }
         // Controllers that host their own appBar inflate their menu onto a local
         // CenteredToolbar via Toolbar.inflateMenu — skip the activity's setHasOptionsMenu
         // plumbing, which would otherwise inflate a redundant menu onto the (now hidden)
