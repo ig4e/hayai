@@ -226,6 +226,29 @@ abstract class BaseController(bundle: Bundle? = null) :
             pill.menu.findItem(R.id.action_search)?.expandActionView()
         }
 
+        // Long-press the pill body → expand search, then prefill with the controller's
+        // suggested query (e.g. random library entry) or clipboard contents. Mirrors
+        // [MainActivity.setSearchTBLongClick] for the activity-global pill — needed
+        // separately because [LocalAppBarOwner] controllers route [searchToolbar] to a
+        // different instance the activity's listener never sees.
+        pill.setOnLongClickListener {
+            pill.menu.findItem(R.id.action_search)?.expandActionView()
+            val longClickQuery = (this@BaseController as? BaseLegacyController<*>)
+                ?.onSearchActionViewLongClickQuery()
+            if (longClickQuery != null) {
+                pill.searchView?.setQuery(longClickQuery, true)
+                return@setOnLongClickListener true
+            }
+            val clipboard = androidx.core.content.ContextCompat
+                .getSystemService(act, android.content.ClipboardManager::class.java)
+            if (clipboard != null && clipboard.hasPrimaryClip()) {
+                clipboard.primaryClip?.getItemAt(0)?.text?.let { text ->
+                    pill.searchView?.setQuery(text, true)
+                }
+            }
+            true
+        }
+
         // Pill's navigation icon (magnifying glass when collapsed, back-arrow when
         // expanded). For RootSearchInterface controllers it expands search; otherwise
         // it triggers the back stack so users can dismiss search-on-detail screens.
