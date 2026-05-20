@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Nordic Stone — fjord night (dark). Warm bone + clay on cool slate base.
+  ~ Nordic Stone — fjord night (dark). Warm bone on saturated fjord slate,
+  ~ glowing terracotta secondary, electric fjord-blue tertiary.
 -->
 <resources>
-    <color name="nordic_primary">#DDD2C2</color>
+    <color name="nordic_primary">#F0DDBE</color>
     <color name="nordic_on_primary">#1F1A14</color>
-    <color name="nordic_primary_variant">#1B1F23</color>
+    <color name="nordic_primary_variant">#1A2530</color>
     <color name="nordic_primary_inverse">#5C4334</color>
-    <color name="nordic_secondary">#C2A687</color>
+    <color name="nordic_secondary">#FF9748</color>
     <color name="nordic_on_secondary">#1F1A14</color>
     <color name="nordic_secondary_variant">#E3D2C3</color>
-    <color name="nordic_highlight">#1FC2A687</color>
-    <color name="nordic_tertiary">#A9B9C7</color>
-    <color name="nordic_on_tertiary">#14181C</color>
-    <color name="nordic_tab_bar_icon">#DDD2C2</color>
-    <color name="nordic_background">#14181C</color>
+    <color name="nordic_highlight">#1FFF9748</color>
+    <color name="nordic_tertiary">#6FB8E0</color>
+    <color name="nordic_on_tertiary">#08141C</color>
+    <color name="nordic_tab_bar_icon">#F0DDBE</color>
+    <color name="nordic_background">#0F1820</color>
     <color name="nordic_on_background">#E6E3DC</color>
-    <color name="nordic_surface">#14181C</color>
+    <color name="nordic_surface">#0F1820</color>
     <color name="nordic_on_surface">#E6E3DC</color>
 </resources>

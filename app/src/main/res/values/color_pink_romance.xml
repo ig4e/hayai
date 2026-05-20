@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Pink Romance — moody rose. Dusty-rose primary on warm blush, deep plum text.
-  ~ Primary #B83557 hits ~4.7:1 with white. Tertiary stays decorative blush.
+  ~ Pink Romance — hot rose. Vivid pink-red primary on saturated blush,
+  ~ deeper crimson secondary, neon rose tertiary.
 -->
 <resources>
-    <color name="pink_romance_primary">#B83557</color>
+    <color name="pink_romance_primary">#D4144A</color>
     <color name="pink_romance_on_primary">#FFFFFF</color>
-    <color name="pink_romance_primary_variant">#FAE0E7</color>
-    <color name="pink_romance_primary_inverse">#ED99AC</color>
-    <color name="pink_romance_secondary">#C04060</color>
+    <color name="pink_romance_primary_variant">#FFCCD9</color>
+    <color name="pink_romance_primary_inverse">#FF7090</color>
+    <color name="pink_romance_secondary">#B0103C</color>
     <color name="pink_romance_on_secondary">#FFFFFF</color>
-    <color name="pink_romance_secondary_variant">#6A0C20</color>
-    <color name="pink_romance_highlight">#1FC04060</color>
-    <color name="pink_romance_tertiary">#FFB8C8</color>
-    <color name="pink_romance_on_tertiary">#2B0E18</color>
-    <color name="pink_romance_tab_bar_icon">#B83557</color>
-    <color name="pink_romance_background">#FFF5F8</color>
-    <color name="pink_romance_on_background">#2B0E18</color>
-    <color name="pink_romance_surface">#FFF5F8</color>
-    <color name="pink_romance_on_surface">#2B0E18</color>
+    <color name="pink_romance_secondary_variant">#5C0A1A</color>
+    <color name="pink_romance_highlight">#1FD4144A</color>
+    <color name="pink_romance_tertiary">#FF9AB4</color>
+    <color name="pink_romance_on_tertiary">#2B0814</color>
+    <color name="pink_romance_tab_bar_icon">#D4144A</color>
+    <color name="pink_romance_background">#FFE5EB</color>
+    <color name="pink_romance_on_background">#2B0814</color>
+    <color name="pink_romance_surface">#FFE5EB</color>
+    <color name="pink_romance_on_surface">#2B0814</color>
 </resources>

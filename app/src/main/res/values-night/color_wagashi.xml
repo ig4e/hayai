@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Wagashi — twilight tearoom (dark). Lit matcha glow + warm kinako on deep moss.
+  ~ Wagashi — twilight tearoom (dark). Electric matcha glow on deep moss,
+  ~ glowing kinako secondary, neon sakura tertiary.
 -->
 <resources>
-    <color name="wagashi_primary">#A6CFA0</color>
+    <color name="wagashi_primary">#A0E84A</color>
     <color name="wagashi_on_primary">#0F2210</color>
-    <color name="wagashi_primary_variant">#1A1F18</color>
-    <color name="wagashi_primary_inverse">#4F7849</color>
-    <color name="wagashi_secondary">#E2C5A2</color>
+    <color name="wagashi_primary_variant">#16201A</color>
+    <color name="wagashi_primary_inverse">#3F8A1E</color>
+    <color name="wagashi_secondary">#FFB85C</color>
     <color name="wagashi_on_secondary">#22251F</color>
     <color name="wagashi_secondary_variant">#F2DCC0</color>
-    <color name="wagashi_highlight">#1FE2C5A2</color>
-    <color name="wagashi_tertiary">#E8A4B2</color>
+    <color name="wagashi_highlight">#1FA0E84A</color>
+    <color name="wagashi_tertiary">#FF7AAE</color>
     <color name="wagashi_on_tertiary">#22251F</color>
-    <color name="wagashi_tab_bar_icon">#A6CFA0</color>
-    <color name="wagashi_background">#131611</color>
+    <color name="wagashi_tab_bar_icon">#A0E84A</color>
+    <color name="wagashi_background">#161C12</color>
     <color name="wagashi_on_background">#E8EDDF</color>
-    <color name="wagashi_surface">#131611</color>
+    <color name="wagashi_surface">#161C12</color>
     <color name="wagashi_on_surface">#E8EDDF</color>
 </resources>

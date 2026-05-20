@@ -1,24 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Kimono — silk + lacquer. Three traditional Japanese pigments:
-  ~ enji-iro deep crimson (#8C1F2A primary, 6.1:1 with white),
-  ~ kincha golden brown (#B36320 secondary, 4.5:1 with white),
-  ~ kihada bright bark gold (#F3C13A tertiary, decorative only).
+  ~ Kimono — silk + lacquer pushed loud. Deeper enji-iro crimson on saturated ivory,
+  ~ punchier kincha gold-brown, electric kihada gold tertiary.
 -->
 <resources>
-    <color name="kimono_primary">#8C1F2A</color>
+    <color name="kimono_primary">#B01629</color>
     <color name="kimono_on_primary">#FFFFFF</color>
-    <color name="kimono_primary_variant">#F6E0DD</color>
-    <color name="kimono_primary_inverse">#C76E72</color>
-    <color name="kimono_secondary">#B36320</color>
+    <color name="kimono_primary_variant">#FFD6CC</color>
+    <color name="kimono_primary_inverse">#E07880</color>
+    <color name="kimono_secondary">#C76410</color>
     <color name="kimono_on_secondary">#FFFFFF</color>
     <color name="kimono_secondary_variant">#6E3E10</color>
-    <color name="kimono_highlight">#1FB36320</color>
-    <color name="kimono_tertiary">#F3C13A</color>
+    <color name="kimono_highlight">#1FC76410</color>
+    <color name="kimono_tertiary">#FFB820</color>
     <color name="kimono_on_tertiary">#2B0808</color>
-    <color name="kimono_tab_bar_icon">#8C1F2A</color>
-    <color name="kimono_background">#FFF7EC</color>
+    <color name="kimono_tab_bar_icon">#B01629</color>
+    <color name="kimono_background">#FFEEDA</color>
     <color name="kimono_on_background">#2B0808</color>
-    <color name="kimono_surface">#FFF7EC</color>
+    <color name="kimono_surface">#FFEEDA</color>
     <color name="kimono_on_surface">#2B0808</color>
 </resources>

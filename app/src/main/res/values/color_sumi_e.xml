@@ -1,23 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Sumi-e — ink wash on washi. Modern monochrome with paper warmth.
-  ~ Anchored in three traditional names: sumi-iro (ink), kinari (unbleached silk),
-  ~ nezumi-iro (mouse gray). Warm-neutral throughout, never cold/clinical.
+  ~ Sumi-e — ink wash with a hanko-seal pop. Deeper sumi-iro on warm silk paper,
+  ~ saturated terracotta secondary and a real vermillion seal as tertiary.
 -->
 <resources>
-    <color name="sumi_e_primary">#2B2620</color>
+    <color name="sumi_e_primary">#1F1B16</color>
     <color name="sumi_e_on_primary">#FAF5EC</color>
-    <color name="sumi_e_primary_variant">#ECE6DC</color>
+    <color name="sumi_e_primary_variant">#E8E0D2</color>
     <color name="sumi_e_primary_inverse">#8C857A</color>
-    <color name="sumi_e_secondary">#6E5F57</color>
-    <color name="sumi_e_on_secondary">#FAF5EC</color>
-    <color name="sumi_e_secondary_variant">#B9A193</color>
-    <color name="sumi_e_highlight">#1F6E5F57</color>
-    <color name="sumi_e_tertiary">#8C5E45</color>
-    <color name="sumi_e_on_tertiary">#FAF5EC</color>
-    <color name="sumi_e_tab_bar_icon">#2B2620</color>
-    <color name="sumi_e_background">#FAF5EC</color>
-    <color name="sumi_e_on_background">#1F1B16</color>
-    <color name="sumi_e_surface">#FAF5EC</color>
-    <color name="sumi_e_on_surface">#1F1B16</color>
+    <color name="sumi_e_secondary">#A04A2E</color>
+    <color name="sumi_e_on_secondary">#FFFFFF</color>
+    <color name="sumi_e_secondary_variant">#5C2A18</color>
+    <color name="sumi_e_highlight">#1FA04A2E</color>
+    <color name="sumi_e_tertiary">#C9302F</color>
+    <color name="sumi_e_on_tertiary">#FFFFFF</color>
+    <color name="sumi_e_tab_bar_icon">#A04A2E</color>
+    <color name="sumi_e_background">#F4ECDB</color>
+    <color name="sumi_e_on_background">#1A1612</color>
+    <color name="sumi_e_surface">#F4ECDB</color>
+    <color name="sumi_e_on_surface">#1A1612</color>
 </resources>

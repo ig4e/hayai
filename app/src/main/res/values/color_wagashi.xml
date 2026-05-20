@@ -1,23 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Wagashi — Japanese sweets pastels on rice paper.
-  ~ matcha (#5C8649, 4.5:1 with white), kinako toasted-soy tan (#B0763D, 4.5:1 with white),
-  ~ sakura blossom (#E8A4B2) as decorative tertiary.
+  ~ Wagashi — sweets pushed loud. Saturated matcha primary on warmer rice paper,
+  ~ punchy kinako toasted-soy, vivid sakura blossom tertiary.
 -->
 <resources>
-    <color name="wagashi_primary">#5C8649</color>
+    <color name="wagashi_primary">#3F8A1E</color>
     <color name="wagashi_on_primary">#FFFFFF</color>
-    <color name="wagashi_primary_variant">#EEF3E8</color>
-    <color name="wagashi_primary_inverse">#9FC58D</color>
-    <color name="wagashi_secondary">#B0763D</color>
+    <color name="wagashi_primary_variant">#E8F3D8</color>
+    <color name="wagashi_primary_inverse">#8FD55E</color>
+    <color name="wagashi_secondary">#C76610</color>
     <color name="wagashi_on_secondary">#FFFFFF</color>
     <color name="wagashi_secondary_variant">#4E2D14</color>
-    <color name="wagashi_highlight">#1FB0763D</color>
-    <color name="wagashi_tertiary">#E8A4B2</color>
+    <color name="wagashi_highlight">#1FC76610</color>
+    <color name="wagashi_tertiary">#FF6B9B</color>
     <color name="wagashi_on_tertiary">#1F2418</color>
-    <color name="wagashi_tab_bar_icon">#5C8649</color>
-    <color name="wagashi_background">#FBF6EC</color>
+    <color name="wagashi_tab_bar_icon">#3F8A1E</color>
+    <color name="wagashi_background">#FBF1DA</color>
     <color name="wagashi_on_background">#1F2418</color>
-    <color name="wagashi_surface">#FBF6EC</color>
+    <color name="wagashi_surface">#FBF1DA</color>
     <color name="wagashi_on_surface">#1F2418</color>
 </resources>

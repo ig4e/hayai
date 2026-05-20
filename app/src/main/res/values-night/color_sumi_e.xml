@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Sumi-e — ink night (dark). Shironeri paper-white on deep sumi ink.
-  ~ Warm tea brown as the tertiary accent so it never feels purely monochrome.
+  ~ Sumi-e — ink night (dark). Warm parchment glow on deep carbon,
+  ~ glowing terracotta + electric seal vermillion accent.
 -->
 <resources>
-    <color name="sumi_e_primary">#EFE6D6</color>
-    <color name="sumi_e_on_primary">#1F1B16</color>
-    <color name="sumi_e_primary_variant">#1A1714</color>
-    <color name="sumi_e_primary_inverse">#4A453E</color>
-    <color name="sumi_e_secondary">#B9A193</color>
-    <color name="sumi_e_on_secondary">#1F1B16</color>
-    <color name="sumi_e_secondary_variant">#423B33</color>
-    <color name="sumi_e_highlight">#1FB9A193</color>
-    <color name="sumi_e_tertiary">#C9A07A</color>
-    <color name="sumi_e_on_tertiary">#1F1B16</color>
-    <color name="sumi_e_tab_bar_icon">#EFE6D6</color>
-    <color name="sumi_e_background">#100E0C</color>
-    <color name="sumi_e_on_background">#EFE6D6</color>
-    <color name="sumi_e_surface">#100E0C</color>
-    <color name="sumi_e_on_surface">#EFE6D6</color>
+    <color name="sumi_e_primary">#F0E5D2</color>
+    <color name="sumi_e_on_primary">#1A1612</color>
+    <color name="sumi_e_primary_variant">#1A1612</color>
+    <color name="sumi_e_primary_inverse">#5C5046</color>
+    <color name="sumi_e_secondary">#E07854</color>
+    <color name="sumi_e_on_secondary">#1A1612</color>
+    <color name="sumi_e_secondary_variant">#C9A07A</color>
+    <color name="sumi_e_highlight">#1FE07854</color>
+    <color name="sumi_e_tertiary">#FF5447</color>
+    <color name="sumi_e_on_tertiary">#1A0A06</color>
+    <color name="sumi_e_tab_bar_icon">#F0E5D2</color>
+    <color name="sumi_e_background">#0E0C09</color>
+    <color name="sumi_e_on_background">#F0E5D2</color>
+    <color name="sumi_e_surface">#0E0C09</color>
+    <color name="sumi_e_on_surface">#F0E5D2</color>
 </resources>

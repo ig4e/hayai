@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Kimono — lantern night (dark). Warm rouge crimson + glowing kihada gold on lacquer.
+  ~ Kimono — lantern night (dark). Glowing rouge crimson on deep lacquer,
+  ~ saturated lantern gold secondary, electric kihada tertiary.
 -->
 <resources>
-    <color name="kimono_primary">#DC6B6F</color>
+    <color name="kimono_primary">#FF6B6E</color>
     <color name="kimono_on_primary">#2B0808</color>
-    <color name="kimono_primary_variant">#1F1311</color>
-    <color name="kimono_primary_inverse">#8C1F2A</color>
-    <color name="kimono_secondary">#E0B864</color>
+    <color name="kimono_primary_variant">#2A1310</color>
+    <color name="kimono_primary_inverse">#B01629</color>
+    <color name="kimono_secondary">#FFC44A</color>
     <color name="kimono_on_secondary">#2B0808</color>
     <color name="kimono_secondary_variant">#F2D69B</color>
-    <color name="kimono_highlight">#1FE0B864</color>
-    <color name="kimono_tertiary">#F3C13A</color>
+    <color name="kimono_highlight">#1FFFC44A</color>
+    <color name="kimono_tertiary">#FFD93D</color>
     <color name="kimono_on_tertiary">#2B0808</color>
-    <color name="kimono_tab_bar_icon">#DC6B6F</color>
-    <color name="kimono_background">#15100D</color>
-    <color name="kimono_on_background">#F5DDD9</color>
-    <color name="kimono_surface">#15100D</color>
-    <color name="kimono_on_surface">#F5DDD9</color>
+    <color name="kimono_tab_bar_icon">#FF6B6E</color>
+    <color name="kimono_background">#1A0D08</color>
+    <color name="kimono_on_background">#FBE5DC</color>
+    <color name="kimono_surface">#1A0D08</color>
+    <color name="kimono_on_surface">#FBE5DC</color>
 </resources>

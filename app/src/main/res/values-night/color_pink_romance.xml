@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Pink Romance — deep wine (dark). Lifted dusty rose primary on near-black plum.
+  ~ Pink Romance — deep wine (dark). Neon hot pink on near-black plum,
+  ~ clashing neon rose tertiary for intentional pop.
 -->
 <resources>
-    <color name="pink_romance_primary">#F09BAE</color>
-    <color name="pink_romance_on_primary">#3E0E1C</color>
-    <color name="pink_romance_primary_variant">#1F1217</color>
-    <color name="pink_romance_primary_inverse">#9A1E3E</color>
-    <color name="pink_romance_secondary">#F2B0BD</color>
-    <color name="pink_romance_on_secondary">#3E0E1C</color>
-    <color name="pink_romance_secondary_variant">#FCD0DA</color>
-    <color name="pink_romance_highlight">#1FF2B0BD</color>
-    <color name="pink_romance_tertiary">#C04060</color>
+    <color name="pink_romance_primary">#FF6F8E</color>
+    <color name="pink_romance_on_primary">#380914</color>
+    <color name="pink_romance_primary_variant">#38131C</color>
+    <color name="pink_romance_primary_inverse">#B0103C</color>
+    <color name="pink_romance_secondary">#FF95A7</color>
+    <color name="pink_romance_on_secondary">#380914</color>
+    <color name="pink_romance_secondary_variant">#FFC8D2</color>
+    <color name="pink_romance_highlight">#1FFF6F8E</color>
+    <color name="pink_romance_tertiary">#FF3D62</color>
     <color name="pink_romance_on_tertiary">#FFFFFF</color>
-    <color name="pink_romance_tab_bar_icon">#F09BAE</color>
-    <color name="pink_romance_background">#160C10</color>
-    <color name="pink_romance_on_background">#FBDDE5</color>
-    <color name="pink_romance_surface">#160C10</color>
-    <color name="pink_romance_on_surface">#FBDDE5</color>
+    <color name="pink_romance_tab_bar_icon">#FF6F8E</color>
+    <color name="pink_romance_background">#22090E</color>
+    <color name="pink_romance_on_background">#FFD8E0</color>
+    <color name="pink_romance_surface">#22090E</color>
+    <color name="pink_romance_on_surface">#FFD8E0</color>
 </resources>
