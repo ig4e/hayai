@@ -34,6 +34,7 @@ class AboutController : BaseComposeController() {
         Navigator(
             screen = AboutScreen(),
             content = { navigator ->
+                this.navigator = navigator
                 if (LocalReducedMotion.current) CurrentScreen()
                 else CrossfadeTransition(navigator = navigator)
             },

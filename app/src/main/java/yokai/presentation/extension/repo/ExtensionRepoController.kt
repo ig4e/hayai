@@ -22,6 +22,7 @@ class ExtensionRepoController(private val repoUrl: String? = null) :
                 repoUrl = repoUrl,
             ),
             content = { navigator ->
+                this.navigator = navigator
                 if (LocalReducedMotion.current) CurrentScreen()
                 else CrossfadeTransition(navigator = navigator)
             },

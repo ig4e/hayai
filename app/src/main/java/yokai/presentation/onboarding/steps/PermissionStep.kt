@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -52,11 +53,23 @@ internal class PermissionStep : OnboardingStep {
         val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
 
+        val activityLifecycleOwner = remember(context) {
+            var ctx = context
+            while (ctx is android.content.ContextWrapper) {
+                if (ctx is androidx.lifecycle.LifecycleOwner) {
+                    return@remember ctx
+                }
+                ctx = ctx.baseContext
+            }
+            null
+        }
+        val targetLifecycle = (activityLifecycleOwner ?: lifecycleOwner).lifecycle
+
         // LifecycleEventEffect(ON_RESUME) didn't reliably re-fire when returning from the system
         // Settings activity that the Grant buttons launch, so the buttons stayed stuck on "Grant"
         // even after the user had granted the permission. Attaching a DefaultLifecycleObserver
         // directly mirrors Mihon's approach and re-checks each permission on every resume.
-        DisposableEffect(lifecycleOwner.lifecycle) {
+        DisposableEffect(targetLifecycle) {
             val observer = object : DefaultLifecycleObserver {
                 override fun onResume(owner: LifecycleOwner) {
                     installGranted =
@@ -79,9 +92,9 @@ internal class PermissionStep : OnboardingStep {
                         .isIgnoringBatteryOptimizations(context.packageName)
                 }
             }
-            lifecycleOwner.lifecycle.addObserver(observer)
+            targetLifecycle.addObserver(observer)
             onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
+                targetLifecycle.removeObserver(observer)
             }
         }
 
@@ -115,7 +128,7 @@ internal class PermissionStep : OnboardingStep {
                 val permissionRequester =
                     rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.RequestPermission(),
-                        onResult = { /* No-op, handled on resume */ },
+                        onResult = { granted -> notificationGranted = granted },
                     )
                 PermissionItem(
                     title = stringResource(MR.strings.onboarding_permission_notifications),
@@ -170,17 +183,16 @@ internal class PermissionStep : OnboardingStep {
             headlineContent = { Text(text = title) },
             supportingContent = { Text(text = subtitle) },
             trailingContent = {
-                OutlinedButton(
-                    enabled = !granted,
-                    onClick = onButtonClick,
-                ) {
-                    if (granted) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    } else {
+                if (granted) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    OutlinedButton(
+                        onClick = onButtonClick,
+                    ) {
                         Text(stringResource(MR.strings.onboarding_permission_action_grant))
                     }
                 }

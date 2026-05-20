@@ -578,6 +578,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         // Cleanup must happen BEFORE super.onDestroy(): unregisterReceiver and the
         // foreground-service stop both rely on Activity context state that super tears down.
         // This mirrors Tsundoku's `ReaderActivity.onDestroy` ordering exactly.
+        removeNovelActionBar()
         try {
             unregisterReceiver(ttsNotificationControlReceiver)
         } catch (_: IllegalArgumentException) {
@@ -1550,7 +1551,10 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     private fun removeNovelActionBar() {
-        novelActionBarComposeView?.let { binding.root.removeView(it) }
+        novelActionBarComposeView?.let {
+            it.disposeComposition()
+            binding.root.removeView(it)
+        }
         novelActionBarComposeView = null
     }
 

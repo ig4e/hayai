@@ -32,6 +32,8 @@ import yokai.presentation.component.preference.widget.PreferenceGroupHeader
 import yokai.presentation.core.JayAppBarScrollBehavior
 import yokai.presentation.core.drawVerticalScrollbar
 import yokai.presentation.core.enterAlwaysCollapsedAppBarScrollBehavior
+import cafe.adriel.voyager.navigator.LocalNavigator
+
 
 @Composable
 fun SettingsScaffold(
@@ -46,9 +48,16 @@ fun SettingsScaffold(
 ) {
     val onBackPress = LocalBackPress.currentOrThrow
     val alertDialog = LocalDialogHostState.currentOrThrow
+    val navigator = LocalNavigator.current
 
     YokaiScaffold(
-        onNavigationIconClicked = onBackPress,
+        onNavigationIconClicked = {
+            if (navigator != null && navigator.canPop) {
+                navigator.pop()
+            } else {
+                onBackPress()
+            }
+        },
         title = title,
         appBarType = appBarType,
         actions = appBarActions,
@@ -129,7 +138,7 @@ fun PreferenceScreen(
                             PreferenceGroupHeader(title = preference.title)
                         }
                     }
-                    items(preference.preferenceItems) { item ->
+                    items(preference.preferenceItems, key = { it.title }) { item ->
                         PreferenceItem(item = item, highlightKey = highlightKey)
                     }
                     item {

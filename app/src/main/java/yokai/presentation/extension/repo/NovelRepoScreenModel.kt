@@ -15,14 +15,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import yokai.i18n.MR
 
-class NovelRepoScreenModel : StateScreenModel<NovelRepoScreenModel.State>(State.Loading) {
+class NovelRepoScreenModel : StateScreenModel<NovelRepoScreenModel.State>(State.Loading), KoinComponent {
 
-    private val getNovelRepo: GetNovelRepo by injectLazy()
-    private val createNovelRepo: CreateNovelRepo by injectLazy()
-    private val deleteNovelRepo: DeleteNovelRepo by injectLazy()
+    private val getNovelRepo: GetNovelRepo by inject()
+    private val createNovelRepo: CreateNovelRepo by inject()
+    private val deleteNovelRepo: DeleteNovelRepo by inject()
 
     private val internalEvent: MutableStateFlow<ExtensionRepoEvent> = MutableStateFlow(ExtensionRepoEvent.NoOp)
     val event: StateFlow<ExtensionRepoEvent> = internalEvent.asStateFlow()

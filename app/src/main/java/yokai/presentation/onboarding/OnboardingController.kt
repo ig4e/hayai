@@ -5,13 +5,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.inject
 import yokai.domain.base.BasePreferences
 
 class OnboardingController :
     BaseComposeController() {
 
-    val basePreferences by injectLazy<BasePreferences>()
+    val basePreferences by inject<BasePreferences>()
+
+    override fun handleBack(): Boolean {
+        return if (!basePreferences.hasShownOnboarding().get()) {
+            true
+        } else {
+            super.handleBack()
+        }
+    }
 
     @Composable
     override fun ScreenContent() {

@@ -20,6 +20,10 @@ class RecommendsViewController(
     override fun ScreenContent() {
         Navigator(
             screen = RecommendsScreen(screenArgs),
+            content = { navigator ->
+                this.navigator = navigator
+                cafe.adriel.voyager.navigator.CurrentScreen()
+            }
         )
     }
 

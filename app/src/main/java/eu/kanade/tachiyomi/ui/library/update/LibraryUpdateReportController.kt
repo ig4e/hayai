@@ -31,6 +31,7 @@ class LibraryUpdateReportController(bundle: Bundle? = null) : BaseComposeControl
         Navigator(
             screen = LibraryUpdateReportScreen(initialTab),
             content = { navigator ->
+                this.navigator = navigator
                 if (LocalReducedMotion.current) CurrentScreen()
                 else CrossfadeTransition(navigator = navigator)
             },

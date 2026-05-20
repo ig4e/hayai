@@ -21,6 +21,10 @@ class PagePreviewViewController(
     override fun ScreenContent() {
         Navigator(
             screen = PagePreviewScreen(mangaId),
+            content = { navigator ->
+                this.navigator = navigator
+                cafe.adriel.voyager.navigator.CurrentScreen()
+            }
         )
     }
 

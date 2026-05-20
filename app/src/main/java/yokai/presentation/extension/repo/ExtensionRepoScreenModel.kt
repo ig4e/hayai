@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import yokai.domain.extension.repo.interactor.CreateExtensionRepo
 import yokai.domain.extension.repo.interactor.DeleteExtensionRepo
 import yokai.domain.extension.repo.interactor.GetExtensionRepo
@@ -22,15 +23,15 @@ import yokai.domain.extension.repo.interactor.UpdateExtensionRepo
 import yokai.domain.extension.repo.model.ExtensionRepo
 import yokai.i18n.MR
 
-class ExtensionRepoScreenModel : StateScreenModel<ExtensionRepoScreenModel.State>(State.Loading) {
+class ExtensionRepoScreenModel : StateScreenModel<ExtensionRepoScreenModel.State>(State.Loading), KoinComponent {
 
-    private val extensionManager: ExtensionManager by injectLazy()
+    private val extensionManager: ExtensionManager by inject()
 
-    private val getExtensionRepo: GetExtensionRepo by injectLazy()
-    private val createExtensionRepo: CreateExtensionRepo by injectLazy()
-    private val deleteExtensionRepo: DeleteExtensionRepo by injectLazy()
-    private val replaceExtensionRepo: ReplaceExtensionRepo by injectLazy()
-    private val updateExtensionRepo: UpdateExtensionRepo by injectLazy()
+    private val getExtensionRepo: GetExtensionRepo by inject()
+    private val createExtensionRepo: CreateExtensionRepo by inject()
+    private val deleteExtensionRepo: DeleteExtensionRepo by inject()
+    private val replaceExtensionRepo: ReplaceExtensionRepo by inject()
+    private val updateExtensionRepo: UpdateExtensionRepo by inject()
 
     private val internalEvent: MutableStateFlow<ExtensionRepoEvent> = MutableStateFlow(ExtensionRepoEvent.NoOp)
     val event: StateFlow<ExtensionRepoEvent> = internalEvent.asStateFlow()

@@ -20,6 +20,18 @@ abstract class BaseComposeController(bundle: Bundle? = null) :
 
     override val shouldHideLegacyAppBar = true
 
+    var navigator: cafe.adriel.voyager.navigator.Navigator? = null
+
+    override fun handleBack(): Boolean {
+        val nav = navigator
+        return if (nav != null && nav.canPop) {
+            nav.pop()
+            true
+        } else {
+            super.handleBack()
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup,
@@ -37,7 +49,7 @@ abstract class BaseComposeController(bundle: Bundle? = null) :
                 YokaiTheme {
                     CompositionLocalProvider(
                         LocalDialogHostState provides dialogHostState,
-                        LocalBackPress provides router::handleBack,
+                        LocalBackPress provides ::handleBack,
                         LocalRouter provides router,
                     ) {
                         ScreenContent()
@@ -49,4 +61,12 @@ abstract class BaseComposeController(bundle: Bundle? = null) :
 
     @Composable
     abstract fun ScreenContent()
+
+    override fun onDestroyView(view: View) {
+        if (view is ComposeView) {
+            view.disposeComposition()
+        }
+        navigator = null
+        super.onDestroyView(view)
+    }
 }

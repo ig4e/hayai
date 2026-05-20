@@ -30,7 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
-import coil3.compose.AsyncImage
+import yokai.presentation.manga.components.MangaCover
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
@@ -199,14 +199,11 @@ private fun BrowseRecommendCard(
     ) {
         Column {
             Box {
-                AsyncImage(
-                    // Crossfade intentionally omitted — the app singleton sets crossfade(false)
-                    // because per-cell alpha animators saturate the main thread in scroll grids.
-                    model = manga.thumbnail_url,
+                MangaCover(
+                    data = manga.thumbnail_url,
                     contentDescription = manga.title,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(2f / 3f),
+                    modifier = Modifier.fillMaxWidth(),
+                    ratio = 2f / 3f,
                     contentScale = ContentScale.Crop,
                 )
                 RecommendationTypeBadge(

@@ -25,6 +25,7 @@ abstract class SettingsComposeController: BaseComposeController(), SettingsContr
         Navigator(
             screen = getComposableSettings(),
             content = { navigator ->
+                this.navigator = navigator
                 if (LocalReducedMotion.current) CurrentScreen()
                 else CrossfadeTransition(navigator = navigator)
             },

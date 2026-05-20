@@ -74,10 +74,13 @@ class RootTabsController : Controller() {
     ): View {
         val ctx = activity!!
         val root = FrameLayout(ctx)
+        if (savedViewState != null) {
+            currentTabId = savedViewState.getInt(KEY_CURRENT_TAB, currentTabId)
+        }
         for (tabId in TAB_IDS) {
             val tabContainer = FrameLayout(ctx).apply {
                 id = tabContainerId(tabId)
-                isVisible = false
+                isVisible = (currentTabId == tabId)
             }
             root.addView(
                 tabContainer,
@@ -88,6 +91,18 @@ class RootTabsController : Controller() {
             )
             containers[tabId] = tabContainer
         }
+
+        // Rebind child routers to their new containers
+        for (tabId in TAB_IDS) {
+            if (tabId == currentTabId) {
+                ensureChildRoot(tabId)
+            } else {
+                val tabContainer = containers[tabId]!!
+                val childRouter = getChildRouter(tabContainer, childRouterTag(tabId))
+                (activity as? MainActivity)?.registerControllerChangeListener(childRouter)
+            }
+        }
+
         return root
     }
 
@@ -239,6 +254,13 @@ class RootTabsController : Controller() {
             if (basePreferences.composeLibrary().get()) LibraryComposeController() else LibraryController()
         R.id.nav_recents -> RecentsController()
         else -> BrowseController()
+    }
+
+    fun resetActiveTabAlpha() {
+        containers[currentTabId]?.let { container ->
+            container.alpha = 1f
+            container.isVisible = true
+        }
     }
 
     override fun handleBack(): Boolean = activeChildRouter()?.handleBack() == true

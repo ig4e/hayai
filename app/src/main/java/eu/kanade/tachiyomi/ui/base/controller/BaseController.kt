@@ -23,9 +23,10 @@ import eu.kanade.tachiyomi.util.view.searchToolbar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import org.koin.core.component.KoinComponent
 
 abstract class BaseController(bundle: Bundle? = null) :
-    Controller(bundle), BackHandlerControllerInterface, BaseControllerPreferenceControllerCommonInterface {
+    Controller(bundle), BackHandlerControllerInterface, BaseControllerPreferenceControllerCommonInterface, KoinComponent {
 
     abstract val shouldHideLegacyAppBar: Boolean
 

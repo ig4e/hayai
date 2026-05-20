@@ -148,9 +148,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.runBlocking
 import uy.kohesive.injekt.injectLazy
 import yokai.core.migration.Migrator
 import yokai.domain.base.BasePreferences
+import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.recents.interactor.GetRecents
 import yokai.i18n.MR
 import yokai.presentation.core.Constants
@@ -182,7 +184,11 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     val router: Router
         get() {
             check(this::topRouter.isInitialized) { "router accessed before Conductor.attachRouter" }
-            return rootTabsController?.activeChildRouter() ?: topRouter
+            return if (rootTabsController != null && topRouter.backstackSize == 1) {
+                rootTabsController!!.activeChildRouter() ?: topRouter
+            } else {
+                topRouter
+            }
         }
 
     /** The [RootTabsController] hosting the bottom-nav tabs, if installed. */
@@ -256,6 +262,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         }
 
     private val basePreferences: BasePreferences by injectLazy()
+    private val getLibraryManga: GetLibraryManga by injectLazy()
 
     // Ideally we want this to be inside the controller itself, but Conductor doesn't support the new ActivityResult API
     // Should be fine once we moved completely to Compose..... someday....
@@ -545,6 +552,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             // first launch it's -1 (sentinel) and we'll fall through to goToStartingTab.
             if (rt.currentTabId != -1) {
                 nav.selectedItemId = rt.currentTabId
+                rt.selectTab(rt.currentTabId)
             }
         } ?: run {
             if (topRouter.hasRootController()) {
@@ -601,12 +609,20 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         if (needsStartingTab) {
             // Set start screen
             if (!handleIntentAction(intent)) {
-                goToStartingTab()
-                if (!basePreferences.hasShownOnboarding().get()) {
-                    // Push onto topRouter (not router which forwards to active child
-                    // router) so onboarding occludes all tabs — otherwise the user could
-                    // tap another tab to bypass it.
-                    topRouter.pushController(OnboardingController().withFadeInTransaction())
+                val hasOnboarding = topRouter.backstack.any { it.controller is OnboardingController }
+                if (!hasOnboarding) {
+                    goToStartingTab()
+                    if (!basePreferences.hasShownOnboarding().get()) {
+                        val hasLibraryManga = runBlocking { getLibraryManga.await().isNotEmpty() }
+                        if (hasLibraryManga) {
+                            basePreferences.hasShownOnboarding().set(true)
+                        } else {
+                            // Push onto topRouter (not router which forwards to active child
+                            // router) so onboarding occludes all tabs — otherwise the user could
+                            // tap another tab to bypass it.
+                            topRouter.pushController(OnboardingController().withFadeInTransaction())
+                        }
+                    }
                 }
             }
         }
@@ -1064,6 +1080,9 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         if (isBindingInitialized && this::topRouter.isInitialized) {
             val active = activeRootController ?: router.backstack.lastOrNull()?.controller
             active?.view?.alpha = 1f
+            rootTabsController?.view?.alpha = 1f
+            rootTabsController?.resetActiveTabAlpha()
+            restoreRootTabsAlphas()
             // Re-sync chrome visibility in case the activity-global appBar got into a
             // stale state across the activity transition.
             syncActivityAppBarVisibility(active)
@@ -1080,6 +1099,12 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 bar.translationY = 0f
                 bar.y = 0f
             }
+        }
+    }
+
+    fun restoreRootTabsAlphas() {
+        rootTabsController?.allChildRouters()?.forEach { childRouter ->
+            childRouter.backstack.lastOrNull()?.controller?.view?.alpha = 1f
         }
     }
 
@@ -1426,6 +1451,9 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 Trace.beginSection("Hayai/MainActivity.onChangeStarted")
                 // Per-controller view tweak — scoped to its own view, safe across tabs.
                 to?.view?.alpha = 1f
+                if (to is RootTabsController) {
+                    restoreRootTabsAlphas()
+                }
                 if (!isVisibleChange(boundRouter)) {
                     Trace.endSection()
                     return
@@ -1476,6 +1504,9 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 to?.view?.x = 0f
                 if (!(from is DialogController || to is DialogController) && from != null) {
                     from.view?.alpha = 0f
+                }
+                if (to is RootTabsController) {
+                    restoreRootTabsAlphas()
                 }
                 if (!isVisibleChange(boundRouter)) return
                 nav.translationY = 0f
@@ -1528,6 +1559,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
      */
     fun onActiveTabChanged(@Suppress("UNUSED_PARAMETER") fromTabId: Int, @Suppress("UNUSED_PARAMETER") toTabId: Int) {
         val active = activeRootController
+        active?.view?.alpha = 1f
         syncActivityViewWithController(active)
         syncActivityAppBarVisibility(active)
         setFloatingToolbar(canShowFloatingToolbar(active), changeBG = false)

@@ -54,8 +54,10 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -110,7 +112,8 @@ class LibraryPresenter(
     private val getTrack: GetTrack by injectLazy()
     private val getHistory: GetHistory by injectLazy()
 
-    private val forceUpdateEvent: Channel<Unit> = Channel(Channel.UNLIMITED)
+    private val forceUpdateEvent = MutableSharedFlow<Unit>(replay = 1).apply { tryEmit(Unit) }
+    private var librarySubscriptionJob: Job? = null
 
     private val context = preferences.context
     private val viewContext
@@ -253,7 +256,8 @@ class LibraryPresenter(
     }
 
     private fun subscribeLibrary() {
-        presenterScope.launchIO {
+        librarySubscriptionJob?.cancel()
+        librarySubscriptionJob = presenterScope.launchIO {
             // Initial setup
             if (categories.isEmpty()) {
                 val dbCategories = getCategories.await()
@@ -890,7 +894,7 @@ class LibraryPresenter(
             // FIXME: Remove retry once a real solution is found
             getLibraryManga.subscribe().retry(1) { e -> e is NullPointerException },
             getPreferencesFlow(),
-            forceUpdateEvent.receiveAsFlow(),
+            forceUpdateEvent,
         ) { dbCategories, libraryMangaList, prefs, _ ->
             groupType = prefs.groupType
 
@@ -1327,8 +1331,8 @@ class LibraryPresenter(
     }
 
     /** Force update the library */
-    fun updateLibrary() = presenterScope.launch {
-        forceUpdateEvent.send(Unit)
+    fun updateLibrary() {
+        forceUpdateEvent.tryEmit(Unit)
     }
 
 

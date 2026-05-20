@@ -23,6 +23,10 @@ class MetadataViewController(
     override fun ScreenContent() {
         Navigator(
             screen = MetadataViewScreen(mangaId, sourceId),
+            content = { navigator ->
+                this.navigator = navigator
+                cafe.adriel.voyager.navigator.CurrentScreen()
+            }
         )
     }
 

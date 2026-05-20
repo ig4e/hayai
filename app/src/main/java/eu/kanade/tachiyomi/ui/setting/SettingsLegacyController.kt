@@ -31,6 +31,9 @@ import eu.kanade.tachiyomi.util.view.backgroundColor
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.widget.LinearLayoutManagerAccurateOffset
+import com.bluelinelabs.conductor.Controller
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.MainScope
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.base.BasePreferences
@@ -41,7 +44,21 @@ abstract class SettingsLegacyController : PreferenceController(), SettingsContro
     var preferenceKey: String? = null
     val basePreferences: BasePreferences by injectLazy()
     val preferences: PreferencesHelper by injectLazy()
-    val viewScope = MainScope()
+    var viewScope = MainScope()
+
+    init {
+        addLifecycleListener(
+            object : LifecycleListener() {
+                override fun preCreateView(controller: Controller) {
+                    viewScope = MainScope()
+                }
+
+                override fun preDestroyView(controller: Controller, view: View) {
+                    viewScope.cancel()
+                }
+            },
+        )
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
