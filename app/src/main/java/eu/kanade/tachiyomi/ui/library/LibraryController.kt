@@ -276,9 +276,18 @@ open class LibraryController(
         }
     }
 
-    /** Library only owns the activity tab bar when the user picked tabbed display mode. */
+    /**
+     * Library only owns the activity tab bar when the user picked tabbed display mode
+     * AND the strip is actually rendered right now. fullAppBarHeight (via this flag)
+     * decides whether to reserve 48dp for the strip in the recycler's top padding;
+     * keeping it `true` while flatten-on-search has hidden the strip would leave a
+     * dead 48dp gap above the results. Mirrors the `showStrip` condition in
+     * [applyDisplayMode] / [onSetupLocalChrome] so layout math and chrome agree.
+     */
     override val showActivityTabs: Boolean
-        get() = isTabbedMode
+        get() = isTabbedMode &&
+            !presenter.forceShowAllCategories &&
+            visibleTabCategories().size > 1
 
     init {
         retainViewMode = RetainViewMode.RETAIN_DETACH
