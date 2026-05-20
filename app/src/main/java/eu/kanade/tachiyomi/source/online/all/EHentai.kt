@@ -55,9 +55,6 @@ import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchManga
 import exh.util.urlImportFetchSearchMangaSuspend
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -506,52 +503,27 @@ class EHentai(
         return Observable.empty()
     }
 
-    /**
-     * Parallel page-list fetch. Replaces the legacy sequential recursion through
-     * `nextPageUrl(...)` with a `?p=N` (0-indexed) fan-out: fetch page 1 sequentially,
-     * read the total thumbnail-page count from `table.ptt`, then issue pages 2..N in
-     * parallel. Also primes `gallerySessions` for downstream image-URL resolution by
-     * detecting the MPV link (`#gmid a[href*='/mpv/']`) and pre-loading the MPV state
-     * when present.
-     *
-     * Pre-flight `checkExhSession()` ensures a stale igneous fails fast with a typed
-     * exception before N parallel requests are wasted.
-     */
+    // Walks thumb-index pages via the explicit next-link; synthesizing `?p=N` URLs and
+    // fanning out in parallel caused the first batch to repeat throughout the chapter.
     override suspend fun getPageList(chapter: SChapter): List<Page> {
         checkExhSession()
 
         val firstUrl = baseUrl + chapter.url
-        val firstUrlHttp = firstUrl.toHttpUrl()
         val gid = EHentaiSearchMetadata.galleryId(chapter.url).toLongOrNull()
         val token = EHentaiSearchMetadata.galleryToken(chapter.url)
 
         val firstDoc = client.newCall(exGet(firstUrl)).awaitSuccess().asJsoup()
-        val firstPageUrls = parseChapterPage(firstDoc)
-        val totalThumbPages = extractTotalThumbPages(firstDoc)
         val mpvHref = firstDoc.selectFirst("#gmid a[href*=/mpv/]")?.attr("href")
 
-        val allPageUrls: List<String> = if (totalThumbPages <= 1) {
-            firstPageUrls
-        } else {
-            // Issue pages 2..N in parallel. Each request goes through the same `client`
-            // so cookies + Sad-Panda interceptor apply. coroutineScope ensures failure
-            // in any child cancels all siblings (no orphaned requests on error).
-            val later: List<Pair<Int, List<String>>> = coroutineScope {
-                (1 until totalThumbPages).map { p ->
-                    async(Dispatchers.IO) {
-                        val pUrl = firstUrlHttp.newBuilder()
-                            .setQueryParameter("p", p.toString())
-                            .build()
-                            .toString()
-                        val doc = client.newCall(exGet(pUrl)).awaitSuccess().asJsoup()
-                        p to parseChapterPage(doc)
-                    }
-                }.awaitAll()
-            }
-            firstPageUrls + later.sortedBy { it.first }.flatMap { it.second }
+        val allPageUrls = ArrayList<String>()
+        allPageUrls += parseChapterPage(firstDoc)
+        var nextUrl = nextPageUrl(firstDoc)
+        while (nextUrl != null) {
+            val doc = client.newCall(exGet(url = nextUrl, additionalHeaders = headers)).awaitSuccess().asJsoup()
+            allPageUrls += parseChapterPage(doc)
+            nextUrl = nextPageUrl(doc)
         }
 
-        // Prime the per-gallery session for cheap image-URL resolution downstream.
         if (gid != null) {
             val session = if (mpvHref != null) {
                 loadMpvSession(mpvHref, gid, token) ?: GallerySession(gid = gid, token = token)
@@ -566,8 +538,6 @@ class EHentai(
 
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getPageList"))
     override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
-        // Bridge for any remaining legacy callers; the modern reader uses the suspend
-        // override above which gets MPV/parallel benefits.
         return Observable.fromCallable {
             kotlinx.coroutines.runBlocking { getPageList(chapter) }
         }
@@ -586,17 +556,10 @@ class EHentai(
         ).sortedBy(Pair<Int, String>::first).map { it.second }
     }
 
-    /**
-     * Reads the total thumbnail-page count from EH's pagination footer (`table.ptt`).
-     * The last numeric anchor in the footer is the highest page index; if the footer is
-     * absent (galleries with a single thumb page have no footer), returns 1.
-     */
-    private fun extractTotalThumbPages(doc: Document): Int {
-        return doc.select("table.ptt tbody tr td a")
-            .asReversed()
-            .firstNotNullOfOrNull { it.text().toIntOrNull() }
-            ?: 1
-    }
+    private fun nextPageUrl(element: Element): String? =
+        element.select("a[onclick=return false]").last()?.let {
+            if (it.text() == ">") it.attr("href") else null
+        }
 
     /**
      * Fetches the /mpv/ page and parses the JS-embedded `mpvkey` + `imagelist`. Returns

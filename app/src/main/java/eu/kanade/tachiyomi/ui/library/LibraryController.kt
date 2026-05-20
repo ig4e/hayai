@@ -145,7 +145,6 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.random.nextInt
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
@@ -185,7 +184,18 @@ open class LibraryController(
         appBar.lockYPos = false
         appBar.hideBigView(useSmall = false)
         appBar.setToolbarModeBy(this)
-        // Tabs (badged categories) — null when not in tabbed mode or only one visible category.
+        refreshTabStrip()
+        appBar.y = 0f
+        appBar.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
+        setupToolbarMenu()
+        seedSearchFromState()
+    }
+
+    // The only display-mode-dependent chunk of chrome. Extracted so applyDisplayMode can
+    // refresh just this without going through the full onSetupLocalChrome chain (which
+    // used to drag setupToolbarMenu's now-removed seed block along — the recursion source).
+    private fun refreshTabStrip() {
+        val appBar = binding.appBar ?: return
         val visibleCats = if (isTabbedMode) visibleTabCategories() else emptyList()
         val showStrip = isTabbedMode && visibleCats.size > 1 && !presenter.forceShowAllCategories
         if (showStrip) {
@@ -219,21 +229,15 @@ open class LibraryController(
         } else {
             appBar.clearTabs()
         }
-        appBar.y = 0f
-        appBar.updateAppBarAfterY(binding.libraryGridRecycler.recycler)
-        setupToolbarMenu()
     }
 
-    /**
-     * Inflate the library menu onto the local CenteredToolbar and wire the search-pill
-     * setup that previously lived in the activity-action-bar `onCreateOptionsMenu` path.
-     * Safe to call repeatedly — menu inflation is gated on size==0.
-     */
+    // Idempotent: inflates the menu, attaches the modifier icon, and installs the query
+    // text listener. Does NOT seed the SearchView's text from this.query — that one-shot
+    // restore lives in seedSearchFromState(), called from onSetupLocalChrome.
     private fun setupToolbarMenu() {
         installLocalMenu(R.menu.library)
 
         val pill = searchToolbar() ?: return
-        val searchItem = pill.searchItem
         val searchView = pill.searchView
         pill.setQueryHint(view?.context?.getString(MR.strings.library_search_hint), query.isEmpty())
 
@@ -255,30 +259,27 @@ open class LibraryController(
             }
         }
 
-        if (query.isNotEmpty()) {
-            // Only seed when SearchView is out of sync with our stored query (first
-            // inflation / controller re-entry). Skipping when already in sync prevents
-            // the setupToolbarMenu → search → applyTabbedSearchVisibility → rebindChrome
-            // → setupToolbarMenu recursion that flatten-on-search triggers in tabbed mode.
-            if (searchView?.query?.toString().orEmpty() != query) {
-                if (searchToolbar()?.isSearchExpanded != true) {
-                    searchItem?.expandActionView()
-                    searchView?.setQuery(query, true)
-                    searchView?.clearFocus()
-                } else {
-                    searchView?.setQuery(query, false)
-                }
-                search(query)
-            }
-        } else if (searchToolbar()?.isSearchExpanded == true) {
-            searchItem?.collapseActionView()
-        }
-
-        setOnQueryTextChangeListener(searchToolbar()?.searchView) {
+        setOnQueryTextChangeListener(searchView) {
             if (!it.isNullOrEmpty() && binding.recyclerCover.isClickable) {
                 showCategories(false)
             }
             search(it)
+        }
+    }
+
+    // Restore SearchView state from this.query. No-ops when already in sync. Safe to call
+    // from any chrome path because the in-sync guard prevents the setQuery → listener →
+    // search recursion that flatten-on-search used to trigger.
+    private fun seedSearchFromState() {
+        val pill = searchToolbar() ?: return
+        val searchView = pill.searchView ?: return
+        if (searchView.query?.toString().orEmpty() == query) return
+        if (query.isNotEmpty()) {
+            if (pill.isSearchExpanded != true) pill.searchItem?.expandActionView()
+            searchView.setQuery(query, false)
+            searchView.clearFocus()
+        } else if (pill.isSearchExpanded == true) {
+            pill.searchItem?.collapseActionView()
         }
     }
 
@@ -333,10 +334,6 @@ open class LibraryController(
      * Library search query.
      */
     private var query = ""
-
-    // Coalesces rapid keystrokes into one filter pass and cancels in-flight fuzzy work
-    // so the main thread doesn't get hammered with serial updateDataSet calls.
-    private var filterJob: Job? = null
 
     val isSubClass: Boolean
         get() = this is FilteredLibraryController
@@ -651,8 +648,9 @@ open class LibraryController(
     /**
      * Library has two display modes: continuous (single scrolling RecyclerView for all
      * categories) and tabbed (a ViewPager with one RecyclerView per category and the
-     * activity tab strip as the pill bar). Switches the view tree between the two
-     * and rebinds the local appBar via [onSetupLocalChrome].
+     * activity tab strip as the pill bar). Switches the view tree between the two and
+     * refreshes only the display-mode-dependent chrome (tab strip). Full chrome wire-up
+     * lives in [onSetupLocalChrome] and only fires on real entry events.
      */
     private fun applyDisplayMode() {
         if (!isControllerVisible) return
@@ -660,15 +658,15 @@ open class LibraryController(
             visibleTabCategories().size > 1 &&
             !presenter.forceShowAllCategories
         if (showStrip) applyTabbedViewTree() else applyContinuousViewTree()
-        rebindChrome()
+        refreshTabStrip()
         showMiniBar()
     }
 
     /**
      * Bring the per-category pager into view, push the continuous recycler off-screen,
-     * and reset the appbar to the active page's scroll offset. All tab-strip state is
-     * applied later through [rebindChrome] — this method only manipulates Library's
-     * own view subtree and the appbar Y position.
+     * and reset the appbar to the active page's scroll offset. Tab-strip state is
+     * applied separately through [refreshTabStrip] — this method only manipulates
+     * Library's own view subtree and the appbar Y position.
      */
     private fun applyTabbedViewTree() {
         val visibleCats = visibleTabCategories()
@@ -723,8 +721,8 @@ open class LibraryController(
     /**
      * Detach the pager and bring the continuous recycler back into view. Called when
      * Library leaves tabbed mode, or when the tabbed-eligible category set drops to ≤1
-     * (single category, or flatten-on-search). All tab-strip state is cleared later
-     * through [rebindChrome].
+     * (single category, or flatten-on-search). Tab-strip state is cleared separately
+     * through [refreshTabStrip].
      */
     private fun applyContinuousViewTree() {
         binding.libraryPager.adapter = null
@@ -751,15 +749,6 @@ open class LibraryController(
         }
         // Reset the tabbed-mode gate; reseeded the next time tabs are enabled.
         isPageToolbarElevated = false
-    }
-
-    /**
-     * Re-applies the activity chrome from this controller's current state. Called when
-     * Library is the visible owner and its declared chrome changes — display-mode
-     * toggle, category list update, flatten-on-search transition. Idempotent.
-     */
-    private fun rebindChrome() {
-        if (isBindingInitialized) onSetupLocalChrome()
     }
 
     fun pageRecyclerTopPadding(): Int {
@@ -1763,7 +1752,7 @@ open class LibraryController(
             } else {
                 pagerAdapter?.refreshAll()
                 // Refresh the tab strip so labels + count badges reflect the new data.
-                rebindChrome()
+                refreshTabStrip()
             }
         }
         adapter.isLongPressDragEnabled = canDrag()
@@ -1993,15 +1982,20 @@ open class LibraryController(
     }
 
     fun search(query: String?): Boolean {
+        val q = query ?: ""
         val singleMode = isInSingleCategoryMode
-        if (!query.isNullOrBlank() && this.query.isBlank() && singleMode) {
+        val previous = this.query
+        this.query = q
+
+        // forceShowAllCategories transitions only fire on the blank ↔ non-blank edge.
+        if (q.isNotBlank() && previous.isBlank() && singleMode) {
             presenter.forceShowAllCategories = if (isTabbedMode) {
                 preferences.librarySearchAcrossTabs().get()
             } else {
                 preferences.showAllCategoriesWhenSearchingSingleCategory().get()
             }
             presenter.updateLibrary()
-        } else if (query.isNullOrBlank() && this.query.isNotBlank() && singleMode) {
+        } else if (q.isBlank() && previous.isNotBlank() && singleMode) {
             if (!isSubClass && !isTabbedMode) {
                 preferences.showAllCategoriesWhenSearchingSingleCategory()
                     .set(presenter.forceShowAllCategories)
@@ -2009,29 +2003,35 @@ open class LibraryController(
             presenter.forceShowAllCategories = false
             presenter.updateLibrary()
         }
-        if (query != this.query && !query.isNullOrBlank()) {
-            binding.libraryGridRecycler.recycler.scrollToPosition(0)
-        }
-        this.query = query ?: ""
-        if (isTabbedMode) {
-            applyTabbedSearchVisibility()
-        }
-        showAllCategoriesView?.isGone = isTabbedMode || preferences.showAllCategories().get() || presenter.groupType != BY_DEFAULT || this.query.isBlank()
-        showAllCategoriesView?.isSelected = presenter.forceShowAllCategories
-        if (this.query.isNotBlank()) {
-            searchItem.string = this.query
+
+        // Set the filter BEFORE any code path that can launch a filter coroutine
+        // (applyTabbedSearchVisibility → setItems → adapter.launchFilter). Otherwise the
+        // setItems-launched filter reads the stale empty filter and the visible result
+        // races with the explicit requestFilter() below.
+        adapter.setFilter(q)
+        if (q.isNotBlank()) {
+            searchItem.string = q
             if (adapter.scrollableHeaders.isEmpty() && !isSubClass) {
                 adapter.addScrollableHeader(searchItem)
             }
-        } else if (this.query.isBlank() && adapter.scrollableHeaders.isNotEmpty()) {
+        } else if (adapter.scrollableHeaders.isNotEmpty()) {
             adapter.removeAllScrollableHeaders()
         }
-        adapter.setFilter(query)
-        if (presenter.currentLibraryItems.isEmpty()) return true
-        filterJob?.cancel()
-        filterJob = viewScope.launchUI {
-            adapter.performFilterAsync()
+        showAllCategoriesView?.isGone =
+            isTabbedMode || preferences.showAllCategories().get() || presenter.groupType != BY_DEFAULT || q.isBlank()
+        showAllCategoriesView?.isSelected = presenter.forceShowAllCategories
+
+        if (q != previous && q.isNotBlank()) {
+            binding.libraryGridRecycler.recycler.scrollToPosition(0)
         }
+
+        // Defer the view-tree switch to the next frame so onQueryTextChange returns first
+        // and any in-flight FlexibleAdapter layout settles before applyTabbedViewTree's
+        // setItems(emptyList()) fires. Without this, a fast clear-and-collapse on back
+        // could land an updateDataSet mid-layout → RecyclerView "Inconsistency detected".
+        if (isTabbedMode) view?.post { applyTabbedSearchVisibility() }
+
+        if (presenter.currentLibraryItems.isNotEmpty()) adapter.requestFilter()
         return true
     }
 

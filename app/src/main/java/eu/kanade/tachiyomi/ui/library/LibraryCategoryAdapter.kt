@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import eu.kanade.tachiyomi.util.system.withDefContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import java.util.*
 import yokai.util.koin.injectLazy
@@ -62,6 +63,10 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
      */
     private var mangas: List<LibraryItem> = emptyList()
 
+    // Single in-flight filter job. setItems and external requestFilter() both go through
+    // launchFilter() so updateDataSet / notifyDataSetChanged calls can't interleave.
+    private var filterJob: Job? = null
+
     val libraryListener: LibraryListener? = controller
 
     val isSingleCategory
@@ -77,8 +82,11 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
     fun setItems(list: List<LibraryItem>) {
         // A copy of manga always unfiltered.
         mangas = list.toList()
-        performFilter()
+        launchFilter()
     }
+
+    /** Public entry for callers that mutate filter state (setFilter) and need to re-apply. */
+    fun requestFilter() = launchFilter()
 
     private fun setItemsPerCategoryMap() {
         val controller = controller ?: return
@@ -154,12 +162,14 @@ class LibraryCategoryAdapter(val controller: LibraryController?) :
         }
     }
 
-    private fun performFilter() {
-        // Launch on the controller's viewScope so the filter is cancelled with the view.
-        // Fall back to a process-scope launch if the controller is gone or its lateinit
-        // viewScope hasn't been initialised yet (rare: setItems before preCreateView).
+    private fun launchFilter() {
+        // Cancel-and-replace so updateDataSet calls can't interleave when the controller
+        // mutates state from multiple paths (setItems, setFilter+requestFilter, flow re-emits).
+        // Falls back to a process-scope launch if the controller's viewScope isn't ready yet
+        // (rare: setItems racing preCreateView).
+        filterJob?.cancel()
         val scope = runCatching { controller?.viewScope }.getOrNull()
-        if (scope != null) {
+        filterJob = if (scope != null) {
             scope.launchUI { runFilterWithSuppression() }
         } else {
             launchUI { runFilterWithSuppression() }
