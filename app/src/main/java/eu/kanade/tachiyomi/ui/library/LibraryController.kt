@@ -256,14 +256,20 @@ open class LibraryController(
         }
 
         if (query.isNotEmpty()) {
-            if (searchToolbar()?.isSearchExpanded != true) {
-                searchItem?.expandActionView()
-                searchView?.setQuery(query, true)
-                searchView?.clearFocus()
-            } else {
-                searchView?.setQuery(query, false)
+            // Only seed when SearchView is out of sync with our stored query (first
+            // inflation / controller re-entry). Skipping when already in sync prevents
+            // the setupToolbarMenu → search → applyTabbedSearchVisibility → rebindChrome
+            // → setupToolbarMenu recursion that flatten-on-search triggers in tabbed mode.
+            if (searchView?.query?.toString().orEmpty() != query) {
+                if (searchToolbar()?.isSearchExpanded != true) {
+                    searchItem?.expandActionView()
+                    searchView?.setQuery(query, true)
+                    searchView?.clearFocus()
+                } else {
+                    searchView?.setQuery(query, false)
+                }
+                search(query)
             }
-            search(query)
         } else if (searchToolbar()?.isSearchExpanded == true) {
             searchItem?.collapseActionView()
         }

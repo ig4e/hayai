@@ -189,7 +189,7 @@ object PreferenceKeys {
     const val showRemHistoryInRecents = "show_rem_history_in_recents"
     const val showReadInAllRecents = "show_read_in_all_recents"
     const val showTitleFirstInRecents = "show_title_first_in_recents"
-    const val groupChaptersUpdates = "group_chapters_updates"
+    const val groupChaptersUpdates = "group_chapters_updates_type"
     const val hiddenSourcesInHistory = "hidden_sources_in_history"
     const val hiddenSourcesInUpdates = "hidden_sources_in_updates"
     const val showHiddenInHistory = "show_hidden_in_history"

@@ -46,10 +46,14 @@ class RecentsUpdatesView @JvmOverloads constructor(context: Context, attrs: Attr
     private fun showHiddenSourcesDialog() {
         val activity = controller?.activity ?: return
         val sourceManager = get<SourceManager>()
-        val sources = sourceManager.getCatalogueSources()
-            .map { it.id.toString() to it.name }
-            .sortedBy { it.second.lowercase() }
-        if (sources.isEmpty()) {
+        // Group catalogue sources by display name so multi-lang/factory variants don't
+        // surface as duplicate rows; toggling one row hides every id sharing that name.
+        val groups = sourceManager.getCatalogueSources()
+            .groupBy { it.name }
+            .entries
+            .map { (name, list) -> name to list.map { it.id.toString() } }
+            .sortedBy { it.first.lowercase() }
+        if (groups.isEmpty()) {
             activity.materialAlertDialog()
                 .setTitle(MR.strings.recents_hidden_sources)
                 .setMessage(MR.strings.recents_no_hidden_sources)
@@ -58,13 +62,13 @@ class RecentsUpdatesView @JvmOverloads constructor(context: Context, attrs: Attr
             return
         }
         val currentlyHidden = recentsPreferences.hiddenSourcesInUpdates().get().toMutableSet()
-        val checked = BooleanArray(sources.size) { sources[it].first in currentlyHidden }
-        val labels = sources.map { it.second }.toTypedArray()
+        val checked = BooleanArray(groups.size) { i -> groups[i].second.any { it in currentlyHidden } }
+        val labels = groups.map { it.first }.toTypedArray()
         activity.materialAlertDialog()
             .setTitle(MR.strings.recents_hidden_sources)
             .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
-                val id = sources[which].first
-                if (isChecked) currentlyHidden.add(id) else currentlyHidden.remove(id)
+                val ids = groups[which].second
+                if (isChecked) currentlyHidden.addAll(ids) else currentlyHidden.removeAll(ids.toSet())
             }
             .setPositiveButton(AR.string.ok) { _, _ ->
                 recentsPreferences.hiddenSourcesInUpdates().set(currentlyHidden)
