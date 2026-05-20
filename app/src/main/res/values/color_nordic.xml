@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Nordic Stone — modern Scandinavian neutral.
+  ~ Adapted from "Warm Latte Living" palette (cream + clay + espresso) with a Harbor
+  ~ Mist slate accent. Light neutrals + wood-warmth, charcoal/slate instead of black.
+-->
+<resources>
+    <color name="nordic_primary">#4D4438</color>
+    <color name="nordic_on_primary">#FFFFFF</color>
+    <color name="nordic_primary_variant">#E3D2C3</color>
+    <color name="nordic_primary_inverse">#9D8B7A</color>
+    <color name="nordic_secondary">#A1785D</color>
+    <color name="nordic_on_secondary">#FFFFFF</color>
+    <color name="nordic_secondary_variant">#5C4334</color>
+    <color name="nordic_highlight">#1FA1785D</color>
+    <color name="nordic_tertiary">#6F7E8A</color>
+    <color name="nordic_on_tertiary">#FFFFFF</color>
+    <color name="nordic_tab_bar_icon">#4D4438</color>
+    <color name="nordic_background">#F6F1EB</color>
+    <color name="nordic_on_background">#1F1A14</color>
+    <color name="nordic_surface">#F6F1EB</color>
+    <color name="nordic_on_surface">#1F1A14</color>
+</resources>

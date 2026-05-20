@@ -230,6 +230,139 @@
     </style>
     <style name="Theme.Tachiyomi.Monet"/>
 
+    <!--== Sakura Theme — cherry blossom pink + sage ==-->
+    <style name="Theme.Tachiyomi.Sakura">
+        <item name="colorPrimary">@color/sakura_primary</item>
+        <item name="colorPrimaryInverse">@color/sakura_primary_inverse</item>
+        <item name="colorPrimaryVariant">@color/sakura_primary_variant</item>
+        <item name="colorOnPrimary">@color/sakura_on_primary</item>
+        <item name="colorSecondary">@color/sakura_secondary</item>
+        <item name="colorOnSecondary">@color/sakura_on_secondary</item>
+        <item name="colorSecondaryVariant">@color/sakura_secondary_variant</item>
+        <item name="colorTertiary">@color/sakura_tertiary</item>
+        <item name="colorOnTertiary">@color/sakura_on_tertiary</item>
+        <item name="colorControlHighlight">@color/sakura_highlight</item>
+        <item name="tabBarIconColor">@color/sakura_tab_bar_icon</item>
+        <item name="background">@color/sakura_background</item>
+        <item name="colorOnBackground">@color/sakura_on_background</item>
+        <item name="colorSurface">@color/sakura_surface</item>
+        <item name="actionBarTintColor">@color/sakura_on_surface</item>
+    </style>
+
+    <!--== Pink Romance Theme — rose / pink-red ==-->
+    <style name="Theme.Tachiyomi.PinkRomance">
+        <item name="colorPrimary">@color/pink_romance_primary</item>
+        <item name="colorPrimaryInverse">@color/pink_romance_primary_inverse</item>
+        <item name="colorPrimaryVariant">@color/pink_romance_primary_variant</item>
+        <item name="colorOnPrimary">@color/pink_romance_on_primary</item>
+        <item name="colorSecondary">@color/pink_romance_secondary</item>
+        <item name="colorOnSecondary">@color/pink_romance_on_secondary</item>
+        <item name="colorSecondaryVariant">@color/pink_romance_secondary_variant</item>
+        <item name="colorTertiary">@color/pink_romance_tertiary</item>
+        <item name="colorOnTertiary">@color/pink_romance_on_tertiary</item>
+        <item name="colorControlHighlight">@color/pink_romance_highlight</item>
+        <item name="tabBarIconColor">@color/pink_romance_tab_bar_icon</item>
+        <item name="background">@color/pink_romance_background</item>
+        <item name="colorOnBackground">@color/pink_romance_on_background</item>
+        <item name="colorSurface">@color/pink_romance_surface</item>
+        <item name="actionBarTintColor">@color/pink_romance_on_surface</item>
+    </style>
+
+    <!--== Sumi-e Theme — neutral monochrome ink wash ==-->
+    <style name="Theme.Tachiyomi.SumiE">
+        <item name="colorPrimary">@color/sumi_e_primary</item>
+        <item name="colorPrimaryInverse">@color/sumi_e_primary_inverse</item>
+        <item name="colorPrimaryVariant">@color/sumi_e_primary_variant</item>
+        <item name="colorOnPrimary">@color/sumi_e_on_primary</item>
+        <item name="colorSecondary">@color/sumi_e_secondary</item>
+        <item name="colorOnSecondary">@color/sumi_e_on_secondary</item>
+        <item name="colorSecondaryVariant">@color/sumi_e_secondary_variant</item>
+        <item name="colorTertiary">@color/sumi_e_tertiary</item>
+        <item name="colorOnTertiary">@color/sumi_e_on_tertiary</item>
+        <item name="colorControlHighlight">@color/sumi_e_highlight</item>
+        <item name="tabBarIconColor">@color/sumi_e_tab_bar_icon</item>
+        <item name="background">@color/sumi_e_background</item>
+        <item name="colorOnBackground">@color/sumi_e_on_background</item>
+        <item name="colorSurface">@color/sumi_e_surface</item>
+        <item name="actionBarTintColor">@color/sumi_e_on_surface</item>
+    </style>
+
+    <!--== Kimono Theme — crimson + gold ==-->
+    <style name="Theme.Tachiyomi.Kimono">
+        <item name="colorPrimary">@color/kimono_primary</item>
+        <item name="colorPrimaryInverse">@color/kimono_primary_inverse</item>
+        <item name="colorPrimaryVariant">@color/kimono_primary_variant</item>
+        <item name="colorOnPrimary">@color/kimono_on_primary</item>
+        <item name="colorSecondary">@color/kimono_secondary</item>
+        <item name="colorOnSecondary">@color/kimono_on_secondary</item>
+        <item name="colorSecondaryVariant">@color/kimono_secondary_variant</item>
+        <item name="colorTertiary">@color/kimono_tertiary</item>
+        <item name="colorOnTertiary">@color/kimono_on_tertiary</item>
+        <item name="colorControlHighlight">@color/kimono_highlight</item>
+        <item name="tabBarIconColor">@color/kimono_tab_bar_icon</item>
+        <item name="background">@color/kimono_background</item>
+        <item name="colorOnBackground">@color/kimono_on_background</item>
+        <item name="colorSurface">@color/kimono_surface</item>
+        <item name="actionBarTintColor">@color/kimono_on_surface</item>
+    </style>
+
+    <!--== Wagashi Theme — Japanese pastels ==-->
+    <style name="Theme.Tachiyomi.Wagashi">
+        <item name="colorPrimary">@color/wagashi_primary</item>
+        <item name="colorPrimaryInverse">@color/wagashi_primary_inverse</item>
+        <item name="colorPrimaryVariant">@color/wagashi_primary_variant</item>
+        <item name="colorOnPrimary">@color/wagashi_on_primary</item>
+        <item name="colorSecondary">@color/wagashi_secondary</item>
+        <item name="colorOnSecondary">@color/wagashi_on_secondary</item>
+        <item name="colorSecondaryVariant">@color/wagashi_secondary_variant</item>
+        <item name="colorTertiary">@color/wagashi_tertiary</item>
+        <item name="colorOnTertiary">@color/wagashi_on_tertiary</item>
+        <item name="colorControlHighlight">@color/wagashi_highlight</item>
+        <item name="tabBarIconColor">@color/wagashi_tab_bar_icon</item>
+        <item name="background">@color/wagashi_background</item>
+        <item name="colorOnBackground">@color/wagashi_on_background</item>
+        <item name="colorSurface">@color/wagashi_surface</item>
+        <item name="actionBarTintColor">@color/wagashi_on_surface</item>
+    </style>
+
+    <!--== Rose Theme — Tailwind rose scale ==-->
+    <style name="Theme.Tachiyomi.Rose">
+        <item name="colorPrimary">@color/rose_primary</item>
+        <item name="colorPrimaryInverse">@color/rose_primary_inverse</item>
+        <item name="colorPrimaryVariant">@color/rose_primary_variant</item>
+        <item name="colorOnPrimary">@color/rose_on_primary</item>
+        <item name="colorSecondary">@color/rose_secondary</item>
+        <item name="colorOnSecondary">@color/rose_on_secondary</item>
+        <item name="colorSecondaryVariant">@color/rose_secondary_variant</item>
+        <item name="colorTertiary">@color/rose_tertiary</item>
+        <item name="colorOnTertiary">@color/rose_on_tertiary</item>
+        <item name="colorControlHighlight">@color/rose_highlight</item>
+        <item name="tabBarIconColor">@color/rose_tab_bar_icon</item>
+        <item name="background">@color/rose_background</item>
+        <item name="colorOnBackground">@color/rose_on_background</item>
+        <item name="colorSurface">@color/rose_surface</item>
+        <item name="actionBarTintColor">@color/rose_on_surface</item>
+    </style>
+
+    <!--== Nordic Stone Theme — modern Scandinavian neutral ==-->
+    <style name="Theme.Tachiyomi.Nordic">
+        <item name="colorPrimary">@color/nordic_primary</item>
+        <item name="colorPrimaryInverse">@color/nordic_primary_inverse</item>
+        <item name="colorPrimaryVariant">@color/nordic_primary_variant</item>
+        <item name="colorOnPrimary">@color/nordic_on_primary</item>
+        <item name="colorSecondary">@color/nordic_secondary</item>
+        <item name="colorOnSecondary">@color/nordic_on_secondary</item>
+        <item name="colorSecondaryVariant">@color/nordic_secondary_variant</item>
+        <item name="colorTertiary">@color/nordic_tertiary</item>
+        <item name="colorOnTertiary">@color/nordic_on_tertiary</item>
+        <item name="colorControlHighlight">@color/nordic_highlight</item>
+        <item name="tabBarIconColor">@color/nordic_tab_bar_icon</item>
+        <item name="background">@color/nordic_background</item>
+        <item name="colorOnBackground">@color/nordic_on_background</item>
+        <item name="colorSurface">@color/nordic_surface</item>
+        <item name="actionBarTintColor">@color/nordic_on_surface</item>
+    </style>
+
     <!--===============-->
     <!-- Launch Screen -->
     <!--===============-->

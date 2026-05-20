@@ -73,6 +73,48 @@ enum class Themes(@StyleRes val styleRes: Int, val nightMode: Int, val nameRes: 
         R.style.Theme_Tachiyomi_Doki,
         AppCompatDelegate.MODE_NIGHT_YES,
         MR.strings.doki,
+    ),
+    SAKURA(
+        R.style.Theme_Tachiyomi_Sakura,
+        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+        MR.strings.sakura,
+        MR.strings.moonlit_sakura,
+    ),
+    PINK_ROMANCE(
+        R.style.Theme_Tachiyomi_PinkRomance,
+        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+        MR.strings.pink_romance,
+        MR.strings.deep_wine,
+    ),
+    SUMI_E(
+        R.style.Theme_Tachiyomi_SumiE,
+        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+        MR.strings.sumi_e,
+        MR.strings.ink_night,
+    ),
+    KIMONO(
+        R.style.Theme_Tachiyomi_Kimono,
+        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+        MR.strings.kimono,
+        MR.strings.lantern_night,
+    ),
+    WAGASHI(
+        R.style.Theme_Tachiyomi_Wagashi,
+        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+        MR.strings.wagashi,
+        MR.strings.twilight_tearoom,
+    ),
+    NORDIC(
+        R.style.Theme_Tachiyomi_Nordic,
+        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+        MR.strings.nordic_stone,
+        MR.strings.fjord_night,
+    ),
+    ROSE(
+        R.style.Theme_Tachiyomi_Rose,
+        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+        MR.strings.rose,
+        MR.strings.rose_noir,
     )
     ;
 

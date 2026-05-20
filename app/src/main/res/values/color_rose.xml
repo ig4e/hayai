@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Rose — based directly on Tailwind CSS rose-50..950 scale.
+  ~ primary rose-600 (#E11D48, 4.67:1 with white) for buttons/accents.
+  ~ background rose-50, deep text rose-950, decorative tertiary rose-300.
+-->
+<resources>
+    <color name="rose_primary">#E11D48</color>
+    <color name="rose_on_primary">#FFFFFF</color>
+    <color name="rose_primary_variant">#FFE4E6</color>
+    <color name="rose_primary_inverse">#FB7185</color>
+    <color name="rose_secondary">#BE123C</color>
+    <color name="rose_on_secondary">#FFFFFF</color>
+    <color name="rose_secondary_variant">#881337</color>
+    <color name="rose_highlight">#1FE11D48</color>
+    <color name="rose_tertiary">#FDA4AF</color>
+    <color name="rose_on_tertiary">#4C0519</color>
+    <color name="rose_tab_bar_icon">#E11D48</color>
+    <color name="rose_background">#FFF1F2</color>
+    <color name="rose_on_background">#4C0519</color>
+    <color name="rose_surface">#FFF1F2</color>
+    <color name="rose_on_surface">#4C0519</color>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Sakura — moonlit blossom (dark).
+  ~ Deep wine background lifts the blossom-pink primary; matcha sage stays as the accent.
+-->
+<resources>
+    <color name="sakura_primary">#F2B5C5</color>
+    <color name="sakura_on_primary">#4A1525</color>
+    <color name="sakura_primary_variant">#261319</color>
+    <color name="sakura_primary_inverse">#8E3854</color>
+    <color name="sakura_secondary">#9FC58D</color>
+    <color name="sakura_on_secondary">#0F2210</color>
+    <color name="sakura_secondary_variant">#DCEFCB</color>
+    <color name="sakura_highlight">#1F9FC58D</color>
+    <color name="sakura_tertiary">#FFC9D6</color>
+    <color name="sakura_on_tertiary">#4A1525</color>
+    <color name="sakura_tab_bar_icon">#F2B5C5</color>
+    <color name="sakura_background">#1A1014</color>
+    <color name="sakura_on_background">#FAE3EA</color>
+    <color name="sakura_surface">#1A1014</color>
+    <color name="sakura_on_surface">#FAE3EA</color>
+</resources>

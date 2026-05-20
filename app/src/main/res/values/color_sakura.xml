@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Sakura theme — hanami: cherry blossom rose + matcha sage.
+  ~ Primary: nadeshiko deep dianthus rose (#B14F6E, 4.6:1 with white).
+  ~ Tertiary: canonical sakura-iro (#E4A0B7) for decorative blossoms.
+  ~ Accent: matcha sage (#6E9F58) for fresh leaves.
+-->
+<resources>
+    <color name="sakura_primary">#B14F6E</color>
+    <color name="sakura_on_primary">#FFFFFF</color>
+    <color name="sakura_primary_variant">#FBE5EB</color>
+    <color name="sakura_primary_inverse">#F1B5C3</color>
+    <color name="sakura_secondary">#6E9F58</color>
+    <color name="sakura_on_secondary">#FFFFFF</color>
+    <color name="sakura_secondary_variant">#2E5C24</color>
+    <color name="sakura_highlight">#1F6E9F58</color>
+    <color name="sakura_tertiary">#E4A0B7</color>
+    <color name="sakura_on_tertiary">#2A1018</color>
+    <color name="sakura_tab_bar_icon">#B14F6E</color>
+    <color name="sakura_background">#FFF7F8</color>
+    <color name="sakura_on_background">#2A1018</color>
+    <color name="sakura_surface">#FFF7F8</color>
+    <color name="sakura_on_surface">#2A1018</color>
+</resources>

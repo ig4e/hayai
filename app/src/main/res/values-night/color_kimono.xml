@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Kimono — lantern night (dark). Warm rouge crimson + glowing kihada gold on lacquer.
+-->
+<resources>
+    <color name="kimono_primary">#DC6B6F</color>
+    <color name="kimono_on_primary">#2B0808</color>
+    <color name="kimono_primary_variant">#1F1311</color>
+    <color name="kimono_primary_inverse">#8C1F2A</color>
+    <color name="kimono_secondary">#E0B864</color>
+    <color name="kimono_on_secondary">#2B0808</color>
+    <color name="kimono_secondary_variant">#F2D69B</color>
+    <color name="kimono_highlight">#1FE0B864</color>
+    <color name="kimono_tertiary">#F3C13A</color>
+    <color name="kimono_on_tertiary">#2B0808</color>
+    <color name="kimono_tab_bar_icon">#DC6B6F</color>
+    <color name="kimono_background">#15100D</color>
+    <color name="kimono_on_background">#F5DDD9</color>
+    <color name="kimono_surface">#15100D</color>
+    <color name="kimono_on_surface">#F5DDD9</color>
+</resources>

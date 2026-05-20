@@ -194,10 +194,11 @@ dependencies {
     // JSON
     implementation(kotlinx.bundles.serialization)
 
-    // JavaScript engine
+    // JavaScript engine. `com.dokar.quickjs.QuickJs` is the in-app runtime; an
+    // `app.cash.quickjs.QuickJs` shim in this module routes the legacy Cash-App
+    // surface (used by Mangago, MangaHere, Readcomiconline, etc.) onto the same
+    // native engine so we ship only one libquickjs.so.
     implementation(libs.quickjs.android)
-    // app.cash.quickjs.QuickJs surface for installed extensions (e.g. Mangago).
-    runtimeOnly(libs.quickjs.cash)
 
     // Disk
     implementation(libs.disklrucache)
