@@ -196,6 +196,8 @@ dependencies {
 
     // JavaScript engine
     implementation(libs.quickjs.android)
+    // app.cash.quickjs.QuickJs surface for installed extensions (e.g. Mangago).
+    runtimeOnly(libs.quickjs.cash)
 
     // Disk
     implementation(libs.disklrucache)

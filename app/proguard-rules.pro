@@ -29,6 +29,10 @@
 -keep,allowoptimization class org.jsoup.** { public protected *; }
 -keep,allowoptimization class com.google.gson.** { public protected *; }
 -keep,allowoptimization class com.dokar.quickjs.** { public protected *; }
+# Extension-facing JS engine. Installed extensions (Mangago, etc.) reference
+# `app.cash.quickjs.QuickJs` directly; no in-app code touches it, so R8 would
+# strip it without an explicit keep.
+-keep,allowoptimization class app.cash.quickjs.** { public protected *; }
 -keep,allowoptimization class org.koin.** { public protected *; }
 -keep,allowoptimization class eu.davidea.flexibleadapter.** { public protected *; }
 -keep class io.requery.android.database.** { public protected *; }
