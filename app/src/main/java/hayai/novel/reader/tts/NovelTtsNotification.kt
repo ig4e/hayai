@@ -4,7 +4,9 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.support.v4.media.session.MediaSessionCompat
 import androidx.core.app.NotificationCompat
+import androidx.media.app.NotificationCompat.MediaStyle
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -12,17 +14,19 @@ import eu.kanade.tachiyomi.util.system.notificationBuilder
 import hayai.novel.reader.service.NovelTtsPlaybackService
 
 /**
- * Builds the foreground notification for novel TTS playback.
+ * Builds the foreground TTS playback notification using [MediaStyle], bound to the
+ * controller's [MediaSessionCompat]. The MediaStyle tie-in is what makes the lockscreen
+ * controls and Bluetooth media-button events route to the same session — so a single
+ * tap on a Bluetooth headset's play/pause hits the controller's command channel directly.
  *
- * Phase 1: keep the same body the old service inlined — a plain progress notification
- * with Pause/Resume + Stop intents pointed back at the service. Phase 5 upgrades this
- * to `MediaStyle` bound to the MediaSession so lockscreen + Bluetooth controls fall
- * out for free.
+ * Action buttons (Pause/Resume + Stop) still fire intents at the service so the user
+ * can drive playback even when the lockscreen / MediaController isn't visible.
  */
 object NovelTtsNotification {
 
     fun build(
         context: Context,
+        sessionToken: MediaSessionCompat.Token?,
         isPaused: Boolean,
         progressPercent: Int,
         novelTitle: String,
@@ -64,6 +68,12 @@ object NovelTtsNotification {
         val statusText = if (isPaused) "Paused" else "Reading in background"
         val contentText = if (chapterTitle.isNotBlank()) "$chapterTitle · $statusText" else statusText
 
+        val mediaStyle = MediaStyle()
+            .setShowActionsInCompactView(0, 1)
+        if (sessionToken != null) {
+            mediaStyle.setMediaSession(sessionToken)
+        }
+
         return context.notificationBuilder(Notifications.CHANNEL_TTS_PLAYBACK) {
             setSmallIcon(R.drawable.ic_hayai)
             setContentTitle(novelTitle.ifBlank { "TTS playback" })
@@ -87,6 +97,8 @@ object NovelTtsNotification {
                 "Stop",
                 stopIntent,
             )
+
+            setStyle(mediaStyle)
         }.build()
     }
 }

@@ -3,8 +3,6 @@ package eu.kanade.tachiyomi.ui.reader.viewer.text
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.view.ActionMode
 import android.view.GestureDetector
 import android.view.KeyEvent
@@ -42,6 +40,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
@@ -54,13 +55,14 @@ import yokai.domain.library.LibraryPreferences
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.i18n.MR
 import yokai.util.lang.getString
-import java.util.Locale
 
 /**
  * NovelWebViewViewer renders novel content using a WebView for more flexibility.
  * Supports custom CSS and JavaScript injection.
  */
-class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeech.OnInitListener {
+class NovelWebViewViewer(val activity: ReaderActivity) :
+    BaseViewer,
+    hayai.novel.reader.tts.TtsSource {
 
     private val container = FrameLayout(activity)
     private lateinit var webView: WebView
@@ -122,37 +124,26 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
     // actually reaches the scrollBy branches below.
     private var navigator: eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation = eu.kanade.tachiyomi.ui.reader.viewer.navigation.VerticalNavigation()
 
-    // TTS support
-    private var tts: TextToSpeech? = null
-    private var ttsInitialized = false
-    private var pendingTtsText: String? = null
-    private var isTtsAutoPlay = false // Track if TTS should auto-continue to next chapter
-    private var ttsPaused = false
-    private var ttsChunks: List<String> = emptyList()
-    private var ttsChunkParagraphIndexes: List<Int> = emptyList()
-    private var ttsCurrentParagraphs: List<NovelViewerTextUtils.ParagraphInfo> = emptyList()
-
-    // Phase C #17/#18: TTS chunking is now keyed by DB chapter id rather than the visible
-    // chapter, so two loaded chapters (infinite scroll) can no longer collide on the same
-    // map slot, and scrolling between them never rebuilds the active TTS chunk array. The
-    // per-chapter paragraph list is populated in lockstep with every HTML load path
-    // (loadHtmlContent / appendHtmlContent / prependHtmlContent) using
-    // NovelViewerTextUtils.normalizeAndTagContentForHtml so the DOM's data-paragraph-index
-    // and Kotlin's chunk index share a single coordinate system.
-    private var currentTtsChapterId: Long? = null
+    // Per-chapter tagged paragraph list, populated in lockstep with every HTML-load path
+    // (loadHtmlContent / appendHtmlContent / prependHtmlContent) via
+    // NovelViewerTextUtils.normalizeAndTagContentForHtml. The DOM's `data-paragraph-index`
+    // and the indices of this list share one coordinate system — a tap on paragraph N
+    // drives chunk N with no \n-split heuristics or cross-chapter drift. This is the
+    // single piece of state the TTS controller needs from the viewer; everything else
+    // (engine instance, queue, current paragraph, audio focus) lives in the controller.
     private val chapterParagraphsById = LinkedHashMap<Long, List<String>>()
 
-    private enum class TtsStartRequest {
-        NORMAL,
-        VIEWPORT,
-    }
-
-    private var pendingTtsStartRequest: TtsStartRequest? = null
-
-    @Volatile private var ttsCurrentChunkIndex = 0
-    private var ttsResumeChunkIndex: Int = 0 // Track which chunk to resume from after pause
-    private var ttsViewportParagraphIndex: Int = 0
-    private var hasViewportStartOverride: Boolean = false
+    /**
+     * Emits a chapter's DB id each time its paragraph list is added to
+     * [chapterParagraphsById]. The TTS controller awaits this flow in
+     * [awaitNextChapterReady] / [awaitPreviousChapterReady] so chapter-advance never
+     * relies on a hardcoded delay — it resolves exactly when the new chapter's tagged
+     * paragraphs are available to speak.
+     */
+    private val chapterParagraphReadyFlow = kotlinx.coroutines.flow.MutableSharedFlow<Long>(
+        replay = 0,
+        extraBufferCapacity = 16,
+    )
 
     private data class CustomStylePayload(
         val css: String,
@@ -302,98 +293,22 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         // TTS will be initialized lazily when startTts() is called
     }
 
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            ttsInitialized = true
-            applyTtsSettings()
-            setupTtsListener()
-            pendingTtsStartRequest?.let { request ->
-                pendingTtsStartRequest = null
-                activity.runOnUiThread {
-                    when (request) {
-                        TtsStartRequest.NORMAL -> startTts()
-                        TtsStartRequest.VIEWPORT -> startTtsFromViewport()
-                    }
-                }
-            }
-        } else {
-            Logger.e { "TTS initialization failed with status: $status" }
-            ttsInitialized = false
-        }
-    }
-
-    private fun setupTtsListener() {
-        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {
-                // Track which chunk is currently speaking
-                utteranceId?.removePrefix("tts_utterance_")?.toIntOrNull()?.let { chunkIndex ->
-                    ttsCurrentChunkIndex = chunkIndex
-                    // Apply highlighting to current chunk if enabled
-                    if (preferences.novelTtsEnableHighlight.get()) {
-                        activity.runOnUiThread {
-                            applyTtsHighlight(chunkIndex)
-                        }
-                    }
-                }
-                // First chunk in a fresh playback — sentence-tap should now navigate TTS
-                // (the user pref `novelTtsTapToStart` still has to be on; the helper gates).
-                activity.runOnUiThread { refreshSentenceTapToTtsState() }
-            }
-
-            override fun onDone(utteranceId: String?) {
-                val finishedIndex = utteranceId?.removePrefix("tts_utterance_")?.toIntOrNull() ?: -1
-                val isLastChunk = finishedIndex >= ttsChunks.size - 1
-
-                // Check if this was the last chunk and auto-play is enabled
-                if (isLastChunk && isTtsAutoPlay && preferences.novelTtsAutoNextChapter.get()) {
-                    activity.runOnUiThread {
-                        scope.launch {
-                            delay(500)
-                            if (!isTtsSpeaking()) {
-                                saveTtsProgress()
-                                loadNextChapterForTts()
-                            }
-                        }
-                    }
-                } else if (isLastChunk) {
-                    activity.runOnUiThread {
-                        clearWebViewTtsHighlight()
-                    }
-                }
-            }
-
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                Logger.e { "TTS error on utterance: $utteranceId" }
-            }
-        })
-    }
-
     /**
-     * Applies visual highlighting to the chunk currently being read by TTS using JavaScript.
+     * Paints the TTS highlight on the paragraph the controller reports as currently
+     * speaking. The JS anchors on `data-chapter-id` + `data-paragraph-index` — the same
+     * coordinate system the tagger emits at chapter-load time — so a tap on chapter A's
+     * paragraph 5 correctly highlights A's paragraph 5 even with chapter B also loaded
+     * in the infinite-scroll viewport.
      *
-     * When [currentTtsChapterId] is known (tap-to-start, or any chapter-scoped entry), the
-     * JS lookup is anchored to that chapter's `data-chapter-id` wrapper and queries the
-     * matching `data-paragraph-index` directly. Without this scoping, the previous
-     * `document.querySelectorAll('p, li, ...')[paragraphIndex]` lookup walked ALL chapters
-     * currently in the WebView (infinite-scroll loads multiple at once), so a tap on
-     * chapter A's paragraph 5 — which correctly plays A's paragraph 5 of audio — would
-     * highlight whichever paragraph happened to sit at DOM position 5 (often a previous
-     * chapter's content). That's what users saw as "TTS reads sentences other than the
-     * selected": audio and highlight pointed at different chapters.
+     * Implements [hayai.novel.reader.tts.TtsSource.paintHighlight].
      */
-    private fun applyTtsHighlight(chunkIndex: Int) {
-        if (chunkIndex < 0 || chunkIndex >= ttsChunks.size) return
+    override fun paintHighlight(chapterId: Long, paragraphIndex: Int) {
+        if (!preferences.novelTtsEnableHighlight.get()) return
 
-        val paragraphIndex = ttsChunkParagraphIndexes.getOrElse(chunkIndex) { chunkIndex }
         val highlightColor = String.format("#%06X", 0xFFFFFF and preferences.novelTtsHighlightColor.get())
         val highlightTextColor = String.format("#%06X", 0xFFFFFF and preferences.novelTtsHighlightTextColor.get())
         val highlightStyle = preferences.novelTtsHighlightStyle.get()
         val keepInView = preferences.novelTtsKeepHighlightInView.get()
-        // null when the active playback isn't chapter-scoped (e.g. classic startTts which
-        // speaks body.innerText across all loaded chapters). null falls back to the legacy
-        // global-position lookup, which is correct for that flow.
-        val chapterIdLiteral = currentTtsChapterId?.let { "'$it'" } ?: "null"
 
         val jsCode = """
             (function() {
@@ -411,32 +326,11 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 document.documentElement.style.setProperty('--td-tts-highlight-bg', '$highlightColor');
                 document.documentElement.style.setProperty('--td-tts-highlight-text', '$highlightTextColor');
 
-                var target = null;
-                var scopedChapterId = $chapterIdLiteral;
-                if (scopedChapterId !== null) {
-                    // Direct attribute match within the chapter that's currently being read.
-                    // The tagger sets data-paragraph-index per chapter (numbering restarts),
-                    // so the index Kotlin holds and the DOM attribute share a coordinate
-                    // system — no DOM-order counting needed.
-                    target = document.querySelector(
-                        '[data-chapter-id="' + scopedChapterId + '"] [data-paragraph-index="$paragraphIndex"]'
-                    );
-                }
-                if (!target) {
-                    var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
-                    var paragraphs = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
-                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                    });
-                    if (!paragraphs.length) {
-                        paragraphs = Array.from(document.body.children).filter(function(el) {
-                            return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                        });
-                    }
-                    var targetIndex = Math.min(Math.max($paragraphIndex, 0), Math.max(paragraphs.length - 1, 0));
-                    target = paragraphs[targetIndex];
-                }
+                var target = document.querySelector(
+                    '[data-chapter-id="$chapterId"] [data-paragraph-index="$paragraphIndex"]'
+                );
 
-                if (state.currentEl) {
+                if (state.currentEl && state.currentEl !== target) {
                     state.currentEl.classList.remove('td-tts-highlight-bg', 'td-tts-highlight-underline', 'td-tts-highlight-outline');
                 }
 
@@ -463,7 +357,8 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         evaluateJavascriptSafe(jsCode)
     }
 
-    private fun clearWebViewTtsHighlight() {
+    /** Implements [hayai.novel.reader.tts.TtsSource.clearHighlight]. */
+    override fun clearHighlight() {
         evaluateJavascriptSafe(
             """
             (function() {
@@ -475,50 +370,6 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
             })();
             """.trimIndent(),
         )
-    }
-
-    private fun loadNextChapterForTts() {
-        val chapters = currentChapters ?: return
-        val nextChapter = chapters.nextChapter ?: return
-
-        Logger.d { "TTS (WebView): Auto-loading next chapter for playback" }
-
-        scope.launch {
-            activity.loadNextChapter()
-            delay(1000)
-            startTts()
-        }
-    }
-
-    private fun applyTtsSettings() {
-        tts?.let { textToSpeech ->
-            // Set voice/locale
-            val voicePref = preferences.novelTtsVoice.get()
-            if (voicePref.isNotEmpty()) {
-                val voices = textToSpeech.voices
-                val selectedVoice = voices?.find { it.name == voicePref }
-                if (selectedVoice != null) {
-                    textToSpeech.voice = selectedVoice
-                } else {
-                    try {
-                        val locale = Locale.forLanguageTag(voicePref)
-                        textToSpeech.language = locale
-                    } catch (e: Exception) {
-                        textToSpeech.language = Locale.getDefault()
-                    }
-                }
-            } else {
-                textToSpeech.language = Locale.getDefault()
-            }
-
-            // Set speech rate (speed)
-            val speed = preferences.novelTtsSpeed.get()
-            textToSpeech.setSpeechRate(speed)
-
-            // Set pitch
-            val pitch = preferences.novelTtsPitch.get()
-            textToSpeech.setPitch(pitch)
-        }
     }
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
@@ -913,19 +764,16 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 preferences.novelTtsPitch.changes(),
             ).drop(3)
                 .collect {
-                    if (ttsInitialized) {
-                        applyTtsSettings()
-                    }
+                    activity.ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.ReapplySettings)
                 }
         }
 
-        // Recreate TTS on engine change — see NovelViewer for the rationale.
+        // Engine name change: stop any active playback so the controller's next start
+        // picks up the new engine (NovelTtsEngine.ensureInitialized tears down the old
+        // binding when the engine identity changes).
         scope.launch {
             preferences.novelTtsEngine.changes().drop(1).collect {
-                tts?.shutdown()
-                tts = null
-                ttsInitialized = false
-                ensureTtsInitialized()
+                activity.ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.Stop)
             }
         }
 
@@ -1259,13 +1107,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
      */
     fun refreshSentenceTapToTtsState() {
         val prefOn = preferences.novelTtsTapToStart.get()
-        // `ttsChunks.isNotEmpty()` covers the window between `speak()` queueing utterances
-        // and the engine's first `onStart` callback firing — without it, a fast user tap
-        // arrives at the JS handler before `__novelTtsClickEnabled` flipped true and the
-        // tap is silently dropped. The chunk array is populated synchronously inside
-        // `speak()` and cleared by `stopTts()`, so it's an accurate "playback session is
-        // live" signal.
-        val ttsActive = isTtsSpeaking() || isTtsPaused() || ttsChunks.isNotEmpty()
+        // The controller's state is the single source of truth — `Preparing` already
+        // covers the window between user-Play and the first utterance firing, so we no
+        // longer need a separate "chunks queued but not speaking yet" probe.
+        val ttsActive = isTtsSpeaking() || isTtsPaused() || isTtsStarting()
         setSentenceTapToTtsEnabled(prefOn && ttsActive)
     }
 
@@ -1521,12 +1366,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         // never flips chapter.read = true on the way out (Phase A #19).
         saveProgress(isTeardown = true)
 
-        // Cleanup TTS - only if initialized
-        if (ttsInitialized) {
-            tts?.stop()
-            tts?.shutdown()
-        }
-        tts = null
+        // Stop any active TTS playback through the controller — the engine instance now
+        // lives in the service, so the viewer no longer owns shutdown; the activity's
+        // `unbindTtsService` (and the service's own `onDestroy`) does the engine teardown.
+        activity.ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.Stop)
 
         // Stop the auto-scroll JS loop before tearing the WebView down (Phase B #6 — the
         // loop now lives in the WebView itself; the setter no-ops on a destroyed view via
@@ -1723,9 +1566,10 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         val chapterId = chapters.currChapter.chapter.id ?: return
 
         loadJob?.cancel()
-        // Stop TTS when loading a new chapter (unless it's auto-play transition which handles restart)
-        // But even for auto-play, we want to stop the old chapter audio before loading new one.
-        tts?.stop()
+        // Stop TTS when loading a new chapter. The controller's chapter-advance path
+        // re-issues the appropriate `StartAt` once the new chapter is Ready; any
+        // user-initiated chapter change goes through here and silences playback.
+        activity.ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.Stop)
         // Phase B #6: tear the auto-scroll loop down whenever a fresh chapter renders.
         // The next document's installAutoScrollScript() call will set up a fresh loop;
         // not stopping here would leave isAutoScrolling=true while the JS state object on
@@ -2539,9 +2383,9 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         loadedChapterIds.clear()
         loadedChapters.clear()
         chapterParagraphsById.clear()
-        currentTtsChapterId = null
         if (chapterId != null && prepared.paragraphsForChapter != null) {
             chapterParagraphsById[chapterId] = prepared.paragraphsForChapter
+            chapterParagraphReadyFlow.tryEmit(chapterId)
         }
         webView.loadDataWithBaseURL(resolveWebViewBaseUrl(normalizedChapterUrl), prepared.html, "text/html", "UTF-8", null)
     }
@@ -2658,10 +2502,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         if (plainTextMode) {
             chapterParagraphsById[chapterId] =
                 if (cleanContent.isBlank()) emptyList() else listOf(cleanContent)
+            chapterParagraphReadyFlow.tryEmit(chapterId)
             return cleanContent
         }
         val tagged = NovelViewerTextUtils.normalizeAndTagContentForHtml(cleanContent, chapterUrl)
         chapterParagraphsById[chapterId] = tagged.paragraphs
+        chapterParagraphReadyFlow.tryEmit(chapterId)
         return tagged.html
     }
 
@@ -3067,7 +2913,12 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
                 Logger.d {
                     "NovelWebViewViewer: startTtsAtParagraph(chapterId=$chapterId, paragraph=$paragraphIndex)"
                 }
-                startTtsFromChapterParagraph(chapterId, paragraphIndex.coerceAtLeast(0))
+                activity.ttsController?.dispatch(
+                    hayai.novel.reader.tts.TtsCommand.StartAt(
+                        chapterId = chapterId,
+                        paragraphIndex = paragraphIndex.coerceAtLeast(0),
+                    ),
+                )
             }
         }
 
@@ -3464,395 +3315,170 @@ class NovelWebViewViewer(val activity: ReaderActivity) : BaseViewer, TextToSpeec
         currentChapters?.let { setChapters(it) }
     }
 
-    // TTS Methods
+    // -------------------------------------------------------------------- TTS public API
+    //
+    // Every method below is a thin delegate onto [hayai.novel.reader.tts.NovelTtsController],
+    // owned by [hayai.novel.reader.service.NovelTtsPlaybackService] and bound to this
+    // activity via `ReaderActivity.ttsController`. The controller owns the TextToSpeech
+    // instance, the utterance queue, audio focus, paragraph progress persistence — every
+    // piece of state the old in-viewer engine kept volatile-but-unsynchronised. The viewer
+    // only contributes what is genuinely viewer-shaped: the tagged paragraph list, the
+    // highlight paint, and the viewport / current-chapter probe.
 
-    private fun ensureTtsInitialized() {
-        if (tts == null) {
-            // Check if TTS data is available first
-            val intent = android.content.Intent(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA)
-            try {
-                val engineName = preferences.novelTtsEngine.get().takeIf { it.isNotBlank() }
-                tts = if (engineName != null) {
-                    TextToSpeech(activity, this, engineName)
-                } else {
-                    TextToSpeech(activity, this)
-                }
-                Logger.d { "TTS (WebView): Initialization started${if (engineName != null) " with engine $engineName" else ""}" }
-            } catch (e: Exception) {
-                Logger.e { "TTS (WebView): Failed to create TextToSpeech instance: ${e.message}" }
-                activity.runOnUiThread {
-                    Logger.d {
-                        "TTS engine not available. Please install a TTS engine from Google Play."
-                    }
-                }
-            }
-        }
-    }
+    private val ttsController get() = activity.ttsController
+    private val ttsState get() = activity.ttsController?.state?.value
 
     fun startTts() {
-        ensureTtsInitialized()
-
-        if (!ttsInitialized) {
-            Logger.w { "TTS (WebView): Not initialized yet, waiting..." }
-            pendingTtsStartRequest = TtsStartRequest.NORMAL
-            return
-        }
-
-        pendingTtsStartRequest = null
-        isTtsAutoPlay = true // Enable auto-continue
-        // Extract text from WebView using JavaScript
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                var body = document.body;
-                return body ? body.innerText || body.textContent : '';
-            })();
-            """.trimIndent(),
-        ) { result ->
-            // JavaScript returns quoted string, need to unquote and unescape
-            val text = result?.let {
-                if (it.startsWith("\"") && it.endsWith("\"")) {
-                    it.substring(1, it.length - 1)
-                        .replace("\\n", "\n")
-                        .replace("\\t", "\t")
-                        .replace("\\\"", "\"")
-                        .replace("\\\\", "\\")
-                } else {
-                    it
-                }
-            }
-
-            if (!text.isNullOrBlank() && text != "null") {
-                Logger.d { "TTS (WebView): Starting to speak ${text.length} characters" }
-                speak(text)
-            } else {
-                Logger.w { "TTS (WebView): No text to speak" }
-            }
-        }
+        ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.Play)
+        refreshSentenceTapToTtsState()
     }
 
     fun stopTts() {
-        isTtsAutoPlay = false // Disable auto-continue when manually stopped
-        ttsPaused = false
-        pendingTtsStartRequest = null
-        ttsChunks = emptyList()
-        ttsChunkParagraphIndexes = emptyList()
-        ttsCurrentChunkIndex = 0
-        hasViewportStartOverride = false
-        // Phase C #18: release the active-TTS chapter so the next start picks the visible
-        // chapter rather than resurrecting a stale id from the previous session.
-        currentTtsChapterId = null
-        if (ttsInitialized) {
-            tts?.stop()
-        }
-        clearWebViewTtsHighlight()
+        ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.Stop)
+        clearHighlight()
         refreshSentenceTapToTtsState()
     }
 
     fun pauseTts() {
-        if (!ttsInitialized || ttsChunks.isEmpty()) return
-        ttsPaused = true
-        ttsResumeChunkIndex = ttsCurrentChunkIndex
-        tts?.stop()
-        saveTtsProgress()
+        ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.Pause)
         refreshSentenceTapToTtsState()
     }
 
     fun resumeTts() {
-        if (ttsPaused && ttsChunks.isNotEmpty()) {
-            ttsPaused = false
-            // Resume from the chunk that was interrupted
-            speakChunksFrom(ttsResumeChunkIndex)
-            refreshSentenceTapToTtsState()
-        }
+        ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.Resume)
+        refreshSentenceTapToTtsState()
     }
 
-    fun isTtsPaused(): Boolean = ttsPaused
+    fun isTtsPaused(): Boolean = ttsState is hayai.novel.reader.tts.TtsState.Paused
 
-    fun isTtsSpeaking(): Boolean = ttsInitialized && tts?.isSpeaking == true
+    fun isTtsSpeaking(): Boolean = ttsState is hayai.novel.reader.tts.TtsState.Speaking
 
-    /**
-     * "TTS is bootstrapping but not yet emitting audio." Narrowed from the previous heuristic
-     * that flagged the bare "engine not initialized" case on every viewer mount — that made
-     * the TTS icon report `active=true` on the very first tap before audio actually started,
-     * so the icon stayed on the static voice glyph for an extra tick and the user had to tap
-     * twice to see the pause icon. This now only fires when there's specifically deferred
-     * work waiting: a queued start request or a queued text payload.
-     */
-    fun isTtsStarting(): Boolean = pendingTtsStartRequest != null || pendingTtsText != null
+    /** TTS is bootstrapping but not yet emitting audio. */
+    fun isTtsStarting(): Boolean {
+        val s = ttsState
+        return s is hayai.novel.reader.tts.TtsState.Preparing ||
+            s is hayai.novel.reader.tts.TtsState.AdvancingChapter
+    }
 
     fun getTtsProgressPercent(): Int {
-        if (ttsChunks.isEmpty()) return 0
-        val chunkCount = ttsChunks.size
-        val currentChunk = if (ttsPaused) ttsResumeChunkIndex else ttsCurrentChunkIndex
-        val clampedChunk = currentChunk.coerceIn(0, chunkCount - 1)
-        return (((clampedChunk + 1) * 100f) / chunkCount).toInt().coerceIn(0, 100)
+        val s = ttsState ?: return 0
+        val (idx, total) = when (s) {
+            is hayai.novel.reader.tts.TtsState.Speaking -> s.paragraphIndex to s.totalParagraphs
+            is hayai.novel.reader.tts.TtsState.Paused -> s.paragraphIndex to s.totalParagraphs
+            else -> return 0
+        }
+        if (total <= 0) return 0
+        return (((idx + 1) * 100f) / total).toInt().coerceIn(0, 100)
     }
 
-    /**
-     * Starts TTS from the first visible paragraph in the viewport.
-     */
+    /** Starts TTS from the first visible paragraph in the viewport. */
     fun startTtsFromViewport() {
-        ensureTtsInitialized()
-
-        if (!ttsInitialized) {
-            Logger.w { "TTS (WebView): Not initialized yet" }
-            pendingTtsStartRequest = TtsStartRequest.VIEWPORT
-            return
-        }
-
-        pendingTtsStartRequest = null
-        isTtsAutoPlay = true
-        // Determine first visible paragraph index in WebView, then start TTS from that position.
-        evaluateJavascriptSafe(
-            """
-            (function() {
-                var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
-                var elements = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
-                    return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                });
-                if (!elements.length) {
-                    elements = Array.from(document.body.children).filter(function(el) {
-                        return !!el && !!el.innerText && el.innerText.trim().length > 0;
-                    });
-                }
-                var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-                for (var i = 0; i < elements.length; i++) {
-                    var rect = elements[i].getBoundingClientRect();
-                    if (rect.bottom > 0 && rect.top < viewportHeight) {
-                        return i;
-                    }
-                }
-                return 0;
-            })();
-            """.trimIndent(),
-        ) { rawIndex ->
-            val firstVisibleParagraphIndex = rawIndex?.trim('"')?.toIntOrNull() ?: 0
-            evaluateJavascriptSafe(
-                """
-                (function() {
-                    var body = document.body;
-                    return body ? body.innerText || body.textContent : '';
-                })();
-                """.trimIndent(),
-            ) { result ->
-                val text = result?.let {
-                    if (it.startsWith("\"") && it.endsWith("\"")) {
-                        it.substring(1, it.length - 1)
-                            .replace("\\n", "\n")
-                            .replace("\\t", "\t")
-                            .replace("\\\"", "\"")
-                            .replace("\\\\", "\\")
-                    } else {
-                        it
-                    }
-                }
-
-                if (!text.isNullOrBlank() && text != "null") {
-                    // Keep a forced resume index for this launch from viewport.
-                    ttsViewportParagraphIndex = firstVisibleParagraphIndex.coerceAtLeast(0)
-                    hasViewportStartOverride = true
-                    speak(text)
-                } else {
-                    Logger.w { "TTS (WebView): No text available for viewport start" }
-                }
-            }
-        }
+        ttsController?.dispatch(hayai.novel.reader.tts.TtsCommand.Play)
+        refreshSentenceTapToTtsState()
     }
 
-    /**
-     * Phase C #17 / #18: starts TTS at exactly `paragraphIndex` within `chapterId`, using the
-     * per-chapter paragraph list captured at load time by
-     * [NovelViewerTextUtils.normalizeAndTagContentForHtml]. The DOM's `data-paragraph-index`
-     * and the indices of `chapterParagraphsById[chapterId]` are populated together so a tap
-     * on paragraph N drives chunk N — no \n-split heuristics, no DOM/Kotlin counter drift.
-     *
-     * `currentTtsChapterId` is the canonical anchor: `saveTtsProgress` / `restoreTtsProgress`
-     * key by it, and `onActiveChapterUpdate` leaves the chunk array untouched on infinite-
-     * scroll pivots so background scrolling never silently retargets the engine.
-     */
+    /** Starts TTS at exactly `paragraphIndex` within `chapterId`. */
     fun startTtsFromChapterParagraph(chapterId: Long, paragraphIndex: Int) {
-        ensureTtsInitialized()
-
-        if (!ttsInitialized) {
-            Logger.w {
-                "TTS (WebView): Not initialized yet (chapter=$chapterId, paragraph=$paragraphIndex)"
-            }
-            // No queueing — a sentence-tap is a one-shot user action; re-tap if not ready.
-            return
-        }
-
-        val paragraphs = chapterParagraphsById[chapterId]
-        if (paragraphs.isNullOrEmpty()) {
-            Logger.w {
-                "TTS (WebView): no tagged paragraphs cached for chapter=$chapterId; ignoring tap"
-            }
-            return
-        }
-
-        isTtsAutoPlay = true
-        currentTtsChapterId = chapterId
-        ttsViewportParagraphIndex = paragraphIndex.coerceIn(0, (paragraphs.size - 1).coerceAtLeast(0))
-        hasViewportStartOverride = true
-
-        // Pre-join so existing `speak(text)` callers that don't pass a chunk list still get
-        // a non-empty text payload (used only for ttsCurrentParagraphs / highlight support).
-        val joined = paragraphs.joinToString("\n\n")
-        speak(joined, preBuiltChunks = paragraphs)
+        ttsController?.dispatch(
+            hayai.novel.reader.tts.TtsCommand.StartAt(
+                chapterId = chapterId,
+                paragraphIndex = paragraphIndex.coerceAtLeast(0),
+            ),
+        )
+        refreshSentenceTapToTtsState()
     }
 
-    /**
-     * Legacy single-arg entry retained for callers that don't carry a chapter id (e.g. the
-     * bottom-bar "Start TTS" button, viewport-start hooks). Infers the chapter from the
-     * currently visible page; bails if there is none.
-     */
+    /** Infers chapter from the visible page, then delegates to [startTtsFromChapterParagraph]. */
     fun startTtsFromParagraph(paragraphIndex: Int) {
-        val chapterId = currentPage?.chapter?.chapter?.id
-        if (chapterId == null) {
-            Logger.w { "TTS (WebView): startTtsFromParagraph with no current chapter" }
-            return
-        }
+        val chapterId = currentPage?.chapter?.chapter?.id ?: return
         startTtsFromChapterParagraph(chapterId, paragraphIndex)
     }
 
-    /**
-     * Saves the current TTS playback progress to preferences. Phase C #18: keyed by DB
-     * chapter id (the active TTS chapter, or the visible chapter as a fallback) instead of
-     * `currentPage.index`, which for single-page novel chapters was always 0 and silently
-     * collided across every loaded chapter so the wrong one was restored later.
-     */
-    private fun saveTtsProgress() {
-        if (ttsCurrentChunkIndex < 0) return
+    // ----------------------------------------------------------------- TtsSource overrides
 
-        val chapterId = currentTtsChapterId ?: currentPage?.chapter?.chapter?.id ?: return
-        val paragraphIndex = ttsCurrentChunkIndex.coerceAtLeast(0)
-
-        // Load existing progress map
-        val progressJson = preferences.novelTtsLastReadParagraph.get()
-        val progressMap = try {
-            kotlinx.serialization.json.Json.decodeFromString<Map<String, Int>>(progressJson)
-                .toMutableMap()
-        } catch (e: Exception) {
-            mutableMapOf()
-        }
-
-        // Update with current chapter progress
-        progressMap[chapterId.toString()] = paragraphIndex
-
-        // Save back to preferences
-        try {
-            val json = kotlinx.serialization.json.Json.encodeToString(progressMap)
-            preferences.novelTtsLastReadParagraph.set(json)
-        } catch (e: Exception) {
-            Logger.e { "Failed to save TTS progress: ${e.message}" }
+    override suspend fun awaitChapterParagraphs(chapterId: Long): List<String>? {
+        chapterParagraphsById[chapterId]?.let { return it }
+        // Wait briefly in case a chapter-load fired by `awaitNextChapterReady` is still
+        // mid-flight when the controller asks for the paragraphs. The chapter-ready flow
+        // emits as soon as the tagged list is stashed; a longer wait here would mean the
+        // caller already gave up and we'd be racing against a stop command anyway.
+        return kotlinx.coroutines.withTimeoutOrNull(5_000) {
+            chapterParagraphReadyFlow
+                .filter { it == chapterId }
+                .map { chapterParagraphsById[chapterId] ?: emptyList() }
+                .first()
         }
     }
 
-    /**
-     * Restores the last-read paragraph position for the current chapter. Phase C #18: keyed
-     * by DB chapter id (mirrors [saveTtsProgress]) so two loaded chapters can no longer
-     * collide on the previous `currentPage.index` slot.
-     * @return The chunk index to resume from, or 0 if no progress found.
-     */
-    private fun restoreTtsProgress(): Int {
-        val chapterId = currentTtsChapterId ?: currentPage?.chapter?.chapter?.id ?: return 0
-        val progressJson = preferences.novelTtsLastReadParagraph.get()
-
-        return try {
-            val progressMap = kotlinx.serialization.json.Json.decodeFromString<Map<String, Int>>(progressJson)
-            progressMap[chapterId.toString()]?.coerceAtLeast(0) ?: 0
-        } catch (e: Exception) {
-            0
+    override suspend fun awaitNextChapterReady(): Long? {
+        val nextId = currentChapters?.nextChapter?.chapter?.id ?: run {
+            Logger.d { "TTS: awaitNextChapterReady — no next chapter (end of novel)" }
+            return null
+        }
+        // Infinite-scroll may have already preloaded and tagged the next chapter; if so,
+        // the tagged paragraph list is already present and we can return immediately
+        // without going through the activity's chapter-load path again.
+        if (chapterParagraphsById.containsKey(nextId)) return nextId
+        activity.loadNextChapter()
+        return kotlinx.coroutines.withTimeoutOrNull(15_000) {
+            chapterParagraphReadyFlow.first { it == nextId }
+            nextId
         }
     }
 
-    /**
-     * Speaks TTS chunks starting from a specific index.
-     */
-    private fun speakChunksFrom(startIndex: Int) {
-        if (ttsChunks.isEmpty() || startIndex >= ttsChunks.size) return
-        ttsChunks.drop(startIndex).forEachIndexed { i, chunk ->
-            val actualIndex = startIndex + i
-            val queueMode = if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-            tts?.speak(chunk, queueMode, null, "tts_utterance_$actualIndex")
+    override suspend fun awaitPreviousChapterReady(): Long? {
+        val prevId = currentChapters?.prevChapter?.chapter?.id ?: run {
+            Logger.d { "TTS: awaitPreviousChapterReady — no previous chapter" }
+            return null
+        }
+        if (chapterParagraphsById.containsKey(prevId)) return prevId
+        activity.loadPreviousChapter()
+        return kotlinx.coroutines.withTimeoutOrNull(15_000) {
+            chapterParagraphReadyFlow.first { it == prevId }
+            prevId
         }
     }
 
-    private fun speak(text: String, preBuiltChunks: List<String>? = null) {
-        if (!ttsInitialized || tts == null) {
-            // Store for later when TTS is initialized
-            pendingTtsText = text
-            Logger.w { "TTS not initialized, storing text for later" }
-            return
-        }
+    override fun currentVisibleChapterId(): Long? = currentPage?.chapter?.chapter?.id
 
-        applyTtsSettings()
-
-        ttsPaused = false
-
-        // Android TTS has a max length limit (~4000 chars), chunk long text
-        val maxLength = TextToSpeech.getMaxSpeechInputLength()
-
-        val paragraphs = preBuiltChunks ?: text.split("\n").filter { it.isNotBlank() }
-        val chunkParagraphIndexes = mutableListOf<Int>()
-        ttsChunks = if (paragraphs.size > 1) {
-            // Phase C #17: when `preBuiltChunks` is supplied, the paragraph list matches the
-            // DOM's data-paragraph-index 1:1, so chunkParagraphIndexes points back into that
-            // shared coordinate system — a tap on paragraph N reliably starts at chunk N.
-            paragraphs.flatMapIndexed { paragraphIndex, para ->
-                val chunks = if (para.length <= maxLength) {
-                    listOf(para)
-                } else {
-                    splitTextForTts(para, maxLength)
-                }
-                repeat(chunks.size) { chunkParagraphIndexes.add(paragraphIndex) }
-                chunks
+    override suspend fun currentVisibleParagraphIndex(): Int? {
+        val deferred = kotlinx.coroutines.CompletableDeferred<Int?>()
+        activity.runOnUiThread {
+            evaluateJavascriptSafe(
+                """
+                (function() {
+                    var selectors = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
+                    var elements = Array.from(document.querySelectorAll(selectors)).filter(function(el) {
+                        return !!el && el.hasAttribute('data-paragraph-index') && !!el.innerText && el.innerText.trim().length > 0;
+                    });
+                    var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                    for (var i = 0; i < elements.length; i++) {
+                        var rect = elements[i].getBoundingClientRect();
+                        if (rect.bottom > 0 && rect.top < viewportHeight) {
+                            var attr = elements[i].getAttribute('data-paragraph-index');
+                            return attr ? parseInt(attr, 10) : 0;
+                        }
+                    }
+                    return 0;
+                })();
+                """.trimIndent(),
+            ) { raw ->
+                val parsed = raw?.trim('"')?.toIntOrNull()
+                deferred.complete(parsed)
             }
-        } else if (text.length <= maxLength) {
-            chunkParagraphIndexes.add(0)
-            listOf(text)
-        } else {
-            val chunks = splitTextForTts(text, maxLength)
-            repeat(chunks.size) { chunkParagraphIndexes.add(0) }
-            chunks
         }
-        ttsChunkParagraphIndexes = chunkParagraphIndexes
-
-        // Extract paragraph info for highlighting support
-        ttsCurrentParagraphs = NovelViewerTextUtils.findParagraphs(text)
-
-        // Always start from the chunk the caller asked for (viewport / tapped paragraph),
-        // or from the very beginning. The previous logic restored a per-chapter "last read
-        // chunk" from `restoreTtsProgress()` whenever the user pressed the TTS button —
-        // and because `saveTtsProgress` writes the index on every onDone, that saved value
-        // converged to the LAST chunk of the chapter. Result: tapping play "resumed" at
-        // the final chunk, one utterance fired, `onDone` reported the last chunk, and
-        // `loadNextChapterForTts()` advanced past the chapter the user actually wanted to
-        // hear. The progress map is still maintained by `saveTtsProgress` for future
-        // explicit-resume use, but it no longer biases fresh playback starts.
-        ttsCurrentChunkIndex = 0
-        val startIndex = if (hasViewportStartOverride) {
-            // If launched from viewport / tapped paragraph, convert the paragraph index
-            // into the nearest chunk.
-            val viewportChunkIndex = ttsChunkParagraphIndexes.indexOfFirst { it >= ttsViewportParagraphIndex }
-            if (viewportChunkIndex >= 0) viewportChunkIndex else 0
-        } else {
-            0
+        return try {
+            kotlinx.coroutines.withTimeoutOrNull(2_000) { deferred.await() }
+        } catch (_: Exception) {
+            null
         }
-        hasViewportStartOverride = false
-
-        // Flip the sentence-tap JS gate to TRUE before queueing utterances. Otherwise the
-        // gate only opens from the first `onStart` callback, leaving a sub-second window
-        // where a user tap on a paragraph reaches the JS handler but is rejected because
-        // the gate is still false — which is the "selecting a paragraph doesn't work"
-        // symptom users hit when they tapped quickly after pressing the TTS button.
-        refreshSentenceTapToTtsState()
-
-        speakChunksFrom(startIndex.coerceIn(0, (ttsChunks.size - 1).coerceAtLeast(0)))
     }
 
-    private fun splitTextForTts(text: String, maxLength: Int): List<String> =
-        NovelViewerTextUtils.splitTextForTts(text, maxLength)
+    override fun chapterTitle(chapterId: Long): String? =
+        loadedChapters.firstOrNull { it.chapter.id == chapterId }?.chapter?.name
+            ?: currentChapters?.currChapter?.chapter?.takeIf { it.id == chapterId }?.name
+
+    override fun novelTitle(): String? = activity.viewModel.manga?.title
 
     /**
      * Get the currently selected text from the WebView

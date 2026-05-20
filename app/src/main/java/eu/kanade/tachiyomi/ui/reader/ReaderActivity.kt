@@ -5,8 +5,10 @@ import android.app.Activity
 import android.app.ActivityOptions
 import android.app.assist.AssistContent
 import android.content.ClipData
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -20,6 +22,7 @@ import android.graphics.drawable.LayerDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.text.TextUtils
 import android.text.style.DynamicDrawableSpan
 import android.text.style.ImageSpan
@@ -98,6 +101,8 @@ import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Error
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Success
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
+import hayai.novel.reader.tts.NovelTtsController
+import hayai.novel.reader.tts.TtsCommand
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.settings.OrientationType
 import eu.kanade.tachiyomi.ui.reader.settings.PageLayout
@@ -242,28 +247,19 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     private val novelActionBarTickState = androidx.compose.runtime.mutableStateOf(0)
 
     /**
-     * Periodic sync coroutine that pushes the active viewer's TTS state into
-     * [hayai.novel.reader.service.NovelTtsPlaybackService] so the foreground notification
-     * stays accurate while the user is reading. Cancelled when TTS stops or the reader exits.
+     * Bound-service connection to [hayai.novel.reader.service.NovelTtsPlaybackService]. When
+     * the binder lands, [ttsController] is set and the active novel viewer is attached as
+     * the controller's [hayai.novel.reader.tts.TtsSource].
      */
-    private var ttsNotificationSyncJob: Job? = null
+    private var ttsServiceConnection: ServiceConnection? = null
 
     /**
-     * Receives `ACTION_CONTROL` broadcasts dispatched by the TTS notification's pause/stop
-     * actions and forwards them to the active novel viewer's TTS engine. Registered in
-     * [onCreate] and unregistered in [onDestroy].
+     * The [NovelTtsController] hosted by the bound TTS service. `null` until [onCreate]'s
+     * `bindService` call resolves; null-safe everywhere because the action bar / viewer
+     * can issue play/pause taps before the bind completes.
      */
-    private val ttsNotificationControlReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: android.content.Intent?) {
-            if (intent?.action != hayai.novel.reader.service.NovelTtsPlaybackService.ACTION_CONTROL) return
-            when (intent.getStringExtra(hayai.novel.reader.service.NovelTtsPlaybackService.EXTRA_COMMAND)) {
-                hayai.novel.reader.service.NovelTtsPlaybackService.COMMAND_TOGGLE_PAUSE ->
-                    togglePauseResumeFromNotification()
-                hayai.novel.reader.service.NovelTtsPlaybackService.COMMAND_STOP ->
-                    stopTtsFromNotification()
-            }
-        }
-    }
+    var ttsController: NovelTtsController? = null
+        private set
 
     var isLoading = false
 
@@ -471,13 +467,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         config = ReaderConfig()
         initializeMenu()
 
-        // Register the receiver that handles pause/stop actions from the TTS notification.
-        ContextCompat.registerReceiver(
-            this,
-            ttsNotificationControlReceiver,
-            android.content.IntentFilter(hayai.novel.reader.service.NovelTtsPlaybackService.ACTION_CONTROL),
-            ContextCompat.RECEIVER_NOT_EXPORTED,
-        )
+        // Bind to the TTS service so we can reach `NovelTtsController` directly. The
+        // service is created on first bind; the controller becomes non-null when
+        // `onServiceConnected` fires, and from then on the notification's Pause/Stop
+        // action buttons route into the controller via the service itself — no broadcast
+        // receiver needed on the activity side.
+        bindTtsService()
 
         preferences.incognitoMode()
             .changesIn(lifecycleScope) {
@@ -579,11 +574,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         // foreground-service stop both rely on Activity context state that super tears down.
         // This mirrors Tsundoku's `ReaderActivity.onDestroy` ordering exactly.
         removeNovelActionBar()
-        try {
-            unregisterReceiver(ttsNotificationControlReceiver)
-        } catch (_: IllegalArgumentException) {
-            // Already unregistered or never registered (e.g. early-finish from missing manga/chapter).
+        // Detach the viewer from the controller before we tear the viewer down, so the
+        // controller doesn't hold a dangling reference into a destroyed WebView.
+        (viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer)?.let { v ->
+            ttsController?.detachSource(v)
         }
+        unbindTtsService()
         // If the user disabled background playback, stop the service when the reader closes;
         // otherwise leave it running so audio continues from the persistent notification.
         if (!readerPreferences.novelTtsBackgroundPlayback.get()) {
@@ -601,108 +597,87 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     /**
-     * Starts the TTS foreground service (if background-playback is enabled) and begins
-     * pushing TTS state into its notification at a steady cadence.
+     * Bind to [hayai.novel.reader.service.NovelTtsPlaybackService]. The service is created
+     * on first bind (`BIND_AUTO_CREATE`) and stays alive as long as either this activity
+     * holds the binding OR the user has background-playback enabled and the service is
+     * also started in the foreground.
+     */
+    private fun bindTtsService() {
+        if (ttsServiceConnection != null) return
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                val binder = service as? hayai.novel.reader.service.NovelTtsPlaybackService.LocalBinder
+                ttsController = binder?.service?.controller
+                attachNovelViewerToTtsController()
+                observeTtsControllerState()
+            }
+            override fun onServiceDisconnected(name: ComponentName?) {
+                ttsController = null
+            }
+        }
+        ttsServiceConnection = connection
+        bindService(
+            Intent(this, hayai.novel.reader.service.NovelTtsPlaybackService::class.java),
+            connection,
+            Context.BIND_AUTO_CREATE,
+        )
+    }
+
+    private var ttsStateObserverJob: Job? = null
+
+    /**
+     * Bump the novel action-bar's tick state on every controller-state emission so the
+     * Compose TTS icon (play / pause / loading) reflects the engine in real time. This
+     * is the bridge that lets us delete the legacy 750 ms polling — state changes drive
+     * the UI directly.
+     */
+    private fun observeTtsControllerState() {
+        ttsStateObserverJob?.cancel()
+        val controller = ttsController ?: return
+        ttsStateObserverJob = lifecycleScope.launch {
+            controller.state.collect {
+                novelActionBarTickState.value = novelActionBarTickState.value + 1
+            }
+        }
+    }
+
+    private fun unbindTtsService() {
+        val connection = ttsServiceConnection ?: return
+        try {
+            unbindService(connection)
+        } catch (_: IllegalArgumentException) {
+            // Service already unbound (e.g. died) — nothing to do.
+        }
+        ttsServiceConnection = null
+        ttsController = null
+    }
+
+    /**
+     * Wires the current novel viewer as the [hayai.novel.reader.tts.TtsSource] the
+     * controller calls back into. Safe to call repeatedly — `attachSource` overwrites the
+     * previous reference, and the controller only ever has one viewer at a time.
+     */
+    internal fun attachNovelViewerToTtsController() {
+        val controller = ttsController ?: return
+        val novelViewer = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
+        if (novelViewer != null) controller.attachSource(novelViewer)
+    }
+
+    /**
+     * Makes the TTS service "started" in addition to "bound" so it survives this
+     * activity going away — keeping audio alive in the background notification. The
+     * service is already foreground from `onCreate`, so this is just a sticky-lifecycle
+     * promotion. The state listener wired in the service drives the notification; the
+     * activity no longer needs to polling-sync anything.
      */
     private fun startBackgroundTtsIfEnabled() {
         if (readerPreferences.novelTtsBackgroundPlayback.get()) {
             hayai.novel.reader.service.NovelTtsPlaybackService.start(this)
-            startTtsNotificationSync()
         }
     }
 
     private fun stopBackgroundTtsIfRunning() {
         hayai.novel.reader.service.NovelTtsPlaybackService.stop(this)
-        stopTtsNotificationSync()
-    }
-
-    private fun syncBackgroundTtsState() {
-        if (!readerPreferences.novelTtsBackgroundPlayback.get()) {
-            stopBackgroundTtsIfRunning()
-            return
-        }
-
-        val state = currentNovelTtsState() ?: return
-        if (!state.active) {
-            hayai.novel.reader.service.NovelTtsPlaybackService.stop(this)
-            stopTtsNotificationSync()
-            return
-        }
-
-        hayai.novel.reader.service.NovelTtsPlaybackService.syncState(
-            context = this,
-            isPaused = state.paused,
-            progressPercent = state.progressPercent,
-            novelTitle = state.novelTitle,
-            chapterTitle = state.chapterTitle,
-            mangaId = state.mangaId,
-            chapterId = state.chapterId,
-        )
-    }
-
-    private fun startTtsNotificationSync() {
-        ttsNotificationSyncJob?.cancel()
-        ttsNotificationSyncJob = lifecycleScope.launch {
-            while (isActive) {
-                syncBackgroundTtsState()
-                delay(750)
-            }
-        }
-    }
-
-    private fun stopTtsNotificationSync() {
-        ttsNotificationSyncJob?.cancel()
-        ttsNotificationSyncJob = null
-    }
-
-    private data class NovelTtsState(
-        val active: Boolean,
-        val paused: Boolean,
-        val progressPercent: Int,
-        val novelTitle: String,
-        val chapterTitle: String,
-        val mangaId: Long,
-        val chapterId: Long,
-    )
-
-    private fun currentNovelTtsState(): NovelTtsState? {
-        val novelTitle = viewModel.manga?.title.orEmpty().ifBlank { "TTS playback" }
-        val chapterTitle = viewModel.getCurrentChapter()?.chapter?.name.orEmpty()
-        val mangaId = viewModel.manga?.id ?: -1L
-        val chapterId = viewModel.getCurrentChapter()?.chapter?.id ?: -1L
-
-        val v = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer ?: return null
-        val paused = v.isTtsPaused()
-        val speaking = v.isTtsSpeaking()
-        return NovelTtsState(
-            active = paused || speaking || v.isTtsStarting(),
-            paused = paused,
-            progressPercent = v.getTtsProgressPercent(),
-            novelTitle = novelTitle,
-            chapterTitle = chapterTitle,
-            mangaId = mangaId,
-            chapterId = chapterId,
-        )
-    }
-
-    private fun stopAnyActiveNovelTts() {
-        val v = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer ?: return
-        if (v.isTtsSpeaking() || v.isTtsPaused()) v.stopTts()
-    }
-
-    private fun togglePauseResumeFromNotification() {
-        val v = viewer as? eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer
-        if (v != null) {
-            if (v.isTtsSpeaking()) v.pauseTts() else if (v.isTtsPaused()) v.resumeTts()
-        }
-        syncBackgroundTtsState()
-        novelActionBarTickState.value = novelActionBarTickState.value + 1
-    }
-
-    private fun stopTtsFromNotification() {
-        stopAnyActiveNovelTts()
-        stopBackgroundTtsIfRunning()
-        novelActionBarTickState.value = novelActionBarTickState.value + 1
     }
 
     /**
@@ -1498,7 +1473,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                                     else -> { novelWeb.startTts(); startedFresh = true }
                                 }
                             }
-                            if (startedFresh) startBackgroundTtsIfEnabled() else syncBackgroundTtsState()
+                            if (startedFresh) startBackgroundTtsIfEnabled()
                             novelActionBarTickState.value = novelActionBarTickState.value + 1
                         },
                         onLongPressTts = {
@@ -1745,6 +1720,10 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         // Mount/dismount the Compose overlay that hosts the novel-only action bar.
         if (newViewer is eu.kanade.tachiyomi.ui.reader.viewer.text.NovelWebViewViewer) {
             mountNovelActionBarIfNeeded()
+            // The controller may already be bound from a prior session; re-attach the
+            // freshly-created viewer so play/pause issued before bind-completion still
+            // routes through this viewer once the controller fires.
+            attachNovelViewerToTtsController()
         } else {
             removeNovelActionBar()
         }

@@ -56,37 +56,62 @@ class NovelTtsPlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         Logger.d { "NovelTtsPlaybackService: onCreate" }
+        // Subscribe to the controller's state so the foreground notification mirrors what
+        // the engine is actually doing — no polling, no broadcast bus.
+        controller.setStateListener(
+            hayai.novel.reader.tts.NovelTtsController.StateListener {
+                state, novelTitle, chapterTitle, mangaId, chapterId ->
+                this.isPaused = state is hayai.novel.reader.tts.TtsState.Paused
+                this.progressPercent = computeProgressPercent(state)
+                this.novelTitle = novelTitle.ifBlank { "TTS playback" }
+                this.chapterTitle = chapterTitle
+                this.mangaId = mangaId
+                this.chapterId = chapterId
+                startForegroundWithNotification()
+                if (state is hayai.novel.reader.tts.TtsState.Idle ||
+                    state is hayai.novel.reader.tts.TtsState.Error
+                ) {
+                    // Drop the foreground status when playback ends so the notification
+                    // doesn't sit there saying "Paused" with no underlying engine.
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                }
+            },
+        )
         startForegroundWithNotification()
+    }
+
+    private fun computeProgressPercent(state: hayai.novel.reader.tts.TtsState): Int = when (state) {
+        is hayai.novel.reader.tts.TtsState.Speaking ->
+            if (state.totalParagraphs > 0) ((state.paragraphIndex + 1) * 100 / state.totalParagraphs).coerceIn(0, 100) else 0
+        is hayai.novel.reader.tts.TtsState.Paused ->
+            if (state.totalParagraphs > 0) ((state.paragraphIndex + 1) * 100 / state.totalParagraphs).coerceIn(0, 100) else 0
+        else -> 0
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP_SERVICE -> {
+                controller.dispatch(hayai.novel.reader.tts.TtsCommand.Stop)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
 
-            ACTION_TOGGLE_PAUSE -> {
-                sendControlBroadcast(COMMAND_TOGGLE_PAUSE)
-            }
+            // Triggered by the notification's Pause/Resume action button. Goes straight
+            // to the controller — no broadcast bus, no activity round-trip.
+            ACTION_TOGGLE_PAUSE -> controller.toggle()
 
             ACTION_STOP_PLAYBACK -> {
-                sendControlBroadcast(COMMAND_STOP)
+                controller.dispatch(hayai.novel.reader.tts.TtsCommand.Stop)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
 
-            ACTION_SYNC -> {
-                isPaused = intent.getBooleanExtra(EXTRA_IS_PAUSED, false)
-                progressPercent = intent.getIntExtra(EXTRA_PROGRESS_PERCENT, 0).coerceIn(0, 100)
-                novelTitle = intent.getStringExtra(EXTRA_NOVEL_TITLE).orEmpty()
-                    .ifBlank { "TTS playback" }
-                chapterTitle = intent.getStringExtra(EXTRA_CHAPTER_TITLE).orEmpty()
-                mangaId = intent.getLongExtra(EXTRA_MANGA_ID, -1L)
-                chapterId = intent.getLongExtra(EXTRA_CHAPTER_ID, -1L)
-            }
+            // Legacy SYNC payload from the activity's old polling loop. Kept as a no-op
+            // since pre-existing callers may still hit it during a partial upgrade;
+            // the state listener wired from `onCreate` is the canonical update path.
+            ACTION_SYNC -> Unit
         }
 
         startForegroundWithNotification()
@@ -111,6 +136,7 @@ class NovelTtsPlaybackService : Service() {
     private fun startForegroundWithNotification() {
         val notification = NovelTtsNotification.build(
             context = this,
+            sessionToken = controller.mediaSessionToken(),
             isPaused = isPaused,
             progressPercent = progressPercent,
             novelTitle = novelTitle,
