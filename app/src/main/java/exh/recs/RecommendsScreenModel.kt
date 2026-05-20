@@ -1,5 +1,6 @@
 package exh.recs
 
+import yokai.util.koin.get
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
@@ -22,14 +23,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.manga.interactor.GetManga
 
 open class RecommendsScreenModel(
     private val args: RecommendsScreen.Args,
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val getManga: GetManga = Injekt.get(),
+    private val sourceManager: SourceManager = get(),
+    private val getManga: GetManga = get(),
 ) : StateScreenModel<RecommendsScreenModel.State>(State()) {
 
     private val coroutineDispatcher = Dispatchers.IO.limitedParallelism(5)

@@ -45,7 +45,7 @@ import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold

@@ -3,7 +3,7 @@ package hayai.novel.ui
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import android.widget.TextView
 
 /**

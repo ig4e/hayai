@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.controllers.legacy
 
+import yokai.util.koin.get
 import android.R
 import android.annotation.SuppressLint
 import android.content.Context
@@ -84,9 +85,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import okhttp3.Headers
 import rikka.sui.Sui
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.base.BasePreferences
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.extension.interactor.TrustExtension
@@ -500,7 +499,7 @@ class SettingsAdvancedLegacyController : SettingsLegacyController() {
         activity?.toast(MR.strings.starting_cleanup)
         job = GlobalScope.launch(Dispatchers.IO, CoroutineStart.DEFAULT) {
             val mangaList = getManga.awaitAll()
-            val sourceManager: SourceManager = Injekt.get()
+            val sourceManager: SourceManager = get()
             val downloadProvider = DownloadProvider(activity!!)
             var foldersCleared = 0
             val sources = sourceManager.getOnlineSources()

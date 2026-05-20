@@ -24,15 +24,16 @@ import yokai.util.lang.getString
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.collectLatest
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import yokai.domain.storage.StoragePreferences
 import yokai.presentation.component.preference.storageLocationText
 import yokai.presentation.settings.screen.data.storageLocationPicker
 import yokai.presentation.theme.Size
 
-internal class StorageStep : OnboardingStep {
+internal class StorageStep : OnboardingStep, KoinComponent {
 
-    private val storagePref: StoragePreferences by injectLazy()
+    private val storagePref: StoragePreferences by inject()
 
     private var _isComplete by mutableStateOf(false)
 

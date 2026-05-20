@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
+import yokai.util.koin.get
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.recents.RecentMangaAdapter
@@ -22,9 +23,7 @@ import eu.kanade.tachiyomi.util.view.setMessage
 import eu.kanade.tachiyomi.util.view.setNegativeButton
 import eu.kanade.tachiyomi.util.view.setPositiveButton
 import eu.kanade.tachiyomi.util.view.setTitle
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.recents.RecentsPreferences
 import yokai.domain.recents.UpdatesGroupType
 import yokai.domain.recents.interactor.UnhideRecents
@@ -215,7 +214,7 @@ class SettingsRecentsController : SettingsLegacyController() {
 
     private fun showHiddenSourcesDialog(forHistory: Boolean, onUpdated: (String) -> Unit) {
         val activity = activity ?: return
-        val sourceManager = Injekt.get<SourceManager>()
+        val sourceManager = get<SourceManager>()
         val sources = sourceManager.getCatalogueSources()
             .map { it.id.toString() to it.name }
             .sortedBy { it.second.lowercase() }

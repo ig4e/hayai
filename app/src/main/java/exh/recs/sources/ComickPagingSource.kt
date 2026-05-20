@@ -1,5 +1,6 @@
 package exh.recs.sources
 
+import yokai.util.koin.get
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -17,8 +18,6 @@ import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import yokai.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 fun CatalogueSource.isComickSource() = name == "Comick"
 
@@ -36,7 +35,7 @@ class ComickPagingSource(
     override val associatedSourceId: Long
         get() = comickSource.id
 
-    private val client by lazy { Injekt.get<NetworkHelper>().client }
+    private val client by lazy { get<NetworkHelper>().client }
     private val thumbnailBaseUrl = "https://meo.comick.pictures/"
 
     override suspend fun requestNextPage(currentPage: Int): MangasPage {

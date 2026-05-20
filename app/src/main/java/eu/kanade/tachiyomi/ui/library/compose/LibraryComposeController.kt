@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library.compose
 
+import yokai.util.koin.get
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -20,8 +21,6 @@ import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import java.util.Locale
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
 import yokai.presentation.library.LibraryContent
@@ -30,8 +29,8 @@ import yokai.util.lang.getString
 
 class LibraryComposeController(
     bundle: Bundle? = null,
-    val uiPreferences: UiPreferences = Injekt.get(),
-    val preferences: PreferencesHelper = Injekt.get(),
+    val uiPreferences: UiPreferences = get(),
+    val preferences: PreferencesHelper = get(),
 ) : BaseCoroutineController<LibraryControllerBinding, LibraryComposePresenter>(bundle) ,
     BottomSheetController,
     RootSearchInterface,

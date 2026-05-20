@@ -4,7 +4,7 @@ import android.view.MenuItem
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.AbstractFlexibleItem
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 /**
  * Adapter storing a list of downloads.

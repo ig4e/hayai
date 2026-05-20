@@ -1,7 +1,7 @@
 package exh.debug
 
 import eu.kanade.tachiyomi.core.preference.PreferenceStore
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.util.Locale
 
 enum class DebugToggles(val default: Boolean) {

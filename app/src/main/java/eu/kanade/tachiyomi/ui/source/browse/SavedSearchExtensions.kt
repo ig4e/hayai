@@ -1,18 +1,17 @@
 package eu.kanade.tachiyomi.ui.source.browse
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.source.browse.filter.FilterSerializer
 import yokai.domain.source.browse.filter.models.RawSavedSearch
 import yokai.domain.source.browse.filter.models.SavedSearch
 
 fun RawSavedSearch.applySave(
     originalFilters: FilterList,
-    json: Json = Injekt.get(),
-    filterSerializer: FilterSerializer = Injekt.get(),
+    json: Json = get(),
+    filterSerializer: FilterSerializer = get(),
 ): SavedSearch {
     val rt = SavedSearch(
         id = this.id,
@@ -40,6 +39,6 @@ fun RawSavedSearch.applySave(
 
 fun List<RawSavedSearch>.applyAllSave(
     originalFilters: FilterList,
-    json: Json = Injekt.get(),
-    filterSerializer: FilterSerializer = Injekt.get(),
+    json: Json = get(),
+    filterSerializer: FilterSerializer = get(),
 ) = this.map { it.applySave(originalFilters, json, filterSerializer) }

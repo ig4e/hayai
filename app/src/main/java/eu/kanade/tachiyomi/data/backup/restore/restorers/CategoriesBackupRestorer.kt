@@ -1,14 +1,13 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.data.DatabaseHandler
 import yokai.domain.category.interactor.GetCategories
 
 class CategoriesBackupRestorer(
-    private val getCategories: GetCategories = Injekt.get(),
-    private val handler: DatabaseHandler = Injekt.get(),
+    private val getCategories: GetCategories = get(),
+    private val handler: DatabaseHandler = get(),
 ) {
     suspend fun restoreCategories(backupCategories: List<BackupCategory>, onComplete: () -> Unit) {
         // Get categories from file and from db

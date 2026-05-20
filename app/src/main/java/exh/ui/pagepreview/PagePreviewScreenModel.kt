@@ -1,5 +1,6 @@
 package exh.ui.pagepreview
 
+import yokai.util.koin.get
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -15,16 +16,14 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 
 class PagePreviewScreenModel(
     private val mangaId: Long,
-    private val getManga: GetManga = Injekt.get(),
-    private val getChapter: GetChapter = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
+    private val getManga: GetManga = get(),
+    private val getChapter: GetChapter = get(),
+    private val sourceManager: SourceManager = get(),
 ) : StateScreenModel<PagePreviewState>(PagePreviewState.Loading) {
 
     private var currentPage = 1

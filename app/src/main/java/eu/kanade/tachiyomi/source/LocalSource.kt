@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.source
 
+import yokai.util.koin.get
 import android.app.Application
 import android.content.Context
 import androidx.core.net.toFile
@@ -28,9 +29,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import nl.adaptivity.xmlutil.core.AndroidXmlReader
 import nl.adaptivity.xmlutil.serialization.XML
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.core.archive.util.archiveReader
 import yokai.core.archive.util.epubReader
 import yokai.core.metadata.COMIC_INFO_FILE
@@ -58,13 +57,13 @@ class LocalSource(private val context: Context) : CatalogueSource, UnmeteredSour
                 .mapNotNull { it?.findFile(url) }
         }
 
-        fun decodeComicInfo(stream: InputStream, xml: XML = Injekt.get()): ComicInfo {
+        fun decodeComicInfo(stream: InputStream, xml: XML = get()): ComicInfo {
             return AndroidXmlReader(stream, StandardCharsets.UTF_8.name()).use { reader ->
                 xml.decodeFromReader<ComicInfo>(reader)
             }
         }
 
-        fun getMangaLang(manga: SManga, context: Context = Injekt.get<Application>()): String {
+        fun getMangaLang(manga: SManga, context: Context = get<Application>()): String {
             return langMap.getOrPut(manga.url) {
                 // Modified: check all directories for language info
                 val localDetails = getMangaDirs(context, manga.url)
@@ -90,7 +89,7 @@ class LocalSource(private val context: Context) : CatalogueSource, UnmeteredSour
             }
         }
 
-        fun invalidateCover(manga: SManga, context: Context = Injekt.get<Application>()) {
+        fun invalidateCover(manga: SManga, context: Context = get<Application>()) {
             val cover = getMangaDirs(context, manga.url)
                 .mapNotNull { getCoverFile(it) }
                 .firstOrNull() ?: return
@@ -98,7 +97,7 @@ class LocalSource(private val context: Context) : CatalogueSource, UnmeteredSour
             manga.thumbnail_url = cover.uri.toString()
         }
 
-        fun updateCover(manga: SManga, input: InputStream, context: Context = Injekt.get<Application>()): UniFile? {
+        fun updateCover(manga: SManga, input: InputStream, context: Context = get<Application>()): UniFile? {
             val dirs = getMangaDirs(context, manga.url).toList()
             if (dirs.isEmpty()) {
                 input.close()
@@ -140,12 +139,12 @@ class LocalSource(private val context: Context) : CatalogueSource, UnmeteredSour
         }
 
         private fun getBaseDirectory(): UniFile? {
-            val storageManager: StorageManager = Injekt.get()
+            val storageManager: StorageManager = get()
             return storageManager.getLocalSourceDirectory()
         }
 
         private fun getBaseDirectories(context: Context): List<UniFile?> {
-            val sourcePreferences: SourcePreferences = Injekt.get()
+            val sourcePreferences: SourcePreferences = get()
             val base = listOf(getBaseDirectory())
             if (!sourcePreferences.externalLocalSource().get()) return base
 

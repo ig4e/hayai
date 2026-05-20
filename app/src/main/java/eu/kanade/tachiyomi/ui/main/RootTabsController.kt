@@ -18,7 +18,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryController
 import eu.kanade.tachiyomi.ui.library.compose.LibraryComposeController
 import eu.kanade.tachiyomi.ui.recents.RecentsController
 import eu.kanade.tachiyomi.ui.source.BrowseController
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.base.BasePreferences
 import yokai.presentation.theme.ReducedMotion
 

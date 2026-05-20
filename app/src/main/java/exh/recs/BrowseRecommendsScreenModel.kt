@@ -1,5 +1,6 @@
 package exh.recs
 
+import yokai.util.koin.get
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.database.models.create
@@ -12,14 +13,12 @@ import exh.recs.sources.StaticResultPagingSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.manga.interactor.GetManga
 
 class BrowseRecommendsScreenModel(
     private val args: BrowseRecommendsScreen.Args,
-    private val getManga: GetManga = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
+    private val getManga: GetManga = get(),
+    private val sourceManager: SourceManager = get(),
 ) : StateScreenModel<BrowseRecommendsScreenModel.State>(State.Loading) {
 
     private suspend fun resolveRecommendationSource(): RecommendationPagingSource? {

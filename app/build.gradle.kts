@@ -215,6 +215,10 @@ dependencies {
     implementation(libs.sqlite.android)
     implementation(libs.bundles.sqlite)
 
+    // Dependency injection
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.android)
+
     // Model View Presenter
     implementation(libs.conductor)
     implementation(libs.conductor.support.preference)

@@ -35,7 +35,7 @@ import com.bluelinelabs.conductor.Controller
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.MainScope
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.base.BasePreferences
 import java.util.*
 

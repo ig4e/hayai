@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.manga
 
+import yokai.util.koin.get
 import android.app.Dialog
 import android.content.Context
 import android.content.res.ColorStateList
@@ -38,9 +39,7 @@ import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.view.setPositiveButton
 import eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText
 import kotlinx.coroutines.runBlocking
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
@@ -75,7 +74,7 @@ class EditMangaDialog : DialogController {
 
     @Suppress("unused")
     constructor(bundle: Bundle) : super(bundle) {
-        manga = runBlocking { Injekt.get<GetManga>().awaitById(bundle.getLong(KEY_MANGA))!! }
+        manga = runBlocking { get<GetManga>().awaitById(bundle.getLong(KEY_MANGA))!! }
     }
 
     override fun onCreateDialog(savedViewState: Bundle?): Dialog {

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.extension
 
+import yokai.util.koin.get
 import android.content.pm.PackageInstaller
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.extension.ExtensionInstallerJob
@@ -16,8 +17,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.util.lang.getString
 // NOVEL -->
@@ -38,7 +37,7 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
 
     private var extensions = emptyList<ExtensionItem>()
 
-    val downloadManager: DownloadManager = Injekt.get()
+    val downloadManager: DownloadManager = get()
 
     private var currentDownloads = hashMapOf<String, ExtensionIntallInfo>()
 
@@ -298,7 +297,7 @@ class ExtensionBottomPresenter : BaseMigrationPresenter<ExtensionBottomSheet>() 
     }
 
     // NOVEL -->
-    private val novelPluginManager: NovelPluginManager = Injekt.get()
+    private val novelPluginManager: NovelPluginManager = get()
 
     fun refreshNovelPlugins() {
         presenterScope.launch {

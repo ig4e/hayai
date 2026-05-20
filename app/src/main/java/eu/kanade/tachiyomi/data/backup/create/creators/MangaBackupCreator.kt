@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.create.creators
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
@@ -7,8 +8,6 @@ import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
 import eu.kanade.tachiyomi.data.library.CustomMangaManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.data.DatabaseHandler
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetChapter
@@ -16,12 +15,12 @@ import yokai.domain.history.interactor.GetHistory
 import yokai.domain.track.interactor.GetTrack
 
 class MangaBackupCreator(
-    private val customMangaManager: CustomMangaManager = Injekt.get(),
-    private val handler: DatabaseHandler = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val getChapter: GetChapter = Injekt.get(),
-    private val getHistory: GetHistory = Injekt.get(),
-    private val getTrack: GetTrack = Injekt.get(),
+    private val customMangaManager: CustomMangaManager = get(),
+    private val handler: DatabaseHandler = get(),
+    private val getCategories: GetCategories = get(),
+    private val getChapter: GetChapter = get(),
+    private val getHistory: GetHistory = get(),
+    private val getTrack: GetTrack = get(),
 ) {
     suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
         return mangas.map {

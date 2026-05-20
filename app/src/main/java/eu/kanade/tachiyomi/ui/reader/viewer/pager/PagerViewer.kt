@@ -23,7 +23,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.BaseViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 /**
  * Implementation of a [BaseViewer] to display pages with a [ViewPager].

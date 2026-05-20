@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.more.stats.details
 
+import yokai.util.koin.get
 import android.graphics.drawable.Drawable
 import android.text.format.DateUtils
 import androidx.annotation.DrawableRes
@@ -35,9 +36,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.data.DatabaseHandler
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetChapter
@@ -48,9 +47,9 @@ import yokai.i18n.MR
 import yokai.util.lang.getString
 
 class StatsDetailsPresenter(
-    private val prefs: PreferencesHelper = Injekt.get(),
-    val trackManager: TrackManager = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
+    private val prefs: PreferencesHelper = get(),
+    val trackManager: TrackManager = get(),
+    private val sourceManager: SourceManager = get(),
 ) : BaseCoroutinePresenter<StatsDetailsController>() {
     private val handler: DatabaseHandler by injectLazy()
     private val getCategories: GetCategories by injectLazy()

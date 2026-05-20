@@ -1,5 +1,6 @@
 package exh.ui.settings
 
+import yokai.util.koin.get
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
@@ -10,8 +11,6 @@ import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import exh.source.ExhPreferences
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
 import yokai.presentation.settings.ComposableSettings
@@ -26,7 +25,7 @@ object SettingsDataSaverScreen : ComposableSettings() {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val exhPreferences: ExhPreferences = remember { Injekt.get() }
+        val exhPreferences: ExhPreferences = remember { get() }
         val dataSaverMode by exhPreferences.dataSaverMode.collectAsState()
         val dataSaverEnabled = dataSaverMode != 0
         val isCustomOrProxy = dataSaverMode == 2 || dataSaverMode == 3

@@ -75,7 +75,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.source.browse.filter.models.SavedSearch
 import yokai.i18n.MR

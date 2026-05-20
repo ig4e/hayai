@@ -22,7 +22,8 @@ import eu.kanade.tachiyomi.util.compose.LocalDialogHostState
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
-import uy.kohesive.injekt.injectLazy
+import androidx.compose.runtime.remember
+import org.koin.core.context.GlobalContext
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
 import yokai.presentation.component.Gap
@@ -81,7 +82,7 @@ fun SettingsScaffold(
     textFieldState: TextFieldState? = null,
     searchResult: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
-    val preferences: PreferencesHelper by injectLazy()
+    val preferences = remember { GlobalContext.get().get<PreferencesHelper>() }
     val useLargeAppBar by preferences.useLargeToolbar().collectAsState()
     val listState = rememberLazyListState()
 

@@ -1,5 +1,6 @@
 package exh.recs.sources
 
+import yokai.util.koin.get
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.data.track.TrackManager
@@ -17,9 +18,7 @@ import kotlinx.serialization.json.Json
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import yokai.domain.track.interactor.GetTrack
 import yokai.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 /**
  * Content type a recommendation source returns. Used by the UI to render a per-card badge
@@ -86,7 +85,7 @@ abstract class RecommendationPagingSource(
                 add(MyAnimeListPagingSource(manga))
 
                 // Only include MangaDex if the delegate sources are enabled and the source is MD-based
-                if (source.isMdBasedSource() && Injekt.get<DelegateSourcePreferences>().delegateSources.get()) {
+                if (source.isMdBasedSource() && get<DelegateSourcePreferences>().delegateSources.get()) {
                     val mainSource = source.getMainSource<MangaDex>()
                     if (mainSource != null) {
                         add(MangaDexSimilarPagingSource(manga, mainSource))
@@ -112,7 +111,7 @@ abstract class TrackerRecommendationPagingSource(
     private val getTrack: GetTrack by injectLazy()
 
     protected val trackManager: TrackManager by injectLazy()
-    protected val client by lazy { Injekt.get<NetworkHelper>().client }
+    protected val client by lazy { get<NetworkHelper>().client }
     protected val json by injectLazy<Json>()
 
     /**

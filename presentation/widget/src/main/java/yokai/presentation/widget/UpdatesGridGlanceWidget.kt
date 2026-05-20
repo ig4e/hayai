@@ -30,8 +30,7 @@ import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.MainScope
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import org.koin.core.context.GlobalContext
 import yokai.domain.manga.models.cover
 import yokai.presentation.widget.components.CoverHeight
 import yokai.presentation.widget.components.CoverWidth
@@ -43,8 +42,8 @@ import java.util.*
 import kotlin.math.min
 
 class UpdatesGridGlanceWidget(
-    private val app: Application = Injekt.get(),
-    private val preferences: SecurityPreferences = Injekt.get(),
+    private val app: Application = GlobalContext.get().get(),
+    private val preferences: SecurityPreferences = GlobalContext.get().get(),
 ) : GlanceAppWidget() {
     private val coroutineScope = MainScope()
 

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
@@ -15,8 +16,6 @@ import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.system.launchNow
 import kotlin.math.max
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.data.DatabaseHandler
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.category.interactor.SetMangaCategories
@@ -33,20 +32,20 @@ import yokai.domain.track.interactor.GetTrack
 import yokai.domain.track.interactor.InsertTrack
 
 class MangaBackupRestorer(
-    private val customMangaManager: CustomMangaManager = Injekt.get(),
-    private val handler: DatabaseHandler = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val setMangaCategories: SetMangaCategories = Injekt.get(),
-    private val getChapter: GetChapter = Injekt.get(),
-    private val insertChapter: InsertChapter = Injekt.get(),
-    private val updateChapter: UpdateChapter = Injekt.get(),
-    private val getManga: GetManga = Injekt.get(),
-    private val insertManga: InsertManga = Injekt.get(),
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val getHistory: GetHistory = Injekt.get(),
-    private val upsertHistory: UpsertHistory = Injekt.get(),
-    private val getTrack: GetTrack = Injekt.get(),
-    private val insertTrack: InsertTrack = Injekt.get(),
+    private val customMangaManager: CustomMangaManager = get(),
+    private val handler: DatabaseHandler = get(),
+    private val getCategories: GetCategories = get(),
+    private val setMangaCategories: SetMangaCategories = get(),
+    private val getChapter: GetChapter = get(),
+    private val insertChapter: InsertChapter = get(),
+    private val updateChapter: UpdateChapter = get(),
+    private val getManga: GetManga = get(),
+    private val insertManga: InsertManga = get(),
+    private val updateManga: UpdateManga = get(),
+    private val getHistory: GetHistory = get(),
+    private val upsertHistory: UpsertHistory = get(),
+    private val getTrack: GetTrack = get(),
+    private val insertTrack: InsertTrack = get(),
 ) {
     suspend fun restoreManga(
         backupManga: BackupManga,

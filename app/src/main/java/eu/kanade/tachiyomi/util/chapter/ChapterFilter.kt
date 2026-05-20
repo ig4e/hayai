@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util.chapter
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.bookmarkedFilter
 import eu.kanade.tachiyomi.data.database.models.downloadedFilter
@@ -7,10 +8,8 @@ import eu.kanade.tachiyomi.data.database.models.readFilter
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
-class ChapterFilter(val preferences: PreferencesHelper = Injekt.get(), val downloadManager: DownloadManager = Injekt.get()) {
+class ChapterFilter(val preferences: PreferencesHelper = get(), val downloadManager: DownloadManager = get()) {
 
     /** filters chapters based on the manga values */
     fun <T : Chapter> filterChapters(chapters: List<T>, manga: Manga): List<T> {

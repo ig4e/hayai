@@ -55,7 +55,8 @@ import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.launch
 import okhttp3.Headers
 import rikka.sui.Sui
-import uy.kohesive.injekt.injectLazy
+import androidx.compose.runtime.remember
+import org.koin.core.context.GlobalContext
 import yokai.domain.base.BasePreferences
 import yokai.domain.simple
 import yokai.i18n.MR
@@ -72,9 +73,9 @@ object SettingsAdvancedScreen : ComposableSettings() {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val preferences: PreferencesHelper by injectLazy()
-        val basePreferences: BasePreferences by injectLazy()
-        val networkPreferences: NetworkPreferences by injectLazy()
+        val preferences = remember { GlobalContext.get().get<PreferencesHelper>() }
+        val basePreferences = remember { GlobalContext.get().get<BasePreferences>() }
+        val networkPreferences = remember { GlobalContext.get().get<NetworkPreferences>() }
         val isUpdaterEnabled = BuildConfig.INCLUDE_UPDATER
 
         return buildList {
@@ -205,7 +206,7 @@ object SettingsAdvancedScreen : ComposableSettings() {
         val context = LocalContext.current
         val router = LocalRouter.currentOrThrow
 
-        val downloadManager: DownloadManager by injectLazy()
+        val downloadManager = remember { GlobalContext.get().get<DownloadManager>() }
 
         val children = buildList {
             add(Preference.PreferenceItem.TextPreference(
@@ -256,7 +257,7 @@ object SettingsAdvancedScreen : ComposableSettings() {
 
     @Composable
     private fun getNetworkGroup(networkPreferences: NetworkPreferences): Preference.PreferenceGroup {
-        val network: NetworkHelper by injectLazy()
+        val network = remember { GlobalContext.get().get<NetworkHelper>() }
         val context = LocalContext.current
 
         val children = buildList {

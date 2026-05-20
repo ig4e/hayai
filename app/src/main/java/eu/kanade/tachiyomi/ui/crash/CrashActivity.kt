@@ -30,7 +30,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.system.setThemeByPref
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.i18n.MR
 import yokai.presentation.onboarding.InfoScreen
 import yokai.presentation.theme.Size

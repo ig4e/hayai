@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
+import yokai.util.koin.get
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -30,9 +31,7 @@ import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.runBlocking
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.library.LibraryPreferences
 import yokai.domain.manga.interactor.GetLibraryManga
@@ -71,7 +70,7 @@ class SettingsLibraryController : SettingsLegacyController() {
                     it as Boolean
                     if (it) {
                         launchIO {
-                            LibraryPresenter.setSearchSuggestion(preferences, getLibraryManga, Injekt.get())
+                            LibraryPresenter.setSearchSuggestion(preferences, getLibraryManga, get())
                         }
                     } else {
                         DelayedLibrarySuggestionsJob.setupTask(context, false)

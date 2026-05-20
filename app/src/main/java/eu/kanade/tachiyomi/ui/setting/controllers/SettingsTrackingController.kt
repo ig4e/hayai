@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
+import yokai.util.koin.get
 import android.app.Activity
 import androidx.preference.PreferenceGroup
 import androidx.preference.PreferenceScreen
@@ -34,9 +35,7 @@ import eu.kanade.tachiyomi.util.view.snack
 import eu.kanade.tachiyomi.widget.preference.TrackLoginDialog
 import eu.kanade.tachiyomi.widget.preference.TrackLogoutDialog
 import eu.kanade.tachiyomi.widget.preference.TrackerPreference
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 
 class SettingsTrackingController :
@@ -142,7 +141,7 @@ class SettingsTrackingController :
         }
         preferenceCategory {
             titleRes = MR.strings.enhanced_services
-            val sourceManager = Injekt.get<SourceManager>()
+            val sourceManager = get<SourceManager>()
             val enhancedTrackers = trackManager.services
                 .filter { service ->
                     if (service !is EnhancedTrackService) return@filter false

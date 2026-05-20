@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.widget.preference
 
+import yokai.util.koin.get
 import android.os.Bundle
 import android.view.View
 import dev.icerock.moko.resources.StringResource
@@ -8,15 +9,13 @@ import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.withIOContext
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
 class TrackLoginDialog(usernameLabelRes: StringResource? = null, bundle: Bundle? = null) :
     LoginDialogPreference(usernameLabelRes, bundle) {
 
-    private val service = Injekt.get<TrackManager>().getService(args.getLong("key"))!!
+    private val service = get<TrackManager>().getService(args.getLong("key"))!!
 
     override var canLogout = true
 

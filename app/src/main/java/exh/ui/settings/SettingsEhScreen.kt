@@ -61,7 +61,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
 import yokai.util.lang.getString

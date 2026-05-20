@@ -15,7 +15,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.util.UUID
 
 class MangaPlusHandler(currentClient: OkHttpClient) {

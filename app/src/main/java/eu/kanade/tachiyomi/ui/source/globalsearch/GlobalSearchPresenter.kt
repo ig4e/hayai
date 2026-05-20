@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.source.globalsearch
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.database.models.removeCover
@@ -25,9 +26,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
@@ -43,9 +42,9 @@ open class GlobalSearchPresenter(
     private val initialQuery: String? = "",
     private val initialExtensionFilter: String? = null,
     private val sourcesToUse: List<CatalogueSource>? = null,
-    val sourceManager: SourceManager = Injekt.get(),
-    private val preferences: PreferencesHelper = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
+    val sourceManager: SourceManager = get(),
+    private val preferences: PreferencesHelper = get(),
+    private val coverCache: CoverCache = get(),
 ) : BaseCoroutinePresenter<GlobalSearchController>() {
     private val getManga: GetManga by injectLazy()
     private val insertManga: InsertManga by injectLazy()
@@ -145,7 +144,7 @@ open class GlobalSearchPresenter(
 
     fun confirmDeletion(manga: Manga) {
         manga.removeCover(coverCache)
-        val downloadManager: DownloadManager = Injekt.get()
+        val downloadManager: DownloadManager = get()
         sourceManager.get(manga.source)?.let { source ->
             downloadManager.deleteManga(manga, source)
         }

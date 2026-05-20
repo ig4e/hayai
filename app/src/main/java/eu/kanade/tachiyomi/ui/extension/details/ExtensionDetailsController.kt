@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.extension.details
 
+import yokai.util.koin.get
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
@@ -54,9 +55,7 @@ import eu.kanade.tachiyomi.widget.preference.MultiListMatPreference
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -70,7 +69,7 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
 
     private var preferenceScreen: PreferenceScreen? = null
 
-    private val preferences: PreferencesHelper = Injekt.get()
+    private val preferences: PreferencesHelper = get()
     private val network: NetworkHelper by injectLazy()
 
     init {

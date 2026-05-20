@@ -64,7 +64,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.i18n.MR

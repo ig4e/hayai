@@ -36,7 +36,7 @@ import eu.kanade.tachiyomi.util.system.notificationManager
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
 import yokai.util.lang.getString

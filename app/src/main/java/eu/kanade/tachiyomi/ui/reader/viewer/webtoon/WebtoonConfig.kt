@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.webtoon
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.preference.PreferenceValues
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.reader.settings.PageLayout
@@ -14,8 +15,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.settings.ReaderPreferences
 
 /**
@@ -23,8 +22,8 @@ import yokai.domain.ui.settings.ReaderPreferences
  */
 class WebtoonConfig(
     scope: CoroutineScope,
-    preferences: PreferencesHelper = Injekt.get(),
-    readerPreferences: ReaderPreferences = Injekt.get(),
+    preferences: PreferencesHelper = get(),
+    readerPreferences: ReaderPreferences = get(),
 ) : ViewerConfig(preferences, scope) {
 
     var webtoonCropBorders = false

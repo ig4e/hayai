@@ -11,9 +11,7 @@ import exh.util.jobScheduler
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.runBlocking
 import yokai.data.DatabaseHandler
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.util.UUID
 
 @Suppress("unused")

@@ -1,5 +1,6 @@
 package exh.ui.settings
 
+import yokai.util.koin.get
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,8 +37,6 @@ import exh.md.utils.MdUtil
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
 import yokai.presentation.settings.ComposableSettings
@@ -64,7 +63,7 @@ object SettingsMangadexScreen : ComposableSettings() {
     private fun getLoginPreference(): Preference.PreferenceItem.TextPreference {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val preferenceStore = remember { Injekt.get<PreferenceStore>() }
+        val preferenceStore = remember { get<PreferenceStore>() }
         val isLoggedIn = remember { MdUtil.isOAuthSet(preferenceStore) }
         var logoutDialogOpen by remember { mutableStateOf(false) }
 
@@ -76,7 +75,7 @@ object SettingsMangadexScreen : ComposableSettings() {
                     TextButton(onClick = {
                         logoutDialogOpen = false
                         scope.launch(Dispatchers.IO) {
-                            val mangaDex = MdUtil.getEnabledMangaDex(Injekt.get<SourceManager>())
+                            val mangaDex = MdUtil.getEnabledMangaDex(get<SourceManager>())
                             if (mangaDex != null) {
                                 val success = mangaDex.logout()
                                 withUIContext {
@@ -169,7 +168,7 @@ object SettingsMangadexScreen : ComposableSettings() {
                     TextButton(onClick = {
                         dialogOpen = false
                         scope.launch(Dispatchers.IO) {
-                            val mangaDex = MdUtil.getEnabledMangaDex(Injekt.get<SourceManager>())
+                            val mangaDex = MdUtil.getEnabledMangaDex(get<SourceManager>())
                             if (mangaDex == null) {
                                 withUIContext { context.toast(MR.strings.mangadex_not_enabled) }
                                 return@launch
@@ -222,7 +221,7 @@ object SettingsMangadexScreen : ComposableSettings() {
             subtitle = stringResource(MR.strings.mangadex_push_favorites_to_mangadex_summary),
             onClick = {
                 scope.launch(Dispatchers.IO) {
-                    val mangaDex = MdUtil.getEnabledMangaDex(Injekt.get<SourceManager>())
+                    val mangaDex = MdUtil.getEnabledMangaDex(get<SourceManager>())
                     if (mangaDex == null) {
                         withUIContext { context.toast(MR.strings.mangadex_not_enabled) }
                         return@launch

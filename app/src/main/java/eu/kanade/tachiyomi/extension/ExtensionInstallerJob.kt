@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.extension
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -37,8 +38,6 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import java.lang.ref.WeakReference
 import kotlin.math.max
@@ -47,11 +46,11 @@ class ExtensionInstallerJob(val context: Context, workerParams: WorkerParameters
 
     private val notifier = ExtensionInstallNotifier(context.localeContext)
 
-    private val preferences: PreferencesHelper = Injekt.get()
+    private val preferences: PreferencesHelper = get()
 
     private var activeInstalls = mutableListOf<String>()
 
-    val extensionManager: ExtensionManager = Injekt.get()
+    val extensionManager: ExtensionManager = get()
 
     private var emitScope = CoroutineScope(Job() + Dispatchers.Default)
 

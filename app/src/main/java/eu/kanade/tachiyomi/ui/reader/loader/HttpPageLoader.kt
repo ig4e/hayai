@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.loader
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.model.Page
@@ -24,8 +25,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.suspendCancellableCoroutine
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Loader used to load chapters from an online source.
@@ -33,9 +32,9 @@ import uy.kohesive.injekt.api.get
 class HttpPageLoader(
     private val chapter: ReaderChapter,
     private val source: HttpSource,
-    private val chapterCache: ChapterCache = Injekt.get(),
-    private val preferences: PreferencesHelper = Injekt.get(),
-    private val exhPreferences: ExhPreferences = Injekt.get(),
+    private val chapterCache: ChapterCache = get(),
+    private val preferences: PreferencesHelper = get(),
+    private val exhPreferences: ExhPreferences = get(),
 ) : PageLoader() {
 
     override val isLocal: Boolean = false

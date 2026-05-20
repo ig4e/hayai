@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.source
 
+import yokai.util.koin.get
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import eu.davidea.flexibleadapter.FlexibleAdapter
@@ -11,8 +12,6 @@ import yokai.util.lang.getString
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.LocalSource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.UiPreferences
 
 /**
@@ -32,7 +31,7 @@ class SourceItem(val source: CatalogueSource, header: LangItem? = null, val isPi
     }
 
     override fun isSwipeable(): Boolean {
-        return Injekt.get<UiPreferences>().enableSourceSwipeAction().get() && source.id != LocalSource.ID && header != null && header.code != SourcePresenter.LAST_USED_KEY
+        return get<UiPreferences>().enableSourceSwipeAction().get() && source.id != LocalSource.ID && header != null && header.code != SourcePresenter.LAST_USED_KEY
     }
 
     /**

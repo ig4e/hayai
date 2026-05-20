@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library
 
+import yokai.util.koin.get
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
@@ -150,8 +151,6 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -159,8 +158,8 @@ import android.R as AR
 
 open class LibraryController(
     bundle: Bundle? = null,
-    val uiPreferences: UiPreferences = Injekt.get(),
-    val preferences: PreferencesHelper = Injekt.get(),
+    val uiPreferences: UiPreferences = get(),
+    val preferences: PreferencesHelper = get(),
 ) : BaseCoroutineController<LibraryControllerBinding, LibraryPresenter>(bundle),
     ActionMode.Callback,
     FlexibleAdapter.OnItemClickListener,

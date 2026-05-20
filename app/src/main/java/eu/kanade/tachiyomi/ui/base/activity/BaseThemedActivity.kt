@@ -7,7 +7,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.util.system.getThemeWithExtras
 import eu.kanade.tachiyomi.util.system.setLocaleByAppCompat
 import eu.kanade.tachiyomi.util.system.setThemeByPref
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 abstract class BaseThemedActivity : AppCompatActivity() {
 

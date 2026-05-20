@@ -1,15 +1,14 @@
 package eu.kanade.tachiyomi.util.chapter
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.chapterOrder
 import eu.kanade.tachiyomi.data.database.models.sortDescending
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
-class ChapterSort(val manga: Manga, val chapterFilter: ChapterFilter = Injekt.get(), val preferences: PreferencesHelper = Injekt.get()) {
+class ChapterSort(val manga: Manga, val chapterFilter: ChapterFilter = get(), val preferences: PreferencesHelper = get()) {
 
     fun <T : Chapter> getChaptersSorted(
         rawChapters: List<T>,

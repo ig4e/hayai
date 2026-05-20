@@ -23,7 +23,7 @@ import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import java.text.DecimalFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.models.cover

@@ -1,5 +1,6 @@
 package yokai.presentation.settings.screen.about
 
+import yokai.util.koin.get
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -57,8 +58,6 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.DialogHostState
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
@@ -80,7 +79,7 @@ class AboutScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val dialogHostState = LocalDialogHostState.currentOrThrow
 
-        val preferences = remember { Injekt.get<PreferencesHelper>() }
+        val preferences = remember { get<PreferencesHelper>() }
 
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()

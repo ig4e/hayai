@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.net.HttpCookie
 import java.util.Locale
 

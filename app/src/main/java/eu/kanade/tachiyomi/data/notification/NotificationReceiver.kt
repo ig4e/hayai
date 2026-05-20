@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.notification
 
+import yokai.util.koin.get
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.ClipData
@@ -29,9 +30,7 @@ import eu.kanade.tachiyomi.util.system.getParcelableCompat
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.notificationManager
 import java.io.File
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.manga.interactor.GetManga
@@ -211,7 +210,7 @@ class NotificationReceiver : BroadcastReceiver() {
      * @param notificationId id of notification
      */
     private fun markAsRead(chapterUrls: Array<String>, mangaId: Long) {
-        val preferences: PreferencesHelper = Injekt.get()
+        val preferences: PreferencesHelper = get()
 
         launchIO {
             val manga = getManga.awaitById(mangaId) ?: return@launchIO
@@ -220,7 +219,7 @@ class NotificationReceiver : BroadcastReceiver() {
                 chapter.read = true
                 updateChapter.await(chapter.toProgressUpdate())
                 if (preferences.removeAfterMarkedAsRead().get()) {
-                    val sourceManager: SourceManager = Injekt.get()
+                    val sourceManager: SourceManager = get()
                     val source = sourceManager.get(manga.source) ?: return@launchIO
                     downloadManager.deleteChapters(listOf(chapter), manga, source)
                 }

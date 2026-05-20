@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.create.creators
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
@@ -16,12 +17,10 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.preferenceKey
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.ui.library.LibrarySort
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 class PreferenceBackupCreator(
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val preferenceStore: PreferenceStore = Injekt.get(),
+    private val sourceManager: SourceManager = get(),
+    private val preferenceStore: PreferenceStore = get(),
 ) {
     fun createApp(includePrivatePreferences: Boolean): List<BackupPreference> {
         return preferenceStore.getAll().toBackupPreferences()

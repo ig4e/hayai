@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.pager
 
+import yokai.util.koin.get
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.reader.settings.PageLayout
@@ -14,8 +15,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.domain.ui.settings.ReaderPreferences.CutoutBehaviour
 
@@ -25,8 +24,8 @@ import yokai.domain.ui.settings.ReaderPreferences.CutoutBehaviour
 class PagerConfig(
     scope: CoroutineScope,
     private val viewer: PagerViewer,
-    preferences: PreferencesHelper = Injekt.get(),
-    readerPreferences: ReaderPreferences = Injekt.get(),
+    preferences: PreferencesHelper = get(),
+    readerPreferences: ReaderPreferences = get(),
 ) :
     ViewerConfig(preferences, scope) {
 

@@ -1,5 +1,6 @@
 package exh.recs.sources
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.GET
@@ -11,9 +12,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.FormBody
 import okhttp3.Headers
 import org.jsoup.Jsoup
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.track.interactor.GetTrack
 
 class NovelUpdatesPagingSource(manga: Manga?) : RecommendationPagingSource(manga) {
@@ -22,7 +21,7 @@ class NovelUpdatesPagingSource(manga: Manga?) : RecommendationPagingSource(manga
     // NovelUpdates only catalogues novels, so this source is always novel-typed.
     override val contentType: RecommendationContentType = RecommendationContentType.NOVEL
 
-    private val client by lazy { Injekt.get<NetworkHelper>().client }
+    private val client by lazy { get<NetworkHelper>().client }
     private val getTrack: GetTrack by injectLazy()
     private val trackManager: TrackManager by injectLazy()
 

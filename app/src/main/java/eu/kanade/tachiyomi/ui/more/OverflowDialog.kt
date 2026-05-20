@@ -27,7 +27,7 @@ import eu.kanade.tachiyomi.util.lang.withSubtitle
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.openInBrowser
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import android.R as AR
 
 class OverflowDialog(

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.manga.chapter
 
+import yokai.util.koin.get
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import eu.davidea.flexibleadapter.FlexibleAdapter
@@ -10,8 +11,6 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsAdapter
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.UiPreferences
 
 class ChapterItem(chapter: Chapter, val manga: Manga) :
@@ -28,7 +27,7 @@ class ChapterItem(chapter: Chapter, val manga: Manga) :
     }
 
     override fun isSwipeable(): Boolean {
-        return !isLocked && Injekt.get<UiPreferences>().enableChapterSwipeAction().get()
+        return !isLocked && get<UiPreferences>().enableChapterSwipeAction().get()
     }
 
     override fun createViewHolder(view: View, adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>): ChapterHolder {

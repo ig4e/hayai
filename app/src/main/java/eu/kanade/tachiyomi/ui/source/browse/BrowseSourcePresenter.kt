@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.source.browse
 
+import yokai.util.koin.get
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.models.create
@@ -29,9 +30,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
@@ -51,10 +50,10 @@ open class BrowseSourcePresenter(
     private val sourceId: Long,
     searchQuery: String? = null,
     var useLatest: Boolean = false,
-    val sourceManager: SourceManager = Injekt.get(),
-    val uiPreferences: UiPreferences = Injekt.get(),
-    val preferences: PreferencesHelper = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
+    val sourceManager: SourceManager = get(),
+    val uiPreferences: UiPreferences = get(),
+    val preferences: PreferencesHelper = get(),
+    private val coverCache: CoverCache = get(),
 ) : BaseCoroutinePresenter<BrowseSourceController>() {
     private val getManga: GetManga by injectLazy()
     private val insertManga: InsertManga by injectLazy()
@@ -317,7 +316,7 @@ open class BrowseSourcePresenter(
     fun confirmDeletion(manga: Manga) {
         launchIO {
             manga.removeCover(coverCache)
-            val downloadManager: DownloadManager = Injekt.get()
+            val downloadManager: DownloadManager = get()
             downloadManager.deleteManga(manga, source)
         }
     }

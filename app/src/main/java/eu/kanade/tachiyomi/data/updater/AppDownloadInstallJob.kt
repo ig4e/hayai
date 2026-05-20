@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.updater
 
+import yokai.util.koin.get
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -51,9 +52,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.internal.http2.ErrorCode
 import okhttp3.internal.http2.StreamResetException
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.io.File
 import java.lang.ref.WeakReference
 
@@ -64,7 +63,7 @@ class AppDownloadInstallJob(private val context: Context, workerParams: WorkerPa
     private val notifier = AppUpdateNotifier(context.localeContext)
     private val network: NetworkHelper by injectLazy()
     private var runningCall: Call? = null
-    val preferences = Injekt.get<PreferencesHelper>()
+    val preferences = get<PreferencesHelper>()
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = notifier.onDownloadStarted().build()
@@ -263,7 +262,7 @@ class AppDownloadInstallJob(private val context: Context, workerParams: WorkerPa
                 .apply {
                     if (waitUntilIdle) {
                         data.putBoolean(IDLE_RUN, true)
-                        val shouldAutoUpdate = Injekt.get<PreferencesHelper>().appShouldAutoUpdate().get()
+                        val shouldAutoUpdate = get<PreferencesHelper>().appShouldAutoUpdate().get()
                         val constraints = Constraints.Builder()
                             .setRequiredNetworkType(
                                 if (shouldAutoUpdate == ALWAYS) {

@@ -15,7 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import rx.Subscription
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.util.lang.getString
 
 abstract class LoginDialogPreference(

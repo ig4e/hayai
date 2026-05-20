@@ -31,7 +31,7 @@ import eu.kanade.tachiyomi.util.system.toInt
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setBottomEdge
 import eu.kanade.tachiyomi.widget.E2EBottomSheetDialog
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class MigrationBottomSheetDialog(
     activity: Activity,

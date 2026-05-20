@@ -17,7 +17,7 @@ import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDataLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.search.SettingsSearchController
 import exh.source.ExhPreferences
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import eu.kanade.tachiyomi.ui.setting.iconRes
 import eu.kanade.tachiyomi.ui.setting.iconTint
 import eu.kanade.tachiyomi.ui.setting.onClick

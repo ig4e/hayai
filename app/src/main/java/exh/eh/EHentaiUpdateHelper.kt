@@ -18,7 +18,7 @@ import yokai.domain.history.interactor.UpsertHistory
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.io.File
 
 data class ChapterChain(val manga: Manga, val chapters: List<Chapter>, val history: List<History>)

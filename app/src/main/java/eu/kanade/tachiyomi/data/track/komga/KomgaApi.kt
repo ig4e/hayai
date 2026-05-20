@@ -14,7 +14,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 const val READLIST_API = "/api/v1/readlists"
 

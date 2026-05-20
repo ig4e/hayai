@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.recents.options
 
+import yokai.util.koin.get
 import android.content.Context
 import android.util.AttributeSet
 import eu.kanade.tachiyomi.databinding.RecentsUpdatesViewBinding
@@ -11,8 +12,6 @@ import eu.kanade.tachiyomi.util.view.setNegativeButton
 import eu.kanade.tachiyomi.util.view.setPositiveButton
 import eu.kanade.tachiyomi.util.view.setTitle
 import eu.kanade.tachiyomi.widget.BaseRecentsDisplayView
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.recents.UpdatesGroupType
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -46,7 +45,7 @@ class RecentsUpdatesView @JvmOverloads constructor(context: Context, attrs: Attr
 
     private fun showHiddenSourcesDialog() {
         val activity = controller?.activity ?: return
-        val sourceManager = Injekt.get<SourceManager>()
+        val sourceManager = get<SourceManager>()
         val sources = sourceManager.getCatalogueSources()
             .map { it.id.toString() to it.name }
             .sortedBy { it.second.lowercase() }

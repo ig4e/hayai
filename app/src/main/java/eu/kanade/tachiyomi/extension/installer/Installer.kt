@@ -10,7 +10,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.util.ExtensionInstaller.Companion.EXTRA_DOWNLOAD_ID
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 abstract class Installer(
     internal val context: Context,

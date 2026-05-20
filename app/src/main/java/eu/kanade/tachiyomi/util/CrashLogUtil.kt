@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -16,8 +17,6 @@ import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.withNonCancellableContext
 import eu.kanade.tachiyomi.util.system.withUIContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import java.io.IOException
@@ -77,7 +76,7 @@ class CrashLogUtil(private val context: Context) {
     }
 
     private fun getExtensionsInfo(): String {
-        val extensionManager: ExtensionManager = Injekt.get()
+        val extensionManager: ExtensionManager = get()
         val installedExtensions = extensionManager.installedExtensionsFlow.value
         val availableExtensions = extensionManager.availableExtensionsFlow.value
 

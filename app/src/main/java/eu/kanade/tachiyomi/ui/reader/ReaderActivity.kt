@@ -172,7 +172,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.base.BasePreferences
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.presentation.theme.ReducedMotion

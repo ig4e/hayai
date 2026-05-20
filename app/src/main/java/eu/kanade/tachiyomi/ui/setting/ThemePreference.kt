@@ -38,7 +38,7 @@ import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.isInNightMode
 import eu.kanade.tachiyomi.util.view.setText
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import kotlin.math.max
 import android.R as AR
 

@@ -12,7 +12,7 @@ import eu.kanade.tachiyomi.databinding.ReaderChapterItemBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class ReaderChapterItem(val chapter: Chapter, val manga: Manga, val isCurrent: Boolean) :
     AbstractItem<ReaderChapterItem.ViewHolder>(),

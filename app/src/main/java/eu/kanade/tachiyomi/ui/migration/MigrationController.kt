@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.migration
 
+import yokai.util.koin.get
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -22,8 +23,6 @@ import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.widget.LinearLayoutManagerAccurateOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.manga.interactor.GetManga
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -80,7 +79,7 @@ class MigrationController :
 
         if (item is MangaItem) {
             PreMigrationController.navigateToMigration(
-                Injekt.get<PreferencesHelper>().skipPreMigration().get(),
+                get<PreferencesHelper>().skipPreMigration().get(),
                 router,
                 listOf(item.manga.id!!),
             )
@@ -94,12 +93,12 @@ class MigrationController :
         val item = adapter?.getItem(position) as? SourceItem ?: return
 
         launchUI {
-            val manga = Injekt.get<GetManga>().awaitFavorites()
+            val manga = get<GetManga>().awaitFavorites()
             val sourceMangas =
                 manga.asSequence().filter { it.source == item.source.id }.map { it.id!! }.toList()
             withContext(Dispatchers.Main) {
                 PreMigrationController.navigateToMigration(
-                    Injekt.get<PreferencesHelper>().skipPreMigration().get(),
+                    get<PreferencesHelper>().skipPreMigration().get(),
                     router,
                     sourceMangas,
                 )

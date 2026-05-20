@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.database.models
 
+import yokai.util.koin.get
 import android.content.Context
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -19,9 +20,7 @@ import eu.kanade.tachiyomi.util.manga.MangaCoverMetadata
 import eu.kanade.tachiyomi.util.system.withIOContext
 import hayai.novel.source.TextSource
 import java.util.Locale
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.data.updateStrategyAdapter
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.UpdateManga
@@ -60,7 +59,7 @@ fun Manga.seriesType(context: Context, sourceManager: SourceManager? = null): St
  * The type of comic the manga is (ie. manga, manhwa, manhua)
  */
 fun Manga.seriesType(useOriginalTags: Boolean = false, customTags: String? = null, sourceManager: SourceManager? = null): Int {
-    val source = (sourceManager ?: Injekt.get()).getOrStub(this.source)
+    val source = (sourceManager ?: get()).getOrStub(this.source)
     if (source is TextSource) {
         return TYPE_NOVEL
     }
@@ -105,7 +104,7 @@ fun Manga.isNovel(sourceManager: SourceManager? = null): Boolean {
  * read types
  */
 fun Manga.defaultReaderType(): Int {
-    val sourceName = Injekt.get<SourceManager>().getOrStub(source).name
+    val sourceName = get<SourceManager>().getOrStub(source).name
     val currentTags = genre?.split(",")?.map { it.trim().lowercase(Locale.US) } ?: emptyList()
     return if (currentTags.any {
                 tag -> isManhwaTag(tag) || tag.contains("webtoon")
@@ -244,7 +243,7 @@ fun Manga.Companion.mapper(
     this.cover_last_modified = coverLastModified
 }
 
-fun Manga.hasCustomCover(coverCache: CoverCache = Injekt.get()): Boolean {
+fun Manga.hasCustomCover(coverCache: CoverCache = get()): Boolean {
     return coverCache.getCustomCoverFile(this).exists()
 }
 
@@ -274,18 +273,18 @@ fun Manga.prepareCoverUpdate(coverCache: CoverCache, remoteManga: SManga, refres
     }
 }
 
-fun Manga.removeCover(coverCache: CoverCache = Injekt.get(), deleteCustom: Boolean = true) {
+fun Manga.removeCover(coverCache: CoverCache = get(), deleteCustom: Boolean = true) {
     if (isLocal()) return
 
     cover_last_modified = System.currentTimeMillis()
     coverCache.deleteFromCache(this, deleteCustom)
 }
 
-suspend fun Manga.updateCoverLastModified(updateManga: UpdateManga = Injekt.get()) {
+suspend fun Manga.updateCoverLastModified(updateManga: UpdateManga = get()) {
     cover_last_modified = System.currentTimeMillis()
     updateManga.await(MangaUpdate(id = id!!, coverLastModified = cover_last_modified))
 }
 
-suspend fun MangaCover.updateCoverLastModified(updateManga: UpdateManga = Injekt.get()) {
+suspend fun MangaCover.updateCoverLastModified(updateManga: UpdateManga = get()) {
     updateManga.await(MangaUpdate(id = mangaId!!, coverLastModified = System.currentTimeMillis()))
 }

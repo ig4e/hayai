@@ -1,5 +1,6 @@
 package yokai.presentation.theme
 
+import yokai.util.koin.get
 import android.animation.ValueAnimator
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -14,8 +15,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import kotlinx.coroutines.flow.Flow
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Single source of truth for the user's "Reduce motion" preference (Appearance → Motion).
@@ -28,7 +27,7 @@ import uy.kohesive.injekt.api.get
  * here so the lookup stays consistent and the preference key isn't sprinkled across the codebase.
  */
 object ReducedMotion {
-    private val preferences: PreferencesHelper by lazy { Injekt.get() }
+    private val preferences: PreferencesHelper by lazy { get() }
     private val pref get() = preferences.reducedMotion()
 
     /** Synchronous read suitable for any thread. */

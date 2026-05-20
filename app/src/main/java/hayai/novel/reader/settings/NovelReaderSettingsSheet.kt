@@ -1,5 +1,6 @@
 package hayai.novel.reader.settings
 
+import yokai.util.koin.get
 import android.content.Intent
 import android.speech.tts.TextToSpeech
 import android.view.ViewGroup
@@ -69,8 +70,6 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.SliderPreferenceWidget
@@ -891,7 +890,7 @@ private fun ColorPickerDialog(
  * frame. Removes itself from the view hierarchy on dismissal so subsequent shows start fresh.
  */
 fun showNovelReaderSettingsSheet(activity: ReaderActivity) {
-    val preferences: ReaderPreferences = Injekt.get()
+    val preferences: ReaderPreferences = get()
     val rootView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
     val composeView = ComposeView(activity)
     composeView.setContent {

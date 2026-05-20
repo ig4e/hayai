@@ -48,7 +48,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.i18n.MR
 import yokai.util.lang.getString
 

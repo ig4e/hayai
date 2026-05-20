@@ -13,7 +13,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.reader.settings.ReaderBackgroundColor
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import android.graphics.Color as AColor
 
 object ThemeUtil {

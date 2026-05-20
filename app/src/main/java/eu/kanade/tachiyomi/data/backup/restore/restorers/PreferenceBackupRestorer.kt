@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
+import yokai.util.koin.get
 import android.content.Context
 import eu.kanade.tachiyomi.core.preference.AndroidPreferenceStore
 import eu.kanade.tachiyomi.core.preference.PreferenceStore
@@ -18,14 +19,12 @@ import eu.kanade.tachiyomi.data.preference.PreferenceKeys
 import eu.kanade.tachiyomi.extension.ExtensionUpdateJob
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.ui.library.LibrarySort
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.base.BasePreferences
 import yokai.domain.ui.settings.ReaderPreferences
 
 class PreferenceBackupRestorer(
     private val context: Context,
-    private val preferenceStore: PreferenceStore = Injekt.get(),
+    private val preferenceStore: PreferenceStore = get(),
 ) {
     fun restoreAppPreferences(preferences: List<BackupPreference>, onComplete: () -> Unit) {
         restorePreferences(preferences, preferenceStore)

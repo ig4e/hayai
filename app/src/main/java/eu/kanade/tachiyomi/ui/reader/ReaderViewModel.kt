@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader
 
+import yokai.util.koin.get
 import android.app.Application
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -72,9 +73,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.InsertChapter
@@ -98,14 +97,14 @@ import yokai.util.lang.getString
  */
 class ReaderViewModel(
     private val savedState: SavedStateHandle = SavedStateHandle(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val downloadManager: DownloadManager = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
-    private val preferences: PreferencesHelper = Injekt.get(),
-    private val chapterFilter: ChapterFilter = Injekt.get(),
-    private val storageManager: StorageManager = Injekt.get(),
-    private val downloadPreferences: DownloadPreferences = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    private val sourceManager: SourceManager = get(),
+    private val downloadManager: DownloadManager = get(),
+    private val coverCache: CoverCache = get(),
+    private val preferences: PreferencesHelper = get(),
+    private val chapterFilter: ChapterFilter = get(),
+    private val storageManager: StorageManager = get(),
+    private val downloadPreferences: DownloadPreferences = get(),
+    private val libraryPreferences: LibraryPreferences = get(),
 ) : ViewModel() {
     private val getCategories: GetCategories by injectLazy()
     private val getChapter: GetChapter by injectLazy()
@@ -274,7 +273,7 @@ class ReaderViewModel(
                         eventChannel.send(Event.SourceNotReady(manga.source))
                         return@withIOContext Result.failure(SourceNotReadyException(manga.source))
                     }
-                    val context = Injekt.get<Application>()
+                    val context = get<Application>()
                     loader = ChapterLoader(context, downloadManager, downloadProvider, manga, resolvedSource)
 
                     chapterList = getChapterList()
@@ -344,7 +343,7 @@ class ReaderViewModel(
     // FIXME: Unused at the moment, handles J2K's delegated deep link, refactor or remove later
     suspend fun loadChapterURL(url: Uri) {
         val host = url.host ?: return
-        val context = Injekt.get<Application>()
+        val context = get<Application>()
         val delegatedSource = sourceManager.getDelegatedSource(host) ?: error(
             context.getString(MR.strings.source_not_installed),
         )
@@ -1136,7 +1135,7 @@ class ReaderViewModel(
     private fun saveImage(page: ReaderPage, directory: UniFile, manga: Manga): UniFile {
         val stream = page.stream!!
         val type = ImageUtil.findImageType(stream) ?: throw Exception("Not an image")
-        val context = Injekt.get<Application>()
+        val context = get<Application>()
 
         val chapter = page.chapter.chapter
 
@@ -1171,7 +1170,7 @@ class ReaderViewModel(
         val stream = ImageUtil.mergeBitmaps(imageBitmap, imageBitmap2, isLTR, bg).inputStream()
 
         val chapter = page1.chapter.chapter
-        val context = Injekt.get<Application>()
+        val context = get<Application>()
 
         // Build destination file.
         val filename = DiskUtil.buildValidFilename(
@@ -1195,7 +1194,7 @@ class ReaderViewModel(
     fun saveImage(page: ReaderPage) {
         if (page.status !is Page.State.Ready) return
         val manga = manga ?: return
-        val context = Injekt.get<Application>()
+        val context = get<Application>()
 
         // Pictures directory.
         val baseDir = storageManager.getPagesDirectory() ?: return
@@ -1227,7 +1226,7 @@ class ReaderViewModel(
             if (firstPage.status !is Page.State.Ready) return@launch
             if (secondPage.status !is Page.State.Ready) return@launch
             val manga = manga ?: return@launch
-            val context = Injekt.get<Application>()
+            val context = get<Application>()
 
             // Pictures directory.
             val baseDir = storageManager.getPagesDirectory() ?: return@launch
@@ -1261,7 +1260,7 @@ class ReaderViewModel(
     fun shareImage(page: ReaderPage) {
         if (page.status !is Page.State.Ready) return
         val manga = manga ?: return
-        val context = Injekt.get<Application>()
+        val context = get<Application>()
 
         val destDir = UniFile.fromFile(context.cacheDir)!!.createDirectory("shared_image")!!
 
@@ -1276,7 +1275,7 @@ class ReaderViewModel(
             if (firstPage.status !is Page.State.Ready) return@launch
             if (secondPage.status !is Page.State.Ready) return@launch
             val manga = manga ?: return@launch
-            val context = Injekt.get<Application>()
+            val context = get<Application>()
 
             try {
                 val destDir = UniFile.fromFile(context.cacheDir)!!.findFile("shared_image")!!

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util.manga
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ShortcutInfo
@@ -25,17 +26,15 @@ import eu.kanade.tachiyomi.ui.main.SearchActivity
 import eu.kanade.tachiyomi.ui.recents.RecentsPresenter
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController
 import eu.kanade.tachiyomi.util.system.launchIO
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import kotlin.math.min
 
 class MangaShortcutManager(
-    val preferences: PreferencesHelper = Injekt.get(),
-    val coverCache: CoverCache = Injekt.get(),
-    val sourceManager: SourceManager = Injekt.get(),
+    val preferences: PreferencesHelper = get(),
+    val coverCache: CoverCache = get(),
+    val sourceManager: SourceManager = get(),
 ) {
 
     fun updateShortcuts(context: Context) {

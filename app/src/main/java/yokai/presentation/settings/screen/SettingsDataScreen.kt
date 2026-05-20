@@ -48,9 +48,8 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import androidx.compose.runtime.remember
+import org.koin.core.context.GlobalContext
 import yokai.domain.backup.BackupPreferences
 import yokai.domain.storage.StorageManager
 import yokai.domain.storage.StoragePreferences
@@ -87,8 +86,8 @@ object SettingsDataScreen : ComposableSettings() {
 
     @Composable
     override fun getPreferences(): List<Preference> {
-        val storagePreferences: StoragePreferences by injectLazy()
-        val backupPreferences: BackupPreferences by injectLazy()
+        val storagePreferences = remember { GlobalContext.get().get<StoragePreferences>() }
+        val backupPreferences = remember { GlobalContext.get().get<BackupPreferences>() }
 
         return persistentListOf(
             getStorageLocationPreference(storagePreferences = storagePreferences),
@@ -120,8 +119,8 @@ object SettingsDataScreen : ComposableSettings() {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
         val alertDialog = LocalDialogHostState.currentOrThrow
-        val extensionManager = remember { Injekt.get<ExtensionManager>() }
-        val storageManager = remember { Injekt.get<StorageManager>() }
+        val extensionManager = remember { GlobalContext.get().get<ExtensionManager>() }
+        val storageManager = remember { GlobalContext.get().get<StorageManager>() }
 
         val chooseBackup = rememberLauncherForActivityResult(
             object : ActivityResultContracts.GetContent() {
@@ -255,10 +254,10 @@ object SettingsDataScreen : ComposableSettings() {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         // TODO
-        // val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
-
-        val coverCache = remember { Injekt.get<CoverCache>() }
-        val chapterCache = remember { Injekt.get<ChapterCache>() }
+        // val libraryPreferences = remember { GlobalContext.get().get<LibraryPreferences>() }
+ 
+        val coverCache = remember { GlobalContext.get().get<CoverCache>() }
+        val chapterCache = remember { GlobalContext.get().get<ChapterCache>() }
         var cacheReadableSizeSema by remember { mutableIntStateOf(0) }
         val cacheReadableSize = remember(cacheReadableSizeSema) { chapterCache.readableSize }
 

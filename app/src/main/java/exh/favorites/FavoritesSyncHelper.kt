@@ -27,9 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import okhttp3.FormBody
 import okhttp3.Request
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.category.interactor.InsertCategories
 import yokai.domain.category.interactor.UpdateCategories

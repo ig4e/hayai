@@ -1,11 +1,10 @@
 package eu.kanade.tachiyomi.ui.reader.viewer
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.preference.changesIn
 import kotlinx.coroutines.CoroutineScope
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.settings.ReaderPreferences
 
 /**
@@ -14,7 +13,7 @@ import yokai.domain.ui.settings.ReaderPreferences
 abstract class ViewerConfig(
     preferences: PreferencesHelper,
     protected val scope: CoroutineScope,
-    readerPreferences: ReaderPreferences = Injekt.get(),
+    readerPreferences: ReaderPreferences = get(),
 ) {
 
     var imagePropertyChangedListener: (() -> Unit)? = null

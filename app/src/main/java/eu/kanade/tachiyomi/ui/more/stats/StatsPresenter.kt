@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.more.stats
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -17,9 +18,7 @@ import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
 import eu.kanade.tachiyomi.ui.more.stats.StatsHelper.getReadDuration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.data.DatabaseHandler
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.track.interactor.GetTrack
@@ -30,10 +29,10 @@ import yokai.util.lang.getString
  * Presenter of [StatsController].
  */
 class StatsPresenter(
-    private val prefs: PreferencesHelper = Injekt.get(),
-    private val trackManager: TrackManager = Injekt.get(),
-    private val downloadManager: DownloadManager = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
+    private val prefs: PreferencesHelper = get(),
+    private val trackManager: TrackManager = get(),
+    private val downloadManager: DownloadManager = get(),
+    private val sourceManager: SourceManager = get(),
 ): BaseCoroutinePresenter<StatsController>() {
     private val handler: DatabaseHandler by injectLazy()
     private val getLibraryManga: GetLibraryManga by injectLazy()

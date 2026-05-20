@@ -35,7 +35,6 @@ kotlin {
                 // Dependency injection
                 api(project.dependencies.platform(libs.koin.bom))
                 api(libs.koin.core)
-                api(libs.koin.injekt)
 
                 // Network client
                 api(libs.okhttp)

@@ -1,13 +1,12 @@
 package yokai.util
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.*
 
 fun Manga.isLewd(): Boolean {
-    val sourceName = Injekt.get<SourceManager>().get(source)?.name
+    val sourceName = get<SourceManager>().get(source)?.name
     val tags = genre?.split(",")?.map { it.trim().lowercase(Locale.US) } ?: emptyList()
 
     if (!tags.none { it.isNonHentai() }) return false

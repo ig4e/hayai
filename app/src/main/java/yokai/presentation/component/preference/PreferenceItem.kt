@@ -1,5 +1,6 @@
 package yokai.presentation.component.preference
 
+import yokai.util.koin.get
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -18,8 +19,6 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.track.TrackPreferences
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.presentation.component.preference.widget.EditTextPreferenceWidget
 import yokai.presentation.component.preference.widget.InfoWidget
 import yokai.presentation.component.preference.widget.ListPreferenceWidget
@@ -159,7 +158,7 @@ internal fun PreferenceItem(
                 )
             }
             is Preference.PreferenceItem.TrackerPreference -> {
-                val uName by Injekt.get<TrackPreferences>()
+                val uName by get<TrackPreferences>()
                     .trackUsername(item.tracker)
                     .collectAsState()
                 item.tracker.run {

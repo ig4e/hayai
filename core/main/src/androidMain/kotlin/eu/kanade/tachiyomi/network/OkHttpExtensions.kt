@@ -17,8 +17,7 @@ import okhttp3.Response
 import rx.Observable
 import rx.Producer
 import rx.Subscription
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import org.koin.core.context.GlobalContext
 
 val jsonMime = "application/json; charset=utf-8".toMediaType()
 
@@ -132,7 +131,7 @@ fun OkHttpClient.newCachelessCallWithProgress(request: Request, listener: Progre
 }
 
 inline fun <reified T> Response.parseAs(): T {
-    return Injekt.get<Json>().decodeFromJsonResponse(serializer(), this)
+    return GlobalContext.get().get<Json>().decodeFromJsonResponse(serializer(), this)
 }
 
 fun <T> Json.decodeFromJsonResponse(

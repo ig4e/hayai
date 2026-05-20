@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.download
 
+import yokai.util.koin.get
 import android.app.Application
 import android.content.Context
 import android.net.Uri
@@ -45,8 +46,6 @@ import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.protobuf.ProtoBuf
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.storage.StorageManager
 
 /**
@@ -62,9 +61,9 @@ import yokai.domain.storage.StorageManager
  */
 class DownloadCache(
     private val context: Context,
-    private val provider: DownloadProvider = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val storageManager: StorageManager = Injekt.get(),
+    private val provider: DownloadProvider = get(),
+    private val sourceManager: SourceManager = get(),
+    private val storageManager: StorageManager = get(),
 ) {
 
     val scope = CoroutineScope(Dispatchers.IO)
@@ -464,7 +463,7 @@ private object UniFileAsStringSerializer : KSerializer<UniFile?> {
 
     override fun deserialize(decoder: Decoder): UniFile? {
         return if (decoder.decodeNotNullMark()) {
-            UniFile.fromUri(Injekt.get<Application>(), Uri.parse(decoder.decodeString()))
+            UniFile.fromUri(get<Application>(), Uri.parse(decoder.decodeString()))
         } else {
             decoder.decodeNull()
         }

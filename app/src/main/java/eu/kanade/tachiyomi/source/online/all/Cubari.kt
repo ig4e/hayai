@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.source.online.all
 
+import yokai.util.koin.get
 import android.net.Uri
 import eu.kanade.tachiyomi.data.database.models.toChapter
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -11,8 +12,6 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.i18n.MR
@@ -21,8 +20,8 @@ import yokai.util.lang.getString
 class Cubari(delegate: HttpSource) :
     DelegatedHttpSource(delegate) {
 
-    private val getManga: GetManga = Injekt.get()
-    private val getChapter: GetChapter = Injekt.get()
+    private val getManga: GetManga = get()
+    private val getChapter: GetChapter = get()
 
     override val lang = "all"
 
@@ -54,7 +53,7 @@ class Cubari(delegate: HttpSource) :
             }
             val manga = deferredManga.await()
             val chapters = deferredChapters.await()
-            val context = Injekt.get<PreferencesHelper>().context
+            val context = get<PreferencesHelper>().context
             val trueChapter = findChapter(chapters, cubariType, chapterNumber)?.toChapter()
                 ?: error(
                     context.getString(MR.strings.chapter_not_found),

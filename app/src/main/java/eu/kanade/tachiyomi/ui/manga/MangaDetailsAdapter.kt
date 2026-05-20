@@ -15,7 +15,7 @@ import eu.kanade.tachiyomi.ui.manga.chapter.BaseChapterAdapter
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.system.isLTR
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 

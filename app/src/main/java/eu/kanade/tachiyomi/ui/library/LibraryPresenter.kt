@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.core.preference.minusAssign
 import eu.kanade.tachiyomi.core.preference.plusAssign
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -65,9 +66,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.retry
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.category.interactor.SetMangaCategories
 import yokai.domain.category.interactor.UpdateCategories
@@ -93,14 +92,14 @@ typealias LibraryMutableMap = MutableMap<Category, List<LibraryItem>>
  * Presenter of [LibraryController].
  */
 class LibraryPresenter(
-    private val preferences: PreferencesHelper = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
-    val sourceManager: SourceManager = Injekt.get(),
-    private val downloadCache: DownloadCache = Injekt.get(),
-    private val downloadManager: DownloadManager = Injekt.get(),
-    private val chapterFilter: ChapterFilter = Injekt.get(),
-    private val trackManager: TrackManager = Injekt.get(),
+    private val preferences: PreferencesHelper = get(),
+    private val libraryPreferences: LibraryPreferences = get(),
+    private val coverCache: CoverCache = get(),
+    val sourceManager: SourceManager = get(),
+    private val downloadCache: DownloadCache = get(),
+    private val downloadManager: DownloadManager = get(),
+    private val chapterFilter: ChapterFilter = get(),
+    private val trackManager: TrackManager = get(),
 ) : BaseCoroutinePresenter<LibraryController>() {
     private val getCategories: GetCategories by injectLazy()
     private val setMangaCategories: SetMangaCategories by injectLazy()
@@ -1683,9 +1682,9 @@ class LibraryPresenter(
 
         /** Give library manga to a date added based on min chapter fetch */
         suspend fun updateDB(
-            getChapter: GetChapter = Injekt.get(),
-            getLibraryManga: GetLibraryManga = Injekt.get(),
-            updateManga: UpdateManga = Injekt.get(),
+            getChapter: GetChapter = get(),
+            getLibraryManga: GetLibraryManga = get(),
+            updateManga: UpdateManga = get(),
         ) {
             val libraryManga = getLibraryManga.await()
             libraryManga.forEach { manga ->
@@ -1699,7 +1698,7 @@ class LibraryPresenter(
         }
 
         suspend fun updateRatiosAndColors(
-            getManga: GetManga = Injekt.get(),
+            getManga: GetManga = get(),
         ) {
             val libraryManga = getManga.awaitFavorites()
             libraryManga.forEach { manga ->
@@ -1709,8 +1708,8 @@ class LibraryPresenter(
         }
 
         suspend fun updateCustoms(
-            cc: CoverCache = Injekt.get(),
-            updateManga: UpdateManga = Injekt.get(),
+            cc: CoverCache = get(),
+            updateManga: UpdateManga = get(),
         ) {
             val getLibraryManga: GetLibraryManga by injectLazy()
             val libraryManga = getLibraryManga.await()

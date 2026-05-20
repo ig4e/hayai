@@ -23,7 +23,7 @@ import eu.kanade.tachiyomi.ui.setting.triStateListPreference
 import eu.kanade.tachiyomi.util.lang.addBetaTag
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.runBlocking
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.download.DownloadPreferences
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys

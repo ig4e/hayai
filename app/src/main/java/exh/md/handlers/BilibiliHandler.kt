@@ -21,7 +21,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import rx.Observable
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.util.lang.runAsObservable
 
 class BilibiliHandler(currentClient: OkHttpClient) {

@@ -71,11 +71,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.conscrypt.Conscrypt
+import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 import org.koin.core.context.GlobalContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import org.koin.core.component.get
+import org.koin.core.logger.Level
 import yokai.core.CrashlyticsLogWriter
 import yokai.core.RollingUniFileLogWriter
 import yokai.presentation.theme.ReducedMotion
@@ -96,12 +99,12 @@ import yokai.domain.storage.StorageManager
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
-open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, Configuration.Provider {
+open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, Configuration.Provider, KoinComponent {
 
-    val preferences: PreferencesHelper by injectLazy()
-    val basePreferences: BasePreferences by injectLazy()
-    val networkPreferences: NetworkPreferences by injectLazy()
-    private val storageManager: StorageManager by injectLazy()
+    val preferences: PreferencesHelper by inject()
+    val basePreferences: BasePreferences by inject()
+    val networkPreferences: NetworkPreferences by inject()
+    private val storageManager: StorageManager by inject()
 
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 
@@ -123,6 +126,8 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         // ── 2. DI ─────────────────────────────────────────────────────────────────────────
         // Koin modules registered first so injectLazy() in everything below resolves.
         startKoin {
+            androidLogger(if (BuildConfig.DEBUG) Level.ERROR else Level.NONE)
+            androidContext(this@App)
             modules(
                 preferenceModule(this@App),
                 appModule(this@App),
@@ -142,7 +147,7 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         // EXH -->
         // Schedule EHentai gallery update worker if enabled
         // This will be wired when EHentaiUpdateWorkerConstants is available:
-        // if (Injekt.get<ExhPreferences>().autoUpdateFrequency().get() > 0) {
+        // if (get<ExhPreferences>().autoUpdateFrequency().get() > 0) {
         //     EHentaiUpdateWorker.scheduleBackground(this)
         // }
         // EXH <--
@@ -272,7 +277,7 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
     }
 
     private fun initializeMigrator() {
-        val preferenceStore = Injekt.get<PreferenceStore>()
+        val preferenceStore = get<PreferenceStore>()
 
         val preference = preferenceStore.getInt(
             Preference.appStateKey("last_version_code"),
@@ -358,7 +363,7 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
     // WorkManager lazy-init via Configuration.Provider. The manifest entry that disables
     // androidx.work.WorkManagerInitializer makes WorkManager wait for this configuration,
     // which is only requested after Application.onCreate completes — by which point Koin
-    // is started and worker dependencies (Injekt.get()) can resolve.
+    // is started and worker dependencies can resolve.
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.INFO)
@@ -366,7 +371,7 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
         return ImageLoader.Builder(this@App).apply {
-            val callFactoryLazy = lazy { Injekt.get<NetworkHelper>().client }
+            val callFactoryLazy = lazy { get<NetworkHelper>().client }
             components {
                 // Android 9 (P) and above has native support for these via ImageDecoder
                 if (Build.VERSION.SDK_INT >= 28) {
@@ -411,7 +416,7 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
 }
 
 fun buildLogWritersToAdd(logPath: UniFile?): List<LogWriter> {
-    val networkPreferences: NetworkPreferences = Injekt.get()
+    val networkPreferences: NetworkPreferences = GlobalContext.get().get()
     return buildLogWritersToAdd(logPath, networkPreferences.verboseLogging().get())
 }
 

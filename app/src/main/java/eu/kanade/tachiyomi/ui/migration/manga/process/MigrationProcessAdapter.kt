@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.migration.manga.process
 
+import yokai.util.koin.get
 import android.view.MenuItem
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -18,9 +19,7 @@ import java.util.Date
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.category.interactor.SetMangaCategories
 import yokai.domain.chapter.interactor.GetChapter
@@ -53,7 +52,7 @@ class MigrationProcessAdapter(
     var showOutline = uiPreferences.outlineOnCovers().get()
     val menuItemListener: MigrationProcessInterface = controller
 
-    private val enhancedServices by lazy { Injekt.get<TrackManager>().services.filterIsInstance<EnhancedTrackService>() }
+    private val enhancedServices by lazy { get<TrackManager>().services.filterIsInstance<EnhancedTrackService>() }
 
     override fun updateDataSet(items: List<MigrationProcessItem>?) {
         this.items = items ?: emptyList()
@@ -170,10 +169,10 @@ class MigrationProcessAdapter(
         ) {
             // Update chapters read
             if (MigrationFlags.hasChapters(flags)) {
-                val getChapter: GetChapter = Injekt.get()
-                val updateChapter: UpdateChapter = Injekt.get()
-                val getHistory: GetHistory = Injekt.get()
-                val upsertHistory: UpsertHistory = Injekt.get()
+                val getChapter: GetChapter = get()
+                val updateChapter: UpdateChapter = get()
+                val getHistory: GetHistory = get()
+                val upsertHistory: UpsertHistory = get()
 
                 val prevMangaChapters = getChapter.awaitAll(prevManga, false)
                 val maxChapterRead = prevMangaChapters.filter { it.read }.maxOfOrNull { it.chapter_number } ?: 0f
@@ -217,13 +216,13 @@ class MigrationProcessAdapter(
             }
             // Update categories
             if (MigrationFlags.hasCategories(flags)) {
-                val categories = Injekt.get<GetCategories>().awaitByMangaId(prevManga.id)
-                Injekt.get<SetMangaCategories>().await(manga.id, categories.mapNotNull { it.id?.toLong() })
+                val categories = get<GetCategories>().awaitByMangaId(prevManga.id)
+                get<SetMangaCategories>().await(manga.id, categories.mapNotNull { it.id?.toLong() })
             }
             // Update track
             if (MigrationFlags.hasTracks(flags)) {
                 val tracksToUpdate =
-                    Injekt.get<GetTrack>().awaitAllByMangaId(prevManga.id).mapNotNull { track ->
+                    get<GetTrack>().awaitAllByMangaId(prevManga.id).mapNotNull { track ->
                         track.id = null
                         track.manga_id = manga.id!!
 
@@ -235,9 +234,9 @@ class MigrationProcessAdapter(
                             track
                         }
                     }
-                Injekt.get<InsertTrack>().awaitBulk(tracksToUpdate)
+                get<InsertTrack>().awaitBulk(tracksToUpdate)
             }
-            val updateManga: UpdateManga = Injekt.get()
+            val updateManga: UpdateManga = get()
             // Update favorite status
             if (replace) {
                 prevManga.favorite = false

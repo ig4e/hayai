@@ -28,13 +28,14 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import yokai.i18n.MR
 import yokai.presentation.theme.Size
 
-internal class LibraryDisplayStep : OnboardingStep {
+internal class LibraryDisplayStep : OnboardingStep, KoinComponent {
 
-    private val preferences: PreferencesHelper by injectLazy()
+    private val preferences: PreferencesHelper by inject()
 
     override val isComplete: Boolean = true
 

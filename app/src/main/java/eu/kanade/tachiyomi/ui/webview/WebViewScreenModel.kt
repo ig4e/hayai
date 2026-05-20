@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.webview
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.Intent
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -11,16 +12,14 @@ import eu.kanade.tachiyomi.util.system.extensionIntentForText
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.presentation.StatsScreenState
 import yokai.util.lang.getString
 
 class WebViewScreenModel(
     val sourceId: Long?,
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val network: NetworkHelper = Injekt.get(),
+    private val sourceManager: SourceManager = get(),
+    private val network: NetworkHelper = get(),
 ) : StateScreenModel<StatsScreenState>(StatsScreenState.Loading) {
 
     var headers = emptyMap<String, String>()

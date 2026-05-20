@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.download
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -25,8 +26,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.map
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -36,8 +35,8 @@ import yokai.util.lang.getString
  */
 class DownloadJob(val context: Context, workerParams: WorkerParameters) : CoroutineWorker(context, workerParams) {
 
-    private val downloadManager: DownloadManager = Injekt.get()
-    private val preferences: PreferencesHelper = Injekt.get()
+    private val downloadManager: DownloadManager = get()
+    private val preferences: PreferencesHelper = get()
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val firstDL = downloadManager.queueState.value.firstOrNull()

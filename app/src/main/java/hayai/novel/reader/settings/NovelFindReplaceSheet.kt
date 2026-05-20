@@ -1,5 +1,6 @@
 package hayai.novel.reader.settings
 
+import yokai.util.koin.get
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,8 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.presentation.theme.YokaiTheme
 
@@ -54,7 +53,7 @@ fun NovelFindReplaceSheet(
 }
 
 fun showNovelFindReplaceSheet(activity: ReaderActivity) {
-    val preferences: ReaderPreferences = Injekt.get()
+    val preferences: ReaderPreferences = get()
     val rootView = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
     val composeView = ComposeView(activity)
     composeView.setContent {

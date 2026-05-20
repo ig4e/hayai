@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.data.track.anilist
 
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 fun Track.toApiStatus() = when (status) {
     Anilist.READING -> "CURRENT"

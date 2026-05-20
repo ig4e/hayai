@@ -1,5 +1,6 @@
 package exh.ui.batchadd
 
+import yokai.util.koin.get
 import android.content.Context
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
@@ -13,11 +14,9 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 class BatchAddScreenModel(
-    private val exhPreferences: ExhPreferences = Injekt.get(),
+    private val exhPreferences: ExhPreferences = get(),
 ) : StateScreenModel<BatchAddState>(BatchAddState()) {
     private val galleryAdder by lazy { GalleryAdder() }
 

@@ -8,8 +8,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.pref.DelegateSourcePreferences
 import okhttp3.Response
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import org.koin.core.context.GlobalContext
 
 @Suppress("OverridingDeprecatedMember", "DEPRECATION")
 class EnhancedHttpSource(
@@ -17,7 +16,7 @@ class EnhancedHttpSource(
     val enhancedSource: HttpSource,
 ) : HttpSource() {
 
-    private val delegateSourcePreferences: DelegateSourcePreferences = Injekt.get()
+    private val delegateSourcePreferences: DelegateSourcePreferences = GlobalContext.get().get()
 
     private fun shouldDelegate(): Boolean = delegateSourcePreferences.delegateSources.get()
 

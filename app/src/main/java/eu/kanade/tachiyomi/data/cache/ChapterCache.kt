@@ -20,7 +20,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.Response
 import okio.buffer
 import okio.sink
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.io.File
 import java.io.IOException
 import kotlin.math.pow

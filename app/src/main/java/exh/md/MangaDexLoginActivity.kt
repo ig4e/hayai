@@ -1,5 +1,6 @@
 package exh.md
 
+import yokai.util.koin.get
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -8,8 +9,6 @@ import exh.md.utils.MdUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Activity that handles MangaDex OAuth login callbacks.
@@ -27,7 +26,7 @@ class MangaDexLoginActivity : AppCompatActivity() {
         val code = uri?.getQueryParameter("code")
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val mangaDex = MdUtil.getEnabledMangaDex(Injekt.get<SourceManager>())
+            val mangaDex = MdUtil.getEnabledMangaDex(get<SourceManager>())
             if (code != null && mangaDex != null) {
                 mangaDex.login(code)
             } else if (mangaDex != null) {

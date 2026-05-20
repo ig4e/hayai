@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.migration
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.preference.PreferenceValues
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -12,16 +13,14 @@ import eu.kanade.tachiyomi.util.system.withUIContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.ui.UiPreferences
 
 abstract class BaseMigrationPresenter<T : BaseMigrationInterface>(
-    protected val sourceManager: SourceManager = Injekt.get(),
-    val uiPreferences: UiPreferences = Injekt.get(),
-    val preferences: PreferencesHelper = Injekt.get(),
+    protected val sourceManager: SourceManager = get(),
+    val uiPreferences: UiPreferences = get(),
+    val preferences: PreferencesHelper = get(),
 ) : BaseCoroutinePresenter<T>() {
     private val getManga: GetManga by injectLazy()
 

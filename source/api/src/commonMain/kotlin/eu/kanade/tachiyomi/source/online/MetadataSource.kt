@@ -4,8 +4,7 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.SManga
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.FlatMetadata
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import org.koin.core.context.GlobalContext
 import kotlin.reflect.KClass
 
 /**
@@ -21,9 +20,9 @@ interface MetadataSource<M : RaisedSearchMetadata, I> : CatalogueSource {
     interface GetFlatMetadataById {
         suspend fun await(id: Long): FlatMetadata?
     }
-    val getMangaId: GetMangaId get() = Injekt.get()
-    val insertFlatMetadata: InsertFlatMetadata get() = Injekt.get()
-    val getFlatMetadataById: GetFlatMetadataById get() = Injekt.get()
+    val getMangaId: GetMangaId get() = GlobalContext.get().get()
+    val insertFlatMetadata: InsertFlatMetadata get() = GlobalContext.get().get()
+    val getFlatMetadataById: GetFlatMetadataById get() = GlobalContext.get().get()
 
     /**
      * The class of the metadata used by this source

@@ -1,5 +1,6 @@
 package exh.ui.pagepreview.components
 
+import yokai.util.koin.get
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,8 +47,6 @@ import exh.source.getMainSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.i18n.MR
@@ -81,9 +80,9 @@ fun PagePreviewInlineSection(
     LaunchedEffect(mangaId) {
         withContext(Dispatchers.IO) {
             try {
-                val getManga: GetManga = Injekt.get()
-                val getChapter: GetChapter = Injekt.get()
-                val sourceManager: SourceManager = Injekt.get()
+                val getManga: GetManga = get()
+                val getChapter: GetChapter = get()
+                val sourceManager: SourceManager = get()
 
                 val manga = getManga.awaitById(mangaId) ?: run {
                     state = PreviewState.Unavailable; return@withContext

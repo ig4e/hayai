@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.preference
 
+import yokai.util.koin.get
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -7,18 +8,16 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import eu.kanade.tachiyomi.ui.library.LibraryPresenter
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 class DelayedLibrarySuggestionsJob(context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val preferences = Injekt.get<PreferencesHelper>()
+        val preferences = get<PreferencesHelper>()
         if (!preferences.showLibrarySearchSuggestions().isSet()) {
             preferences.showLibrarySearchSuggestions().set(true)
-            LibraryPresenter.setSearchSuggestion(preferences, Injekt.get(), Injekt.get())
+            LibraryPresenter.setSearchSuggestion(preferences, get(), get())
         }
         return Result.success()
     }

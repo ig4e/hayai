@@ -1,5 +1,6 @@
 package exh.favorites
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.online.all.EHentai
@@ -12,8 +13,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.manga.EhFavoritesRepository
 import yokai.domain.manga.interactor.GetManga
@@ -33,9 +32,9 @@ data class FavoriteEntry(
 }
 
 class LocalFavoritesStorage(
-    private val getManga: GetManga = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val ehFavoritesRepository: EhFavoritesRepository = Injekt.get(),
+    private val getManga: GetManga = get(),
+    private val getCategories: GetCategories = get(),
+    private val ehFavoritesRepository: EhFavoritesRepository = get(),
 ) {
 
     suspend fun getChangedDbEntries() = getManga.awaitFavorites()

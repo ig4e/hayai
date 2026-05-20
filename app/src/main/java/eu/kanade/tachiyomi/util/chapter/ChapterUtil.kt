@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util.chapter
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.res.ColorStateList
 import android.widget.TextView
@@ -22,8 +23,6 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -190,7 +189,7 @@ class ChapterUtil {
 
         @Composable
         fun Chapter.preferredChapterName(manga: Manga): String {
-            val preferences: PreferencesHelper = Injekt.get()
+            val preferences: PreferencesHelper = get()
             val context = LocalContext.current
             return preferredChapterName(context, manga, preferences)
         }

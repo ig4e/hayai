@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
+import yokai.util.koin.get
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.InsetDrawable
 import android.view.Menu
@@ -35,8 +36,6 @@ import eu.kanade.tachiyomi.widget.preference.SwitchPreferenceCategory
 // NOVEL -->
 import hayai.novel.source.NovelSource
 // NOVEL <--
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.TreeMap
 
 class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInterface {
@@ -47,7 +46,7 @@ class SettingsSourcesController : SettingsLegacyController(), FloatingSearchInte
     // Catalogue (not just HttpSource) so novel TextSource entries are included alongside
     // manga extension sources. Both implement CatalogueSource and share the per-language
     // grouping / hide-source preference contract.
-    private val catalogueSources by lazy { Injekt.get<SourceManager>().getVisibleCatalogueSources() }
+    private val catalogueSources by lazy { get<SourceManager>().getVisibleCatalogueSources() }
 
     private var query = ""
 

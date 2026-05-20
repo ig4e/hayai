@@ -13,7 +13,7 @@ import exh.source.ExhPreferences
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.util.Locale
 
 class EHConfigurator(val context: Context) {

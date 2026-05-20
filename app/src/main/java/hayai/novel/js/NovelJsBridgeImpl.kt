@@ -1,5 +1,6 @@
 package hayai.novel.js
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
@@ -13,8 +14,6 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.nio.charset.Charset
 
 /**
@@ -25,7 +24,7 @@ class NovelJsBridgeImpl(
     private val context: Context,
 ) : NovelJsBridge {
 
-    private val networkHelper: NetworkHelper = Injekt.get()
+    private val networkHelper: NetworkHelper = get()
     private val client get() = networkHelper.client
     private val json = Json { ignoreUnknownKeys = true }
 

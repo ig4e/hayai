@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import yokai.domain.manga.interactor.GetLibraryManga
 import eu.kanade.tachiyomi.domain.manga.models.Manga
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.io.Serializable
 import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration.Companion.milliseconds

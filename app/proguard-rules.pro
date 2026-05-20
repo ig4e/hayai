@@ -1,13 +1,16 @@
 -dontobfuscate
 
-# Keep generic type signatures required by Injekt (FullTypeReference uses Signature attribute)
+# Keep generic type signatures (required by Koin reified types and by the
+# Injekt bridge classes that installed extensions still link against).
 -keepattributes Signature
 
-# Keep all anonymous FullTypeReference subclasses so R8 cannot remove them.
-# Injekt.get<T>() creates `object : FullTypeReference<T>() {}` at every call site;
-# if R8 removes those anonymous classes the Signature attribute is gone and
-# FullTypeReference.<init> throws IllegalArgumentException at runtime.
+# Installed extensions are compiled against `source/api`, which exposes the
+# koin-injekt bridge under the `uy.kohesive.injekt.*` package. The main app no
+# longer references those classes directly, so R8 would strip them; keep both
+# the bridge surface and any `FullTypeReference` anonymous subclasses that
+# extensions create at `Injekt.get<T>()` call sites.
 -keep class ** extends uy.kohesive.injekt.api.FullTypeReference { *; }
+-keep,allowoptimization class uy.kohesive.injekt.** { public protected *; }
 
 -keep,allowoptimization class eu.kanade.**
 -keep,allowoptimization class tachiyomi.**
@@ -26,7 +29,6 @@
 -keep,allowoptimization class org.jsoup.** { public protected *; }
 -keep,allowoptimization class com.google.gson.** { public protected *; }
 -keep,allowoptimization class com.dokar.quickjs.** { public protected *; }
--keep,allowoptimization class uy.kohesive.injekt.** { public protected *; }
 -keep,allowoptimization class org.koin.** { public protected *; }
 -keep,allowoptimization class eu.davidea.flexibleadapter.** { public protected *; }
 -keep class io.requery.android.database.** { public protected *; }

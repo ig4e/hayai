@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.appwidget
 
+import yokai.util.koin.get
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
@@ -42,9 +43,7 @@ import java.util.Date
 import kotlin.math.min
 import kotlin.math.roundToLong
 import kotlinx.coroutines.MainScope
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.models.cover
 import yokai.domain.recents.interactor.GetRecents
 
@@ -69,7 +68,7 @@ class UpdatesGridGlanceWidget : GlanceAppWidget() {
     }
 
     // FIXME: Don't depends on RecentsPresenter
-    private suspend fun getUpdates(customAmount: Int = 0, getRecents: GetRecents = Injekt.get()): List<Pair<Manga, Long>> {
+    private suspend fun getUpdates(customAmount: Int = 0, getRecents: GetRecents = get()): List<Pair<Manga, Long>> {
         return getRecents
             .awaitUpdates(
                 limit = when {

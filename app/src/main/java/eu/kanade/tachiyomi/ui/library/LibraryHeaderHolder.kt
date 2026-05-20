@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library
 
+import yokai.util.koin.get
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Color
@@ -34,8 +35,6 @@ import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.util.view.setText
 import eu.kanade.tachiyomi.util.view.text
 import kotlin.random.Random
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.library.LibraryPreferences
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -43,7 +42,7 @@ import yokai.util.lang.getString
 class LibraryHeaderHolder(val view: View, val adapter: LibraryCategoryAdapter) :
     BaseFlexibleViewHolder(view, adapter, true) {
 
-    private val libraryPreferences: LibraryPreferences = Injekt.get()
+    private val libraryPreferences: LibraryPreferences = get()
     private val binding = LibraryCategoryHeaderItemBinding.bind(view)
     val progressDrawableStart = CircularProgressDrawable(itemView.context)
     val progressDrawableEnd = CircularProgressDrawable(itemView.context)
@@ -140,7 +139,7 @@ class LibraryHeaderHolder(val view: View, val adapter: LibraryCategoryAdapter) :
 
     private fun toggleCategory() {
         adapter.libraryListener?.toggleCategoryVisibility(flexibleAdapterPosition)
-        val tutorial = Injekt.get<PreferencesHelper>().shownLongPressCategoryTutorial()
+        val tutorial = get<PreferencesHelper>().shownLongPressCategoryTutorial()
         if (!tutorial.get()) {
             ViewTooltip.on(itemView.context as? Activity, binding.categoryTitle).autoHide(true, 5000L)
                 .align(ViewTooltip.ALIGN.START).position(ViewTooltip.Position.TOP)

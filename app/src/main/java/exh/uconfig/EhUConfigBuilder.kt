@@ -3,7 +3,7 @@ package exh.uconfig
 import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
 import okhttp3.FormBody
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.util.Locale
 
 class EhUConfigBuilder {

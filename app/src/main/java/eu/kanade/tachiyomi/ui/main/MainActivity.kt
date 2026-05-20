@@ -149,7 +149,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.core.migration.Migrator
 import yokai.domain.base.BasePreferences
 import yokai.domain.manga.interactor.GetLibraryManga

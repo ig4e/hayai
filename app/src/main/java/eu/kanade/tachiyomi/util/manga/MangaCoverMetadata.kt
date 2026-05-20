@@ -9,7 +9,7 @@ import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import java.util.concurrent.ConcurrentHashMap
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 /** Object that holds info about a covers size ratio + dominant colors */
 object MangaCoverMetadata {

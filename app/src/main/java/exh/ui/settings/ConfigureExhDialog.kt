@@ -1,5 +1,6 @@
 package exh.ui.settings
 
+import yokai.util.koin.get
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,14 +20,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {
-    val exhPreferences = remember { Injekt.get<ExhPreferences>() }
+    val exhPreferences = remember { get<ExhPreferences>() }
     var warnDialogOpen by remember { mutableStateOf(false) }
     var configureDialogOpen by remember { mutableStateOf(false) }
     var configureFailedDialogOpen by remember { mutableStateOf<Exception?>(null) }

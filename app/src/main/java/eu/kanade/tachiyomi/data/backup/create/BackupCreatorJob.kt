@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.create
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.net.Uri
@@ -27,8 +28,6 @@ import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.tryToSetForeground
 import eu.kanade.tachiyomi.util.system.workManager
 import java.util.concurrent.TimeUnit
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.backup.BackupPreferences
 import yokai.domain.storage.StorageManager
 
@@ -65,7 +64,7 @@ class BackupCreatorJob(private val context: Context, workerParams: WorkerParamet
     }
 
     private fun getAutomaticBackupLocation(): Uri? {
-        val storageManager = Injekt.get<StorageManager>()
+        val storageManager = get<StorageManager>()
         return storageManager.getAutomaticBackupsDirectory()?.uri
     }
 
@@ -89,7 +88,7 @@ class BackupCreatorJob(private val context: Context, workerParams: WorkerParamet
         }
 
         fun setupTask(context: Context, prefInterval: Int? = null) {
-            val preferences = Injekt.get<BackupPreferences>()
+            val preferences = get<BackupPreferences>()
             val interval = prefInterval ?: preferences.backupInterval().get()
             if (interval > 0) {
                 val constraints = Constraints(

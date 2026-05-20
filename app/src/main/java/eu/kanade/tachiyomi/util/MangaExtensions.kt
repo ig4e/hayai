@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util
 
+import yokai.util.koin.get
 import android.app.Activity
 import android.content.Context
 import android.content.DialogInterface
@@ -44,8 +45,6 @@ import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.category.interactor.SetMangaCategories
 import yokai.domain.chapter.interactor.GetChapter
@@ -59,7 +58,7 @@ import android.R as AR
 
 fun Manga.isLocal() = source == LocalSource.ID
 
-suspend fun Manga.shouldDownloadNewChapters(prefs: PreferencesHelper, getCategories: GetCategories = Injekt.get()): Boolean {
+suspend fun Manga.shouldDownloadNewChapters(prefs: PreferencesHelper, getCategories: GetCategories = get()): Boolean {
     if (!favorite) return false
 
     // Boolean to determine if user wants to automatically download new chapters.
@@ -94,7 +93,7 @@ suspend fun Manga.moveCategories(
     addingToLibrary: Boolean,
     onMangaMoved: () -> Unit,
 ) {
-    val getCategories: GetCategories = Injekt.get()
+    val getCategories: GetCategories = get()
     val categories = getCategories.await()
     val categoriesForManga = this.id?.let { mangaId -> getCategories.awaitByMangaId(mangaId) }.orEmpty()
     val ids = categoriesForManga.mapNotNull { it.id }.toTypedArray()
@@ -120,7 +119,7 @@ suspend fun List<Manga>.moveCategories(
 ) {
     if (this.isEmpty()) return
 
-    val getCategories: GetCategories = Injekt.get()
+    val getCategories: GetCategories = get()
     val categories = getCategories.await()
     val mangaCategories = map { manga ->
         manga.id?.let { mangaId -> getCategories.awaitByMangaId(mangaId) }.orEmpty()
@@ -157,10 +156,10 @@ suspend fun Manga.addOrRemoveToFavorites(
     onMangaAdded: (Pair<Long, Boolean>?) -> Unit,
     onMangaMoved: () -> Unit,
     onMangaDeleted: () -> Unit,
-    getCategories: GetCategories = Injekt.get(),
-    setMangaCategories: SetMangaCategories = Injekt.get(),
-    getManga: GetManga = Injekt.get(),
-    updateManga: UpdateManga = Injekt.get(),
+    getCategories: GetCategories = get(),
+    setMangaCategories: SetMangaCategories = get(),
+    getManga: GetManga = get(),
+    updateManga: UpdateManga = get(),
     @OptIn(DelicateCoroutinesApi::class)
     scope: CoroutineScope = GlobalScope,
 ): Snackbar? {
@@ -349,7 +348,7 @@ private suspend fun Manga.showSetCategoriesSheet(
     categories: List<Category>,
     onMangaAdded: (Pair<Long, Boolean>?) -> Unit,
     onMangaMoved: () -> Unit,
-    getCategories: GetCategories = Injekt.get(),
+    getCategories: GetCategories = get(),
 ) {
     val categoriesForManga = getCategories.awaitByMangaId(this.id!!)
     val ids = categoriesForManga.mapNotNull { it.id }.toTypedArray()
@@ -387,13 +386,13 @@ private suspend fun showAddDuplicateDialog(
         val listView = (mDialog as AlertDialog).listView
         val enabled = titles.indices.map { listView.isItemChecked(it) }.toTypedArray()
         val flags = MigrationFlags.getFlagsFromPositions(enabled, libraryManga)
-        val enhancedServices by lazy { Injekt.get<TrackManager>().services.filterIsInstance<EnhancedTrackService>() }
+        val enhancedServices by lazy { get<TrackManager>().services.filterIsInstance<EnhancedTrackService>() }
         scope.launchUI {
             MigrationProcessAdapter.migrateMangaInternal(
                 flags,
                 enhancedServices,
-                Injekt.get(),
-                Injekt.get(),
+                get(),
+                get(),
                 source,
                 sourceManager.getOrStub(newManga.source),
                 libraryManga,
@@ -466,10 +465,10 @@ private suspend fun showAddDuplicateDialog(
 }
 
 fun Manga.autoAddTrack(onMangaMoved: () -> Unit) {
-    val loggedServices = Injekt.get<TrackManager>().services.filter { it.isLogged }
-    val source = Injekt.get<SourceManager>().getOrStub(this.source)
-    val getChapter = Injekt.get<GetChapter>()
-    val insertTrack = Injekt.get<InsertTrack>()
+    val loggedServices = get<TrackManager>().services.filter { it.isLogged }
+    val source = get<SourceManager>().getOrStub(this.source)
+    val getChapter = get<GetChapter>()
+    val insertTrack = get<InsertTrack>()
     loggedServices
         .filterIsInstance<EnhancedTrackService>()
         .filter { it.accept(source) }

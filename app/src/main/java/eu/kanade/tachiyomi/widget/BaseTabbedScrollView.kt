@@ -9,7 +9,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.recents.RecentsController
 import eu.kanade.tachiyomi.util.view.RecyclerWindowInsetsListener
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.recents.RecentsPreferences
 import yokai.domain.ui.UiPreferences
 import yokai.domain.ui.settings.ReaderPreferences

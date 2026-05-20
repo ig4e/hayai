@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.ui.source.globalsearch
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.ui.UiPreferences
 
 /**

@@ -7,7 +7,7 @@ import java.io.IOException
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class MyAnimeListInterceptor(private val myanimelist: MyAnimeList) : Interceptor {
 

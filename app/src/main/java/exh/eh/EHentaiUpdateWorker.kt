@@ -1,5 +1,6 @@
 package exh.eh
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -30,9 +31,7 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.UpdateManga
@@ -273,7 +272,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         }
 
         fun scheduleBackground(context: Context, prefInterval: Int? = null, prefRestrictions: Set<String>? = null) {
-            val exhPreferences = Injekt.get<ExhPreferences>()
+            val exhPreferences = get<ExhPreferences>()
             val interval = prefInterval ?: exhPreferences.exhAutoUpdateFrequency.get()
             if (interval > 0) {
                 val restrictions = prefRestrictions ?: exhPreferences.exhAutoUpdateRequirements.get()

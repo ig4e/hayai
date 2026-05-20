@@ -1,10 +1,11 @@
 package yokai.core.migration
 
-import uy.kohesive.injekt.Injekt
+
+import org.koin.core.context.GlobalContext
 
 class MigrationContext(val dryRun: Boolean) {
 
-    inline fun <reified T> get(): T? {
-        return Injekt.getInstanceOrNull(T::class.java)
+    inline fun <reified T : Any> get(): T? {
+        return GlobalContext.get().getOrNull<T>()
     }
 }

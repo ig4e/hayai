@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.updater
 
+import yokai.util.koin.get
 import android.content.Context
 import android.os.Build
 import androidx.annotation.VisibleForTesting
@@ -14,14 +15,12 @@ import eu.kanade.tachiyomi.util.system.withIOContext
 import java.util.Date
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.base.models.Version
 
 class AppUpdateChecker(
-    private val json: Json = Injekt.get(),
-    private val networkService: NetworkHelper = Injekt.get(),
-    private val preferences: PreferencesHelper = Injekt.get(),
+    private val json: Json = get(),
+    private val networkService: NetworkHelper = get(),
+    private val preferences: PreferencesHelper = get(),
 ) {
 
     suspend fun checkForUpdate(context: Context, isUserPrompt: Boolean = false, doExtrasAfterNewUpdate: Boolean = true): AppUpdateResult {

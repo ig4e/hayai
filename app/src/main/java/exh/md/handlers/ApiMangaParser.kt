@@ -17,7 +17,7 @@ import exh.util.floor
 import exh.util.nullIfEmpty
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.metadata.MangaMetadataRepository
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.util.Locale
 
 class ApiMangaParser(

@@ -49,7 +49,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.json.JSONObject
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.library.LibraryPreferences
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.i18n.MR

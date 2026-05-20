@@ -27,7 +27,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) {
 

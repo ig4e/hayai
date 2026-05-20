@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library.filter
 
+import yokai.util.koin.get
 import android.content.Context
 import android.os.Parcelable
 import android.util.AttributeSet
@@ -46,9 +47,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -413,7 +412,7 @@ class FilterBottomSheet @JvmOverloads constructor(context: Context, attrs: Attri
             }
 
             if (filterItems.contains(tracked)) {
-                val loggedServices = Injekt.get<TrackManager>().services.filter { it.isLogged }
+                val loggedServices = get<TrackManager>().services.filter { it.isLogged }
                 if (loggedServices.size > 1) {
                     val serviceNames = loggedServices.map { context.getString(it.nameRes()) }
                     withUIContext {

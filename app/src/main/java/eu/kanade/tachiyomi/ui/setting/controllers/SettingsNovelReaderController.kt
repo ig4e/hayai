@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
+import yokai.util.koin.get
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.bindTo
@@ -10,8 +11,6 @@ import eu.kanade.tachiyomi.ui.setting.onChange
 import eu.kanade.tachiyomi.ui.setting.preferenceCategory
 import eu.kanade.tachiyomi.ui.setting.seekBarPreference
 import eu.kanade.tachiyomi.ui.setting.switchPreference
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -38,7 +37,7 @@ class SettingsNovelReaderController : SettingsLegacyController() {
 }
 
 fun SettingsLegacyController.populateNovelReaderPreferences(screen: PreferenceScreen) {
-    val readerPreferences: ReaderPreferences = Injekt.get()
+    val readerPreferences: ReaderPreferences = get()
 
     screen.apply {
         preferenceCategory {

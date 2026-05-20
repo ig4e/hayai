@@ -15,9 +15,9 @@ fun novelModule() = module {
     single<NovelRepoRepository> { NovelRepoRepositoryImpl(get()) }
     single<NovelRepoIndexValidator> { NovelRepoIndexValidatorImpl(get()) }
 
-    single { GetNovelRepo(get()) }
-    single { CreateNovelRepo(get(), get()) }
-    single { DeleteNovelRepo(get()) }
+    factory { GetNovelRepo(get()) }
+    factory { CreateNovelRepo(get(), get()) }
+    factory { DeleteNovelRepo(get()) }
 
     single {
         NovelPluginManager(

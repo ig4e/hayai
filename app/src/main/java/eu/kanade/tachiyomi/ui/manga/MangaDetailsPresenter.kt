@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.manga
 
+import yokai.util.koin.get
 import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
@@ -86,9 +87,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetAvailableScanlators
 import yokai.domain.chapter.interactor.GetChapter
@@ -108,12 +107,12 @@ import yokai.util.lang.getString
 
 class MangaDetailsPresenter(
     val mangaId: Long,
-    val sourceManager: SourceManager = Injekt.get(),
-    val preferences: PreferencesHelper = Injekt.get(),
-    val coverCache: CoverCache = Injekt.get(),
-    private val downloadManager: DownloadManager = Injekt.get(),
-    private val chapterFilter: ChapterFilter = Injekt.get(),
-    private val storageManager: StorageManager = Injekt.get(),
+    val sourceManager: SourceManager = get(),
+    val preferences: PreferencesHelper = get(),
+    val coverCache: CoverCache = get(),
+    private val downloadManager: DownloadManager = get(),
+    private val chapterFilter: ChapterFilter = get(),
+    private val storageManager: StorageManager = get(),
 ) : BaseCoroutinePresenter<MangaDetailsController>(),
     DownloadQueue.Listener {
     private val getAvailableScanlators: GetAvailableScanlators by injectLazy()
@@ -148,7 +147,7 @@ class MangaDetailsPresenter(
     var isLoading = false
     var scrollType = 0
 
-    private val loggedServices by lazy { Injekt.get<TrackManager>().services.filter { it.isLogged } }
+    private val loggedServices by lazy { get<TrackManager>().services.filter { it.isLogged } }
     private var tracks = emptyList<Track>()
 
     var trackList: List<TrackItem> = emptyList()
@@ -793,7 +792,7 @@ class MangaDetailsPresenter(
     private fun onUpdateManga() = fetchChapters()
 
     fun shareManga() {
-        val context = Injekt.get<Application>()
+        val context = get<Application>()
 
         val destDir = UniFile.fromFile(context.cacheDir)!!.createDirectory("shared_image")!!
 

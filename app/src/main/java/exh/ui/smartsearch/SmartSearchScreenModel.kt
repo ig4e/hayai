@@ -1,5 +1,6 @@
 package exh.ui.smartsearch
 
+import yokai.util.koin.get
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -9,13 +10,11 @@ import eu.kanade.tachiyomi.source.SourceManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 class SmartSearchScreenModel(
     sourceId: Long,
     private val origTitle: String,
-    sourceManager: SourceManager = Injekt.get(),
+    sourceManager: SourceManager = get(),
 ) : StateScreenModel<SmartSearchScreenModel.SearchResults?>(null) {
 
     private val smartSearchEngine = SmartSearchEngine(

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.track.suwayomi
 
+import yokai.util.koin.get
 import android.app.Application
 import android.content.SharedPreferences
 import eu.kanade.tachiyomi.data.database.models.Track
@@ -19,9 +20,7 @@ import okhttp3.Dns
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.OkHttpClient
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class TachideskApi {
     private val json: Json by injectLazy()
@@ -96,7 +95,7 @@ class TachideskApi {
     }
 
     private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_$tachideskExtensionId", 0x0000)
+        get<Application>().getSharedPreferences("source_$tachideskExtensionId", 0x0000)
     }
 
     companion object {

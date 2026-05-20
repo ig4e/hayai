@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.track
 
+import yokai.util.koin.get
 import android.content.Context
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -14,9 +15,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.track.interactor.GetTrack
 import yokai.domain.track.interactor.InsertTrack
@@ -29,8 +28,8 @@ class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters)
     private val insertTrack: InsertTrack by injectLazy()
 
     override suspend fun doWork(): Result {
-        val preferences = Injekt.get<PreferencesHelper>()
-        val trackManager = Injekt.get<TrackManager>()
+        val preferences = get<PreferencesHelper>()
+        val trackManager = get<TrackManager>()
         val trackings = preferences.trackingsToAddOnline().get().toMutableSet().mapNotNull {
             val items = it.split(":")
             if (items.size != 3) {

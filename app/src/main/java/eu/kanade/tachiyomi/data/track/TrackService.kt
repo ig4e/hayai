@@ -10,7 +10,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.collections.immutable.ImmutableList
 import okhttp3.OkHttpClient
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.manga.interactor.GetManga

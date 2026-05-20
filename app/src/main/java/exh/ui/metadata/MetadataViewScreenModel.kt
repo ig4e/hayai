@@ -1,5 +1,6 @@
 package exh.ui.metadata
 
+import yokai.util.koin.get
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.source.SourceManager
@@ -11,16 +12,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.metadata.MangaMetadataRepository
 
 class MetadataViewScreenModel(
     val mangaId: Long,
     val sourceId: Long,
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val getManga: GetManga = Injekt.get(),
+    private val sourceManager: SourceManager = get(),
+    private val getManga: GetManga = get(),
 ) : StateScreenModel<MetadataViewState>(MetadataViewState.Loading), KoinComponent {
 
     private val metadataRepository: MangaMetadataRepository by inject()

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.create
 
+import yokai.util.koin.get
 import android.content.Context
 import android.net.Uri
 import co.touchlab.kermit.Logger
@@ -22,8 +23,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import okio.buffer
 import okio.gzip
 import okio.sink
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.backup.BackupPreferences
 import yokai.domain.manga.interactor.GetManga
 import yokai.i18n.MR
@@ -35,11 +34,11 @@ class BackupCreator(
     private val mangaBackupCreator: MangaBackupCreator = MangaBackupCreator(),
     private val preferenceBackupCreator: PreferenceBackupCreator = PreferenceBackupCreator(),
     private val sourcesBackupCreator: SourcesBackupCreator = SourcesBackupCreator(),
-    private val getManga: GetManga = Injekt.get(),
+    private val getManga: GetManga = get(),
 ) {
 
     val parser = ProtoBuf
-    private val backupPreferences: BackupPreferences = Injekt.get()
+    private val backupPreferences: BackupPreferences = get()
 
     /**
      * Create backup Json file from database

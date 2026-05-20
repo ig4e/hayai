@@ -37,7 +37,7 @@ import eu.kanade.tachiyomi.util.view.backgroundColor
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.setTextColorAlpha
 import eu.kanade.tachiyomi.widget.StatefulNestedScrollView
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min

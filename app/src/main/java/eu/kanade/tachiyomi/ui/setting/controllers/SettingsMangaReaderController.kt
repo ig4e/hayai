@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
+import yokai.util.koin.get
 import android.content.ComponentName
 import android.content.Intent
 import androidx.preference.PreferenceScreen
@@ -28,8 +29,6 @@ import eu.kanade.tachiyomi.util.lang.addBetaTag
 import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.isTablet
 import eu.kanade.tachiyomi.util.view.activityBinding
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.domain.ui.settings.ReaderPreferences.CutoutBehaviour
 import yokai.domain.ui.settings.ReaderPreferences.LandscapeCutoutBehaviour
@@ -58,7 +57,7 @@ class SettingsMangaReaderController : SettingsLegacyController() {
 }
 
 fun SettingsLegacyController.populateMangaReaderPreferences(screen: PreferenceScreen) {
-    val readerPreferences: ReaderPreferences = Injekt.get()
+    val readerPreferences: ReaderPreferences = get()
 
     screen.apply {
         preferenceCategory {

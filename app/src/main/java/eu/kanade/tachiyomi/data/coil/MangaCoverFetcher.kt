@@ -36,7 +36,7 @@ import okio.Source
 import okio.buffer
 import okio.sink
 import okio.source
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.models.MangaCover
 
 class MangaCoverFetcher(

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.extension
 
+import yokai.util.koin.get
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -34,9 +35,7 @@ import eu.kanade.tachiyomi.util.system.notification
 import eu.kanade.tachiyomi.util.system.toInt
 import kotlinx.coroutines.coroutineScope
 import rikka.shizuku.Shizuku
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.base.BasePreferences
 import yokai.domain.base.BasePreferences.ExtensionInstaller
 import yokai.i18n.MR
@@ -76,7 +75,7 @@ class ExtensionUpdateJob(private val context: Context, workerParams: WorkerParam
                     emptyList()
                 }
             } else {
-                val extManager = Injekt.get<ExtensionManager>()
+                val extManager = get<ExtensionManager>()
                 val isOnA12 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                 extensions.filter {
                     (isOnA12 && extManager.isInstalledByApp(it)) ||
@@ -180,7 +179,7 @@ class ExtensionUpdateJob(private val context: Context, workerParams: WorkerParam
         }
 
         fun setupTask(context: Context, forceAutoUpdateJob: Boolean? = null) {
-            val preferences = Injekt.get<PreferencesHelper>()
+            val preferences = get<PreferencesHelper>()
             val autoUpdateJob = forceAutoUpdateJob ?: preferences.automaticExtUpdates().get()
             WorkManager.getInstance(context).jobIsRunning(TAG)
             if (autoUpdateJob) {

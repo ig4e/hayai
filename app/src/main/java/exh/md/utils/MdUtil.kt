@@ -1,5 +1,6 @@
 package exh.md.utils
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import eu.kanade.tachiyomi.network.POST
@@ -19,8 +20,6 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.parser.Parser
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -170,7 +169,7 @@ class MdUtil {
         }
 
         fun getEnabledMangaDex(
-            sourceManager: SourceManager = Injekt.get(),
+            sourceManager: SourceManager = get(),
         ): MangaDex? {
             return sourceManager.getOnlineSources()
                 .asSequence()

@@ -87,7 +87,7 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 import rx.Observable
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.URLEncoder

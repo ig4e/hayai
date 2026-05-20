@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.extension
 
+import yokai.util.koin.get
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -32,8 +33,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.base.BasePreferences
 import yokai.domain.extension.interactor.TrustExtension
 
@@ -49,8 +48,8 @@ import yokai.domain.extension.interactor.TrustExtension
  */
 class ExtensionManager(
     private val context: Context,
-    private val preferences: PreferencesHelper = Injekt.get(),
-    private val trustExtension: TrustExtension = Injekt.get(),
+    private val preferences: PreferencesHelper = get(),
+    private val trustExtension: TrustExtension = get(),
 ) {
 
     /**
@@ -534,7 +533,7 @@ class ExtensionManager(
 
     companion object {
         fun canAutoInstallUpdates(checkIfShizukuIsRunning: Boolean = false): Boolean {
-            val prefs = Injekt.get<BasePreferences>().extensionInstaller().get()
+            val prefs = get<BasePreferences>().extensionInstaller().get()
             return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ||
                 (
                     prefs == BasePreferences.ExtensionInstaller.SHIZUKU &&

@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.download
 
+import yokai.util.koin.get
 import android.content.Context
 import co.touchlab.kermit.Logger
 import com.hippo.unifile.UniFile
@@ -21,9 +22,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.download.DownloadPreferences
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -37,9 +36,9 @@ import yokai.util.lang.getString
  */
 class DownloadManager(
     val context: Context,
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val provider: DownloadProvider = Injekt.get(),
-    private val cache: DownloadCache = Injekt.get(),
+    private val sourceManager: SourceManager = get(),
+    private val provider: DownloadProvider = get(),
+    private val cache: DownloadCache = get(),
 ) {
 
     private val preferences by injectLazy<PreferencesHelper>()

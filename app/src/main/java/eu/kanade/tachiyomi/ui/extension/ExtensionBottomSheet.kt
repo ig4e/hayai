@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.extension
 
+import yokai.util.koin.get
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
@@ -48,9 +49,7 @@ import eu.kanade.tachiyomi.util.view.setTitle
 import eu.kanade.tachiyomi.util.view.smoothScrollToTop
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import eu.kanade.tachiyomi.widget.EmptyView
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.base.BasePreferences
 import yokai.domain.base.BasePreferences.ExtensionInstaller
 import yokai.i18n.MR
@@ -351,7 +350,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
 
                 if (item is MangaItem) {
                     PreMigrationController.navigateToMigration(
-                        Injekt.get<PreferencesHelper>().skipPreMigration().get(),
+                        get<PreferencesHelper>().skipPreMigration().get(),
                         controller.router,
                         listOf(item.manga.id!!),
                     )
@@ -387,7 +386,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
             presenter.mangaItems[item.source.id]?.mapNotNull { it.manga.id }?.toList()
                 ?: emptyList()
         PreMigrationController.navigateToMigration(
-            Injekt.get<PreferencesHelper>().skipPreMigration().get(),
+            get<PreferencesHelper>().skipPreMigration().get(),
             controller.router,
             sourceMangas,
         )

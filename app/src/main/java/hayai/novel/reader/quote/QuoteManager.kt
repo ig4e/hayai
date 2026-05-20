@@ -1,13 +1,12 @@
 package hayai.novel.reader.quote
 
+import yokai.util.koin.get
 import android.content.Context
 import co.touchlab.kermit.Logger
 import com.hippo.unifile.UniFile
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.storage.StorageManager
 import java.io.IOException
 
@@ -24,7 +23,7 @@ class QuoteManager(@Suppress("unused") private val context: Context) {
     private val jsonFormat = Json { prettyPrint = true }
 
     private val storageManager: StorageManager by lazy {
-        Injekt.get<StorageManager>()
+        get<StorageManager>()
     }
 
     private val quotesDir: UniFile?

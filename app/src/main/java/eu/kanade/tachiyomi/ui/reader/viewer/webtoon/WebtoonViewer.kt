@@ -23,7 +23,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 /**
  * Implementation of a [BaseViewer] to display pages with a [RecyclerView].

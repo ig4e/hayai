@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util.chapter
 
+import yokai.util.koin.get
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Track
@@ -14,8 +15,6 @@ import eu.kanade.tachiyomi.util.system.w
 import eu.kanade.tachiyomi.util.system.withIOContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.track.interactor.GetTrack
 import yokai.domain.track.interactor.InsertTrack
@@ -32,8 +31,8 @@ suspend fun syncChaptersWithTrackServiceTwoWay(
     chapters: List<Chapter>,
     remoteTrack: Track,
     service: TrackService,
-    updateChapter: UpdateChapter = Injekt.get(),
-    insertTrack: InsertTrack = Injekt.get()
+    updateChapter: UpdateChapter = get(),
+    insertTrack: InsertTrack = get()
 ) = withIOContext {
     if (service !is EnhancedTrackService) {
         return@withIOContext
@@ -96,10 +95,10 @@ suspend fun updateTrackChapterRead(
     mangaId: Long?,
     newChapterRead: Float,
     retryWhenOnline: Boolean = false,
-    getTrack: GetTrack = Injekt.get(),
-    insertTrack: InsertTrack = Injekt.get(),
+    getTrack: GetTrack = get(),
+    insertTrack: InsertTrack = get(),
 ): List<Pair<TrackService, String?>> {
-    val trackManager = Injekt.get<TrackManager>()
+    val trackManager = get<TrackManager>()
     val trackList = getTrack.awaitAllByMangaId(mangaId)
     val failures = mutableListOf<Pair<TrackService, String?>>()
     trackList.map { track ->

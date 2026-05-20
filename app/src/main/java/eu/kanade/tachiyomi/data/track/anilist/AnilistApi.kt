@@ -26,7 +26,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
 

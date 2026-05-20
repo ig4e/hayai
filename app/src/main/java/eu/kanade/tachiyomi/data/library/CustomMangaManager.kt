@@ -16,7 +16,7 @@ import nl.adaptivity.xmlutil.core.AndroidXmlReader
 import nl.adaptivity.xmlutil.serialization.XML
 import nl.adaptivity.xmlutil.serialization.XmlSerialName
 import nl.adaptivity.xmlutil.serialization.XmlValue
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.core.metadata.COMIC_INFO_EDITS_FILE
 import yokai.core.metadata.ComicInfo
 import yokai.core.metadata.ComicInfoPublishingStatus

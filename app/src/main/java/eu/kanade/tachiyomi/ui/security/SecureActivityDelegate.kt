@@ -11,7 +11,7 @@ import eu.kanade.tachiyomi.data.preference.PreferenceValues
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.main.SearchActivity
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import java.util.*
 
 object SecureActivityDelegate {

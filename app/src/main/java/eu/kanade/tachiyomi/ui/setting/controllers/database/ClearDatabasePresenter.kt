@@ -1,20 +1,19 @@
 package eu.kanade.tachiyomi.ui.setting.controllers.database
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.database.models.SourceIdMangaCount
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.withUIContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.data.DatabaseHandler
 
 class ClearDatabasePresenter : BaseCoroutinePresenter<ClearDatabaseController>() {
 
-    private val handler = Injekt.get<DatabaseHandler>()
+    private val handler = get<DatabaseHandler>()
 
-    private val sourceManager = Injekt.get<SourceManager>()
+    private val sourceManager = get<SourceManager>()
 
     var sortBy = SortSources.ALPHA
         private set

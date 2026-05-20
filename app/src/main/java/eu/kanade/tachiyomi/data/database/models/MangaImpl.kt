@@ -6,7 +6,7 @@ import eu.kanade.tachiyomi.data.library.CustomMangaManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 open class MangaImpl(
     override var id: Long? = null,

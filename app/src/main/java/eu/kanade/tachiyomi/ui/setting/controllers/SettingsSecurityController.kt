@@ -22,7 +22,7 @@ import eu.kanade.tachiyomi.ui.setting.requireAuthentication
 import eu.kanade.tachiyomi.ui.setting.switchPreference
 import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.isAuthenticationSupported
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class SettingsSecurityController : SettingsLegacyController() {
     private val securityPreferences: SecurityPreferences by injectLazy()

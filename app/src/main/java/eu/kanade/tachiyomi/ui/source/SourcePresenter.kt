@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.source
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -17,8 +18,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.util.TreeMap
 
 /**
@@ -30,9 +29,9 @@ import java.util.TreeMap
  */
 class SourcePresenter(
     val controller: BrowseController,
-    val sourceManager: SourceManager = Injekt.get(),
-    val extensionManager: ExtensionManager = Injekt.get(),
-    private val preferences: PreferencesHelper = Injekt.get(),
+    val sourceManager: SourceManager = get(),
+    val extensionManager: ExtensionManager = get(),
+    private val preferences: PreferencesHelper = get(),
 ) {
 
     private var scope = CoroutineScope(Job() + Dispatchers.Default)

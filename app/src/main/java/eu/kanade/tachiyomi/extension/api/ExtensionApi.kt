@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.extension.api
 
+import yokai.util.koin.get
 import android.content.Context
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.extension.ExtensionManager
@@ -15,9 +16,7 @@ import exh.source.BlacklistedSources
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.serialization.Serializable
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.extension.repo.interactor.GetExtensionRepo
 import yokai.domain.extension.repo.interactor.UpdateExtensionRepo
 import yokai.domain.extension.repo.model.ExtensionRepo
@@ -62,7 +61,7 @@ internal class ExtensionApi {
             // Update extension repo details
             updateExtensionRepo.awaitAll()
 
-            val extensionManager: ExtensionManager = Injekt.get()
+            val extensionManager: ExtensionManager = get()
             val installedExtensions = extensionManager.installedExtensionsFlow.value.ifEmpty {
                 ExtensionLoader.loadExtensionAsync(context)
                     .filterIsInstance<LoadResult.Success>()

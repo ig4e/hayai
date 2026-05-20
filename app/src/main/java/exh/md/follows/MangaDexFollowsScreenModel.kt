@@ -1,5 +1,6 @@
 package exh.md.follows
 
+import yokai.util.koin.get
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.source.SourceManager
@@ -9,12 +10,10 @@ import eu.kanade.tachiyomi.source.online.all.MangaDex
 import exh.source.getMainSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 class MangaDexFollowsScreenModel(
     sourceId: Long,
-    sourceManager: SourceManager = Injekt.get(),
+    sourceManager: SourceManager = get(),
 ) : StateScreenModel<MangaDexFollowsScreenModel.State>(State.Loading) {
 
     private val source = sourceManager.get(sourceId)

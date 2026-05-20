@@ -11,7 +11,7 @@ import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import exh.source.getMainSource
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga

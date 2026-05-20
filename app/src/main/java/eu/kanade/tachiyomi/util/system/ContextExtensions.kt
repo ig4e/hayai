@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util.system
 
+import yokai.util.koin.get
 import android.app.LocaleManager
 import android.app.Notification
 import android.app.NotificationManager
@@ -49,8 +50,6 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import rikka.sui.Sui
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 
 private const val TABLET_UI_MIN_SCREEN_WIDTH_DP = 720
@@ -149,7 +148,7 @@ fun Context.notificationBuilder(
 
 fun Context.prepareSideNavContext(): Context {
     val configuration = resources.configuration
-    val expected = when (Injekt.get<PreferencesHelper>().sideNavMode().get()) {
+    val expected = when (get<PreferencesHelper>().sideNavMode().get()) {
         SideNavMode.ALWAYS.prefValue -> true
         SideNavMode.NEVER.prefValue -> false
         else -> null
@@ -393,7 +392,7 @@ fun Context.getApplicationIcon(pkgName: String): Drawable? {
 val Context.localeContext: Context
     get() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return this
-        val pref = Injekt.get<PreferencesHelper>()
+        val pref = get<PreferencesHelper>()
         val prefsLang = if (pref.appLanguage().isSet()) {
             Locale.forLanguageTag(pref.appLanguage().get())
         } else {

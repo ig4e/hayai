@@ -44,7 +44,7 @@ import eu.kanade.tachiyomi.util.view.setPositiveButton
 import eu.kanade.tachiyomi.util.view.setTitle
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.backup.BackupPreferences
 import yokai.domain.storage.StorageManager
 import yokai.domain.storage.StoragePreferences

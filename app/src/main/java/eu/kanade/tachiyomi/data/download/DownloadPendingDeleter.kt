@@ -8,7 +8,7 @@ import eu.kanade.tachiyomi.domain.manga.models.Manga
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 /**
  * Class used to keep a list of chapters for future deletion.

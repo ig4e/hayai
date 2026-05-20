@@ -32,14 +32,15 @@ import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.util.system.Themes
 import eu.kanade.tachiyomi.util.system.appDelegateNightMode
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import yokai.presentation.component.ThemeItem
 import yokai.presentation.theme.Size
 
-internal class ThemeStep : OnboardingStep {
+internal class ThemeStep : OnboardingStep, KoinComponent {
     override val isComplete: Boolean = true
 
-    private val preferences: PreferencesHelper by injectLazy()
+    private val preferences: PreferencesHelper by inject()
 
     @Composable
     override fun Content() {

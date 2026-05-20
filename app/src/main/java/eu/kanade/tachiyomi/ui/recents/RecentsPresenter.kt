@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.recents
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.ChapterHistory
 import eu.kanade.tachiyomi.data.database.models.History
@@ -36,10 +37,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.util.search.FuzzyMatcher
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.data.DatabaseHandler
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
@@ -54,11 +53,11 @@ import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
 
 class RecentsPresenter(
-    val uiPreferences: UiPreferences = Injekt.get(),
-    val recentsPreferences: RecentsPreferences = Injekt.get(),
-    val preferences: PreferencesHelper = Injekt.get(),
-    val downloadManager: DownloadManager = Injekt.get(),
-    private val chapterFilter: ChapterFilter = Injekt.get(),
+    val uiPreferences: UiPreferences = get(),
+    val recentsPreferences: RecentsPreferences = get(),
+    val preferences: PreferencesHelper = get(),
+    val downloadManager: DownloadManager = get(),
+    private val chapterFilter: ChapterFilter = get(),
 ) : BaseCoroutinePresenter<RecentsController>(),
     DownloadQueue.Listener {
     private val handler: DatabaseHandler by injectLazy()
@@ -128,7 +127,7 @@ class RecentsPresenter(
         // History-by-Source headers fetch extension app icons via PackageManager.loadIcon
         // (Binder, main-thread). Warm the icon cache from IO before the user can navigate
         // into the source-grouped view.
-        Injekt.get<eu.kanade.tachiyomi.extension.ExtensionManager>().preloadInstalledIcons()
+        get<eu.kanade.tachiyomi.extension.ExtensionManager>().preloadInstalledIcons()
         presenterScope.launchUI {
             downloadManager.statusFlow().collect(::onStatusChange)
         }
@@ -503,7 +502,7 @@ class RecentsPresenter(
                 viewType.isHistory && groupChaptersHistory == GroupType.BySource
                 ) || (viewType.isUpdates && groupChaptersUpdates == UpdatesGroupType.BySource)
             if (useSourceHeaders) {
-                val sourceManager = Injekt.get<SourceManager>()
+                val sourceManager = get<SourceManager>()
                 val recencyOf: (Pair<MangaChapterHistory, Chapter>) -> Long = {
                     if (viewType.isUpdates) it.second.date_fetch else it.first.history.last_read
                 }
@@ -671,7 +670,7 @@ class RecentsPresenter(
      * @param chapter the chapter to delete.
      */
     fun deleteChapter(chapter: Chapter, manga: Manga, update: Boolean = true) {
-        val source = Injekt.get<SourceManager>().getOrStub(manga.source)
+        val source = get<SourceManager>().getOrStub(manga.source)
         launchIO {
             downloadManager.deleteChapters(listOf(chapter), manga, source, true)
         }
@@ -986,9 +985,9 @@ class RecentsPresenter(
 
         suspend fun getNextChapter(
             manga: Manga,
-            getChapter: GetChapter = Injekt.get(),
-            chapterFilter: ChapterFilter = Injekt.get(),
-            preferences: PreferencesHelper = Injekt.get(),
+            getChapter: GetChapter = get(),
+            chapterFilter: ChapterFilter = get(),
+            preferences: PreferencesHelper = get(),
         ): Chapter? {
             val mangaId = manga.id ?: return null
             val chapters = getChapter.awaitUnread(mangaId, true)
@@ -998,9 +997,9 @@ class RecentsPresenter(
         suspend fun getFirstUpdatedChapter(
             manga: Manga,
             chapter: Chapter,
-            getChapter: GetChapter = Injekt.get(),
-            chapterFilter: ChapterFilter = Injekt.get(),
-            preferences: PreferencesHelper = Injekt.get(),
+            getChapter: GetChapter = get(),
+            chapterFilter: ChapterFilter = get(),
+            preferences: PreferencesHelper = get(),
         ): Chapter? {
             val mangaId = manga.id ?: return null
             val chapters = getChapter.awaitUnread(mangaId, true)

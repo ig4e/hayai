@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.source.online.english
 
+import yokai.util.koin.get
 import android.net.Uri
 import eu.kanade.tachiyomi.data.database.models.toChapter
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -13,8 +14,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import okhttp3.CacheControl
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.domain.manga.interactor.GetManga
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -22,7 +21,7 @@ import yokai.util.lang.getString
 class MangaPlus(delegate: HttpSource) :
     DelegatedHttpSource(delegate) {
 
-    private val getManga: GetManga = Injekt.get()
+    private val getManga: GetManga = get()
 
     override val lang: String get() = delegate.lang
 
@@ -65,7 +64,7 @@ class MangaPlus(delegate: HttpSource) :
             val deferredChapters = async { getChapterListByUrl(mangaUrl) }
             val manga = deferredManga.await()
             val chapters = deferredChapters.await()
-            val context = Injekt.get<PreferencesHelper>().context
+            val context = get<PreferencesHelper>().context
             val trueChapter = chapters.find { it.url == url }?.toChapter() ?: error(
                 context.getString(MR.strings.chapter_not_found),
             )

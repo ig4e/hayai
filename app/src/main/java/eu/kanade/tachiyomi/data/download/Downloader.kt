@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.download
 
+import yokai.util.koin.get
 import android.content.Context
 import co.touchlab.kermit.Logger
 import com.hippo.unifile.UniFile
@@ -57,9 +58,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 import nl.adaptivity.xmlutil.serialization.XML
 import okhttp3.Response
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.core.archive.ZipWriter
 import yokai.core.metadata.COMIC_INFO_FILE
 import yokai.core.metadata.ComicInfo
@@ -76,9 +75,9 @@ import yokai.util.lang.getString
  */
 class Downloader(
     private val context: Context,
-    private val provider: DownloadProvider = Injekt.get(),
-    private val cache: DownloadCache = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
+    private val provider: DownloadProvider = get(),
+    private val cache: DownloadCache = get(),
+    private val sourceManager: SourceManager = get(),
 ) {
     private val preferences: PreferencesHelper by injectLazy()
     private val downloadPreferences: DownloadPreferences by injectLazy()

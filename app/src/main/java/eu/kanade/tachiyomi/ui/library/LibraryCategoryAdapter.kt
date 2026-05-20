@@ -16,7 +16,7 @@ import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import eu.kanade.tachiyomi.util.system.withDefContext
 import kotlinx.coroutines.ensureActive
 import java.util.*
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.ui.UiPreferences

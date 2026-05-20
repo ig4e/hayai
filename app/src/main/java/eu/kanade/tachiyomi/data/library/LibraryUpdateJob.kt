@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.library
 
+import yokai.util.koin.get
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -83,9 +84,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetLibraryManga
@@ -99,18 +98,18 @@ import yokai.util.lang.getString
 class LibraryUpdateJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
-    private val getCategories: GetCategories = Injekt.get()
-    private val getChapter: GetChapter = Injekt.get()
+    private val getCategories: GetCategories = get()
+    private val getChapter: GetChapter = get()
 
-    private val coverCache: CoverCache = Injekt.get()
-    private val sourceManager: SourceManager = Injekt.get()
-    private val preferences: PreferencesHelper = Injekt.get()
-    private val downloadManager: DownloadManager = Injekt.get()
-    private val trackManager: TrackManager = Injekt.get()
-    private val mangaShortcutManager: MangaShortcutManager = Injekt.get()
-    private val getLibraryManga: GetLibraryManga = Injekt.get()
-    private val updateManga: UpdateManga = Injekt.get()
-    private val getTrack: GetTrack = Injekt.get()
+    private val coverCache: CoverCache = get()
+    private val sourceManager: SourceManager = get()
+    private val preferences: PreferencesHelper = get()
+    private val downloadManager: DownloadManager = get()
+    private val trackManager: TrackManager = get()
+    private val mangaShortcutManager: MangaShortcutManager = get()
+    private val getLibraryManga: GetLibraryManga = get()
+    private val updateManga: UpdateManga = get()
+    private val getTrack: GetTrack = get()
     private val insertTrack: InsertTrack by injectLazy()
 
     private var extraDeferredJobs = mutableListOf<Deferred<Any>>()
@@ -152,7 +151,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
 
     override suspend fun doWork(): Result {
         if (tags.contains(WORK_NAME_AUTO)) {
-            val preferences = Injekt.get<PreferencesHelper>()
+            val preferences = get<PreferencesHelper>()
             val restrictions = preferences.libraryUpdateDeviceRestriction().get()
             if ((DEVICE_ONLY_ON_WIFI in restrictions) && !context.isConnectedToWifi()) {
                 return Result.failure()
@@ -710,7 +709,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         fun runExtensionUpdatesAfterJob() { runExtensionUpdatesAfter = true }
 
         fun setupTask(context: Context, prefInterval: Int? = null) {
-            val preferences = Injekt.get<PreferencesHelper>()
+            val preferences = get<PreferencesHelper>()
             val interval = prefInterval ?: preferences.libraryUpdateInterval().get()
             if (interval > 0) {
                 val restrictions = preferences.libraryUpdateDeviceRestriction().get()

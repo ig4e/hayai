@@ -20,19 +20,20 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import rx.Observable
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 /**
  * A simple implementation for sources from a website.
  */
 @Suppress("unused")
-abstract class HttpSource : CatalogueSource {
+abstract class HttpSource : CatalogueSource, KoinComponent {
     private var delegate: DelegatedHttpSource? = null
 
     /**
      * Network service.
      */
-    protected val network: NetworkHelper by injectLazy()
+    protected val network: NetworkHelper by inject()
 
     /**
      * Base url of the website without the trailing slash, like: http://mysite.com

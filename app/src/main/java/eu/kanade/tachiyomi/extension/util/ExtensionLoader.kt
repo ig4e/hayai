@@ -21,7 +21,7 @@ import eu.kanade.tachiyomi.util.system.withIOContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.extension.interactor.TrustExtension
 import java.io.File
 import java.nio.file.Files

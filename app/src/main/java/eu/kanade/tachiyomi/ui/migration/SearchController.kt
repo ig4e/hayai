@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.migration
 
+import yokai.util.koin.get
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuInflater
@@ -15,9 +16,7 @@ import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.util.view.searchToolbar
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
 import kotlinx.coroutines.runBlocking
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 
 class SearchController(
@@ -41,8 +40,8 @@ class SearchController(
 
     constructor(mangaId: Long, sources: LongArray) :
         this(
-            runBlocking { Injekt.get<GetManga>().awaitById(mangaId) },
-            sources.map { Injekt.get<SourceManager>().getOrStub(it) }.filterIsInstance<CatalogueSource>(),
+            runBlocking { get<GetManga>().awaitById(mangaId) },
+            sources.map { get<SourceManager>().getOrStub(it) }.filterIsInstance<CatalogueSource>(),
         )
 
     @Suppress("unused")

@@ -3,7 +3,7 @@ package yokai.domain.extension.repo.interactor
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.network.NetworkHelper
 import okhttp3.OkHttpClient
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.extension.repo.ExtensionRepoRepository
 import yokai.domain.extension.repo.exception.SaveExtensionRepoException
 import yokai.domain.extension.repo.model.ExtensionRepo

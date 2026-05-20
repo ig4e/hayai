@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.widget.preference
 
+import yokai.util.koin.get
 import android.app.Dialog
 import android.os.Bundle
 import eu.kanade.tachiyomi.data.track.TrackManager
@@ -9,14 +10,12 @@ import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setNegativeButton
 import eu.kanade.tachiyomi.util.view.setPositiveButton
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
 class TrackLogoutDialog(bundle: Bundle? = null) : DialogController(bundle) {
 
-    private val service = Injekt.get<TrackManager>().getService(args.getLong("key"))!!
+    private val service = get<TrackManager>().getService(args.getLong("key"))!!
 
     constructor(service: TrackService) : this(Bundle().apply { putLong("key", service.id) })
 

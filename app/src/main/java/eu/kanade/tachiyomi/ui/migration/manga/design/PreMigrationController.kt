@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.migration.manga.design
 
+import yokai.util.koin.get
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
@@ -41,9 +42,7 @@ import hayai.novel.source.TextSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.manga.interactor.GetManga
 
 class PreMigrationController(bundle: Bundle? = null) :
@@ -88,7 +87,7 @@ class PreMigrationController(bundle: Bundle? = null) :
             isNovelMigration = if (config.isEmpty()) {
                 false
             } else {
-                val getManga = Injekt.get<GetManga>()
+                val getManga = get<GetManga>()
                 withContext(Dispatchers.IO) {
                     config.all { id -> getManga.awaitById(id)?.isNovel(sourceManager) == true }
                 }

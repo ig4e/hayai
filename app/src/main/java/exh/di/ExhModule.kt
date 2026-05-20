@@ -16,7 +16,7 @@ fun exhModule() = module {
     // Metadata repository
     single<MangaMetadataRepository> { MangaMetadataRepositoryImpl(get()) }
 
-    // MetadataSource DI — resolved via Injekt.get() in MetadataSource interface
+    // MetadataSource DI — resolved via Koin in MetadataSource interface
     factory<MetadataSource.GetMangaId> { GetMangaIdInteractor(get()) }
     factory<MetadataSource.InsertFlatMetadata> { InsertFlatMetadataInteractor(get()) }
     factory<MetadataSource.GetFlatMetadataById> { GetFlatMetadataByIdInteractor(get()) }

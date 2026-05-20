@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.ui.migration
 
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
-import uy.kohesive.injekt.api.get
 
 /**
  * Adapter that holds the catalogue cards.

@@ -1,10 +1,9 @@
 package eu.kanade.tachiyomi.ui.source
 
+import yokai.util.koin.get
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Adapter that holds the catalogue cards.
@@ -20,7 +19,7 @@ class SourceAdapter(val controller: BrowseController) :
 
     val sourceListener: SourceListener = controller
 
-    val enabledLanguages = Injekt.get<PreferencesHelper>().enabledLanguages().get()
+    val enabledLanguages = get<PreferencesHelper>().enabledLanguages().get()
 
     val extensionManager = controller.presenter.extensionManager
 

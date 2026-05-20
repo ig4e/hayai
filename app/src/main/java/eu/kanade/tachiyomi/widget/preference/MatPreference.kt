@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.widget.preference
 
+import yokai.util.koin.get
 import android.app.Activity
 import android.content.Context
 import android.content.DialogInterface
@@ -12,8 +13,6 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import eu.kanade.tachiyomi.util.view.setTitle
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.util.lang.getString
 import android.R as AR
 
@@ -25,7 +24,7 @@ open class MatPreference @JvmOverloads constructor(
 ) :
     Preference(context, attrs) {
 
-    protected val prefs: PreferencesHelper = Injekt.get()
+    protected val prefs: PreferencesHelper = get()
 
     var preSummaryRes: StringResource? = null
         set(value) {

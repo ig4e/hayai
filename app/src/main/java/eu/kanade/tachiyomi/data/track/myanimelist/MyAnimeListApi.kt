@@ -30,7 +30,7 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListInterceptor) {
 

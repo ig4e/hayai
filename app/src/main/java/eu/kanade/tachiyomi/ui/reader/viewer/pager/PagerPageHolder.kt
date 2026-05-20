@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okio.Buffer
 import okio.BufferedSource
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 /**
  * View of the ViewPager that contains a page of a chapter.

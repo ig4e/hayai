@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.extension.util
 
+import yokai.util.koin.get
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -45,9 +46,7 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.domain.base.BasePreferences
 
 /**
@@ -275,7 +274,7 @@ internal class ExtensionInstaller(private val context: Context) {
             }
             BasePreferences.ExtensionInstaller.PRIVATE -> installPrivately(downloadId, pkgName, uri)
             else -> {
-                val extensionManager = Injekt.get<ExtensionManager>()
+                val extensionManager = get<ExtensionManager>()
                 if (extensionManager.installedExtensionsFlow.value.find { it.pkgName == pkgName }?.isShared == false) {
                     installPrivately(downloadId, pkgName, uri)
                     return

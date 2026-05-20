@@ -47,7 +47,7 @@ import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.powerManager
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.view.animateBlur
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min

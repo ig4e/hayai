@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.recents
 
+import yokai.util.koin.get
 import android.view.View
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
@@ -22,8 +23,6 @@ import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import eu.kanade.tachiyomi.ui.library.LibraryHeaderItem
 import eu.kanade.tachiyomi.util.view.setText
 import hayai.novel.source.NovelSource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -126,7 +125,7 @@ class RecentMangaHeaderItem(
             sourceBinding.title.text = name
 
             val source = item.sourceId?.toLongOrNull()
-                ?.let { Injekt.get<SourceManager>().getOrStub(it) }
+                ?.let { get<SourceManager>().getOrStub(it) }
             val iconView = sourceBinding.sourceIcon
             val fallback = ContextCompat.getDrawable(context, R.drawable.ic_book_24dp)
             when {

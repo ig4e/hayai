@@ -33,8 +33,6 @@ import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.core.XmlVersion
 import nl.adaptivity.xmlutil.serialization.XML
 import org.koin.dsl.module
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.data.AndroidDatabaseHandler
 import yokai.data.Database
 import yokai.data.DatabaseHandler
@@ -164,10 +162,11 @@ fun appModule(app: Application) = module {
 fun initExpensiveComponents(app: Application) {
     // Asynchronously init expensive components on IO so cold start does not block the main thread.
     CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-        Injekt.get<NetworkHelper>()
-        Injekt.get<SourceManager>()
-        Injekt.get<Database>()
-        Injekt.get<DownloadManager>()
-        Injekt.get<CustomMangaManager>()
+        val koin = org.koin.core.context.GlobalContext.get()
+        koin.get<NetworkHelper>()
+        koin.get<SourceManager>()
+        koin.get<Database>()
+        koin.get<DownloadManager>()
+        koin.get<CustomMangaManager>()
     }
 }

@@ -10,7 +10,7 @@ import android.widget.ProgressBar
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseThemedActivity
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 abstract class BaseOAuthLoginActivity : BaseThemedActivity() {
 

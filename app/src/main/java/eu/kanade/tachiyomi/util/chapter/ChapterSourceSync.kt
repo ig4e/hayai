@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util.chapter
 
+import yokai.util.koin.get
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -7,9 +8,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
 import java.util.*
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.data.DatabaseHandler
 import yokai.domain.chapter.interactor.DeleteChapter
 import yokai.domain.chapter.interactor.GetChapter
@@ -34,13 +33,13 @@ suspend fun syncChaptersWithSource(
     rawSourceChapters: List<SChapter>,
     manga: Manga,
     source: Source,
-    deleteChapter: DeleteChapter = Injekt.get(),
-    getChapter: GetChapter = Injekt.get(),
-    insertChapter: InsertChapter = Injekt.get(),
-    updateChapter: UpdateChapter = Injekt.get(),
-    updateManga: UpdateManga = Injekt.get(),
-    handler: DatabaseHandler = Injekt.get(),
-    libraryPreferences: LibraryPreferences = Injekt.get(),
+    deleteChapter: DeleteChapter = get(),
+    getChapter: GetChapter = get(),
+    insertChapter: InsertChapter = get(),
+    updateChapter: UpdateChapter = get(),
+    updateManga: UpdateManga = get(),
+    handler: DatabaseHandler = get(),
+    libraryPreferences: LibraryPreferences = get(),
 ): Pair<List<Chapter>, List<Chapter>> {
     if (rawSourceChapters.isEmpty()) {
         throw Exception("No chapters found")

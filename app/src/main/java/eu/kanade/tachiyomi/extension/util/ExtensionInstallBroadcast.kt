@@ -20,7 +20,7 @@ import eu.kanade.tachiyomi.extension.util.ExtensionInstallBroadcast.Companion.pa
 import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.getParcelableCompat
 import eu.kanade.tachiyomi.util.system.toast
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 import yokai.i18n.MR
 
 /**

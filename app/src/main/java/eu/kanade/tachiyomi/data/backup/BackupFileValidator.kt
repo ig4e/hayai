@@ -1,17 +1,16 @@
 package eu.kanade.tachiyomi.data.backup
 
+import yokai.util.koin.get
 import android.content.Context
 import android.net.Uri
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.util.BackupUtil
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.util.lang.getString
 
 class BackupFileValidator(
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val trackManager: TrackManager = Injekt.get(),
+    private val sourceManager: SourceManager = get(),
+    private val trackManager: TrackManager = get(),
 ) {
 
     /**

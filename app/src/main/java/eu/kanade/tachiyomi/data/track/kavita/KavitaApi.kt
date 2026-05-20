@@ -15,7 +15,7 @@ import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
-import uy.kohesive.injekt.injectLazy
+import yokai.util.koin.injectLazy
 
 class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor) {
 

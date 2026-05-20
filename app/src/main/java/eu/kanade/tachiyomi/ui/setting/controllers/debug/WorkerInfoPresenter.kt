@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.controllers.debug
 
+import yokai.util.koin.get
 import android.app.Application
 import androidx.lifecycle.asFlow
 import androidx.work.WorkInfo
@@ -10,8 +11,6 @@ import eu.kanade.tachiyomi.util.lang.toDateTimestampString
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -19,7 +18,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 class WorkerInfoPresenter : BaseCoroutinePresenter<WorkerInfoController>() {
-    private val workManager by lazy { WorkManager.getInstance(Injekt.get<Application>()) }
+    private val workManager by lazy { WorkManager.getInstance(get<Application>()) }
 
     val finished by lazy {
         workManager
