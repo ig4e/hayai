@@ -22,7 +22,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,12 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
-import coil3.compose.AsyncImage
-import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
@@ -48,7 +44,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
-import yokai.presentation.theme.rememberShimmerAlpha
 import yokai.util.coil.hayaiPagePreviewDefaults
 
 @Composable
@@ -222,10 +217,6 @@ private fun PagePreviewItem(
     imageLoader: ImageLoader,
     onOpenPage: (Int) -> Unit,
 ) {
-    // Re-key on imageUrl so recycled cells reset to the loading state for their new
-    // page instead of inheriting the previous cell's "done" state and flashing
-    // a stale image briefly.
-    var isLoading by remember(page.imageUrl) { mutableStateOf(true) }
     val context = LocalContext.current
     val request = remember(page.imageUrl, context) {
         ImageRequest.Builder(context)
@@ -241,29 +232,15 @@ private fun PagePreviewItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Box(
+        PagePreviewCover(
+            data = request,
+            imageLoader = imageLoader,
             modifier = Modifier
                 .height(200.dp)
-                .width(120.dp)
-                .clip(MaterialTheme.shapes.small),
-        ) {
-            AsyncImage(
-                model = request,
-                contentDescription = stringResource(MR.strings.page_preview_image, page.index),
-                imageLoader = imageLoader,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillWidth,
-                onState = { state -> isLoading = state is AsyncImagePainter.State.Loading },
-            )
-            if (isLoading) {
-                val alpha by rememberShimmerAlpha(label = "imgShimmer")
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
-                ) {}
-            }
-        }
+                .width(120.dp),
+            shape = MaterialTheme.shapes.small,
+            contentDescription = stringResource(MR.strings.page_preview_image, page.index),
+        )
         Text(
             text = page.index.toString(),
             style = MaterialTheme.typography.bodySmall,

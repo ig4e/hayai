@@ -53,6 +53,7 @@ import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import yokai.domain.source.browse.filter.models.SavedSearch
 import yokai.i18n.MR
+import yokai.util.search.FuzzyMatcher
 
 /**
  * Root composable for the redesigned source filter sheet.
@@ -325,16 +326,14 @@ private fun FiltersBody(
         return
     }
 
-    // organizeForDisplay produces a display-only ordering (originals are still mutated by ref).
-    val displayFilters = remember(filters, filterVersion) { organizeForDisplay(filters) }
-
+    // Render filters in the order the source extension provides them — no client-side sorting.
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 12.dp),
     ) {
         itemsIndexed(
-            items = displayFilters,
+            items = filters.list,
             key = { index, _ -> "filter-$filterVersion-$index" },
         ) { _, filter ->
             FilterRow(filter, onDrillGroup, onDrillTags)
@@ -379,28 +378,55 @@ private fun GroupChildrenScreen(
         return
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 12.dp),
-    ) {
-        itemsIndexed(
-            items = children,
-            key = { index, _ -> "group-$filterVersion-$index" },
-        ) { _, child ->
-            // Group children mirror top-level rendering for the subset of filter types groups
-            // actually contain in practice (Tachiyomi source extensions only nest checkboxes,
-            // tri-states, selects and text inside groups).
-            when (child) {
-                is Filter.CheckBox -> FilterCheckBoxRow(child)
-                is Filter.TriState -> FilterTriStateRow(child)
-                is Filter.Select<*> -> FilterSelectRow(child)
-                is Filter.Text -> FilterTextRow(child)
-                else -> Unit
+    var query by rememberSaveable(group) { mutableStateOf("") }
+    val visibleChildren = remember(children, query, filterVersion) {
+        if (query.isBlank()) {
+            children.toList()
+        } else {
+            children.asSequence()
+                .map { it to FuzzyMatcher.score(query, (it as Filter<*>).name) }
+                .filter { it.second >= GroupChildFuzzyThreshold }
+                .sortedByDescending { it.second }
+                .map { it.first }
+                .toList()
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Same SheetSearchField used by the AutoComplete picker — single component, same UX
+        // whether you drill into "Tags" (AutoComplete) or "Genres" (Group).
+        SheetSearchField(
+            query = query,
+            onQueryChange = { query = it },
+            placeholder = group.name,
+        )
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 12.dp),
+        ) {
+            items(
+                items = visibleChildren,
+                // Stable key (child name) keeps rows in place across selection / query changes
+                // — flipping a checkbox doesn't tear down and re-create the row.
+                key = { (it as Filter<*>).name },
+            ) { child ->
+                // Group children mirror top-level rendering for the subset of filter types groups
+                // actually contain in practice (Tachiyomi source extensions only nest checkboxes,
+                // tri-states, selects and text inside groups).
+                when (child) {
+                    is Filter.CheckBox -> FilterCheckBoxRow(child)
+                    is Filter.TriState -> FilterTriStateRow(child)
+                    is Filter.Select<*> -> FilterSelectRow(child)
+                    is Filter.Text -> FilterTextRow(child)
+                    else -> Unit
+                }
             }
         }
     }
 }
+
+private const val GroupChildFuzzyThreshold = 60
 
 // endregion
 

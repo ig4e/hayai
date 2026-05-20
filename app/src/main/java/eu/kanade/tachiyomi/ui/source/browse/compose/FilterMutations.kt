@@ -107,6 +107,41 @@ internal object FilterMutations {
     }
 
     /**
+     * Direct-set the [target] state for [baseTag], **preserving the entry's index** within
+     * `filter.state`. Toggling Include → Exclude (or the reverse) replaces in place rather than
+     * removing-and-appending — so the pill rendered for this tag stays where it was and doesn't
+     * jump to the end of the list.
+     *
+     * If the source doesn't declare `-` in [Filter.AutoComplete.validPrefixes], a request for
+     * [AutoCompleteTagState.Excluded] degrades to [AutoCompleteTagState.Off] rather than writing
+     * an unsupported prefix into the query (which the source would treat as a literal tag name).
+     */
+    fun setAutoCompleteTagState(
+        filter: Filter.AutoComplete,
+        baseTag: String,
+        target: AutoCompleteTagState,
+    ) {
+        val include = baseTag
+        val exclude = "-$baseTag"
+        val supportsExclude = "-" in filter.validPrefixes
+        val newEntry: String? = when (target) {
+            AutoCompleteTagState.Off -> null
+            AutoCompleteTagState.Included -> include
+            AutoCompleteTagState.Excluded -> if (supportsExclude) exclude else null
+        }
+        val current = filter.state
+        val existingIndex = current.indexOfFirst { it == include || it == exclude }
+        filter.state = when {
+            existingIndex >= 0 && newEntry != null ->
+                current.toMutableList().apply { set(existingIndex, newEntry) }
+            existingIndex >= 0 && newEntry == null ->
+                current.toMutableList().apply { removeAt(existingIndex) }
+            newEntry != null -> current + newEntry
+            else -> current
+        }
+    }
+
+    /**
      * Cycle one base tag through Off → Include → Exclude → Off. When the source declares `-` in
      * `validPrefixes` (e-hentai / ex-hentai / n-hentai etc.) the full three-state cycle is
      * available; otherwise the cycle collapses to Off → Include → Off because no exclude prefix

@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -49,7 +50,17 @@ abstract class BaseComposeController(bundle: Bundle? = null) :
                 YokaiTheme {
                     CompositionLocalProvider(
                         LocalDialogHostState provides dialogHostState,
-                        LocalBackPress provides ::handleBack,
+                        // handleBack() only reports whether back was *consumed* (e.g. by
+                        // popping a nested Voyager Navigator). For a root Compose screen it
+                        // returns false and does NOT pop the controller — so a toolbar back
+                        // button wired straight to ::handleBack would silently no-op. Route
+                        // unconsumed presses through onBackPressedDispatcher so the activity
+                        // tears down the controller the same way a system back gesture does.
+                        LocalBackPress provides {
+                            if (!handleBack()) {
+                                (activity as? ComponentActivity)?.onBackPressedDispatcher?.onBackPressed()
+                            }
+                        },
                         LocalRouter provides router,
                     ) {
                         ScreenContent()

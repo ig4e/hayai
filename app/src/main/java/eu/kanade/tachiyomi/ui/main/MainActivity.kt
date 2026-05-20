@@ -1434,6 +1434,13 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
      * resync via [onActiveTabChanged] when the user eventually swaps to that tab.
      */
     private fun isVisibleChange(boundRouter: Router): Boolean {
+        // During a config-change relaunch, attachRouter() restores RootTabsController,
+        // which materialises its child routers and registers this listener on them —
+        // all before `topRouter = attachRouter(...)` returns. The first synchronous
+        // change event then crashes on the lateinit. Treat that pre-init window as
+        // "not visible" so chrome sync is skipped; the active tab will resync via
+        // onActiveTabChanged once onCreate finishes wiring everything up.
+        if (!::topRouter.isInitialized) return false
         if (boundRouter === topRouter) return true
         val rt = rootTabsController ?: return false
         return topRouter.backstackSize == 1 && boundRouter === rt.activeChildRouter()

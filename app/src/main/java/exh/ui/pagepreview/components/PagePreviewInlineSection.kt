@@ -1,10 +1,16 @@
 package exh.ui.pagepreview.components
 
 import yokai.util.koin.get
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,14 +20,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,12 +40,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
-import coil3.compose.AsyncImage
-import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.PagePreviewInfo
@@ -141,20 +147,60 @@ fun PagePreviewInlineSection(
                 val client = s.sourceClient
                 if (client != null) loaderForSource(context, client) else appImageLoader(context)
             }
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = ROW_CONTENT_PADDING,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(s.previews, key = { it.imageUrl }) { preview ->
-                    PreviewThumb(
-                        preview = preview,
-                        imageLoader = imageLoader,
-                        onClick = { onOpenReaderAtPage(preview.index - 1) },
-                    )
+            val lazyListState = rememberLazyListState()
+            // True once the user has scrolled past the start. Flips the prominent under-strip
+            // button OFF and the in-row tail card ON, so the affordance follows the user's
+            // thumb without ever showing two "View all" buttons at once.
+            val hasScrolled by remember {
+                derivedStateOf {
+                    lazyListState.firstVisibleItemIndex > 0 ||
+                        lazyListState.firstVisibleItemScrollOffset > 0
                 }
-                item(key = "view_all_tail") {
-                    ViewAllTail(onClick = onOpenPagePreview)
+            }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                LazyRow(
+                    state = lazyListState,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = ROW_CONTENT_PADDING,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(s.previews, key = { it.imageUrl }) { preview ->
+                        PreviewThumb(
+                            preview = preview,
+                            imageLoader = imageLoader,
+                            onClick = { onOpenReaderAtPage(preview.index - 1) },
+                        )
+                    }
+                    item(key = "view_all_tail") {
+                        AnimatedVisibility(
+                            visible = hasScrolled,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                        ) {
+                            ViewAllTail(onClick = onOpenPagePreview)
+                        }
+                    }
+                }
+                AnimatedVisibility(
+                    visible = !hasScrolled,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    TextButton(
+                        onClick = onOpenPagePreview,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        Text(text = stringResource(MR.strings.view_all))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(18.dp),
+                        )
+                    }
                 }
             }
         }
@@ -167,7 +213,6 @@ private fun PreviewThumb(
     imageLoader: ImageLoader,
     onClick: () -> Unit,
 ) {
-    var isLoading by remember(preview.imageUrl) { mutableStateOf(true) }
     val context = LocalContext.current
     val request = remember(preview.imageUrl, context) {
         ImageRequest.Builder(context)
@@ -182,25 +227,13 @@ private fun PreviewThumb(
             .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
     ) {
-        AsyncImage(
-            model = request,
-            contentDescription = "Page ${preview.index}",
+        PagePreviewCover(
+            data = request,
             imageLoader = imageLoader,
             modifier = Modifier.fillMaxSize(),
-            // Keep FillWidth (was the previous behavior) so the full page content shows
-            // — Crop would trim the top/bottom of the page, hiding character heads etc.
-            contentScale = ContentScale.FillWidth,
-            onState = { state ->
-                isLoading = state is AsyncImagePainter.State.Loading
-            },
+            shape = MaterialTheme.shapes.medium,
+            contentDescription = "Page ${preview.index}",
         )
-        if (isLoading) {
-            val alpha by rememberShimmerAlpha(label = "previewShimmer")
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
-            ) {}
-        }
         // Bottom scrim + page number, readable over any cover content.
         Box(
             modifier = Modifier
@@ -239,7 +272,7 @@ private fun ViewAllTail(onClick: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            androidx.compose.foundation.layout.Column(
+            Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {

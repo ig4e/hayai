@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.source.browse.compose
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,12 +28,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.model.Filter
-import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
@@ -184,74 +194,92 @@ internal fun BridgeScrollState(
 
 // endregion
 
-// region Display ordering — reorder filters within each Header-bounded section.
+// region Sheet search field — reused by AutoComplete and Group drill screens.
 
 /**
- * Reorders `filters` for display only. Headers anchor their section — every filter originally
- * between two Headers stays in that section — but within a section, filters sort by
- * [displayPriority] so the layout reads top-to-bottom: most-important inputs first.
+ * Flat search bar styled to read as continuous chrome with the sheet's tab row / drill header
+ * above it. No chip/pill — full-width strip on `surface`, leading magnifier, inline text field,
+ * trailing × clear when populated. Bottom [HorizontalDivider] mirrors the tab-row divider so the
+ * bar visually docks with the chrome above.
  *
- * The original [Filter] instances are preserved by reference; only display order changes, so the
- * in-place mutation contract `BrowseSourceController.showFilters()` depends on is still honoured.
+ * Used in:
+ *  - `AutoCompleteScreen` — filters tags
+ *  - `GroupChildrenScreen` — filters group children (e.g., the per-source genre list)
+ *
+ * Same component, same look, no per-call-site styling drift.
  */
-internal fun organizeForDisplay(filters: FilterList): List<Filter<*>> {
-    if (filters.isEmpty()) return emptyList()
-    return splitIntoSections(filters)
-        .flatMap { (header, items) ->
-            listOfNotNull(header) + items.sortedBy(::displayPriority)
+@Composable
+internal fun SheetSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    onSubmit: (() -> Unit)? = null,
+) {
+    val focusManager = LocalFocusManager.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .heightIn(min = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardActions = if (onSubmit != null) {
+                    KeyboardActions(onAny = { onSubmit() })
+                } else {
+                    KeyboardActions.Default
+                },
+                keyboardOptions = KeyboardOptions(
+                    imeAction = if (onSubmit != null) ImeAction.Send else ImeAction.Search,
+                ),
+                modifier = Modifier.weight(1f),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+            if (query.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clickable {
+                            onQueryChange("")
+                            focusManager.clearFocus()
+                        },
+                )
+            }
         }
-}
-
-private data class FilterSection(
-    val header: Filter.Header?,
-    val items: List<Filter<*>>,
-)
-
-private fun splitIntoSections(filters: FilterList): List<FilterSection> {
-    val sections = mutableListOf<FilterSection>()
-    var header: Filter.Header? = null
-    var items = mutableListOf<Filter<*>>()
-    fun flush() {
-        if (header != null || items.isNotEmpty()) {
-            sections.add(FilterSection(header, items))
-            items = mutableListOf()
-            header = null
-        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
-    filters.forEach { f ->
-        if (f is Filter.Header) {
-            flush()
-            header = f
-        } else {
-            items.add(f)
-        }
-    }
-    flush()
-    return sections
-}
-
-/**
- * Lower value = rendered closer to the top of its section.
- *  - Sort         : 10 — primary axis of the listing
- *  - AutoComplete : 20 — main search input (tags, etc.)
- *  - Select       : 30
- *  - Group        : 40 — drill-downs feel like sub-sections, lift above toggles
- *  - TriState     : 50
- *  - CheckBox     : 60 — boolean toggles bundle together
- *  - Text         : 70 — page/jump-style numeric inputs at the bottom
- *  - Separator    : 80
- *  - Header       : 100 — should never reach here, sections are pre-extracted
- */
-private fun displayPriority(f: Filter<*>): Int = when (f) {
-    is Filter.Sort -> 10
-    is Filter.AutoComplete -> 20
-    is Filter.Select<*> -> 30
-    is Filter.Group<*> -> 40
-    is Filter.TriState -> 50
-    is Filter.CheckBox -> 60
-    is Filter.Text -> 70
-    is Filter.Separator -> 80
-    else -> 100
 }
 
 // endregion
