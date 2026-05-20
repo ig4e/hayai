@@ -138,17 +138,28 @@ class QuickJs private constructor(
 private fun <T : Throwable> T.initCauseChained(cause: Throwable): T = apply { initCause(cause) }
 
 /**
- * Normalize dokar3's return shape to what Cash App's QuickJs produced. Extensions
- * cast results like `evaluate(...) as Array<*>` (e.g. Comicabc), which dokar3 would
- * fail because it returns `List<Any?>` for JS arrays. Cash App returned `Object[]`.
- * We convert recursively so nested arrays inside arrays also become Object[].
+ * Normalize dokar3's return shape to what Cash App's QuickJs produced. Two
+ * divergences matter:
  *
- * Numbers (Long vs Double) and Maps are passed through unchanged — extensions in
- * the wild treat numeric results as strings via `toString()` and don't typically
- * cast JS objects to Map directly.
+ *   1. JS arrays — dokar3 returns `List<Any?>`, Cash App returned `Object[]`.
+ *      Comicabc and friends cast directly to `Array<*>`, which would otherwise
+ *      `ClassCastException`. Converted recursively so nested arrays normalize too.
+ *
+ *   2. JS numbers — JS has a single Number type, but dokar3 splits the JVM mapping
+ *      into `Long` (for integral values) and `Double` (for fractional). Cash App
+ *      returned `Double` for everything. We mirror that so `evaluate(...) as Double`
+ *      keeps working for extensions that integer-arithmetic'd in JS.
+ *
+ * Maps, strings, booleans, and ByteArrays pass through unchanged — Cash App's
+ * mapping for those matched dokar3's.
  */
 private fun Any?.toCashAppShape(): Any? = when (this) {
     is List<*> -> Array<Any?>(size) { i -> this[i].toCashAppShape() }
+    is Long -> this.toDouble()
+    is Int -> this.toDouble()
+    is Short -> this.toDouble()
+    is Byte -> this.toDouble()
+    is Float -> this.toDouble()
     else -> this
 }
 
