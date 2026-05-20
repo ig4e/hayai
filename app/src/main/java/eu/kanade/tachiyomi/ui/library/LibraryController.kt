@@ -1519,7 +1519,6 @@ open class LibraryController(
                 if (binding.filterBottomSheet.filterBottomSheet.sheetBehavior.isHidden()) {
                     binding.filterBottomSheet.filterBottomSheet.isInvisible = true
                 }
-                searchToolbar()?.setOnLongClickListener(null)
             }
             else -> Unit
         }
@@ -1562,8 +1561,8 @@ open class LibraryController(
 
     /**
      * Called when the user swaps away from the Library tab. Release Library-internal
-     * state (filter sheet, staggered scroll, search toolbar long-press). The incoming
-     * tab's [onSetupLocalChrome] sets up its own appBar — nothing for us to undo.
+     * state (filter sheet, staggered scroll). The incoming tab's [onSetupLocalChrome]
+     * sets up its own appBar — nothing for us to undo.
      */
     override fun onTabDeactivated() {
         if (!isBindingInitialized) return
@@ -1573,7 +1572,6 @@ open class LibraryController(
         if (binding.filterBottomSheet.filterBottomSheet.sheetBehavior.isHidden()) {
             binding.filterBottomSheet.filterBottomSheet.isInvisible = true
         }
-        searchToolbar()?.setOnLongClickListener(null)
     }
 
     /**
