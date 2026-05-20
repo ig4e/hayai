@@ -1,7 +1,11 @@
 package eu.kanade.tachiyomi.ui.source.browse.compose
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -214,6 +218,9 @@ internal fun FilterSelectRow(filter: Filter.Select<*>) {
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
                     shape = MenuShape,
+                    // Match the sheet's surface — the popup shadow + rounded corners do the
+                    // "lift" instead of an elevated grayish surfaceContainer tone.
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ) {
                     filter.values.forEachIndexed { index, value ->
                         DropdownMenuItem(
@@ -260,6 +267,9 @@ internal fun FilterSortRow(filter: Filter.Sort) {
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
                     shape = MenuShape,
+                    // Match the sheet's surface — the popup shadow + rounded corners do the
+                    // "lift" instead of an elevated grayish surfaceContainer tone.
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ) {
                     filter.values.forEachIndexed { index, name ->
                         val isSelected = selectedIndex == index
@@ -308,25 +318,130 @@ private fun DropdownItemText(text: String, selected: Boolean) {
 
 // endregion
 
-// region Group — drill-down row.
+// region Group — drill-down row + active-children pills.
 
 @Composable
 internal fun FilterGroupRow(
     filter: Filter.Group<*>,
+    outerSelectionVersion: Int,
     onDrill: (Filter.Group<*>) -> Unit,
 ) {
-    val activeCount = groupActiveCount(filter)
-    FilterPreferenceRow(
-        title = filter.name,
-        onClick = { onDrill(filter) },
-        trailing = {
-            ValueChip(
-                value = if (activeCount > 0) "$activeCount" else null,
-                trailing = Icons.Outlined.ChevronRight,
-                active = activeCount > 0,
+    var localVersion by remember(filter) { mutableIntStateOf(0) }
+    val children = remember(filter, outerSelectionVersion, localVersion) { filter.state.toList() }
+    val activePills = remember(children) { computeGroupActivePills(children) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        FilterPreferenceRow(
+            title = filter.name,
+            onClick = { onDrill(filter) },
+            trailing = {
+                ValueChip(
+                    value = if (activePills.isNotEmpty()) "${activePills.size}" else null,
+                    trailing = Icons.Outlined.ChevronRight,
+                    active = activePills.isNotEmpty(),
+                )
+            },
+        )
+        if (activePills.isNotEmpty()) {
+            GroupActivePillsRow(
+                pills = activePills,
+                onChange = { localVersion++ },
             )
-        },
-    )
+        }
+    }
+}
+
+/**
+ * One active child of a [Filter.Group]. The label rendered into the pill, the visual state
+ * (Included / Excluded), an optional toggle (for TriState only), and the remove action that
+ * resets the child to its default state.
+ */
+private data class GroupActivePill(
+    val label: String,
+    val state: AutoCompleteTagState,
+    val onToggle: (() -> Unit)?,
+    val onRemove: () -> Unit,
+)
+
+/**
+ * Walks a Group's children and produces one [GroupActivePill] per non-default child.
+ *
+ * For TriState children we get full include / exclude semantics — pill tap flips the two,
+ * × resets to ignore. For CheckBox / Select / Text only the "active" (included) state exists,
+ * so the pill body tap behaves the same as × (remove).
+ */
+// Parameter type is `List<*>` because `Filter.Group<V>.state` is `List<V>` and V resolves to
+// `out Any?` at this call site — Kotlin can't narrow it to `Filter<*>` without a cast. The
+// `when (child)` branches smart-cast each element back to a concrete Filter subtype.
+private fun computeGroupActivePills(children: List<*>): List<GroupActivePill> =
+    children.mapNotNull { child ->
+        when (child) {
+            is Filter.CheckBox -> if (child.state) {
+                GroupActivePill(
+                    label = child.name,
+                    state = AutoCompleteTagState.Included,
+                    onToggle = null,
+                    onRemove = { FilterMutations.toggleCheckbox(child) },
+                )
+            } else null
+            is Filter.TriState -> when (child.state) {
+                Filter.TriState.STATE_INCLUDE -> GroupActivePill(
+                    label = child.name,
+                    state = AutoCompleteTagState.Included,
+                    onToggle = { FilterMutations.setTriStateExact(child, Filter.TriState.STATE_EXCLUDE) },
+                    onRemove = { FilterMutations.setTriStateExact(child, Filter.TriState.STATE_IGNORE) },
+                )
+                Filter.TriState.STATE_EXCLUDE -> GroupActivePill(
+                    label = child.name,
+                    state = AutoCompleteTagState.Excluded,
+                    onToggle = { FilterMutations.setTriStateExact(child, Filter.TriState.STATE_INCLUDE) },
+                    onRemove = { FilterMutations.setTriStateExact(child, Filter.TriState.STATE_IGNORE) },
+                )
+                else -> null
+            }
+            is Filter.Select<*> -> if (child.state != 0) {
+                val value = child.values.getOrNull(child.state)?.toString().orEmpty()
+                GroupActivePill(
+                    label = if (value.isEmpty()) child.name else "${child.name}: $value",
+                    state = AutoCompleteTagState.Included,
+                    onToggle = null,
+                    onRemove = { FilterMutations.setSelect(child, 0) },
+                )
+            } else null
+            is Filter.Text -> if (child.state.isNotEmpty()) {
+                GroupActivePill(
+                    label = "${child.name}: ${child.state}",
+                    state = AutoCompleteTagState.Included,
+                    onToggle = null,
+                    onRemove = { FilterMutations.setText(child, "") },
+                )
+            } else null
+            else -> null
+        }
+    }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GroupActivePillsRow(
+    pills: List<GroupActivePill>,
+    onChange: () -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        pills.forEach { pill ->
+            TagPill(
+                label = pill.label,
+                state = pill.state,
+                onClick = pill.onToggle?.let { toggle -> { toggle(); onChange() } },
+                onRemove = { pill.onRemove(); onChange() },
+            )
+        }
+    }
 }
 
 // endregion
@@ -389,9 +504,12 @@ internal fun FilterTextRow(filter: Filter.Text) {
         textStyle = MaterialTheme.typography.bodyMedium,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            // Faded primary instead of the default `outline` gray so the border picks up the
+            // theme accent even when the field isn't focused.
+            unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent,
+            cursorColor = MaterialTheme.colorScheme.primary,
         ),
         modifier = Modifier
             .fillMaxWidth()

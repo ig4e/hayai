@@ -23,13 +23,13 @@ import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Icon
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,12 +38,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.model.Filter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import yokai.util.search.FuzzyMatcher
 
@@ -51,16 +51,15 @@ import yokai.util.search.FuzzyMatcher
  * AutoComplete handling for the source filter sheet.
  *
  *  - [FilterAutoCompleteRow] — row in the main filter list. Shows include/exclude pills for the
- *    currently-selected tags directly beneath the row so the user can see and edit selections
- *    without re-opening the picker. Tap pill body cycles include⇄exclude (if the source declares
- *    `-` in `validPrefixes`); trailing × removes.
+ *    currently-selected tags directly beneath the row. Tap pill body cycles include⇄exclude
+ *    (if the source declares `-` in `validPrefixes`); trailing × removes.
  *
- *  - [AutoCompleteScreen] — full sheet-body picker. Uses the shared [SheetSearchField] for the
- *    search bar, fuzzy ranking via [FuzzyMatcher.score], and pins currently-selected tags to the
- *    top of the list. The pinned ordering is snapshotted once per query change so tapping rows
- *    to include/exclude never reorders the list — the row stays put and only its colour changes.
+ *  - [AutoCompleteScreen] — full sheet-body picker. The search bar lives in the drill top bar
+ *    above this screen, so the query is passed in from the caller. Pinned-selected tags appear
+ *    first; the pinning snapshot is taken once per query change so tapping a tag inside the
+ *    picker never reorders rows.
  *
- * State mutation routed through [FilterMutations] so the in-place contract
+ * State mutation is routed through [FilterMutations] so the in-place contract
  * `BrowseSourceController.showFilters()` snapshots and compares stays intact.
  */
 
@@ -69,10 +68,13 @@ import yokai.util.search.FuzzyMatcher
 @Composable
 internal fun FilterAutoCompleteRow(
     filter: Filter.AutoComplete,
+    outerSelectionVersion: Int,
     onDrill: (Filter.AutoComplete) -> Unit,
 ) {
-    var selectionVersion by remember(filter) { mutableIntStateOf(0) }
-    val active = remember(filter, selectionVersion) { filter.state.toList() }
+    var localVersion by remember(filter) { mutableIntStateOf(0) }
+    // outer version bumps when the user drills out of any picker so this row picks up changes
+    // made inside the picker. local version bumps for in-row pill mutations.
+    val active = remember(filter, outerSelectionVersion, localVersion) { filter.state.toList() }
     Column(modifier = Modifier.fillMaxWidth()) {
         FilterPreferenceRow(
             title = filter.name,
@@ -90,7 +92,7 @@ internal fun FilterAutoCompleteRow(
             SelectedTagPills(
                 filter = filter,
                 selectedState = active,
-                onChange = { selectionVersion++ },
+                onChange = { localVersion++ },
             )
         }
     }
@@ -98,8 +100,7 @@ internal fun FilterAutoCompleteRow(
 
 // endregion
 
-// region Selected-tag pills — main-list row only. Removed from inside the picker so the picker
-// only shows pinned rows.
+// region Selected-tag pills — main-list row only. Picker drops these in favour of pinned rows.
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -149,8 +150,15 @@ private fun SelectedTagPills(
     }
 }
 
+/**
+ * Shared pill component — used both by [SelectedTagPills] (AutoComplete) and by
+ * `FilterGroupRow`'s active-children summary (Filter.Group). Same look, same gestures.
+ *
+ * Background is the full primary / error tone (not the container variants) so the pill reads as
+ * an unambiguous "active filter" badge against the sheet's surface.
+ */
 @Composable
-private fun TagPill(
+internal fun TagPill(
     label: String,
     state: AutoCompleteTagState,
     onClick: (() -> Unit)?,
@@ -161,19 +169,17 @@ private fun TagPill(
     val leading: ImageVector
     when (state) {
         AutoCompleteTagState.Included -> {
-            container = MaterialTheme.colorScheme.primaryContainer
-            content = MaterialTheme.colorScheme.onPrimaryContainer
+            container = MaterialTheme.colorScheme.primary
+            content = MaterialTheme.colorScheme.onPrimary
             leading = Icons.Outlined.Add
         }
         AutoCompleteTagState.Excluded -> {
-            container = MaterialTheme.colorScheme.errorContainer
-            content = MaterialTheme.colorScheme.onErrorContainer
+            container = MaterialTheme.colorScheme.error
+            content = MaterialTheme.colorScheme.onError
             leading = Icons.Outlined.Block
         }
         AutoCompleteTagState.Off -> return
     }
-    // Surface + Row instead of InputChip — InputChip's default shape is squarish (8dp). We want
-    // fully-rounded pill chrome with an explicit container colour, so build it directly.
     Surface(
         onClick = onClick ?: onRemove,
         shape = CircleShape,
@@ -217,53 +223,35 @@ private fun TagPill(
 
 // endregion
 
-// region Drill page — shared search bar + pinned-selected tag list.
+// region Drill page — pinned-selected tag list. Search bar lives in the drill top bar above.
 
 @Composable
 internal fun AutoCompleteScreen(
     filter: Filter.AutoComplete,
+    query: String,
     onListScrollChange: ((canScrollUp: Boolean) -> Unit)?,
 ) {
-    var query by remember(filter) { mutableStateOf("") }
     // selectionVersion bumps on every cycle. The outer state list snapshot rebuilds via this key
     // so per-row colour updates ride the recomposition. LazyColumn keys are kept stable (tag
     // name only) so rows don't get disposed/recreated — the row stays in place and only repaints.
     var selectionVersion by remember(filter) { mutableIntStateOf(0) }
-    val focusManager = LocalFocusManager.current
 
     val visibleTags by visibleTagsState(filter, query)
     val currentState = remember(filter, selectionVersion) { filter.state.toList() }
     // Pinned ordering is snapshotted from filter.state once per `visibleTags` change (which only
     // shifts on query change) — tapping a tag to include/exclude does NOT recompute this list.
-    // That is the fix for the jumpy "row teleports as I click it" UX.
     val orderedTags = remember(visibleTags, filter) {
         val selectedBase = filter.state.map { it.removePrefix("-") }.toSet()
         val (pinned, rest) = visibleTags.partition { it in selectedBase }
         pinned + rest
     }
 
-    fun submitCustomTag() {
-        val text = query.trim()
-        if (text.isEmpty()) return
-        if (FilterMutations.addAutoCompleteTag(filter, text)) {
-            selectionVersion++
-            query = ""
-            focusManager.clearFocus()
-        }
-    }
-
     Column(modifier = Modifier.fillMaxSize()) {
-        SheetSearchField(
-            query = query,
-            onQueryChange = { query = it },
-            placeholder = filter.hint.ifEmpty { filter.name },
-            onSubmit = ::submitCustomTag,
-        )
-
         AutoCompleteTagList(
             tags = orderedTags,
             state = currentState,
             supportsExclude = "-" in filter.validPrefixes,
+            query = query,
             onCycle = { tag ->
                 FilterMutations.cycleAutoCompleteTag(filter, tag)
                 selectionVersion++
@@ -274,22 +262,41 @@ internal fun AutoCompleteScreen(
 }
 
 /**
- * Filters [Filter.AutoComplete.values] against [query] off the main thread, then ranks matches by
- * [FuzzyMatcher.score]. Empty `query` yields the full list (minus skipped tags) so the user sees
- * the full catalogue on open.
+ * Filters [Filter.AutoComplete.values] against [query] off the main thread.
+ *
+ * Perf characteristics for sources with thousands of tags (e-hentai ~6k):
+ *  - Coroutine debounce of [SearchDebounceMs] — `produceState` cancels the in-flight coroutine
+ *    on every keystroke; the [delay] doesn't fire its result if the user types again first.
+ *  - Substring fast path: `String.contains(ignoreCase=true)` is O(n*q) where q is query length,
+ *    runs in single-digit ms for 6k tags. Matches are sorted by where the query appears (prefix
+ *    hits before mid-string hits) — that's good enough as a relevance signal for tag names.
+ *  - Fuzzy fallback only fires if substring returned zero matches. That's where the slow
+ *    [FuzzyMatcher.score] (FuzzyWuzzy `partialRatio`) runs — only on typo'd queries.
+ *
+ * Empty `query` yields the full list (minus skipped tags).
  */
 @Composable
 private fun visibleTagsState(
     filter: Filter.AutoComplete,
     query: String,
 ) = produceState(initialValue = filter.values, key1 = filter, key2 = query) {
+    val prefix = filter.validPrefixes.find { p -> query.startsWith(p) }
+    val stripped = (if (prefix != null) query.removePrefix(prefix) else query).trim()
+    if (stripped.isEmpty()) {
+        value = filter.values.filter { it !in filter.skipAutoFillTags }
+        return@produceState
+    }
+    // Wait a beat so keystrokes don't each spawn a fuzzy pass. Cancellation propagates if the
+    // user types again before this completes.
+    delay(SearchDebounceMs)
     withContext(Dispatchers.Default) {
-        val prefix = filter.validPrefixes.find { p -> query.startsWith(p) }
-        val stripped = (if (prefix != null) query.removePrefix(prefix) else query).trim()
         val baseList = filter.values.filter { it !in filter.skipAutoFillTags }
-        value = if (stripped.isEmpty()) {
-            baseList
+        val substring = baseList.filter { it.contains(stripped, ignoreCase = true) }
+        value = if (substring.isNotEmpty()) {
+            // Sort by where the match starts — prefix matches at index 0 surface first.
+            substring.sortedBy { it.indexOf(stripped, ignoreCase = true) }
         } else {
+            // No substring hit — probably a typo. Slow fuzzy fallback over the full list.
             baseList.asSequence()
                 .map { it to FuzzyMatcher.score(stripped, it) }
                 .filter { it.second >= FuzzyTagThreshold }
@@ -300,6 +307,8 @@ private fun visibleTagsState(
     }
 }
 
+private const val SearchDebounceMs = 150L
+
 // Lower than the conventional 70 because tag names are short — a forgiving cutoff catches
 // substring queries like "elf" → "long-elven-hair" without surfacing noise.
 private const val FuzzyTagThreshold = 60
@@ -309,18 +318,21 @@ private fun AutoCompleteTagList(
     tags: List<String>,
     state: List<String>,
     supportsExclude: Boolean,
+    query: String,
     onCycle: (String) -> Unit,
     onListScrollChange: ((canScrollUp: Boolean) -> Unit)?,
 ) {
     if (tags.isEmpty()) return
     val listState = rememberLazyListState()
     BridgeScrollState(listState, onListScrollChange)
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
+    // Reset scroll position whenever the query changes — otherwise the user is left mid-list
+    // looking at irrelevant entries after filtering.
+    LaunchedEffect(query) {
+        if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
+            listState.scrollToItem(0)
+        }
+    }
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         items(items = tags, key = { it }) { tag ->
             val tagState = tagStateFor(tag, state, supportsExclude)
             AutoCompleteTagRow(
@@ -352,12 +364,10 @@ private fun AutoCompleteTagRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp)
-            .clip(TagRowShape)
-            .background(visual.background)
+            .heightIn(min = 36.dp)
             .clickable(onClick = onClick)
-            .heightIn(min = 40.dp)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .background(visual.background)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -381,8 +391,6 @@ private fun AutoCompleteTagRow(
     }
 }
 
-private val TagRowShape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-
 private data class TagRowVisual(
     val background: Color,
     val contentColor: Color,
@@ -392,17 +400,17 @@ private data class TagRowVisual(
 @Composable
 private fun tagRowVisual(state: AutoCompleteTagState): TagRowVisual = when (state) {
     AutoCompleteTagState.Included -> TagRowVisual(
-        background = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        background = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+        contentColor = MaterialTheme.colorScheme.primary,
         icon = Icons.Outlined.Add,
     )
     AutoCompleteTagState.Excluded -> TagRowVisual(
-        background = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        background = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
+        contentColor = MaterialTheme.colorScheme.error,
         icon = Icons.Outlined.Block,
     )
     AutoCompleteTagState.Off -> TagRowVisual(
-        background = MaterialTheme.colorScheme.surfaceContainerLow,
+        background = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         icon = null,
     )

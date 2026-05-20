@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.source.browse.compose
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,9 +16,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
@@ -194,91 +194,108 @@ internal fun BridgeScrollState(
 
 // endregion
 
-// region Sheet search field — reused by AutoComplete and Group drill screens.
+// region Drill top bar — back arrow + inline search field, replaces the legacy "back + title" bar.
 
 /**
- * Flat search bar styled to read as continuous chrome with the sheet's tab row / drill header
- * above it. No chip/pill — full-width strip on `surface`, leading magnifier, inline text field,
- * trailing × clear when populated. Bottom [HorizontalDivider] mirrors the tab-row divider so the
- * bar visually docks with the chrome above.
+ * The top bar shown when the sheet is inside a drill-down (AutoComplete picker or Group page).
  *
- * Used in:
- *  - `AutoCompleteScreen` — filters tags
- *  - `GroupChildrenScreen` — filters group children (e.g., the per-source genre list)
+ * The search input IS the title: an inline [BasicTextField] sits where the heading used to be,
+ * with the filter name shown as a placeholder when no query is entered. This collapses the old
+ * "back + title strip" plus the separate "search bar strip below" into one row of chrome — so
+ * the search bar reads as part of the top bar instead of floating beneath it.
  *
- * Same component, same look, no per-call-site styling drift.
+ * Used for both the Tag picker (AutoComplete drill) and the Group page (Filter.Group drill),
+ * so they look and behave identically. Reuse, not per-screen styling.
  */
 @Composable
-internal fun SheetSearchField(
+internal fun DrillSearchTopBar(
+    placeholder: String,
     query: String,
     onQueryChange: (String) -> Unit,
-    placeholder: String,
+    onBack: () -> Unit,
     onSubmit: (() -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
+            .heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-                .heightIn(min = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .size(40.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Search,
+                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurface,
             )
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                keyboardActions = if (onSubmit != null) {
-                    KeyboardActions(onAny = { onSubmit() })
-                } else {
-                    KeyboardActions.Default
-                },
-                keyboardOptions = KeyboardOptions(
-                    imeAction = if (onSubmit != null) ImeAction.Send else ImeAction.Search,
-                ),
-                modifier = Modifier.weight(1f),
-                decorationBox = { inner ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (query.isEmpty()) {
-                            Text(
-                                text = placeholder,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        inner()
+        }
+        // Leading magnifier — makes the placeholder explicitly read as "this is a search field"
+        // even before the user taps in.
+        Icon(
+            imageVector = Icons.Outlined.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.titleMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardActions = if (onSubmit != null) {
+                KeyboardActions(onAny = { onSubmit() })
+            } else {
+                KeyboardActions.Default
+            },
+            keyboardOptions = KeyboardOptions(
+                imeAction = if (onSubmit != null) ImeAction.Send else ImeAction.Search,
+            ),
+            modifier = Modifier.weight(1f),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (query.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
-                },
-            )
-            if (query.isNotEmpty()) {
+                    inner()
+                }
+            },
+        )
+        if (query.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .clickable {
+                        onQueryChange("")
+                        focusManager.clearFocus()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clickable {
-                            onQueryChange("")
-                            focusManager.clearFocus()
-                        },
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
